@@ -38,14 +38,13 @@ if __name__ == '__main__':
     
 
     fitnessfunction = 'TemporalTalbot'
-    sim_kwargs = {'p':5, 'q':1}
+    sim_kwargs = {'p':3, 'q':2}
 
     env = PulseEnvironment()
     sim = ClassicalSimulator(fitnessfunction, **sim_kwargs)
 
-    experiment_nums = [4, 0]
-    component_parameters = component_parameters(env, sim)
-    experiment = buildexperiment(component_parameters, experiment_nums)
+    experiment_ids = [1, 0]
+    experiment = buildexperiment(experiment_ids)
 
     (N_ATTRIBUTES, BOUNDSLOWER, BOUNDSUPPER, DTYPES, DSCRTVALS) = extract_bounds(experiment)
     
@@ -55,8 +54,8 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0, 1.0)
     gap.MULTIPROC = False
     gap.NCORES = mp.cpu_count()
-    gap.N_POPULATION = 50      # number of individuals in a population
-    gap.N_GEN = 20              # number of generations
+    gap.N_POPULATION = 70      # number of individuals in a population
+    gap.N_GEN = 50              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.2           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)

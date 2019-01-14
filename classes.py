@@ -8,12 +8,12 @@ class Component(object):
     """   
     A general class for any component, to ensure ease of use in the genetic algorithms.
     """
-    def __init__(self, component_parameters, component_type, component_number):
+    def __init__(self, component_parameters, component_type, component_number, ID):
         self.component_type = component_type
         self.component_number = component_number
         self.name = component_type + str(component_number)
-        
-        properties = component_parameters[self.name]
+        self.ID = ID
+        properties = component_parameters
         for i_property in properties: 
             setattr(self, i_property, properties[i_property])
         return

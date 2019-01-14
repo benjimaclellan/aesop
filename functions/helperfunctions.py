@@ -1,36 +1,44 @@
 import re
 import fnmatch
 import json
-import numpy as np
+#import numpy as np
 
 from beeprint import pp 
-
-#import random 
+from components.component_parameters import component_parameters
 from classes import Component
 
-def buildexperiment(component_parameters, experiment_nums=None):
-    ## Get info about our possible components
-    components_names = np.array(list(component_parameters.keys()))
+def buildexperiment(experiment_ids):
     
-    ## The most components we can have in the setup
-    maxnum_components = 3
-    
-    ## Here, we make a list of our components that make up the experiment
-    if experiment_nums == None:
-        experiment_nums = np.random.randint(0, len(components_names), maxnum_components)
-    
-    experiment_components = components_names[ experiment_nums ]
-    
-    ## Ensure we don't have redundant components (same fiber adjacent to itself)
-    experiment_components = checkcomponents(experiment_components)
-    
-    ## Build a list of objects for each component, aka our experiment on the optical table
-    experiment = list()
-    for i_component in range(len(experiment_components)):
-        (i_type, i_num) = splitstring(experiment_components[i_component])
-        experiment.append( Component(component_parameters, i_type, i_num) )
-
+    experiment = []
+    for i in range(0,len(experiment_ids)):
+        cp = component_parameters(experiment_ids[i]) 
+        experiment.append( Component( cp, cp['type'], cp['typeval'], experiment_ids[i] ) ) 
     return experiment
+
+
+#def buildexperiment(component_parameters, experiment_nums=None):
+#    ## Get info about our possible components
+#    components_names = np.array(list(component_parameters.keys()))
+#    
+#    ## The most components we can have in the setup
+#    maxnum_components = 3
+#    
+#    ## Here, we make a list of our components that make up the experiment
+#    if experiment_nums == None:
+#        experiment_nums = np.random.randint(0, len(components_names), maxnum_components)
+#    
+#    experiment_components = components_names[ experiment_nums ]
+#    
+#    ## Ensure we don't have redundant components (same fiber adjacent to itself)
+#    experiment_components = checkcomponents(experiment_components)
+#    
+#    ## Build a list of objects for each component, aka our experiment on the optical table
+#    experiment = list()
+#    for i_component in range(len(experiment_components)):
+#        (i_type, i_num) = splitstring(experiment_components[i_component])
+#        experiment.append( Component(component_parameters, i_type, i_num) )
+#
+#    return experiment
 
 
 
