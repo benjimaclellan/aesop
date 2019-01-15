@@ -12,24 +12,26 @@ def component_parameters(component_id):
     if component_id == 0:
         cp = {  "type":"fiber",
                 "typeval":"0",  
-            		"beta": [2e-20],
+            		"beta": [2e-20, 2e-35],
             	 	"Tr": 0.5,
             	 	"gamma": 100,
             	 	"N_PARAMETERS": 1,
             	 	"UPPER": [2000],
             	 	"LOWER": [0],
                 "DTYPE": ['float'],
-                "DSCRTVAL": [None]
+                "DSCRTVAL": [None],
+                "FINETUNE_SKIP":0
          	}
         
     elif component_id == 1:
         cp = {  "type":"awg",
                 "typeval":"0",  
                 "N_PARAMETERS": 2,
-            	 	"UPPER": [10] + [2*pi],   # phase bins
+            	 	"UPPER": [8] + [2*pi],   # phase bins
             	 	"LOWER": [1] + [0],
                 "DTYPE": ['int', 'float'],
-                "DSCRTVAL": [1, None]
+                "DSCRTVAL": [1, None],
+                "FINETUNE_SKIP":1 
                 }
         
     elif component_id == 2:
@@ -39,10 +41,11 @@ def component_parameters(component_id):
                 "N_PARAMETERS": 3,
                 "HPBoundLOW": 0,
                 "HPBoundUP": 1,
-            	 	"UPPER": [10, 10, 2*pi],   # max shift, frequency, phase offset
-            	 	"LOWER": [0, 1, 0],
+            	 	"UPPER": [10, 200e6, 2*pi],   # max shift, frequency, phase offset
+            	 	"LOWER": [0, 1e6, 0],
                 "DTYPE": ['float', 'float', 'float'],
-                "DSCRTVAL": [None, 1, None]
+                "DSCRTVAL": [None, 1e6, None],
+                "FINETUNE_SKIP":0
              	}
     else:
         print(component_id)

@@ -7,12 +7,12 @@ import time
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 import multiprocess as mp
-import numpy as np
 
-from components.component_parameters import component_parameters
+#from components.component_parameters import component_parameters
 
 from classes import GeneticAlgorithmParameters
-from functions.helperfunctions import extract_bounds, experiment_description, buildexperiment, extractlogbook
+from functions.helperfunctions import extract_bounds, buildexperiment, extractlogbook
+#from functions.helperfunctions import experiment_description
 
 from environments.environment_pulse import PulseEnvironment
 from simulators.simulator_classical import ClassicalSimulator
@@ -22,9 +22,34 @@ from geneticalgorithms.ga_functions_inner import inner_geneticalgorithm, FIT_Inn
 plt.close("all")
 
 ## ************************************************
-def final_opt(ind, gap, env, experiment, sim):
-    fitness = -FIT_Inner(ind,gap, env, experiment, sim)[1]
+def final_opt(optlist, ind, idx, gap, env, experiment, sim):    
+    ind = unpack_opt(ind, optlist, idx)
+    fitness = -FIT_Inner(ind, gap, env, experiment, sim)[1]
     return fitness
+
+def pack_opt(ind, experiment):
+    idx = []
+    optlist = []
+    for i in range(len(experiment)): 
+        c = experiment[i]
+        for j in range(c.FINETUNE_SKIP, len(ind[i])):
+            idx.append( [ i, j ] )
+            print(ind[i][j])
+            optlist.append(ind[i][j])
+    return optlist, idx
+
+def unpack_opt(ind, optlist, idx):
+    for i in range(len(idx)):
+        ind[idx[i][0]][idx[i][1]] = optlist[i]
+    return ind
+        
+def finetune_individual(ind, gap, env, experiment, sim):
+    (optlist, idx) = pack_opt(ind, experiment)
+    
+    optres = opt.minimize(final_opt, optlist, args=(ind, idx, gap, env, experiment, sim), method='CG', options={'maxiter':1000})    
+    
+    ind = unpack_opt(ind, optres.x.tolist(), idx)
+    return ind
 
 if __name__ == '__main__':  
     
@@ -38,12 +63,12 @@ if __name__ == '__main__':
     
 
     fitnessfunction = 'TemporalTalbot'
-    sim_kwargs = {'p':3, 'q':2}
+    sim_kwargs = {'p':2, 'q':1}
 
     env = PulseEnvironment()
     sim = ClassicalSimulator(fitnessfunction, **sim_kwargs)
 
-    experiment_ids = [1, 0]
+    experiment_ids = [1,0]
     experiment = buildexperiment(experiment_ids)
 
     (N_ATTRIBUTES, BOUNDSLOWER, BOUNDSUPPER, DTYPES, DSCRTVALS) = extract_bounds(experiment)
@@ -51,13 +76,13 @@ if __name__ == '__main__':
     gap = GeneticAlgorithmParameters(N_ATTRIBUTES, BOUNDSLOWER, BOUNDSUPPER, DTYPES, DSCRTVALS)
     
     gap.NFITNESS = 2
-    gap.WEIGHTS = (1.0, 1.0)
-    gap.MULTIPROC = False
+    gap.WEIGHTS = (1.0, 0.001)
+    gap.MULTIPROC = True
     gap.NCORES = mp.cpu_count()
-    gap.N_POPULATION = 70      # number of individuals in a population
-    gap.N_GEN = 50              # number of generations
-    gap.MUT_PRB = 0.2           # independent probability of mutation
-    gap.CRX_PRB = 0.2           # independent probability of cross-over
+    gap.N_POPULATION = 300      # number of individuals in a population
+    gap.N_GEN = 50             # number of generations
+    gap.MUT_PRB = 0.7           # independent probability of mutation
+    gap.CRX_PRB = 0.7           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = 1             # verbose print statement for GA statistics
     
@@ -66,6 +91,9 @@ if __name__ == '__main__':
     tstop = time.time()
 
     log = extractlogbook(logbook)    
+    
+    plt.figure()
+    plt.plot(log['gen'], log['max'])
     
     print('\nElapsed time = {}'.format(tstop-tstart))
     print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
@@ -94,10 +122,8 @@ if __name__ == '__main__':
         
         
         individual = hof[j] 
-        res = opt.minimize(final_opt, individual, args=(gap, env, experiment, sim), method='CG', options={'maxiter':100})        
-        individual =  list(res.x)
-        print(individual)
-        
+        individual = finetune_individual(individual, gap, env, experiment, sim)
+#        
         env.reset()
         sim.simulate_experiment(individual, experiment, env, verbose=True)
         fitness = sim.fitness(env)

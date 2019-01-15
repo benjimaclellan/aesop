@@ -38,9 +38,10 @@ class ClassicalSimulator(Simulator):
                 
         i = 0
         for component in experiment:
-            
-            component_values = individual[i:i+component.N_PARAMETERS]
-            i += component.N_PARAMETERS
+            component_values = individual[i:i+1][0]
+#            component_values = individual[i:i+component.N_PARAMETERS]
+#            i += component.N_PARAMETERS
+            i += 1
                         
             if component.component_type == 'fiber':
                 self.fiber_effect_propagation(component_values, env, component)
@@ -69,17 +70,16 @@ class ClassicalSimulator(Simulator):
 
     def fiber_effect_propagation(self, values, env, component):
         """
-        Here is need to implement my effect of the fiber on the pulse
+        Simulates the effect of a fiber on the pulse
         """        
-        n_steps = 1
-        L = values[0]
-        h = L/n_steps
-        for i_step in range(n_steps):
-            D = -1j * component.beta[0] * np.power(2*pi*env.f, 2) / 2
-            N = 0
-            
-            env.At = env.IFFT( np.exp(h * D) * env.FFT( np.exp( h * N ) * env.At, env.dt ), env.dt )
-            env.Af = env.FFT(env.At, env.dt)
+        fiber_len = values[0]   
+        D = np.zeros(env.f.shape).astype('complex')
+        for n in range(0, len(component.beta)):    
+            D += component.beta[n] * np.power(2*pi*env.f, n+2) / np.math.factorial(n+2)
+        D = -1j * D
+        
+        env.Af = np.exp(fiber_len * D) * env.Af
+        env.At = env.IFFT( env.Af, env.dt )
         return
     
     
@@ -88,7 +88,7 @@ class ClassicalSimulator(Simulator):
         Simulates a phase modulator's effect on a pulse
         """
         M = values[0]       # amplitude []
-        NU = values[1]*1e6   # frequency [Hz]
+        NU = values[1]   # frequency [Hz]
         PHI = values[2]     # phase offset [rad]
         dPhase = (M/2)*np.cos(2*pi* NU * env.t + PHI) + M/2
         
@@ -103,7 +103,6 @@ class ClassicalSimulator(Simulator):
         Simulates a waveshaper's effect on the spectrum
         """
         n_slices = component.N_SLICES
-        assert len(values) == component.N_PARAMETERS == 2*n_slices
         
         phasevalues = values[0:n_slices]
         ampvalues = np.sqrt(values[n_slices:])
@@ -115,9 +114,7 @@ class ClassicalSimulator(Simulator):
         ampmask = np.zeros(env.f.shape, dtype='float')
         
         for i_slice in range(n_slices):
-#            tmp = (mask == i_slice)
-            tmp = (mask == i_slice-np.floor(n_slices/2) )
-            
+            tmp = (mask == i_slice-np.floor(n_slices/2) )            
             phasemask[tmp] = phasevalues[i_slice]
             ampmask[tmp] = ampvalues[i_slice]
         
@@ -127,20 +124,11 @@ class ClassicalSimulator(Simulator):
         return
         
     
-    def awg_effect_propagation(self, values, env, component):
-        assert len(values) == component.N_PARAMETERS       
-       
+    def awg_effect_propagation(self, values, env, component):       
         phase = self.make_awg_phase(values, env, component)
         
         env.At = env.At * np.exp(1j * phase)
         env.Af = env.FFT(env.At, env.dt)
-
-#        plt.figure()
-#        plt.plot(env.t, env.P(env.At))
-#        plt.plot(env.t, phase/np.pi)
-#        plt.pause(0.5)
-#        print('next')
-        
         return 
     
     def make_awg_phase(self, values, env, component):
@@ -148,9 +136,10 @@ class ClassicalSimulator(Simulator):
 #        holdval = values[0]
 #        phasevalues = values[1:]
         
-        phasevalues = values[:]
+        nlevels = values[0]
+        phasevalues = values[1:]
  
-        nlevels = len(phasevalues)
+#        nlevels = len(phasevalues)
         timeblock = np.round(1/env.dt/env.f_rep).astype('int')
 #        timeblock = np.round(1/env.f_rep/holdval/env.dt).astype('int')
         
