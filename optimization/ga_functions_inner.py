@@ -32,10 +32,6 @@ def CX_Inner(ind1, ind2):
     
     return ind1, ind2
 
-
-
-
-
 ## --------------------------------------------------------------------
 """
 Mutates a single individual in Inner GA

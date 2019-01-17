@@ -132,8 +132,8 @@ class AWG(Component):
     def datasheet(self):
         self.type = 'awg'
         self.N_PARAMETERS = 2
-        self.UPPER = [8] + [2*np.pi]   # max shift, frequency, phase offset
-        self.LOWER = [1] + [0]
+        self.UPPER = [4] + [2*np.pi]   # max shift, frequency, phase offset
+        self.LOWER = [2] + [0]
         self.DTYPE = ['int', 'float']
         self.DSCRTVAL = [1, None]
         self.FINETUNE_SKIP = 1

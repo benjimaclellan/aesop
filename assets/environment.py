@@ -86,8 +86,8 @@ class PulseEnvironment(Environment):
         return
             
     def fitness(self):
-        p = 2
-        q = 1
+        p = 3
+        q = 2
         fitness = self.TalbotEffect(p, q)
         return fitness
     
