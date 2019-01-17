@@ -4,7 +4,7 @@ import sys
 sys.path.append('/home/benjamin/Documents/INRS - Code/ASOPE_V2_SingleSetup')
 from environments.environment_pulse import PulseEnvironment
 import matplotlib.pyplot as plt
-
+plt.close("all")
 
 class Component(object):
     def __init__(self, id, type):
@@ -22,13 +22,13 @@ class Component(object):
     def newattribute(self):
         raise ValueError('Not implemented yet') 
     
-    def mutate(self):
+    def mutate(self, ind):
         raise ValueError('Not implemented yet') 
         
     def crossover(self):
         raise ValueError('Not implemented yet')  
         
-    def randomattribute(low=0.0, high=1.0, dtypes='float', dscrtval=None):
+    def randomattribute(self, low=0.0, high=1.0, dtypes='float', dscrtval=None):
         if dtypes == 'float':
             if dscrtval is not None:  
                 at = round(np.random.uniform( low, high )/dscrtval) * dscrtval 
@@ -73,12 +73,11 @@ class Fiber(Component):
     
     def newattribute(self):
         at = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
-        return at
+        return [at]
     
     def mutate(self, ind):
         ind[0] = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
-        
-    def crossover(self, ind1, ind2):
+        return        
         
 # ----------------------------------------------------------
 """
@@ -106,6 +105,15 @@ class PhaseModulator(Component):
         env.Af = env.FFT(env.At, env.dt)
         return
 
+    def newattribute(self):
+        at = []
+        for i in range(self.N_PARAMETERS):
+            at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
+        return at
+        
+    def mutate(self, ind):
+        mut_loc = np.random.randint(0, self.N_PARAMETERS)
+        ind[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
 
 # ----------------------------------------------------------
 """
@@ -142,11 +150,41 @@ class AWG(Component):
         env.Af = env.FFT(env.At, env.dt)
         return
     
-
+    def newattribute(self):
+        n = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
+        vals = []
+        for i in range(n):
+            vals.append(self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1]))
+        at = [n] + vals
+        return at
+    
+    
+    def mutate(self, ind):
+        mut_loc = np.random.randint(0, len(ind[mut_comp]))
+        if mut_loc == 0: # mutates the number of steps
+            n_mut = randomattribute(c.LOWER[0], c.UPPER[0], c.DTYPE[0], c.DSCRTVAL[0])
+            if n_mut > ind[mut_comp][0]: # mutated to have more steps than before
+                new_vals = []
+                for i in range(n_mut-ind[mut_comp][0]):
+                    new_vals.append(randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1]))
+                vals = ind[mut_comp][1:] + new_vals
+                ind[mut_comp] = [n_mut] + vals
+            else: 
+                vals = ind[mut_comp][1:n_mut+1]
+                ind[mut_comp] = [n_mut] + vals
+        else:
+            ind[mut_comp][mut_loc] = randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1])
+    
+## ************************************************************
 env = PulseEnvironment()
 
-c = PhaseModulator(1,'phasemodulator')
-c.simulate(env, [10, 1e8, 0])
+c = Fiber(1,'fiber')
+#c = AWG(1,'awg')
+#c = PhaseModulator(1,'phasemodulator')
+
+at = c.newattribute()
+print(at)
+c.simulate(env, at)
 print(c.name)
 
 fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
@@ -161,3 +199,22 @@ ax[1].plot(env.f/1e12, env.PSD(env.Af0, env.df))
 
 ax[0].plot(env.t/1e-12, env.P(env.At), label='final')
 ax[1].plot(env.f/1e12, env.PSD(env.Af, env.df))
+plt.show()
+
+
+
+
+
+fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
+    
+ax[0].set_xlabel('Time (ps)')
+ax[0].set_ylabel('Power [arb]')
+ax[1].set_xlabel('Frequency (THz)')
+ax[1].set_ylabel('PSD [arb]')
+
+ax[0].plot(env.t/1e-12, env.P(env.At0), label='initial')
+ax[1].plot(env.f/1e12, env.PSD(env.Af0, env.df))
+
+ax[0].plot(env.t/1e-12, env.P(env.At), label='final')
+ax[1].plot(env.f/1e12, env.PSD(env.Af, env.df))
+plt.show()
