@@ -1,16 +1,7 @@
 import numpy as np
-#from numpy import pi
-from deap import algorithms, tools, base, creator
+from deap import tools, base, creator
 import random
-#import scipy.optimize as opt
-#import time
-
-#from copy import copy, deepcopy
-
-#import settings
-
 import multiprocess as mp
-
 
 ## --------------------------------------------------------------------
 """
@@ -183,7 +174,6 @@ def inner_geneticalgorithm(gap, env, experiment, sim):
     except: pass
 
     creator.create("FitnessMax", base.Fitness, weights=gap.WEIGHTS)
-#    creator.create("Individual", np.ndarray, fitness=creator.FitnessMax)
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
     toolbox = base.Toolbox()
@@ -334,10 +324,6 @@ def varychildren(args):
 
 
 ##### ---------------------------------
-def final_opt(ind, toolbox):
-    fitness = -toolbox.evaluate(ind)[1]
-    return fitness
-    
 def split_indices(num, div):
     indices = [0]
     for i in range(div):

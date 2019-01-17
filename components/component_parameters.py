@@ -12,11 +12,11 @@ def component_parameters(component_id):
     if component_id == 0:
         cp = {  "type":"fiber",
                 "typeval":"0",  
-            		"beta": [2e-20, 2e-35],
+            		"beta": [2e-20],
             	 	"Tr": 0.5,
             	 	"gamma": 100,
             	 	"N_PARAMETERS": 1,
-            	 	"UPPER": [2000],
+            	 	"UPPER": [20000],
             	 	"LOWER": [0],
                 "DTYPE": ['float'],
                 "DSCRTVAL": [None],

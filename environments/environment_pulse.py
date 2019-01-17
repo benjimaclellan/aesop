@@ -23,7 +23,8 @@ class PulseEnvironment(Environment):
         At0 = np.zeros(N).astype('complex')
         for i_pulse in range(0,n_pulses+1):
             At0 += np.exp(-0.5 * (np.power((t+(t[0] + window*(i_pulse/(n_pulses))))/T, 2)))
-#            At0 += np.exp(-0.5 * (np.power((t+(t[0] + window*(i_pulse/(n_pulses))) + 10*dt*np.random.uniform(-10, 10, 1 ))/T, 2) ) )
+
+
         At0 *= np.sqrt(peakP)
         Af0 = self.FFT(At0, dt)
         

@@ -159,102 +159,43 @@ class ClassicalSimulator(Simulator):
 
 class ClassicalFitnessFunctions():
     def __init__(self):
-        return
-    def MatchInputPulse(self, env):
-        P = env.P(env.At)
-#        P0 = env.P(env.At0)
-        fitness1 = np.exp( -np.sum( np.power(P - env.P(env.At0), 2)))
-#        fitness1 = 2-np.abs( np.sum(P0 - P)/np.sum(P0) )
-#        fitness1 = np.abs(np.sum( np.correlate(P, P, mode='same') ))
-        fitness2 = np.max(P)
-        return (fitness1, fitness2)
+        return    
     
-    def FrequencyShift(self, env):
-        
-        peak = env.f[np.argmax(env.PSD(env.Af, env.df))]
-        fitness = np.exp( np.power((self.shift-peak)/np.abs(self.shift) ,2) * (-2 + np.sign(peak)*np.sign(self.shift)) )
-        
-        return fitness
-    
-    def TemporalTalbot(self, env):
+    def TalbotEffect(self, env):
         fitness2 = np.max(env.P(env.At))
-#        fitness2 = np.exp(-(1-np.max(env.P(env.At))/env.peakP))
             
         peakinds = peakutils.indexes(env.RFSpectrum(env.At, env.dt))
+        
         peakf_dist = np.mean( env.df * np.diff(peakinds) )
         peakf_distTarget = env.f_rep / (self.p/self.q)
         
         if len(peakinds) <= 1:
             fitness1 = -99999999
         else: 
-            fitness1 = - np.abs( peakf_distTarget - peakf_dist)
-#            fitness1 = np.exp( - np.abs( peakf_distTarget - peakf_dist)/peakf_distTarget)        
+            fitness1 = 1 - np.power( peakf_distTarget - peakf_dist, 2)
         return (fitness1, fitness2)
     
     
-    def SpectralTalbot(self, env):
-        PSD = env.PSD(env.Af,env.df)
-#            fitness2 = np.exp(-(1-np.max(PSD)/np.max(env.PSD(env.Af0, env.df))))
-        peakinds = peakutils.indexes(PSD)
-        peakf_dist = np.min( env.df * np.diff(peakinds) )
-#            peakf_dist = np.median( env.df * np.diff(peakinds) )
-#            peakf_distTarget = env.f_rep / (self.p/self.q)
-        peakf_distTarget = env.f_rep * (self.p/self.q)
+    
+"""
 
-        if len(peakinds) <= 1:
-            fitness1 = 0
-            fitness2 = -10
-        else: 
-            fitness1 = np.exp( - np.abs( peakf_distTarget - peakf_dist)/peakf_distTarget)
-            fitness2 = np.exp(-np.abs(np.mean(np.abs(np.diff(PSD[peakinds])))/np.mean(PSD[peakinds])))
-        return (fitness1, fitness2)
+"""    
     
-#    def SubIntegerImage(self, env):  
-#        
-#        if self.domain == 'temporal':
-#            fitness2 = np.exp(-(1-np.max(env.P(env.At))/env.peakP))
-#            
-#            peakinds = peakutils.indexes(env.RFSpectrum(env.At, env.dt))
-#            
-#            peakf_dist = np.mean( env.df * np.diff(peakinds) )
-#            peakf_distTarget = env.f_rep / (self.p/self.q)
-#            
-#            if len(peakinds) <= 1:
-#                fitness1 = 0
-#            else: 
-#                fitness1 = np.exp( - np.abs( peakf_distTarget - peakf_dist)/peakf_distTarget)
-#
-#
-#        elif self.domain == 'spectral':
-#            PSD = env.PSD(env.Af,env.df)
+## ------------------------------------------------------------------
+    
+#    def SpectralTalbot(self, env):
+#        PSD = env.PSD(env.Af,env.df)
 ##            fitness2 = np.exp(-(1-np.max(PSD)/np.max(env.PSD(env.Af0, env.df))))
-#            
-#            peakinds = peakutils.indexes(PSD)
-#        
-#            peakf_dist = np.min( env.df * np.diff(peakinds) )
+#        peakinds = peakutils.indexes(PSD)
+#        peakf_dist = np.min( env.df * np.diff(peakinds) )
 ##            peakf_dist = np.median( env.df * np.diff(peakinds) )
 ##            peakf_distTarget = env.f_rep / (self.p/self.q)
-#            peakf_distTarget = env.f_rep * (self.p/self.q)
+#        peakf_distTarget = env.f_rep * (self.p/self.q)
 #
-#            if len(peakinds) <= 1:
-#                fitness1 = 0
-#                fitness2 = -10
-#            else: 
-#                fitness1 = np.exp( - np.abs( peakf_distTarget - peakf_dist)/peakf_distTarget)
-#                
-#                fitness2 = np.exp(-np.abs(np.mean(np.abs(np.diff(PSD[peakinds])))/np.mean(PSD[peakinds])))
-#            
-#        else:
-#            raise ValueError('Not a valid domain to optimize in')
-#
-#
+#        if len(peakinds) <= 1:
+#            fitness1 = 0
+#            fitness2 = -10
+#        else: 
+#            fitness1 = np.exp( - np.abs( peakf_distTarget - peakf_dist)/peakf_distTarget)
+#            fitness2 = np.exp(-np.abs(np.mean(np.abs(np.diff(PSD[peakinds])))/np.mean(PSD[peakinds])))
 #        return (fitness1, fitness2)
-    
-    def SingleFrequencyMax(self, env):
-        fitness = np.zeros(len(self.centralfreq))
-        for i in range(len(self.centralfreq)):
-            inds = (env.f >= self.centralfreq[i]-self.width[i]) & (env.f <= self.centralfreq[i]+self.width[i])
-            fitness_i = np.sum( env.PSD(env.Af[inds], env.df) )
-#            fitness_i = np.max( env.PSD(env.Af[inds], env.df) )
-            fitness[i] = fitness_i
-        return (fitness)
