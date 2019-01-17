@@ -8,63 +8,14 @@ import multiprocess as mp
 Function for creating a New Individual (NA) in the Inner GA
 """
 def CREATE_Inner(experiment):
-    ind = []
-    for component in experiment:        
-        ind.append(NA_Inner(component))
+    ind = experiment.newattributes()
     return ind
-
-
-
-## --------------------------------------------------------------------
-"""
-Function for creating a New Attribute (NA) in the Inner GA
-"""
-def NA_Inner(c):
-
-    if c.type == 'fiber':
-        at = [randomattribute(c.LOWER[0], c.UPPER[0], c.DTYPE[0], c.DSCRTVAL[0])]
-
-    elif c.type == 'awg':
-        n = randomattribute(c.LOWER[0], c.UPPER[0], c.DTYPE[0], c.DSCRTVAL[0])
-        vals = []
-        for i in range(n):
-            vals.append(randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1]))
-        at = [n] + vals
-
-    elif c.type == 'phasemodulator':
-        at = []
-        for i in range(len(c.LOWER)):
-            at.append(randomattribute(c.LOWER[i], c.UPPER[i], c.DTYPE[i], c.DSCRTVAL[i]))
-    else: 
-        raise ValueError('No such component type')
-        
-    return at
-
-def randomattribute(low=0.0, high=1.0, dtypes='float', dscrtval=None):
-    if dtypes == 'float':
-        if dscrtval is not None:  
-            at = round(np.random.uniform( low, high )/dscrtval) * dscrtval 
-        else:
-            at = np.random.uniform( low, high )
-            
-    elif dtypes == 'int':
-        if dscrtval is not None:    
-            at = np.round(np.random.randint( low/dscrtval, high/dscrtval))*dscrtval
-        else: 
-            at = np.random.randint(low, high)
-    else:
-        raise ValueError('Unknown datatype when making a new attribute')
-    
-    return at
 
 ## --------------------------------------------------------------------
 """
 Crosses two individuals in Inner GA
 """
 def CX_Inner(ind1, ind2):
-#    print(ind1)
-#    print(ind2)
-    
     size = len(ind1)
     if size == 1:
         ind1[:], ind2[:] = ind2[:].copy(), ind1[:].copy()   
@@ -78,9 +29,6 @@ def CX_Inner(ind1, ind2):
     
         ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] \
             = ind2[cxpoint1:cxpoint2].copy(), ind1[cxpoint1:cxpoint2].copy()   
-            
-#    print(ind1)
-#    print(ind2)
     
     return ind1, ind2
 
@@ -93,38 +41,9 @@ def CX_Inner(ind1, ind2):
 Mutates a single individual in Inner GA
 """
 
-def MUT_Inner(experiment, ind):
-#    print('ind = {}'.format(ind))
-    
-    mut_comp = np.random.randint(0,len(experiment))    
-    c = experiment[mut_comp]
-    
-    if c.type == 'fiber':
-        ind[mut_comp][0] = randomattribute(c.LOWER[0], c.UPPER[0], c.DTYPE[0], c.DSCRTVAL[0])
-
-    elif c.type == 'awg':
-        mut_loc = np.random.randint(0, len(ind[mut_comp]))
-        if mut_loc == 0: # mutates the number of steps
-            n_mut = randomattribute(c.LOWER[0], c.UPPER[0], c.DTYPE[0], c.DSCRTVAL[0])
-            if n_mut > ind[mut_comp][0]: # mutated to have more steps than before
-                new_vals = []
-                for i in range(n_mut-ind[mut_comp][0]):
-                    new_vals.append(randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1]))
-                vals = ind[mut_comp][1:] + new_vals
-                ind[mut_comp] = [n_mut] + vals
-            else: 
-                vals = ind[mut_comp][1:n_mut+1]
-                ind[mut_comp] = [n_mut] + vals
-        else:
-            ind[mut_comp][mut_loc] = randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1])
-
-    elif c.type == 'phasemodulator':
-        mut_loc = np.random.randint(0, len(ind[mut_comp]))
-        ind[mut_comp][mut_loc] = randomattribute(c.LOWER[mut_loc], c.UPPER[mut_loc], c.DTYPE[mut_loc], c.DSCRTVAL[mut_loc])
-        
-    else: 
-        raise ValueError('No such component type')
-    
+def MUT_Inner(experiment, ind):    
+    mut_comp = np.random.randint(0,experiment.n_components)    
+    ind[mut_comp] = experiment.nodes[mut_comp]['info'].mutate()
     return ind,
 
 
@@ -151,20 +70,20 @@ def SEL_Inner(individuals, k):
 """
 Fitness function for Inner GA
 """
-def FIT_Inner(individual, gap=None, env=None, experiment=None, sim=None):
-    if env==None or gap==None or experiment==None or sim==None:
-        raise ValueError('All classes must be passed to the fitness function')
-
-    sim.simulate_experiment(individual, experiment, env)
-    fitness = sim.fitness(env)[0:gap.NFITNESS]
-
+def FIT_Inner(individual, env, experiment):
+    env.reset()
+    experiment.setattributes(individual)
+    experiment.simulate(env)
+    
+    fitness = env.fitness()
+    
     return tuple(fitness)
 
 
 ## --------------------------------------------------------------------
 ## --------------------------------------------------------------------
 ## --------------------------------------------------------------------
-def inner_geneticalgorithm(gap, env, experiment, sim):
+def inner_geneticalgorithm(gap, env, experiment):
     """
     Here, we set up our inner genetic algorithm. This will eventually be moved to a different function/file to reduce clutter
     """    
@@ -178,15 +97,16 @@ def inner_geneticalgorithm(gap, env, experiment, sim):
 
     toolbox = base.Toolbox()
     toolbox.register("attribute", CREATE_Inner, experiment)
+
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.attribute)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    
+
     toolbox.register("mate", CX_Inner)
     toolbox.register("mutate", MUT_Inner, experiment)
     toolbox.register("select", SEL_Inner)  
     toolbox.register("elite", ELITE_Inner)  
 
-    toolbox.register("evaluate", FIT_Inner, gap=gap, env=env, experiment=experiment, sim=sim)
+    toolbox.register("evaluate", FIT_Inner, env=env, experiment=experiment)
     
     pop = toolbox.population(n = gap.N_POPULATION)
     
@@ -218,21 +138,21 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
     if gap.MULTIPROC:
         pool = mp.Pool(gap.NCORES)
 
-        splt_indx = split_indices(len(invalid_ind), gap.NCORES) 
+        splt_indx = splitindices(len(invalid_ind), gap.NCORES) 
                        
         mp_input = []
         for i in range(0,gap.NCORES):
             args = [invalid_ind[splt_indx[i]:splt_indx[i+1]], toolbox]
             mp_input.append(args)
         
-        results = pool.map(mp_gen0, mp_input)
+        results = pool.map(initialgeneration, mp_input)
         
         population = []
         for i in range(0,gap.NCORES):
             population += results[i]
     else:
         args = [invalid_ind, toolbox]
-        population = mp_gen0(args)
+        population = initialgeneration(args)
 
 
     if halloffame is not None:
@@ -252,7 +172,7 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
         offspring = tools.selWorst(population, NUM_OFFSPRING)
         
         if gap.MULTIPROC:            
-            splt_indx = split_indices(len(offspring), gap.NCORES)                        
+            splt_indx = splitindices(len(offspring), gap.NCORES)                        
             mp_input = []
 
             for i in range(0,gap.NCORES):
@@ -288,7 +208,7 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
 
 ## ------------------------------
 
-def mp_gen0(args):
+def initialgeneration(args):
     (invalid_ind, toolbox) = args
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     for ind, fit in zip(invalid_ind, fitnesses):
@@ -324,7 +244,7 @@ def varychildren(args):
 
 
 ##### ---------------------------------
-def split_indices(num, div):
+def splitindices(num, div):
     indices = [0]
     for i in range(div):
         val = num//(div - i)

@@ -1,17 +1,17 @@
 import numpy as np
-#PYTHONPATH = '/home/benjamin/Documents/INRS - Code/ASOPE_V2_SingleSetup'
-import sys
-sys.path.append('/home/benjamin/Documents/INRS - Code/ASOPE_V2_SingleSetup')
-from environments.environment_pulse import PulseEnvironment
 import matplotlib.pyplot as plt
+from itertools import count
+
 plt.close("all")
 
 class Component(object):
-    def __init__(self, id, type):
-        self.name = str(type) + str(id)
-        self.id = id
-        self.type = type
+    def __init__(self):
         self.datasheet()
+        self.updateinstances()
+        self.name = str(self.type) + str(self.id)
+        
+    def updateinstances(self):
+        self.id = next(self._num_instances)
         
     def datasheet(self):
         return
@@ -22,7 +22,7 @@ class Component(object):
     def newattribute(self):
         raise ValueError('Not implemented yet') 
     
-    def mutate(self, ind):
+    def mutate(self):
         raise ValueError('Not implemented yet') 
         
     def crossover(self):
@@ -50,7 +50,9 @@ class Component(object):
 
 """
 class Fiber(Component):
+    _num_instances = count(0)
     def datasheet(self):
+        self.type = 'fiber'
         self.beta = [2e-20]
         self.Tr = 0.5
         self.gamma = 100
@@ -61,8 +63,8 @@ class Fiber(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = 0
     
-    def simulate(self, env, values):
-        fiber_len = values[0]   
+    def simulate(self, env):
+        fiber_len = self.at[0]   
         D = np.zeros(env.f.shape).astype('complex')
         for n in range(0, len(self.beta)):    
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
@@ -72,19 +74,23 @@ class Fiber(Component):
         return
     
     def newattribute(self):
-        at = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
-        return [at]
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
     
-    def mutate(self, ind):
-        ind[0] = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
-        return        
+    def mutate(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
         
 # ----------------------------------------------------------
 """
 
 """
 class PhaseModulator(Component):
+    _num_instances = count(0)
     def datasheet(self):
+        self.type = 'phasemodulator'
         self.vpi = 1
         self.N_PARAMETERS = 3
         self.UPPER = [10, 200e6, 2*np.pi]   # max shift, frequency, phase offset
@@ -94,10 +100,10 @@ class PhaseModulator(Component):
         self.FINETUNE_SKIP = 0
         
     
-    def simulate(self, env, values):
-        M = values[0]       # amplitude []
-        NU = values[1]      # frequency [Hz]
-        PHI = values[2]     # phase offset [rad]
+    def simulate(self, env):
+        M = self.at[0]       # amplitude []
+        NU = self.at[1]      # frequency [Hz]
+        PHI = self.at[2]     # phase offset [rad]
         dPhase = (M/2)*np.cos(2*np.pi* NU * env.t + PHI) + M/2
         
         ## Apply phase modulator in time-domain, and update frequency
@@ -109,18 +115,22 @@ class PhaseModulator(Component):
         at = []
         for i in range(self.N_PARAMETERS):
             at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
+        self.at = at
         return at
         
-    def mutate(self, ind):
+    def mutate(self):
         mut_loc = np.random.randint(0, self.N_PARAMETERS)
-        ind[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
+        self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
+        return self.at
 
 # ----------------------------------------------------------
 """
 
 """
 class AWG(Component):
+    _num_instances = count(0)
     def datasheet(self):
+        self.type = 'awg'
         self.N_PARAMETERS = 2
         self.UPPER = [8] + [2*np.pi]   # max shift, frequency, phase offset
         self.LOWER = [1] + [0]
@@ -129,9 +139,9 @@ class AWG(Component):
         self.FINETUNE_SKIP = 1
  
     
-    def simulate(self, env, values):
-        nlevels = values[0]
-        phasevalues = values[1:]
+    def simulate(self, env):
+        nlevels = self.at[0]
+        phasevalues = self.at[1:]
         
         timeblock = np.round(1/env.dt/env.f_rep).astype('int')
         tmp = np.ones(timeblock)
@@ -156,65 +166,25 @@ class AWG(Component):
         for i in range(n):
             vals.append(self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1]))
         at = [n] + vals
+        self.at = at
         return at
     
     
-    def mutate(self, ind):
-        mut_loc = np.random.randint(0, len(ind[mut_comp]))
+    def mutate(self):
+        at = self.at
+        mut_loc = np.random.randint(0, len(at))
         if mut_loc == 0: # mutates the number of steps
-            n_mut = randomattribute(c.LOWER[0], c.UPPER[0], c.DTYPE[0], c.DSCRTVAL[0])
-            if n_mut > ind[mut_comp][0]: # mutated to have more steps than before
+            n_mut = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
+            if n_mut > at[0]: # mutated to have more steps than before
                 new_vals = []
-                for i in range(n_mut-ind[mut_comp][0]):
-                    new_vals.append(randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1]))
-                vals = ind[mut_comp][1:] + new_vals
-                ind[mut_comp] = [n_mut] + vals
+                for i in range(n_mut-at[0]):
+                    new_vals.append(self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1]))
+                vals = at[1:] + new_vals
+                at = [n_mut] + vals
             else: 
-                vals = ind[mut_comp][1:n_mut+1]
-                ind[mut_comp] = [n_mut] + vals
+                vals = at[1:n_mut+1]
+                at = [n_mut] + vals
         else:
-            ind[mut_comp][mut_loc] = randomattribute(c.LOWER[1], c.UPPER[1], c.DTYPE[1], c.DSCRTVAL[1])
-    
-## ************************************************************
-env = PulseEnvironment()
-
-c = Fiber(1,'fiber')
-#c = AWG(1,'awg')
-#c = PhaseModulator(1,'phasemodulator')
-
-at = c.newattribute()
-print(at)
-c.simulate(env, at)
-print(c.name)
-
-fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
-    
-ax[0].set_xlabel('Time (ps)')
-ax[0].set_ylabel('Power [arb]')
-ax[1].set_xlabel('Frequency (THz)')
-ax[1].set_ylabel('PSD [arb]')
-
-ax[0].plot(env.t/1e-12, env.P(env.At0), label='initial')
-ax[1].plot(env.f/1e12, env.PSD(env.Af0, env.df))
-
-ax[0].plot(env.t/1e-12, env.P(env.At), label='final')
-ax[1].plot(env.f/1e12, env.PSD(env.Af, env.df))
-plt.show()
-
-
-
-
-
-fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
-    
-ax[0].set_xlabel('Time (ps)')
-ax[0].set_ylabel('Power [arb]')
-ax[1].set_xlabel('Frequency (THz)')
-ax[1].set_ylabel('PSD [arb]')
-
-ax[0].plot(env.t/1e-12, env.P(env.At0), label='initial')
-ax[1].plot(env.f/1e12, env.PSD(env.Af0, env.df))
-
-ax[0].plot(env.t/1e-12, env.P(env.At), label='final')
-ax[1].plot(env.f/1e12, env.PSD(env.Af, env.df))
-plt.show()
+            at[mut_loc] = self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1])
+        self.at = at
+        return at

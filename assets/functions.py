@@ -1,36 +1,16 @@
-import re
 import fnmatch
-import json
-
+import pickle
 from beeprint import pp 
-from components.component_parameters import component_parameters
-from classes import Component
+import matplotlib.pyplot as plt
 
-def buildexperiment(experiment_ids):
-    
-    experiment = []
-    for i in range(0,len(experiment_ids)):
-        cp = component_parameters(experiment_ids[i]) 
-        experiment.append( Component( cp, cp['type'], cp['typeval'], experiment_ids[i] ) ) 
+def save_experiment(filename, experiment):
+    with open(filename+'.pkl', 'wb') as output:
+        pickle.dump(experiment, output, pickle.HIGHEST_PROTOCOL)
+
+def load_experiment(filename):
+    with open(filename+'.pkl', 'rb') as input:
+        experiment = pickle.load(input)
     return experiment
-
-def extract_bounds(experiment):
-    N_ATTRIBUTES = 0
-    BOUNDSUPPER = []
-    BOUNDSLOWER = [] 
-    DTYPES = [] 
-    DSCRTVALS = []
-    for component in experiment:
-        N_ATTRIBUTES += component.N_PARAMETERS
-        BOUNDSLOWER += component.LOWER
-        BOUNDSUPPER += component.UPPER
-        DTYPES += component.DTYPE
-        DSCRTVALS += component.DSCRTVAL
-    assert(N_ATTRIBUTES == len(BOUNDSLOWER) == len(BOUNDSUPPER) == len(DTYPES))    
-    
-    return N_ATTRIBUTES, BOUNDSLOWER, BOUNDSUPPER, DTYPES, DSCRTVALS
-
-
 
 def experiment_description(experiment, verbose=False, individual=None):
     """
@@ -50,17 +30,6 @@ def experiment_description(experiment, verbose=False, individual=None):
         j += component.N_PARAMETERS
             
 
-
-
-
-def splitstring(string):
-    """   
-    Given a string, i.e. 'fiber1', will split into string and numeric parts, i.e. 'fiber' and 1 (as an integer)
-    """
-    match = re.match(r"([a-z]+)([0-9]+)", string, re.I)
-    if match:
-        (characters, num) = match.groups()
-    return (characters, int(num))    
 
 
 
@@ -99,16 +68,6 @@ def checkcomponents(exp_comps):
     return checkedexp_comps
 
 
-
-def savesetup(experiment):
-    """
-    Saves a given experiment to a JSON file, which can be used later or read by a human
-    """
-    with open('results/results.json', 'w') as outfile:
-        json.dump(experiment, outfile)
-    pass
-
-
 def savelogbook(logbook, filepath):
     import pandas as pd
     df_log = pd.DataFrame(logbook)
@@ -123,3 +82,28 @@ def extractlogbook(logbook):
        log[stat] = [item[stat] for item in logbook] 
     
    return log
+
+
+"""
+Plots the temporal and spectral power for a given individual
+"""
+def plot_individual(env, fitness):    
+    fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
+    
+    ax[0].set_xlabel('Time (ps)')
+    ax[0].set_ylabel('Power [arb]')
+    ax[1].set_xlabel('Frequency (THz)')
+    ax[1].set_ylabel('PSD [arb]')
+    
+    ax[0].plot(env.t/1e-12, env.P(env.At0), label='initial')
+    ax[1].plot(env.f/1e12, env.PSD(env.Af0, env.df))
+
+    
+    ax[0].plot(env.t/1e-12, env.P(env.At), label='final')
+    ax[1].plot(env.f/1e12, env.PSD(env.Af, env.df))
+
+    ax[0].set_title('Fitness {}'.format(fitness))
+    ax[0].legend()
+    
+    return fig, ax
+

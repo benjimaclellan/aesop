@@ -1,6 +1,7 @@
-from numpy import pi
 import numpy as np
-from classes import Environment
+from assets.classes import Environment
+import peakutils
+
 
 class PulseEnvironment(Environment):
     """   
@@ -84,8 +85,25 @@ class PulseEnvironment(Environment):
         self.At = self.IFFT(self.Af, self.dt)
         return
             
+    def fitness(self):
+        p = 2
+        q = 1
+        fitness = self.TalbotEffect(p, q)
+        return fitness
+    
+    def TalbotEffect(self, p, q):
+        fitness2 = np.max(self.P(self.At))
+            
+        peakinds = peakutils.indexes(self.RFSpectrum(self.At, self.dt))
         
+        peakf_dist = np.mean( self.df * np.diff(peakinds) )
+        peakf_distTarget = self.f_rep / (p/q)
         
+        if len(peakinds) <= 1:
+            fitness1 = -99999999
+        else: 
+            fitness1 = 1 - np.power( peakf_distTarget - peakf_dist, 2)
+        return (fitness1, fitness2)
         
     
     

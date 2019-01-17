@@ -1,5 +1,5 @@
 import scipy.optimize as opt
-from geneticalgorithms.ga_functions_inner import FIT_Inner
+from optimization.ga_functions_inner import FIT_Inner
 
 """
 Using standard packages to slightly tweak the best of HOF to optimal individual
