@@ -7,7 +7,11 @@ class PulseEnvironment(Environment):
     """   
     A class that stores all our simulation parameters, time and frequency domain of the optical signal, etc. This will (could) reduce the number of arguments passed into different function calls
     """
-    def __init__(self):
+    def __init__(self, p, q):
+        self.p = p
+        self.q = q
+        
+        
         N = 2**14        # number of points in the simulation [] 
         T = 50e-12      # pulse width [s]
         res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
@@ -86,9 +90,8 @@ class PulseEnvironment(Environment):
         return
             
     def fitness(self):
-        p = 3
-        q = 2
-        fitness = self.TalbotEffect(p, q)
+#        fitness = np.mean( self.TalbotEffect(self.p, self.q) )
+        fitness = self.TalbotEffect(self.p, self.q)
         return fitness
     
     def TalbotEffect(self, p, q):
@@ -100,7 +103,7 @@ class PulseEnvironment(Environment):
         peakf_distTarget = self.f_rep / (p/q)
         
         if len(peakinds) <= 1:
-            fitness1 = -99999999
+            fitness1 = 0 #-99999999
         else: 
             fitness1 = 1 - np.power( peakf_distTarget - peakf_dist, 2)
         return (fitness1, fitness2)

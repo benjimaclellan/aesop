@@ -73,7 +73,7 @@ def FIT_Inner(individual, env, experiment):
     
     fitness = env.fitness()
     
-    return tuple(fitness)
+    return fitness[0]*fitness[1],
 
 
 ## --------------------------------------------------------------------
@@ -110,7 +110,7 @@ def inner_geneticalgorithm(gap, env, experiment):
     
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     
-#    stats.register("avg", np.mean)
+    stats.register("avg", np.mean)
 #    stats.register("std", np.std)
 #    stats.register("min", np.min)
     stats.register("max", np.max)
@@ -161,13 +161,18 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
 
     # Begin the generational process
     for gen in range(1, ngen + 1):
-        NUM_ELITE = 4
-        NUM_OFFSPRING = len(population) - NUM_ELITE
+        NUM_ELITE = 2
+        NUM_MATE_POOL = len(population)//2
+        NUM_OFFSPRING = len(population) - NUM_MATE_POOL - NUM_ELITE
         
-        elite = tools.selBest(population, NUM_ELITE)
+        tmp = tools.selBest(population, NUM_ELITE + NUM_MATE_POOL)
+        
+        elite = tools.selBest(tmp, NUM_ELITE)
+        mate = tools.selWorst(population, NUM_MATE_POOL)
+        
         offspring = tools.selWorst(population, NUM_OFFSPRING)
         
-        if gap.MULTIPROC:            
+        if gap.MULTIPROC:             
             splt_indx = splitindices(len(offspring), gap.NCORES)                        
             mp_input = []
 

@@ -132,16 +132,16 @@ class AWG(Component):
     def datasheet(self):
         self.type = 'awg'
         self.N_PARAMETERS = 2
-        self.UPPER = [4] + [2*np.pi]   # max shift, frequency, phase offset
-        self.LOWER = [2] + [0]
+        self.UPPER = [8] + [np.pi]   # max shift, frequency, phase offset
+        self.LOWER = [1] + [-np.pi]
         self.DTYPE = ['int', 'float']
         self.DSCRTVAL = [1, None]
         self.FINETUNE_SKIP = 1
  
     
     def simulate(self, env):
-        nlevels = self.at[0]
-        phasevalues = self.at[1:]
+        nlevels = self.at[0] + 1
+        phasevalues = [0] + self.at[1:]
         
         timeblock = np.round(1/env.dt/env.f_rep).astype('int')
         tmp = np.ones(timeblock)
@@ -156,7 +156,7 @@ class AWG(Component):
         phasetmp = phasetmp[shift1:]
         phase = phasetmp[0:len(env.t)] 
         
-        env.At = env.At * np.exp(1j * phase)
+        env.At = env.At * np.exp(1j * phase) * (.95**nlevels) #loss here
         env.Af = env.FFT(env.At, env.dt)
         return
     

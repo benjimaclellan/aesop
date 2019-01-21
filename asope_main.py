@@ -13,30 +13,32 @@ from assets.environment import PulseEnvironment
 from assets.components import Fiber, AWG, PhaseModulator
 from assets.classes import Experiment, GeneticAlgorithmParameters
 
-from optimization.ga_functions_inner import inner_geneticalgorithm
-from optimization.graddescent import finetune_individual
+from optimization.geneticalgorithminner import inner_geneticalgorithm
+from optimization.gradientdescent import finetune_individual
 
 plt.close("all")
 
 ## ************************************************
 
-if __name__ == '__main__':  
+if __name__ == '__main__': 
+    
+    
     save = False
     filename = 'results/' + str(uuid.uuid4().hex)
     
-    env = PulseEnvironment()
+    env = PulseEnvironment(p = 3, q = 2)
     
     components = [AWG(), Fiber()]
     experiment = Experiment()
     experiment.buildexperiment(components)
         
     gap = GeneticAlgorithmParameters()
-    gap.NFITNESS = 2
-    gap.WEIGHTS = (1.0, 1.0)
+    gap.NFITNESS = 1
+    gap.WEIGHTS = (1.0,)
     gap.MULTIPROC = True
     gap.NCORES = mp.cpu_count()
-    gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 25              # number of generations
+    gap.N_POPULATION = 400      # number of individuals in a population
+    gap.N_GEN = 50              # number of generations
     gap.MUT_PRB = 0.7           # independent probability of mutation
     gap.CRX_PRB = 0.7           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -48,7 +50,10 @@ if __name__ == '__main__':
 
     log = extractlogbook(logbook)    
 #    plt.figure()
-#    plt.plot(log['gen'], log['max']) 
+#    plt.plot(log['gen'], log['max'], label='max') 
+#    plt.plot(log['gen'], log['min'], label='min') 
+#    plt.plot(log['gen'], log['avg'], label='avg') 
+#    plt.legend()
     
     print('\nElapsed time = {}'.format(tstop-tstart))
     print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
