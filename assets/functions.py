@@ -3,14 +3,16 @@ import pickle
 from beeprint import pp 
 import matplotlib.pyplot as plt
 
-def save_experiment(filename, experiment):
+def save_experiment(filename, experiment, env):
     with open(filename+'.pkl', 'wb') as output:
         pickle.dump(experiment, output, pickle.HIGHEST_PROTOCOL)
-
+        pickle.dump(env, output, pickle.HIGHEST_PROTOCOL)
+        
 def load_experiment(filename):
     with open(filename+'.pkl', 'rb') as input:
         experiment = pickle.load(input)
-    return experiment
+        env = pickle.load(input)
+    return experiment, env
 
 def experiment_description(experiment, verbose=False, individual=None):
     """

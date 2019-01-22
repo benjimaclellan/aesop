@@ -162,17 +162,21 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
     # Begin the generational process
     for gen in range(1, ngen + 1):
         NUM_ELITE = 2
-        NUM_MATE_POOL = len(population)//2
-        NUM_OFFSPRING = len(population) - NUM_MATE_POOL - NUM_ELITE
+        NUM_MATE_POOL = 3 * len(population) // 4
         
+        NUM_NEW = len(population) - NUM_MATE_POOL - NUM_ELITE
+        
+#        NUM_OFFSPRING = len(population) - NUM_MATE_POOL - NUM_ELITE
         tmp = tools.selBest(population, NUM_ELITE + NUM_MATE_POOL)
-        
         elite = tools.selBest(tmp, NUM_ELITE)
-        mate = tools.selWorst(population, NUM_MATE_POOL)
         
-        offspring = tools.selWorst(population, NUM_OFFSPRING)
+        offspring = tools.selWorst(tmp, NUM_MATE_POOL)
+        random.shuffle(offspring)
         
-        if gap.MULTIPROC:             
+        new = tools.selWorst(population, NUM_NEW)
+#        offspring = tools.selWorst(population, NUM_OFFSPRING)
+        
+        if gap.MULTIPROC:
             splt_indx = splitindices(len(offspring), gap.NCORES)                        
             mp_input = []
 
@@ -186,11 +190,29 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
             for i in range(0,gap.NCORES):
                 offspring += results[i][:]
                 
+            ### now create new individuals
+            splt_indx = splitindices(len(new), gap.NCORES)                        
+            mp_input = []
+
+            for i in range(0,gap.NCORES):
+                args = [new[splt_indx[i]:splt_indx[i+1]], toolbox]
+                mp_input.append(args)
+                                    
+            results = pool.map(newchildren, mp_input)
+            
+            new = []
+            for i in range(0,gap.NCORES):
+                new += results[i][:]    
+            
+                
         else:
             args = (offspring, toolbox, cxpb, mutpb)
             offspring = varychildren(args)
             
-        population[:] = elite + offspring
+            args = (offspring, toolbox)
+            offspring = newchildren(args)
+            
+        population[:] = elite + offspring + new
     
         # Update the hall of fame with the generated individuals
         if halloffame is not None:
@@ -217,12 +239,24 @@ def initialgeneration(args):
     
     return invalid_ind
 
+def newchildren(args):
+    (offspring, toolbox) = args
+    for i in range(len(offspring)):
+        offspring[i] = toolbox.individual()
+        del offspring[i].fitness.values    
+        
+    invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    for ind, fit in zip(invalid_ind, fitnesses):
+        ind.fitness.values = fit
+    return offspring
+    
 
 
 def varychildren(args):
     
     (offspring, toolbox, cxpb, mutpb) = args
-
+    
     for i in range(1, len(offspring), 2):
         if random.random() < cxpb:
             offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1],
