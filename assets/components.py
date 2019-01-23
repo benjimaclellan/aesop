@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from itertools import count
+from copy import copy
+#from assets.functions import splitindices
 
-plt.close("all")
+#plt.close("all")
 
 class Component(object):
     def __init__(self):
@@ -63,7 +65,7 @@ class Fiber(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = 0
     
-    def simulate(self, env):
+    def simulate(self, env, visualize=False):
         fiber_len = self.at[0]   
         D = np.zeros(env.f.shape).astype('complex')
         for n in range(0, len(self.beta)):    
@@ -71,6 +73,10 @@ class Fiber(Component):
         D = -1j * D
         env.Af = np.exp(fiber_len * D) * env.Af
         env.At = env.IFFT( env.Af, env.dt )
+        
+        if visualize:
+            self.lines = ((None),)
+            
         return
     
     def newattribute(self):
@@ -100,15 +106,19 @@ class PhaseModulator(Component):
         self.FINETUNE_SKIP = 0
         
     
-    def simulate(self, env):
+    def simulate(self, env, visualize=False):
         M = self.at[0]       # amplitude []
         NU = self.at[1]      # frequency [Hz]
         PHI = self.at[2]     # phase offset [rad]
-        dPhase = (M/2)*np.cos(2*np.pi* NU * env.t + PHI) + M/2
+        phase = (M/2)*np.cos(2*np.pi* NU * env.t + PHI) + M/2
         
         ## Apply phase modulator in time-domain, and update frequency
-        env.At = env.At * np.exp(1j * dPhase)                
+        env.At = env.At * np.exp(1j * phase)                
         env.Af = env.FFT(env.At, env.dt)
+        
+        if visualize:
+            self.lines = (('t',phase),)
+        
         return
 
     def newattribute(self):
@@ -139,7 +149,7 @@ class AWG(Component):
         self.FINETUNE_SKIP = 1
  
     
-    def simulate(self, env):
+    def simulate(self, env, visualize=False):
         nlevels = self.at[0] + 1
         phasevalues = [0] + self.at[1:]
         
@@ -158,6 +168,10 @@ class AWG(Component):
         
         env.At = env.At * np.exp(1j * phase) * (.95**nlevels) #loss here
         env.Af = env.FFT(env.At, env.dt)
+        
+        if visualize:
+            self.lines = (('t',phase),)
+        
         return
     
     def newattribute(self):
@@ -186,5 +200,109 @@ class AWG(Component):
                 at = [n_mut] + vals
         else:
             at[mut_loc] = self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1])
+        self.at = at
+        return at
+
+
+"""
+
+"""
+class WaveShaper(Component):
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'waveshaper'
+        self.res = 12e9
+        self.N_PARAMETERS = 4 * 2
+        self.UPPER = [1,1,1,2] + [1,1,1,2]
+        self.LOWER = [-1,-1,-1,0] + [-1,-1,-1,0]
+        self.DTYPE = self.N_PARAMETERS * ['float']
+        self.DSCRTVAL = self.N_PARAMETERS * [None]
+        self.FINETUNE_SKIP = 0
+ 
+    
+    def simulate(self, env, visualize = False):
+        ampvalues = self.at[0:self.N_PARAMETERS//2]
+        phasevalues = self.at[self.N_PARAMETERS//2:]
+        
+        amp = np.polyval(ampvalues, env.f/np.max(env.f))
+        amp[amp > 1] = 1
+        amp[amp < 0] = 0
+        
+        phase = np.polyval(phasevalues, env.f/np.max(env.f))
+        phase[phase > 2*np.pi] = 2*np.pi
+        phase[phase < 0] = 0
+        
+        
+        n = int( np.floor( self.res/env.df ) )
+        ampmask = self.windowmask(amp, env.N, n)
+        phasemask = self.windowmask(phase, env.N, n)
+        
+            
+        env.Af = ampmask * np.exp(1j * phasemask) * env.Af
+        env.At = env.IFFT( env.Af, env.dt )
+
+        if visualize:
+            self.lines = (('f',ampmask), ('f',phasemask))
+        
+        return
+    
+    def windowmask(self, mask, N, n):
+        totalbins = int(np.ceil( N / n ) )
+        center = N // 2
+        bins2center = int( np.floor( center / n ) )
+        offset = abs((bins2center*n) - center) - n//2
+#        print(N,n,offset)
+        coursemask = np.zeros(mask.shape)
+        slc = (0, n-offset)
+        coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
+        for i in range(0,totalbins):
+            slc = ( offset + i*n, offset + (i+1)*n)
+            coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
+        slc = (offset + (totalbins)*n,-1) 
+        coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
+        return coursemask
+        
+        
+    def newattribute(self):
+        at = []
+        for i in range(self.N_PARAMETERS):
+            at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
+        self.at = at
+        return at
+    
+    
+    def mutate(self):
+        mut_loc = np.random.randint(0, self.N_PARAMETERS)
+        self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
+        return self.at
+
+
+
+
+
+class BeamSplitter(Component):
+    _num_instances = count(0)
+    def datasheet(self):
+        self.ratio = 0.5
+        self.N_PARAMETERS = 1
+        self.UPPER = [0.5]
+        self.LOWER = [0.5]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [None]
+        self.FINETUNE_SKIP = 0
+    
+    def simulate(self, env, visualize=False):
+        raise ValueError()        
+        if visualize:
+            self.lines = ((None),)    
+        return
+    
+    def newattribute(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
+    
+    def mutate(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
         self.at = at
         return at

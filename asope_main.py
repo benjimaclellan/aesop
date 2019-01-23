@@ -10,7 +10,7 @@ import uuid
 
 from assets.functions import extractlogbook, plot_individual, save_experiment, load_experiment
 from assets.environment import PulseEnvironment
-from assets.components import Fiber, AWG, PhaseModulator
+from assets.components import Fiber, AWG, PhaseModulator, WaveShaper
 from assets.classes import Experiment, GeneticAlgorithmParameters
 
 from optimization.geneticalgorithminner import inner_geneticalgorithm
@@ -20,14 +20,15 @@ plt.close("all")
 
 ## ************************************************
 
-def main(filename):                  
-    save = True
+def main(filename = None):                  
+    if filename == None: save = False
 #    filename = 'results/' + str(uuid.uuid4().hex)
 #    filename = 'results/' + time.strftime("%Y_%m_%d-%H_%M_%S")
     
     env = PulseEnvironment(p = 2, q = 1)
     
-    components = [AWG(), Fiber()]
+    components = [AWG(), WaveShaper(), Fiber()]
+#    components = [WaveShaper()]
     experiment = Experiment()
     experiment.buildexperiment(components)
         
@@ -70,7 +71,7 @@ def main(filename):
         experiment.setattributes(individual)
         experiment.simulate(env)
         fitness = env.fitness()
-#        plot_individual(env, fitness)
+        plot_individual(env, fitness)
         
         # Now fine tune the best of the hall of fame
         individual = finetune_individual(individual, env, experiment)
@@ -80,13 +81,15 @@ def main(filename):
         experiment.simulate(env)
         
         fitness = env.fitness()
-#        plot_individual(env, fitness)
-#        plt.show()
+        plot_individual(env, fitness)
+        plt.show()
+        
+        experiment.visualize(env)
         
         if save:
             save_experiment(filename, experiment, env)
         
         return experiment, env
 
-#if __name__ == '__main__': 
-#    (experiment, env) = main()
+if __name__ == '__main__': 
+    (experiment, env) = main()

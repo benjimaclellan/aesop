@@ -2,7 +2,7 @@ import numpy as np
 from deap import tools, base, creator
 import random
 import multiprocess as mp
-
+from assets.functions import splitindices
 ## --------------------------------------------------------------------
 """
 Function for creating a New Individual (NA) in the Inner GA
@@ -276,14 +276,3 @@ def varychildren(args):
 
     return offspring
 
-
-
-##### ---------------------------------
-def splitindices(num, div):
-    indices = [0]
-    for i in range(div):
-        val = num//(div - i)
-        num += -val
-        prev = indices[-1]
-        indices.append(val + prev)
-    return indices

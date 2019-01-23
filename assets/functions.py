@@ -109,3 +109,12 @@ def plot_individual(env, fitness):
     
     return fig, ax
 
+
+def splitindices(num, div):
+    indices = [0]
+    for i in range(div):
+        val = num//(div - i)
+        num += -val
+        prev = indices[-1]
+        indices.append(val + prev)
+    return indices
