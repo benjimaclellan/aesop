@@ -283,6 +283,7 @@ class WaveShaper(Component):
 class BeamSplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
+        self.type = 'beamsplitter'
         self.ratio = 0.5
         self.N_PARAMETERS = 1
         self.UPPER = [0.5]

@@ -15,7 +15,7 @@ class PulseEnvironment(Environment):
         N = 2**14        # number of points in the simulation [] 
         T = 50e-12      # pulse width [s]
         res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
-        n_pulses = 30   # number of pulses in simulation window []
+        n_pulses =  10#30   # number of pulses in simulation window []
         f_rep = 100e6   # repetition rate of the pulse train [Hz]
         peakP = 1           # peak power [W]
         
