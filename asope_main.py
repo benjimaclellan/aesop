@@ -27,7 +27,7 @@ def main(filename = None):
     
     env = PulseEnvironment(p = 2, q = 1)
     
-    components = [AWG(),Fiber(), PhaseModulator()]
+    components = [AWG(), Fiber()]
     experiment = Experiment()
     experiment.buildexperiment(components)
         

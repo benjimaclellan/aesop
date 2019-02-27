@@ -1,5 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
+
 ## ***************************************************************88    
     
 class Environment(object):
@@ -16,6 +18,7 @@ class Environment(object):
 ## ***************************************************************88    
 
 class Experiment(nx.DiGraph):
+    
     def buildexperiment(self, components):
         self.n_components = len(components)
         self.clear()
@@ -26,11 +29,35 @@ class Experiment(nx.DiGraph):
             self.nodes[i]['title'] = components[i].name
             self.nodes[i]['info'] = components[i]
             
-    def simulate(self, env, visualize=False):
-        for i in range(0, self.n_components):
-            self.nodes[i]['info'].simulate(env, visualize=visualize)
-        return 
-    
+    def terminate_path(self, node_number):
+        self.add_node('terminal{}'.format(node_number), title = 'terminal{}'.format(node_number))
+        self.add_edge(node_number, 'terminal{}'.format(node_number))
+        self.terminal_nodes.append('terminal{}'.format(node_number))
+        
+        return
+            
+#    def simulate(self, env, visualize=False):
+##        for i in range(0, self.n_components):
+##            self.nodes[i]['info'].simulate(env, visualize=visualize)
+##        return 
+#        
+#        for i in range(0, self.n_components):
+#            self.nodes[i]['info'].simulate(env, visualize=visualize)
+#            
+#        return
+        
+    def draw(self):
+#        plt.figure()
+        labeldict = {}
+        for i in self.nodes():
+#            labeldict[i] = 
+#        for i in range(0, self.n_components):
+            labeldict[i] = self.nodes[i]['title']
+            
+#        nx.draw_spectral(self, labels = labeldict, with_labels=True)
+#        nx.draw_spring(self, labels = labeldict, with_labels=True)
+        nx.draw_shell(self, labels = labeldict, with_labels=True)    
+        
     def visualize(self, env):
         self.simulate(env, visualize=True)
         fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
@@ -63,8 +90,81 @@ class Experiment(nx.DiGraph):
             c = self.nodes[i]['info']
             print('Name: {}, ID: {}, Type: {}'.format(c.name, c.id, c.type))
 
+    def plot_env(self, env, title=None):
+        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
+        ax[0].set_title(title)
+        alpha = 0.4
+        ax[0].plot(env.t, env.P(env.At0), ls='--', label='Input', alpha=alpha)
+        ax[0].plot(env.t, env.P(env.At), label='Output')    
+        ax[0].legend()
+        
+        ax[1].plot(env.f, env.P(env.Af0),ls='--', label='Input', alpha=alpha)
+        ax[1].plot(env.f, env.P(env.Af), label='Output')
+        ax[1].legend()
+        
+        
+        
+        
+        
+        
+    def checkexperiment(self):
+        ## check experiment
+        mat = nx.adjacency_matrix(self).todense()
+        isuptri = np.allclose(mat, np.triu(mat)) # check if upper triangular
+        assert isuptri
+        
+        for i in range(self.number_of_nodes()):
+            if self.in_degree()[i] == 0 :
+                assert i == 0
+                
+            elif self.in_degree()[i] > 1:
+                assert self.nodes[i]['info'].type == ('beamsplitter' or 'frequencysplitter')
+                
+            elif self.in_degree()[i] == 1:
+                pass
+            else:
+                raise ValueError()
+                
+            if self.out_degree()[i] == 0:
+                self.terminate_path(i)
+            
+            elif self.out_degree()[i] > 1:
+    #            assert self.nodes[i]['info'].type == 'beamsplitter'
+                assert self.in_degree()[i] == 1 or self.in_degree()[i] == 0
+                
+            elif self.out_degree()[i] == 1:
+                pass
+            else:
+                raise ValueError()
+        return 
+        
 
-
+    def simulate(self, env):
+        for i in range(0,self.n_components):
+        
+            pre = list(self.predecessors(i))
+            suc = list(self.successors(i)) 
+            
+            if len(pre) > 0:
+                env_in = []
+                for p in pre:
+                    env_in.append( self[p][i]['env'])
+        #            self.plot_env(self[p][i]['env'], title='Edge{}-{}, {}-{}'.format(p,i, self.nodes[p]['title'], self.nodes[i]['title']))
+            else:
+                env_in = [env]
+                
+            
+            
+            env_out = self.nodes[i]['info'].simulate(env_in)
+            for jj in range(self.out_degree()[i]):
+                s = suc[jj]
+        
+                self[i][s]['edge_name'] = 'Edge-{}-{}'.format(i,s)
+                self[i][s]['env'] = env_out[jj]
+        return
+    
+        
+        
 ## ***************************************************************88    
 
 class GeneticAlgorithmParameters(object):

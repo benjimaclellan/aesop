@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from itertools import count
-from copy import copy
+from copy import copy, deepcopy
 #from assets.functions import splitindices
 
 #plt.close("all")
@@ -65,7 +65,9 @@ class Fiber(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = 0
     
-    def simulate(self, env, visualize=False):
+    def simulate(self, env_in, visualize=False):
+        env = env_in[0]
+        
         fiber_len = self.at[0]   
         D = np.zeros(env.f.shape).astype('complex')
         for n in range(0, len(self.beta)):    
@@ -76,8 +78,8 @@ class Fiber(Component):
         
         if visualize:
             self.lines = ((None),)
-            
-        return
+        
+        return [env]
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -106,7 +108,9 @@ class PhaseModulator(Component):
         self.FINETUNE_SKIP = 0
         
     
-    def simulate(self, env, visualize=False):
+    def simulate(self, env_in, visualize=False):
+        env = env_in[0]
+        
         M = self.at[0]       # amplitude []
         NU = self.at[1]      # frequency [Hz]
         PHI = self.at[2]     # phase offset [rad]
@@ -119,7 +123,7 @@ class PhaseModulator(Component):
         if visualize:
             self.lines = (('t',phase),)
         
-        return
+        return [env]
 
     def newattribute(self):
         at = []
@@ -149,7 +153,9 @@ class AWG(Component):
         self.FINETUNE_SKIP = 1
  
     
-    def simulate(self, env, visualize=False):
+    def simulate(self, env_in, visualize=False):
+        env = env_in[0]
+        
         nlevels = self.at[0] + 1
         phasevalues = [0] + self.at[1:]
         
@@ -166,13 +172,13 @@ class AWG(Component):
         phasetmp = phasetmp[shift1:]
         phase = phasetmp[0:len(env.t)] 
         
-        env.At = env.At * np.exp(1j * phase) * (.95**nlevels) #loss here
+        env.At = env.At * np.exp(1j * phase) #* (.95**nlevels) #loss here
         env.Af = env.FFT(env.At, env.dt)
         
         if visualize:
             self.lines = (('t',phase),)
         
-        return
+        return [env]
     
     def newattribute(self):
         n = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
@@ -221,6 +227,8 @@ class WaveShaper(Component):
  
     
     def simulate(self, env, visualize = False):
+        env = env[0]
+        
         ampvalues = self.at[0:self.N_PARAMETERS//2]
         phasevalues = self.at[self.N_PARAMETERS//2:]
         
@@ -244,7 +252,7 @@ class WaveShaper(Component):
         if visualize:
             self.lines = (('f',ampmask), ('f',phasemask))
         
-        return
+        return [env]
     
     def windowmask(self, mask, N, n):
         totalbins = int(np.ceil( N / n ) )
@@ -284,7 +292,6 @@ class BeamSplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'beamsplitter'
-        self.ratio = 0.5
         self.N_PARAMETERS = 1
         self.UPPER = [0.5]
         self.LOWER = [0.5]
@@ -293,10 +300,29 @@ class BeamSplitter(Component):
         self.FINETUNE_SKIP = 0
     
     def simulate(self, env, visualize=False):
-        raise ValueError()        
+        if len(env) == 1: # we treat the bs as a splitter
+            env_out = 2*deepcopy(env)
+            for ii in range(0,2):
+                env_out[ii].At *= np.sqrt(self.at[0])
+                env_out[ii].Af *= np.sqrt(self.at[0])
+        
+        elif len(env) > 1: # we treat the bs as a coupler
+        
+            At = np.zeros( env[0].At.shape ).astype('complex')
+            Af = np.zeros( env[0].Af.shape ).astype('complex')
+            for env_i in env:
+                At += env_i.At
+                Af += env_i.Af
+            
+            env_out = env[0]
+            env_out.Af = Af
+            env_out.At = At
+            
+            env_out = [env_out]
+            
         if visualize:
             self.lines = ((None),)    
-        return
+        return env_out
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -307,3 +333,69 @@ class BeamSplitter(Component):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
         self.at = at
         return at
+
+
+
+
+class FrequencySplitter(Component):
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'frequencysplitter'
+        self.N_PARAMETERS = 1
+        self.UPPER = [0.2]
+        self.LOWER = [-0.2]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [0.1]
+        self.FINETUNE_SKIP = 0
+    
+    def simulate(self, env, visualize=False):
+        if len(env) == 1: # we treat as a splitter
+            
+            fmaska = np.ones(env[0].Af.shape).astype('bool')
+            
+#            split = self.at[0] * (env[0].f[-1]) 
+            split = self.at[0] * env[0].df * env[0].f.shape[0]
+            
+            fmaska[env[0].f > split] = 0
+            fmaskb = np.logical_not(fmaska)
+
+            env_a = deepcopy(env[0])
+            env_b = deepcopy(env[0])
+        
+            
+            env_a.Af *= fmaska
+            env_b.Af *= fmaskb
+
+            env_a.At = env[0].IFFT(env_a.Af, env[0].dt)
+            env_b.At = env[0].IFFT(env_b.Af, env[0].dt)
+
+            env_out = [env_a, env_b]
+            
+        elif len(env) > 1: # we treat the bs as a coupler
+        
+            At = np.zeros( env[0].At.shape ).astype('complex')
+            Af = np.zeros( env[0].Af.shape ).astype('complex')
+            for env_i in env:
+                At += env_i.At
+                Af += env_i.Af
+            
+            env_out = env[0]
+            env_out.Af = Af
+            env_out.At = At
+            
+            env_out = [env_out]
+            
+        if visualize:
+            self.lines = ((None),)    
+        return env_out
+    
+    def newattribute(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
+    
+    def mutate(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
+
