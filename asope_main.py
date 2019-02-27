@@ -10,7 +10,7 @@ import uuid
 
 from assets.functions import extractlogbook, plot_individual, save_experiment, load_experiment
 from assets.environment import PulseEnvironment
-from assets.components import Fiber, AWG, PhaseModulator, WaveShaper
+from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from assets.classes import Experiment, GeneticAlgorithmParameters
 
 from optimization.geneticalgorithminner import inner_geneticalgorithm
@@ -20,16 +20,32 @@ plt.close("all")
 
 ## ************************************************
 
-def main(filename = None):                  
+def main(filename = None):
     if filename == None: save = False
 #    filename = 'results/' + str(uuid.uuid4().hex)
 #    filename = 'results/' + time.strftime("%Y_%m_%d-%H_%M_%S")
     
     env = PulseEnvironment(p = 2, q = 1)
+#    
+#    components = [AWG(), Fiber()]
+#    adj = [ (0,1) ]
+#    terminal = 1
     
-    components = [AWG(), Fiber()]
+    components = [FrequencySplitter(), AWG(), Fiber(), AWG(), Fiber(), PowerSplitter()]
+    adj = [ (0,1), (0,3), (1,2), (3,4), (4,5), (2,5)]
+    terminal = 5
+    
     experiment = Experiment()
-    experiment.buildexperiment(components)
+    experiment.buildexperiment(components, adj)
+
+    experiment.terminal = 'terminal{}'.format(terminal)
+    
+    plt.figure()
+    experiment.draw()
+    plt.show()
+    plt.pause(0.2)
+
+    experiment.checkexperiment()
         
     gap = GeneticAlgorithmParameters()
     gap.NFITNESS = 2
@@ -37,7 +53,7 @@ def main(filename = None):
     gap.MULTIPROC = True
     gap.NCORES = mp.cpu_count()
     gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 50              # number of generations
+    gap.N_GEN = 400              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -70,20 +86,23 @@ def main(filename = None):
         experiment.setattributes(individual)
         experiment.simulate(env)
         fitness = env.fitness()
-        plot_individual(env, fitness)
+#        plot_individual(env, fitness)
         
         # Now fine tune the best of the hall of fame
         individual = finetune_individual(individual, env, experiment)
         env.reset()
         print(individual)
         experiment.setattributes(individual)
-        experiment.simulate(env)
         
+        env = experiment.simulate(env)
         fitness = env.fitness()
-        plot_individual(env, fitness)
+        experiment.plot_env(env)
+        
+        
+#        plot_individual(env_final, fitness)
         plt.show()
         
-        experiment.visualize(env)
+#        experiment.visualize(env)
         
         if save:
             save_experiment(filename, experiment, env)

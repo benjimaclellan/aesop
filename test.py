@@ -8,7 +8,7 @@ import networkx as nx
 
 from assets.functions import extractlogbook, plot_individual, save_experiment, load_experiment, splitindices
 from assets.environment import PulseEnvironment
-from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, BeamSplitter, FrequencySplitter
+from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from assets.classes import Experiment, GeneticAlgorithmParameters
 from copy import copy, deepcopy
 from optimization.geneticalgorithminner import inner_geneticalgorithm
@@ -17,49 +17,27 @@ from optimization.gradientdescent import finetune_individual
 plt.close("all")
 
 ## -----------------------------------
-env = PulseEnvironment(p = 2, q = 1)
+env = PulseEnvironment(p = 3, q = 2)
     
-#components = [FrequencySplitter(), AWG(), Fiber(), AWG(), Fiber()]#, BeamSplitter()]
-#adj = [ (0,1), (1,2), (0,3), (3,4)]#, (2,5), (4,5) ]
-##ind = [[0.5], [2, np.pi/2, 3*np.pi/2] , [1], [2, 0, np.pi], [4], [0.5]]
-#ind = [ comp.newattribute() for comp in components ]
-#nodes = [i for i in range(0,len(components))]
+components = [FrequencySplitter(), AWG(), Fiber(), AWG(), Fiber(), PowerSplitter()]
+adj = [ (0,1), (0,3), (1,2), (3,4), (4,5), (2,5)]
+terminal = 5
 
-
-components = [FrequencySplitter(), Fiber(), Fiber(), BeamSplitter()]
-adj = [ (0,1), (0,2), (2,3), (1,3) ]
-ind = [[0.00], [10], [0.5], [0.5] ]
-#ind = [ comp.newattribute() for comp in components ]
-nodes = [i for i in range(0,len(components))]
-
+ind = [[0.02], [1, -1.6076094355304262], [1592.0], [1, -1.6355283141702814], [1311.0], [0.5]]
 
 E = Experiment()
+E.buildexperiment(components, adj)
 
+E.terminal = 'terminal{}'.format(terminal)
 
-E.add_nodes_from(nodes)
-E.add_edges_from(adj)
-E.terminal_nodes = []
-
-E.n_components = E.number_of_nodes()
-for i in range(E.number_of_nodes()):
-    E.nodes[i]['title'] = components[i].name
-    E.nodes[i]['info'] = components[i]
 E.setattributes(ind)
-
-
 E.checkexperiment()
-E.simulate(env)
 
-
-plt.show()
-    
-    
 plt.figure()
 E.draw()
 
-for terminal_node in E.terminal_nodes:
-    for p in E.predecessors(terminal_node):
-        env = E[p][terminal_node]['env']
-        E.plot_env(env)
-plt.show()
 
+env = E.simulate(env)
+E.plot_env(env)
+fitness = env.fitness()
+print(fitness)

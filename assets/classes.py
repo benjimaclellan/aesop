@@ -19,16 +19,28 @@ class Environment(object):
 
 class Experiment(nx.DiGraph):
     
-    def buildexperiment(self, components):
-        self.n_components = len(components)
-        self.clear()
-        
-        self.add_node(-1, title = 'input', info = None)
-        for i in range(0, self.n_components):
-            self.add_edges_from([(i-1, i)])
-            self.nodes[i]['title'] = components[i].name
-            self.nodes[i]['info'] = components[i]
+#    def buildexperiment(self, components):
+#        self.n_components = len(components)
+#        self.clear()
+#        
+#        self.add_node(-1, title = 'input', info = None)
+#        for i in range(0, self.n_components):
+#            self.add_edges_from([(i-1, i)])
+#            self.nodes[i]['title'] = components[i].name
+#            self.nodes[i]['info'] = components[i]
             
+    def buildexperiment(self, components, adj):
+        nodes = [i for i in range(0,len(components))]
+        
+        self.add_nodes_from(nodes)
+        self.add_edges_from(adj)
+        self.terminal_nodes = []
+        
+        self.n_components = self.number_of_nodes()
+        for i in range(self.number_of_nodes()):
+            self.nodes[i]['title'] = components[i].name
+            self.nodes[i]['info'] = components[i]    
+    
     def terminate_path(self, node_number):
         self.add_node('terminal{}'.format(node_number), title = 'terminal{}'.format(node_number))
         self.add_edge(node_number, 'terminal{}'.format(node_number))
@@ -47,15 +59,9 @@ class Experiment(nx.DiGraph):
 #        return
         
     def draw(self):
-#        plt.figure()
         labeldict = {}
         for i in self.nodes():
-#            labeldict[i] = 
-#        for i in range(0, self.n_components):
             labeldict[i] = self.nodes[i]['title']
-            
-#        nx.draw_spectral(self, labels = labeldict, with_labels=True)
-#        nx.draw_spring(self, labels = labeldict, with_labels=True)
         nx.draw_shell(self, labels = labeldict, with_labels=True)    
         
     def visualize(self, env):
@@ -103,10 +109,7 @@ class Experiment(nx.DiGraph):
         ax[1].legend()
         
         
-        
-        
-        
-        
+
     def checkexperiment(self):
         ## check experiment
         mat = nx.adjacency_matrix(self).todense()
@@ -118,7 +121,7 @@ class Experiment(nx.DiGraph):
                 assert i == 0
                 
             elif self.in_degree()[i] > 1:
-                assert self.nodes[i]['info'].type == ('beamsplitter' or 'frequencysplitter')
+                assert self.nodes[i]['info'].type == ('powersplitter' or 'frequencysplitter')
                 
             elif self.in_degree()[i] == 1:
                 pass
@@ -129,7 +132,7 @@ class Experiment(nx.DiGraph):
                 self.terminate_path(i)
             
             elif self.out_degree()[i] > 1:
-    #            assert self.nodes[i]['info'].type == 'beamsplitter'
+    #            assert self.nodes[i]['info'].type == 'powersplitter'
                 assert self.in_degree()[i] == 1 or self.in_degree()[i] == 0
                 
             elif self.out_degree()[i] == 1:
@@ -139,7 +142,7 @@ class Experiment(nx.DiGraph):
         return 
         
 
-    def simulate(self, env):
+    def simulate(self, env, visualize=False):
         for i in range(0,self.n_components):
         
             pre = list(self.predecessors(i))
@@ -160,8 +163,12 @@ class Experiment(nx.DiGraph):
                 s = suc[jj]
         
                 self[i][s]['edge_name'] = 'Edge-{}-{}'.format(i,s)
-                self[i][s]['env'] = env_out[jj]
-        return
+                self[i][s]['env'] = env_out[jj]    
+            
+        p = list(self.predecessors(self.terminal))[0]
+        env_out = self[p][self.terminal]['env']
+            
+        return env_out
     
         
         

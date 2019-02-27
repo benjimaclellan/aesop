@@ -3,6 +3,7 @@ from deap import tools, base, creator
 import random
 import multiprocess as mp
 from assets.functions import splitindices
+
 ## --------------------------------------------------------------------
 """
 Function for creating a New Individual (NA) in the Inner GA
@@ -69,7 +70,7 @@ Fitness function for Inner GA
 def FIT_Inner(individual, env, experiment):
     env.reset()
     experiment.setattributes(individual)
-    experiment.simulate(env)
+    env = experiment.simulate(env)
     
     fitness = env.fitness()
     
@@ -161,6 +162,8 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
 
     # Begin the generational process
     for gen in range(1, ngen + 1):
+        
+        
         NUM_ELITE = 2
         NUM_MATE_POOL = 3 * len(population) // 4
         
@@ -223,6 +226,7 @@ def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)
         if verbose:
             print(logbook.stream)
+    
     
     if gap.MULTIPROC: 
         pool.close()        

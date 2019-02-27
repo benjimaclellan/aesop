@@ -59,10 +59,10 @@ class Fiber(Component):
         self.Tr = 0.5
         self.gamma = 100
         self.N_PARAMETERS = 1
-        self.UPPER = [20000]
+        self.UPPER = [2000]
         self.LOWER = [0]
-        self.DTYPE = ['float']
-        self.DSCRTVAL = [None]
+        self.DTYPE = ['int']
+        self.DSCRTVAL = [1]
         self.FINETUNE_SKIP = 0
     
     def simulate(self, env_in, visualize=False):
@@ -172,7 +172,7 @@ class AWG(Component):
         phasetmp = phasetmp[shift1:]
         phase = phasetmp[0:len(env.t)] 
         
-        env.At = env.At * np.exp(1j * phase) #* (.95**nlevels) #loss here
+        env.At = env.At * np.exp(1j * phase) * (.99**nlevels) #loss here
         env.Af = env.FFT(env.At, env.dt)
         
         if visualize:
@@ -288,15 +288,15 @@ class WaveShaper(Component):
 
 
 
-class BeamSplitter(Component):
+class PowerSplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
-        self.type = 'beamsplitter'
+        self.type = 'powersplitter'
         self.N_PARAMETERS = 1
         self.UPPER = [0.5]
         self.LOWER = [0.5]
         self.DTYPE = ['float']
-        self.DSCRTVAL = [None]
+        self.DSCRTVAL = [0.1]
         self.FINETUNE_SKIP = 0
     
     def simulate(self, env, visualize=False):
@@ -342,10 +342,10 @@ class FrequencySplitter(Component):
     def datasheet(self):
         self.type = 'frequencysplitter'
         self.N_PARAMETERS = 1
-        self.UPPER = [0.2]
-        self.LOWER = [-0.2]
+        self.UPPER = [0.06]
+        self.LOWER = [-0.06]
         self.DTYPE = ['float']
-        self.DSCRTVAL = [0.1]
+        self.DSCRTVAL = [0.02]
         self.FINETUNE_SKIP = 0
     
     def simulate(self, env, visualize=False):
