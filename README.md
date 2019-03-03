@@ -1,4 +1,4 @@
-# ASOPE: Nested Genetic Algorithm for Automated Search of Optical Processing Experiments
+# ASOPE: Automated Search of Optical Processing Experiments
 
 This a scientific computing software for automatically searching for optical experiments that are 'interesting'.
 
@@ -42,7 +42,7 @@ I can't imagine I will ever get to the contributing stage.
 
 ## Versioning
 
-Git is used, of course
+
 
 ## Authors
 

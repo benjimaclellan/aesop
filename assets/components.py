@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from itertools import count
 from copy import copy, deepcopy
-#from assets.functions import splitindices
+from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
 #plt.close("all")
 
@@ -64,22 +64,25 @@ class Fiber(Component):
         self.DTYPE = ['int']
         self.DSCRTVAL = [1]
         self.FINETUNE_SKIP = 0
-    
-    def simulate(self, env_in, visualize=False):
-        env = env_in[0]
+        self.splitter = False
+        
+    def simulate(self, env, At, visualize=False):
         
         fiber_len = self.at[0]   
         D = np.zeros(env.f.shape).astype('complex')
         for n in range(0, len(self.beta)):    
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
         D = -1j * D
-        env.Af = np.exp(fiber_len * D) * env.Af
-        env.At = env.IFFT( env.Af, env.dt )
+        
+#        env.Af = np.exp(fiber_len * D) * env.Af
+#        env.At = env.IFFT( env.Af, env.dt )
+        Af = np.exp(fiber_len * D) * env.FFT(At, env.dt)
+        At = env.IFFT( Af, env.dt )
         
         if visualize:
             self.lines = ((None),)
         
-        return [env]
+        return At #env
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -106,10 +109,10 @@ class PhaseModulator(Component):
         self.DTYPE = ['float', 'float', 'float']
         self.DSCRTVAL = [None, 1e6, None]
         self.FINETUNE_SKIP = 0
-        
+        self.splitter = False
     
-    def simulate(self, env_in, visualize=False):
-        env = env_in[0]
+    def simulate(self, env, At,  visualize=False):
+#        env = env_in[0]
         
         M = self.at[0]       # amplitude []
         NU = self.at[1]      # frequency [Hz]
@@ -117,13 +120,16 @@ class PhaseModulator(Component):
         phase = (M/2)*np.cos(2*np.pi* NU * env.t + PHI) + M/2
         
         ## Apply phase modulator in time-domain, and update frequency
-        env.At = env.At * np.exp(1j * phase)                
-        env.Af = env.FFT(env.At, env.dt)
+#        env.At = env.At * np.exp(1j * phase)                
+#        env.Af = env.FFT(env.At, env.dt)
+        
+        At = At * np.exp(1j * phase)                
+#        env.Af = env.FFT(env.At, env.dt)
         
         if visualize:
             self.lines = (('t',phase),)
         
-        return [env]
+        return At #[env]
 
     def newattribute(self):
         at = []
@@ -151,10 +157,10 @@ class AWG(Component):
         self.DTYPE = ['int', 'float']
         self.DSCRTVAL = [1, None]
         self.FINETUNE_SKIP = 1
- 
+        self.splitter = False
     
-    def simulate(self, env_in, visualize=False):
-        env = env_in[0]
+    def simulate(self, env, At, visualize=False):
+#        env = env_in[0]
         
         nlevels = self.at[0] + 1
         phasevalues = [0] + self.at[1:]
@@ -172,13 +178,16 @@ class AWG(Component):
         phasetmp = phasetmp[shift1:]
         phase = phasetmp[0:len(env.t)] 
         
-        env.At = env.At * np.exp(1j * phase) * (.99**nlevels) #loss here
-        env.Af = env.FFT(env.At, env.dt)
+#        env.At = env.At * np.exp(1j * phase) * (.99**nlevels) #loss here
+#        env.Af = env.FFT(env.At, env.dt)
         
-        if visualize:
-            self.lines = (('t',phase),)
+        At = At * np.exp(1j * phase) #* (.99**nlevels) #loss here
+#        env.Af = env.FFT(env.At, env.dt)
         
-        return [env]
+#        if visualize:
+#            self.lines = (('t',phase),)
+        
+        return At  #[env]
     
     def newattribute(self):
         n = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
@@ -224,10 +233,9 @@ class WaveShaper(Component):
         self.DTYPE = self.N_PARAMETERS * ['float']
         self.DSCRTVAL = self.N_PARAMETERS * [None]
         self.FINETUNE_SKIP = 0
- 
+        self.splitter = False
     
-    def simulate(self, env, visualize = False):
-        env = env[0]
+    def simulate(self, env, At, visualize = False):
         
         ampvalues = self.at[0:self.N_PARAMETERS//2]
         phasevalues = self.at[self.N_PARAMETERS//2:]
@@ -245,14 +253,17 @@ class WaveShaper(Component):
         ampmask = self.windowmask(amp, env.N, n)
         phasemask = self.windowmask(phase, env.N, n)
         
-            
-        env.Af = ampmask * np.exp(1j * phasemask) * env.Af
-        env.At = env.IFFT( env.Af, env.dt )
-
-        if visualize:
-            self.lines = (('f',ampmask), ('f',phasemask))
         
-        return [env]
+        Af = ampmask * np.exp(1j * phasemask) * env.FFT(At, env.dt)
+        At = env.IFFT( Af, env.dt )
+        
+#        env.Af = ampmask * np.exp(1j * phasemask) * env.Af
+#        env.At = env.IFFT( env.Af, env.dt )
+
+#        if visualize:
+#            self.lines = (('f',ampmask), ('f',phasemask))
+        
+        return At
     
     def windowmask(self, mask, N, n):
         totalbins = int(np.ceil( N / n ) )
@@ -292,37 +303,23 @@ class PowerSplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'powersplitter'
-        self.N_PARAMETERS = 1
-        self.UPPER = [0.5]
-        self.LOWER = [0.5]
+        self.N_PARAMETERS = 0
+        self.UPPER = []
+        self.LOWER = []
         self.DTYPE = ['float']
-        self.DSCRTVAL = [0.1]
+        self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = 0
-    
-    def simulate(self, env, visualize=False):
-        if len(env) == 1: # we treat the bs as a splitter
-            env_out = 2*deepcopy(env)
-            for ii in range(0,2):
-                env_out[ii].At *= np.sqrt(self.at[0])
-                env_out[ii].Af *= np.sqrt(self.at[0])
+        self.splitter = True
         
-        elif len(env) > 1: # we treat the bs as a coupler
-        
-            At = np.zeros( env[0].At.shape ).astype('complex')
-            Af = np.zeros( env[0].Af.shape ).astype('complex')
-            for env_i in env:
-                At += env_i.At
-                Af += env_i.Af
-            
-            env_out = env[0]
-            env_out.Af = Af
-            env_out.At = At
-            
-            env_out = [env_out]
-            
-        if visualize:
-            self.lines = ((None),)    
-        return env_out
+    def simulate(self, env, At_in, num_outputs, visualize=False):        
+        num_inputs = At_in.shape[1]
+        S = (1/num_outputs) * np.ones([num_inputs, num_outputs])
+        Warning('Need to add the phase shifts in a splitter')
+        At_out = At_in.dot(S)
+#            
+#        if visualize:
+#            self.lines = ((None),)    
+        return At_out
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -347,47 +344,12 @@ class FrequencySplitter(Component):
         self.DTYPE = ['float']
         self.DSCRTVAL = [0.02]
         self.FINETUNE_SKIP = 0
-    
+        self.splitter = True
+        
     def simulate(self, env, visualize=False):
-        if len(env) == 1: # we treat as a splitter
-            
-            fmaska = np.ones(env[0].Af.shape).astype('bool')
-            
-#            split = self.at[0] * (env[0].f[-1]) 
-            split = self.at[0] * env[0].df * env[0].f.shape[0]
-            
-            fmaska[env[0].f > split] = 0
-            fmaskb = np.logical_not(fmaska)
-
-            env_a = deepcopy(env[0])
-            env_b = deepcopy(env[0])
         
-            
-            env_a.Af *= fmaska
-            env_b.Af *= fmaskb
-
-            env_a.At = env[0].IFFT(env_a.Af, env[0].dt)
-            env_b.At = env[0].IFFT(env_b.Af, env[0].dt)
-
-            env_out = [env_a, env_b]
-            
-        elif len(env) > 1: # we treat the bs as a coupler
         
-            At = np.zeros( env[0].At.shape ).astype('complex')
-            Af = np.zeros( env[0].Af.shape ).astype('complex')
-            for env_i in env:
-                At += env_i.At
-                Af += env_i.Af
-            
-            env_out = env[0]
-            env_out.Af = Af
-            env_out.At = At
-            
-            env_out = [env_out]
-            
-        if visualize:
-            self.lines = ((None),)    
-        return env_out
+        return 
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -398,4 +360,29 @@ class FrequencySplitter(Component):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
         self.at = at
         return at
+
+
+
+
+class Detector(Component):
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'photodetector'
+        self.N_PARAMETERS = 0
+        self.UPPER = []
+        self.LOWER = []
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [None]
+        self.FINETUNE_SKIP = 0
+        self.splitter = False
+    
+    def simulate(self, env, visualize=False):
+        self.output = env.P(env.At)
+        return self.output
+    
+    def newattribute(self):
+        raise ValueError('No attributes needed')
+    
+    def mutate(self):
+        raise ValueError('No attributes needed')
 

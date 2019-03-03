@@ -2,6 +2,28 @@ import fnmatch
 import pickle
 from beeprint import pp 
 import matplotlib.pyplot as plt
+import numpy as np
+
+def P(At):
+    return np.power( np.abs( At ), 2)
+    
+def PSD(Af, df):
+    return np.power( np.abs( Af ), 2) / df
+
+def FFT( At, dt):   # proper Fast Fourier Transform
+    return np.fft.fftshift(np.fft.fft(np.fft.fftshift(At)))*dt
+
+def IFFT( Af, dt):  # proper Inverse Fast Fourier Transform
+    return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af)))/dt
+
+def RFSpectrum( At, dt):
+    return np.abs(np.fft.rfft(np.power( np.abs( At ), 2)))
+
+
+
+
+
+
 
 def save_experiment(filename, experiment, env):
     with open(filename+'.pkl', 'wb') as output:
@@ -118,3 +140,65 @@ def splitindices(num, div):
         prev = indices[-1]
         indices.append(val + prev)
     return indices
+
+
+
+
+"""
+This is a recursive function which, based on certain rules of causality/etc finds the proper order to apply the components in, on a given graph E 
+"""
+
+def recurse(E, node, out_edges, path, startpoints, in_edges):
+    path_i = []    
+    while True:
+        path_i.append(node)
+        if len(E.suc(node)) == 0:
+            break        
+        
+        if not E.nodes[E.suc(node)[0]]['info'].splitter:
+            node = E.suc(node)[0]
+        else:
+            break
+    
+    path.append(path_i)
+    
+    if len(E.suc(node)) == 0:
+#        path.append([node])
+        if len(out_edges) > 0: # check if there's more unfinished paths
+            node = out_edges[0]; out_edges.pop(0)
+            (E, node, out_edges, path, startpoints, in_edges) = recurse(E, node, out_edges, path, startpoints, in_edges)
+        if len(startpoints) != 0:
+            node = startpoints[0]; startpoints.pop(0)
+            (E, node, out_edges, path, startpoints, in_edges) = recurse(E, node, out_edges, path, startpoints, in_edges)
+    
+    else:
+        node = E.suc(node)[0]
+#        path.append(path_i)
+        
+        if in_edges[node] == 0:# if this is the first time we encounter this node 
+            for s in E.suc(node): out_edges.append(s)
+            
+        in_edges[node] += 1 # we've encountered this node one more time
+        
+        if in_edges[node] == len(E.pre(node)): # in we've run into this node the right number of times
+            path.append([node]) # we can now process it
+            
+            if len(out_edges) > 0: # check if there's more unfinished paths
+                node = out_edges[0]
+                out_edges.pop(0)
+                (E, node, out_edges, path, startpoints, in_edges) = recurse(E, node, out_edges, path, startpoints, in_edges)
+                
+        elif in_edges[node] != len(E.pre(node)): ## finished loop?
+            if len(out_edges) > 0:
+                node = out_edges[0]
+                out_edges.pop(0)
+                (E, node, out_edges, path, startpoints, in_edges) = recurse(E, node, out_edges, path, startpoints, in_edges)
+            
+        if len(startpoints) != 0:
+            node = startpoints[0]
+            startpoints.pop(0)
+            (E, node, out_edges, path, startpoints, in_edges) = recurse(E, node, out_edges, path, startpoints, in_edges)
+    
+    return (E, node, out_edges, path, startpoints, in_edges)
+
+
