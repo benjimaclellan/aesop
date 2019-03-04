@@ -10,12 +10,14 @@ def P(At):
 def PSD(Af, df):
     return np.power( np.abs( Af ), 2) / df
 
-def FFT( At, dt):   # proper Fast Fourier Transform
+def FFT( At, dt, axis = 1):   # proper Fast Fourier Transform
+#    return np.fft.fftshift(np.fft.fft(np.fft.fftshift(At,axes=axis),axis=axis),axes=axis)*dt
     return np.fft.fftshift(np.fft.fft(np.fft.fftshift(At)))*dt
 
-def IFFT( Af, dt):  # proper Inverse Fast Fourier Transform
+def IFFT( Af, dt,axis=1):  # proper Inverse Fast Fourier Transform
+#    return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af,axes=axis),axis=axis),axes=axis)/dt
     return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af)))/dt
-
+    
 def RFSpectrum( At, dt):
     return np.abs(np.fft.rfft(np.power( np.abs( At ), 2)))
 
@@ -23,18 +25,16 @@ def RFSpectrum( At, dt):
 
 
 
-
-
-def save_experiment(filename, experiment, env):
+def save_experiment(filename, experiment):
     with open(filename+'.pkl', 'wb') as output:
         pickle.dump(experiment, output, pickle.HIGHEST_PROTOCOL)
-        pickle.dump(env, output, pickle.HIGHEST_PROTOCOL)
+#        pickle.dump(env, output, pickle.HIGHEST_PROTOCOL)
         
 def load_experiment(filename):
     with open(filename+'.pkl', 'rb') as input:
         experiment = pickle.load(input)
-        env = pickle.load(input)
-    return experiment, env
+#        env = pickle.load(input)
+    return experiment
 
 def experiment_description(experiment, verbose=False, individual=None):
     """

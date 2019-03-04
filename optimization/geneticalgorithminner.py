@@ -17,19 +17,39 @@ def CREATE_Inner(experiment):
 Crosses two individuals in Inner GA
 """
 def CX_Inner(ind1, ind2):
-    size = len(ind1)
-    if size == 1:
-        ind1[:], ind2[:] = ind2[:].copy(), ind1[:].copy()   
-    else:
-        cxpoint1 = random.randint(1, size)
-        cxpoint2 = random.randint(1, size - 1)
-        if cxpoint2 >= cxpoint1:
-            cxpoint2 += 1
-        else: # Swap the two cx points
-            cxpoint1, cxpoint2 = cxpoint2, cxpoint1
     
-        ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] \
-            = ind2[cxpoint1:cxpoint2].copy(), ind1[cxpoint1:cxpoint2].copy()   
+#    a = ind1
+#    b = ind2 
+#    ind1 = b
+#    ind2 = a
+    keys = list(ind1.keys())
+    
+    if len(keys) == 0:
+        raise ValueError
+    elif len(keys) == 1:
+        ind1, ind2 = ind2.copy(), ind1.copy()
+    elif len(keys) >= 2:
+        cx_split = random.randint(1,len(keys)-1)
+    
+        keysa = keys[0:cx_split]
+        keysb = keys[cx_split:]
+        
+        for key in keysa: ind1[key] = ind2[key]
+        for key in keysb: ind2[key] = ind1[key]
+        
+#    size = len(ind1)
+#    if size == 1:
+#        ind1[:], ind2[:] = ind2[:].copy(), ind1[:].copy()   
+#    else:
+#        cxpoint1 = random.randint(1, size)
+#        cxpoint2 = random.randint(1, size - 1)
+#        if cxpoint2 >= cxpoint1:
+#            cxpoint2 += 1
+#        else: # Swap the two cx points
+#            cxpoint1, cxpoint2 = cxpoint2, cxpoint1
+#    
+#        ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] \
+#            = ind2[cxpoint1:cxpoint2].copy(), ind1[cxpoint1:cxpoint2].copy()   
     
     return ind1, ind2
 
@@ -38,9 +58,9 @@ def CX_Inner(ind1, ind2):
 Mutates a single individual in Inner GA
 """
 
-def MUT_Inner(experiment, ind):    
-    mut_comp = np.random.randint(0,experiment.n_components)    
-    ind[mut_comp] = experiment.nodes[mut_comp]['info'].mutate()
+def MUT_Inner(experiment, ind):  
+    mut_node = random.choice(list(ind))  
+    ind[mut_node] = experiment.nodes[mut_node]['info'].mutate()
     return ind,
 
 
@@ -68,11 +88,13 @@ def SEL_Inner(individuals, k):
 Fitness function for Inner GA
 """
 def FIT_Inner(individual, env, experiment):
-    env.reset()
+
     experiment.setattributes(individual)
-    env = experiment.simulate(env)
+    experiment.simulate(env)
     
-    fitness = env.fitness()
+    measurement_node = experiment.measurement_nodes[0]
+    At = experiment.nodes[measurement_node]['output'].reshape(env.N)
+    fitness = env.fitness(At)
     
     return fitness[0]*fitness[1],
 
@@ -90,7 +112,7 @@ def inner_geneticalgorithm(gap, env, experiment):
     except: pass
 
     creator.create("FitnessMax", base.Fitness, weights=gap.WEIGHTS)
-    creator.create("Individual", list, fitness=creator.FitnessMax)
+    creator.create("Individual", dict, fitness=creator.FitnessMax)
 
     toolbox = base.Toolbox()
     toolbox.register("attribute", CREATE_Inner, experiment)

@@ -89,15 +89,14 @@ class PulseEnvironment(Environment):
         self.At = self.IFFT(self.Af, self.dt)
         return
             
-    def fitness(self):
-#        fitness = np.mean( self.TalbotEffect(self.p, self.q) )
-        fitness = self.TalbotEffect(self.p, self.q)
+    def fitness(self, At):
+        fitness = self.TalbotEffect(At, self.p, self.q)
         return fitness
     
-    def TalbotEffect(self, p, q):
-        fitness2 = np.max(self.P(self.At))
+    def TalbotEffect(self, At, p, q):
+        fitness2 = np.max(self.P(At))
             
-        peakinds = peakutils.indexes(self.RFSpectrum(self.At, self.dt))
+        peakinds = peakutils.indexes(self.RFSpectrum(At, self.dt))
         
         peakf_dist = np.mean( self.df * np.diff(peakinds) )
         peakf_distTarget = self.f_rep / (p/q)

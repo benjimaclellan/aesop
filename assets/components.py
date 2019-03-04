@@ -63,7 +63,7 @@ class Fiber(Component):
         self.LOWER = [0]
         self.DTYPE = ['int']
         self.DSCRTVAL = [1]
-        self.FINETUNE_SKIP = 0
+        self.FINETUNE_SKIP = None
         self.splitter = False
         
     def simulate(self, env, At, visualize=False):
@@ -108,7 +108,7 @@ class PhaseModulator(Component):
         self.LOWER = [0, 1e6, 0]
         self.DTYPE = ['float', 'float', 'float']
         self.DSCRTVAL = [None, 1e6, None]
-        self.FINETUNE_SKIP = 0
+        self.FINETUNE_SKIP = False
         self.splitter = False
     
     def simulate(self, env, At,  visualize=False):
@@ -156,12 +156,10 @@ class AWG(Component):
         self.LOWER = [1] + [-np.pi]
         self.DTYPE = ['int', 'float']
         self.DSCRTVAL = [1, None]
-        self.FINETUNE_SKIP = 1
+        self.FINETUNE_SKIP = [0] #index to skip when fine-tuning using gradient descent
         self.splitter = False
     
-    def simulate(self, env, At, visualize=False):
-#        env = env_in[0]
-        
+    def simulate(self, env, At, visualize=False):        
         nlevels = self.at[0] + 1
         phasevalues = [0] + self.at[1:]
         
@@ -178,16 +176,12 @@ class AWG(Component):
         phasetmp = phasetmp[shift1:]
         phase = phasetmp[0:len(env.t)] 
         
-#        env.At = env.At * np.exp(1j * phase) * (.99**nlevels) #loss here
-#        env.Af = env.FFT(env.At, env.dt)
-        
         At = At * np.exp(1j * phase) #* (.99**nlevels) #loss here
-#        env.Af = env.FFT(env.At, env.dt)
         
 #        if visualize:
 #            self.lines = (('t',phase),)
         
-        return At  #[env]
+        return At
     
     def newattribute(self):
         n = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
@@ -232,7 +226,7 @@ class WaveShaper(Component):
         self.LOWER = [-1,-1,-1,0] + [-1,-1,-1,0]
         self.DTYPE = self.N_PARAMETERS * ['float']
         self.DSCRTVAL = self.N_PARAMETERS * [None]
-        self.FINETUNE_SKIP = 0
+        self.FINETUNE_SKIP = None
         self.splitter = False
     
     def simulate(self, env, At, visualize = False):
@@ -253,6 +247,9 @@ class WaveShaper(Component):
         ampmask = self.windowmask(amp, env.N, n)
         phasemask = self.windowmask(phase, env.N, n)
         
+#        plt.figure()
+#        plt.plot(ampmask)
+#        plt.plot(phasemask)
         
         Af = ampmask * np.exp(1j * phasemask) * env.FFT(At, env.dt)
         At = env.IFFT( Af, env.dt )
@@ -270,7 +267,6 @@ class WaveShaper(Component):
         center = N // 2
         bins2center = int( np.floor( center / n ) )
         offset = abs((bins2center*n) - center) - n//2
-#        print(N,n,offset)
         coursemask = np.zeros(mask.shape)
         slc = (0, n-offset)
         coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
@@ -312,11 +308,17 @@ class PowerSplitter(Component):
         self.splitter = True
         
     def simulate(self, env, At_in, num_outputs, visualize=False):        
+        
         num_inputs = At_in.shape[1]
-        S = (1/num_outputs) * np.ones([num_inputs, num_outputs])
-        Warning('Need to add the phase shifts in a splitter')
+        
+        assert num_inputs <= 2
+        assert num_outputs <= 2
+        
+        XX,YY = np.meshgrid(np.linspace(0,num_outputs-1, num_outputs), np.linspace(0,num_inputs-1, num_inputs))
+        S = np.sqrt(1/num_outputs) * np.exp(np.abs(XX - YY) * 1j * np.pi / num_outputs)
+
         At_out = At_in.dot(S)
-#            
+   
 #        if visualize:
 #            self.lines = ((None),)    
         return At_out
@@ -346,10 +348,25 @@ class FrequencySplitter(Component):
         self.FINETUNE_SKIP = 0
         self.splitter = True
         
-    def simulate(self, env, visualize=False):
+    def simulate(self, env, At_in, num_outputs, visualize=False):
+        num_inputs = At_in.shape[1]
         
+        assert num_inputs <= 1
+        assert num_outputs <= 2
+
+        Af_in = FFT(At_in[:,0], env.dt)
+                
+        splits = (env.f[0]-env.df, self.at[0]*env.f[-1])
+        split1 = min(splits)
+        split2 = max(splits)
         
-        return 
+        mask1 = np.ones(env.N)
+        mask1[env.f <= split1] = 0; mask1[env.f > split2] = 0        
+        mask2 = np.logical_not(mask1).astype('float')
+        
+        At_out = np.stack((IFFT(mask1*Af_in, env.dt), IFFT(mask2*Af_in,env.dt)), axis=1)
+
+        return At_out
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -361,28 +378,4 @@ class FrequencySplitter(Component):
         self.at = at
         return at
 
-
-
-
-class Detector(Component):
-    _num_instances = count(0)
-    def datasheet(self):
-        self.type = 'photodetector'
-        self.N_PARAMETERS = 0
-        self.UPPER = []
-        self.LOWER = []
-        self.DTYPE = ['float']
-        self.DSCRTVAL = [None]
-        self.FINETUNE_SKIP = 0
-        self.splitter = False
-    
-    def simulate(self, env, visualize=False):
-        self.output = env.P(env.At)
-        return self.output
-    
-    def newattribute(self):
-        raise ValueError('No attributes needed')
-    
-    def mutate(self):
-        raise ValueError('No attributes needed')
 

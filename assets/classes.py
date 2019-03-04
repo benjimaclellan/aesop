@@ -20,6 +20,70 @@ class Environment(object):
 
 class Experiment(nx.DiGraph):
     
+    def simulate(self, env):
+        for path_i, subpath in enumerate(self.path):
+            for ii, node in enumerate(subpath):  
+                
+                if len(self.pre(node)) == 0:
+                    At = self.nodes[node]['input']
+                    
+                if self.nodes[node]['info'].splitter:
+                    At = np.zeros([env.N, len(self.pre(node))]).astype('complex')
+                    for jj in range(len(self.pre(node))):
+                        At[:, jj] = self[self.pre(node)[jj]][node]['At']
+                                
+                    At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))))
+                    
+                    for jj in range(len(self.suc(node))):
+                        self[node][self.suc(node)[jj]]['At'] = At[:,jj]
+                
+                else:    
+                    if ii == 0:
+                        if len(self.pre(node)) == 0:
+                            At = env.At 
+                        else:
+                            At = self[self.pre(node)[ii]][node]['At']
+                    
+                    At = self.nodes[node]['info'].simulate(env, At) 
+                    
+                    if ii == len(subpath)-1 and len(self.suc(node)) > 0: # last node in subpath (need to save now)
+                        At = self.nodes[node]['info'].simulate(env, At)
+                        self[node][self.suc(node)[0]]['At'] = At
+                
+                if node in self.measurement_nodes:
+                    self.nodes[node]['output'] = At
+
+        return
+    
+    
+    
+    
+    def buildexperiment(self, components, adj, measurement_nodes):        
+        self.add_nodes_from(list(components.keys()))
+        self.add_edges_from(adj)
+        self.measurement_nodes = measurement_nodes
+        
+        for comp_key, comp in components.items():
+            self.nodes[comp_key]['title'] = comp.name
+            self.nodes[comp_key]['info'] = comp 
+    
+
+    
+    def checkexperiment(self):
+        ## check experiment
+        mat = nx.adjacency_matrix(self).todense()
+        isuptri = np.allclose(mat, np.triu(mat)) # check if upper triangular
+        assert isuptri
+        
+        ## ensure that any node with more than one predecessor/successor is a splitter
+        for node in self.nodes():
+            if (len(self.suc(node)) + len(self.pre(node)) == 0) and len(self.nodes()) > 1:
+                raise ValueError('There is an unconnected component.')
+            
+            if (len(self.suc(node)) > 1 or len(self.pre(node)) > 1) and not self.nodes[node]['info'].splitter:
+                raise ValueError("There is a component which splits the paths, but is not a 'splitter' type")
+    
+    
     def make_path(self):
         in_edges = {}
         for node in self.nodes(): 
@@ -40,6 +104,8 @@ class Experiment(nx.DiGraph):
         self.path = path
         return
     
+    
+    
     def check_path(self):
         assert hasattr(self, 'path')
         try:
@@ -52,19 +118,58 @@ class Experiment(nx.DiGraph):
             raise ValueError('There seems to be a problem with how this graph is transversed to perform the experiment')
         return 
 
+    def print_path(self):
+        assert hasattr(self, 'path')
+        print('This graph will be transversed as follows: {}'.format(self.path))
+        return
+
+
+    def newattributes(self):
+        attributes = {}#[]
+        for node in self.nodes():
+            if self.nodes[node]['info'].N_PARAMETERS > 0:
+                attributes[node] = self.nodes[node]['info'].newattribute()
+                
+#                attributes.append( self.nodes[node]['info'].newattribute() )
+        return attributes
+        
+    def setattributes(self, attributes):
+        for node in self.nodes():
+            if self.nodes[node]['info'].N_PARAMETERS > 0:
+                self.nodes[node]['info'].at = attributes[node]
+
+
+    """
+        Return the successors of a node (nodes which follow the current one)
+    """
     def suc(self, node):
         return list( self.successors(node) )
     
+    """
+        Return the predeccessors of a node (nodes which lead to the current one)
+    """
     def pre(self, node):
         return list( self.predecessors(node) )
         
-    def buildexperiment(self, components, adj):        
-        self.add_nodes_from(list(components.keys()))
-        self.add_edges_from(adj)
 
-        for comp_key, comp in components.items():
-            self.nodes[comp_key]['title'] = comp.name
-            self.nodes[comp_key]['info'] = comp 
+    def measure(self, env, measurement_node):
+        At = self.nodes[measurement_node]['output'].reshape(env.N)
+    
+        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
+        ax[0].set_title('Measurement node {}: {}'.format(measurement_node, self.nodes[measurement_node]['title']))
+        alpha = 0.4
+        ax[0].plot(env.t, env.P(env.At0), lw = 4, label='Input', alpha=alpha)
+        ax[0].plot(env.t, env.P(At), ls='--', label='Output')    
+        ax[0].legend()
+        
+        Af = env.FFT(At, env.dt)
+        ax[1].plot(env.f, env.PSD(env.Af0, env.df), lw = 4, label='Input', alpha=alpha)
+        ax[1].plot(env.f, env.PSD(Af, env.df), ls='-', label='Output')
+        ax[1].legend()
+        
+        
+
+
         
     def draw(self, titles = 'names'):
         with_labels = True
@@ -78,6 +183,7 @@ class Experiment(nx.DiGraph):
                 labeldict[i] = '{}, {}'.format(i, self.nodes[i]['title'])
             else:
                 with_labels = False
+        plt.figure()
         nx.draw_shell(self, labels = labeldict, with_labels=with_labels)    
         
     def visualize(self, env):
@@ -96,20 +202,7 @@ class Experiment(nx.DiGraph):
         ax[1].legend()
         return
             
-    def newattributes(self):
-        attributes = []
-        for node in self.nodes():
-            if self.nodes[node]['info'].N_PARAMETERS > 0:
-                attributes.append( self.nodes[node]['info'].newattribute() )
-        return attributes
-        
-    def setattributes(self, attributes):
-#        cnt = 0
-        for node in self.nodes():
-            if self.nodes[node]['info'].N_PARAMETERS > 0:
-#                self.nodes[node]['info'].at = attributes[cnt]
-                self.nodes[node]['info'].at = attributes[node]
-#                cnt += 1
+
 
     def printinfo(self):
         for i in range(0, self.n_components):
@@ -128,39 +221,7 @@ class Experiment(nx.DiGraph):
 #        ax[1].plot(env.f, env.P(env.Af), label='Output')
 #        ax[1].legend()
         
-        
-        
-    def checkexperiment(self):
-        ## check experiment
-        mat = nx.adjacency_matrix(self).todense()
-        isuptri = np.allclose(mat, np.triu(mat)) # check if upper triangular
-        assert isuptri
-        
-        ## ensure that any node with more than one predecessor/successor is a splitter
-        for node in self.nodes():
-            if (len(self.suc(node)) + len(self.pre(node)) == 0):
-                raise ValueError('There is an unconnected component.')
-            
-            if (len(self.suc(node)) > 1 or len(self.pre(node)) > 1) and not self.nodes[node]['info'].splitter:
-                raise ValueError("There is a component which splits the paths, but is not a 'splitter' type")
 
-
-
-    def simulate(self, env, visualize=False):
-        raise ValueError
-#        for i in range(0,self.n_components):
-#            
-#            env_out = self.nodes[i]['info'].simulate(env_in)
-#            for jj in range(self.out_degree()[i]):
-#                s = suc[jj]
-#        
-#                self[i][s]['edge_name'] = 'Edge-{}-{}'.format(i,s)
-#                self[i][s]['env'] = env_out[jj]    
-#            
-#        p = list(self.predecessors(self.terminal))[0]
-#        env_out = self[p][self.terminal]['env']
-            
-        return 
     
         
         
@@ -168,7 +229,7 @@ class Experiment(nx.DiGraph):
 
 class GeneticAlgorithmParameters(object):
     """
-    A simple class that stores all the common parameters for a genetic algorithm run.
+    A simple class that stores all the common parameters for running the genetic algorithm.
     """
     def __init__(self):
         self.N_POPULATION = 100

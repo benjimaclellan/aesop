@@ -20,32 +20,40 @@ plt.close("all")
 
 ## ************************************************
 
-def main(filename = None):
+if __name__ == '__main__': 
+#    """
+    filename = None
     if filename == None: save = False
 #    filename = 'results/' + str(uuid.uuid4().hex)
 #    filename = 'results/' + time.strftime("%Y_%m_%d-%H_%M_%S")
     
     env = PulseEnvironment(p = 2, q = 1)
-#    
-#    components = [AWG(), Fiber()]
-#    adj = [ (0,1) ]
-#    terminal = 1
+
+    components = (
+        {
+         0:AWG(),
+         1:Fiber(),
+        })
+    adj = [(0,1)]
     
-    components = [FrequencySplitter(), AWG(), Fiber(), AWG(), Fiber(), PowerSplitter()]
-    adj = [ (0,1), (0,3), (1,2), (3,4), (4,5), (2,5)]
-    terminal = 5
+    # note that the fitness function is evaluated at the first measurement_node
+    measurement_nodes = [1]
+    
     
     experiment = Experiment()
-    experiment.buildexperiment(components, adj)
-
-    experiment.terminal = 'terminal{}'.format(terminal)
-    
-    plt.figure()
-    experiment.draw()
-    plt.show()
-    plt.pause(0.2)
-
+    experiment.buildexperiment(components, adj, measurement_nodes)
     experiment.checkexperiment()
+
+    experiment.draw(titles = 'both')
+
+    experiment.make_path()
+    experiment.check_path()
+
+    # here we initialize what pulse we inject into each starting node
+    for node in experiment.nodes():
+        if len(experiment.pre(node)) == 0:
+            experiment.nodes[node]['input'] = env.At
+
         
     gap = GeneticAlgorithmParameters()
     gap.NFITNESS = 2
@@ -53,7 +61,7 @@ def main(filename = None):
     gap.MULTIPROC = True
     gap.NCORES = mp.cpu_count()
     gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 400              # number of generations
+    gap.N_GEN = 50              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -65,49 +73,53 @@ def main(filename = None):
     hof, population, logbook = inner_geneticalgorithm(gap, env, experiment)
     tstop = time.time()
 
-    log = extractlogbook(logbook)    
+#    log = extractlogbook(logbook)    
 #    plt.figure()
 #    plt.plot(log['gen'], log['max'], label='max') 
-#    plt.plot(log['gen'], log['min'], label='min') 
-#    plt.plot(log['gen'], log['avg'], label='avg') 
 #    plt.legend()
     
     print('\nElapsed time = {}'.format(tstop-tstart))
     print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
+#    """
+    
+    
     
     """
     Now we visualizing the best HOF individual found, and slightly improve it
     """    
     for j in range(gap.N_HOF):
         individual = hof[j]
+        measurement_node = experiment.measurement_nodes[0]
+        
         print(individual)
         
-        env.reset()
         experiment.setattributes(individual)
         experiment.simulate(env)
-        fitness = env.fitness()
-#        plot_individual(env, fitness)
         
-        # Now fine tune the best of the hall of fame
-        individual = finetune_individual(individual, env, experiment)
-        env.reset()
-        print(individual)
-        experiment.setattributes(individual)
+        At = experiment.nodes[measurement_node]['output'].reshape(env.N)
+        fitness = env.fitness(At)
+        print(fitness)
         
-        env = experiment.simulate(env)
-        fitness = env.fitness()
-        experiment.plot_env(env)
-        
-        
-#        plot_individual(env_final, fitness)
+        experiment.measure(env, measurement_node)    
         plt.show()
         
-#        experiment.visualize(env)
         
+        # Now fine tune the best of the hall of fame
+        individual_fine = finetune_individual(individual, env, experiment)
+        
+        experiment.setattributes(individual_fine)
+        experiment.simulate(env)
+        
+        At = experiment.nodes[measurement_node]['output'].reshape(env.N)
+        fitness = env.fitness(At)
+        
+        experiment.measure(env, measurement_node)  
+        plt.show()
+                
         if save:
             save_experiment(filename, experiment, env)
-        
-        return experiment, env
+#        
+#    return experiment, env
 
-if __name__ == '__main__': 
-    (experiment, env) = main()
+#if __name__ == '__main__': 
+#    (experiment, env) = main()
