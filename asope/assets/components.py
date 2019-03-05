@@ -4,7 +4,31 @@ from itertools import count
 from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
-#plt.close("all")
+"""
+ASOPE
+|- components.py
+
+Each component in the simulations is described by a custom 'Component' class. Within this class various physical parameters are stored (for example dispersion of a fiber) which are neeed for the simulation of an experimental setup containing that component, but also variables for the optimization. 
+
+Each component class a number of important class variables:
+    - type = what type of component is this (awg, powersplitter, fiber, etc)
+    - N_PARAMETERS = how many parameters on the component are to be optimized (as a list)
+    - UPPER = upper bound on your optimization parameters (as a list of length N_PARAMETERS)
+    - LOWER = lower bound on your optimization parameters (as a list of length N_PARAMETERS)
+    - DTYPE = the datatype of each parameter you are optimizing, either int or float (as a list)
+    - DSCRTVAL = the discretization step (resolution) when generating a random attribute for the parameters (None if you want continuous)
+    - FINETUNE_SKIP = this is for the fine-tuning using gradient descent. As some parameters are integers (for example, the number of steps on the AWG) and the grad-desc cannot deal with ints, we skip is. This is a list of the indices to skip
+    - splitter = Defines whether this component will have more than one output or input (only certain component types support multiple input/outputs)
+    
+There is also important class functions:
+    - datasheet() = contains all the information about the component
+    - simulate() = simulates the transformation of the component to the input
+    - mutate() = in the GA, used to mutate the attributes on each component
+    - newattribute() = will create random attribute for ALL parameters of the component
+    
+    - randomattribute() = based on the settings for the component (bounds, discretization, etc), will generate ONE random attribute (setting) for the component
+"""
+
 
 class Component(object):
     def __init__(self):
@@ -26,9 +50,6 @@ class Component(object):
     
     def mutate(self):
         raise ValueError('Not implemented yet') 
-        
-    def crossover(self):
-        raise ValueError('Not implemented yet')  
         
     def randomattribute(self, low=0.0, high=1.0, dtypes='float', dscrtval=None):
         if dtypes == 'float':
@@ -69,20 +90,21 @@ class Fiber(Component):
     def simulate(self, env, At, visualize=False):
         
         fiber_len = self.at[0]   
+        
+        # calculate the dispersion operator in the spectral domain
         D = np.zeros(env.f.shape).astype('complex')
         for n in range(0, len(self.beta)):    
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
         D = -1j * D
         
-#        env.Af = np.exp(fiber_len * D) * env.Af
-#        env.At = env.IFFT( env.Af, env.dt )
+        # apply dispersion
         Af = np.exp(fiber_len * D) * env.FFT(At, env.dt)
         At = env.IFFT( Af, env.dt )
         
         if visualize:
             self.lines = ((None),)
         
-        return At #env
+        return At
     
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -247,16 +269,9 @@ class WaveShaper(Component):
         ampmask = self.windowmask(amp, env.N, n)
         phasemask = self.windowmask(phase, env.N, n)
         
-#        plt.figure()
-#        plt.plot(ampmask)
-#        plt.plot(phasemask)
-        
         Af = ampmask * np.exp(1j * phasemask) * env.FFT(At, env.dt)
         At = env.IFFT( Af, env.dt )
         
-#        env.Af = ampmask * np.exp(1j * phasemask) * env.Af
-#        env.At = env.IFFT( env.Af, env.dt )
-
 #        if visualize:
 #            self.lines = (('f',ampmask), ('f',phasemask))
         

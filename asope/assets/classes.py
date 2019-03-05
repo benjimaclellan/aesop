@@ -3,17 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from assets.functions import recurse
 
-## ***************************************************************88    
+"""
+ASOPE
+|- classes.py
+
+Contains two custom classes, Experiment and GeneticAlgorithmParameters.
+
+Experiment() defines an experiment as a directed graph (based on a DirectedGraph() from the networkx package), and stores all the class functions/variables to simulate a pulse through the setup. 
+
+GeneticAlgorithmParameters simply contains variables used in the genetic algorithm, but no class functions. 
+
+"""
     
-class Environment(object):
-    """   
-    A class that stores all our environment parameters etc.
-    """
-    def __init__(self):
-        return
-    
-    def reset(self):
-        return
 
 
 ## ***************************************************************88    
@@ -21,6 +22,9 @@ class Environment(object):
 class Experiment(nx.DiGraph):
     
     def simulate(self, env):
+        """
+            Simulates an experiment once everything is setup.
+        """
         for path_i, subpath in enumerate(self.path):
             for ii, node in enumerate(subpath):  
                 
@@ -209,20 +213,6 @@ class Experiment(nx.DiGraph):
             c = self.nodes[i]['info']
             print('Name: {}, ID: {}, Type: {}'.format(c.name, c.id, c.type))
 
-#    def plot_env(self, env, title=None):
-#        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
-#        ax[0].set_title(title)
-#        alpha = 0.4
-#        ax[0].plot(env.t, env.P(env.At0), ls='--', label='Input', alpha=alpha)
-#        ax[0].plot(env.t, env.P(env.At), label='Output')    
-#        ax[0].legend()
-#        
-#        ax[1].plot(env.f, env.P(env.Af0),ls='--', label='Input', alpha=alpha)
-#        ax[1].plot(env.f, env.P(env.Af), label='Output')
-#        ax[1].legend()
-        
-
-    
         
         
 ## ***************************************************************88    

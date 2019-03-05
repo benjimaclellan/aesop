@@ -60,8 +60,8 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0,0.1)
     gap.MULTIPROC = True
     gap.NCORES = mp.cpu_count()
-    gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 50              # number of generations
+    gap.N_POPULATION = 50      # number of individuals in a population
+    gap.N_GEN = 30              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)

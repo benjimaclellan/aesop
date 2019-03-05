@@ -1,60 +1,56 @@
 # ASOPE: Automated Search of Optical Processing Experiments
-
-This a scientific computing software for automatically searching for optical experiments that are 'interesting'.
+ASOPE, or Automated Search of Optical Processing Experiments, simulates and optimizes optical processing experiments. 
 
 ## Getting Started
-
-Well, if you're reading this and you're not the author, I've obviously forgotten to update this README file since I first wrote it. I did not think this code would make it into other peoples hands.
+Using Anaconda, a scientific computing environment for Python, is recommended. 
 
 ### Prerequisites
 
-All packages needed for this software are open-source, standard Python packages. Most can be installed via `pip install ...`
-
-```
-numpy
-deap
-re
-json
-...
-```
-
-Check each packages site for installation requirements.
+All packages needed for this software are open-source, standard Python packages. The main packages and their uses are:
+`deap` - Distributed Evolutionary Algorithms in Python, used for the Genetic Algorithm
+`networkx` - Graph and network manipulation package, used for representing an experimental setup
+`multiprocess` - Multiprocessing in Python, used to improve computation time with the Genetic Algorithm
+`peakutils` - Peak detection for various evaluation, such as measuring the repetition rate of a pulse train
+`numpy` - Standard scientific/numerical package in Python
+`matplotlib` - Plotting and visualization
 
 ### Installing
 
-Nothing special must be done except to download these packages and run from the downloaded folder.
-Say what the step will be
+First, install the Anaconda environment for your system, [https://www.anaconda.com/distribution/](https://www.anaconda.com/distribution/). Spyder is a useful Python IDE, but the command-line interface for installing Python packages is the main use.
+
+To install the ASOPE package, clone the repository from [Github](https://github.com/) at [https://github.com/benjimaclellan/ASOPE.git](https://github.com/benjimaclellan/ASOPE.git). 
+
+All the prerequisite packages can be install from the `setup.py` file. First install the `setuptools` package using the command
+
+```
+conda install setuptools
+```
+
+Once the installation is successful, navigate to the ASOPE directory and install the dependencies with
+
+```
+python setup.py install
+```
+
+If no error messages are thrown, you should be good to go.
 
 
 ## Running the tests
 
-Explain how to run the automated tests for this system
+First, to check that the basics of simulating an experiment work, run [`single_test.py`](../asope/single_test.py). You should see a graph structure outlining the experimental setup, and a plot of the pulse output. Next, you can run [`asope_main.py`](../asope/asope_main.py) to have the Genetic Algorithm optimize the parameters for a single setup.
 
-
-## Built With
-
-* [Anaconda](http://www.anaconda.org) - Standard scientific computing IDE for Python
-* [Numpy](http://www.numpy.org) - Standard scientific computing package
 
 ## Contributing
-
-I can't imagine I will ever get to the contributing stage.
-
-## Versioning
-
+Submit a push request to the Github repository.
 
 
 ## Authors
-
 * **Benjamin MacLellan** - [Email](benjamin.maclellan@emt.inrs.ca)
 
 ## License
-
-This project is licensed under no license, but again - nobody should ever be reading this.
+Please see [LICENSE.md](../LICENSE.md)
 
 ## Acknowledgments
-
-* All the people who wrote the packages I used
-* Coworkers in the Nonlinear Photonics Group at INRS-EMT
+Thank you to all the members of the Nonlinear Photonics Group at INRS-EMT, as well as all the authors of the packages on which this project is founded
 
  

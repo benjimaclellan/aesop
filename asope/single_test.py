@@ -1,7 +1,6 @@
 import time
 import matplotlib.pyplot as plt
 import multiprocess as mp
-import uuid
 import numpy as np
 import networkx as nx
 
@@ -29,7 +28,7 @@ components = (
     }
     )
 
-# specify how the components are connected together 
+# specify how the components are connected together (first index -> second index)
 adj = [('fib_input','freq_split'), ('freq_split','left'), ('freq_split','right'), ('left','coupler'), ('right','coupler')]
 
 # which nodes do you want to measure at?

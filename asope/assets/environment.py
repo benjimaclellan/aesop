@@ -1,9 +1,8 @@
 import numpy as np
-from assets.classes import Environment
 import peakutils
 
 
-class PulseEnvironment(Environment):
+class PulseEnvironment(object):
     """   
     A class that stores all our simulation parameters, time and frequency domain of the optical signal, etc. This will (could) reduce the number of arguments passed into different function calls
     """
