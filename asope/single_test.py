@@ -5,6 +5,7 @@ import numpy as np
 import networkx as nx
 
 from assets.functions import extractlogbook, plot_individual, save_experiment, load_experiment, splitindices
+from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.environment import PulseEnvironment
 from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from assets.classes import Experiment
