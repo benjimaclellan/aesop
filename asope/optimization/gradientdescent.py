@@ -1,6 +1,4 @@
 import scipy.optimize as opt
-#from optimization.geneticalgorithminner import FIT_Inner
-import numpy as np
 from copy import copy
 
 """
@@ -9,7 +7,7 @@ Wrapping function for final fine-tuning of the GA HOF individuals
 def finetune_individual(ind, env, experiment):
     (optlist, idx, nodelist) = pack_opt(ind, experiment)
     
-    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':1000})    
+    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':2000})    
     
     ind = unpack_opt(ind, experiment, optres.x.tolist(), idx, nodelist)
     return ind
@@ -54,7 +52,7 @@ Unpacks the list of parameters from the structure used in GD to the GA and simul
 def unpack_opt(ind, experiment, optlist, idx, nodelist):
     for i, ind_pair in enumerate(idx, 0):
         start = ind_pair[0]
-        end = ind_pair[1]
+        end = ind_pair[1] + 1
         node = nodelist[i]
         cnt = 0
         for j in range(start, end):

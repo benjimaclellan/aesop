@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from itertools import count
 from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+import inspect
 
 """
 ASOPE
@@ -151,7 +152,7 @@ class PhaseModulator(Component):
         self.type = 'phasemodulator'
         self.vpi = 1
         self.N_PARAMETERS = 3
-        self.UPPER = [10, 200e6, 2*np.pi]   # max shift, frequency, phase offset
+        self.UPPER = [1, 200e6, 1]   # max shift, frequency, bias
         self.LOWER = [0, 1e6, 0]
         self.DTYPE = ['float', 'float', 'float']
         self.DSCRTVAL = [None, 1e6, None]
@@ -162,8 +163,8 @@ class PhaseModulator(Component):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # amplitude [V]
         NU = self.at[1]      # frequency [Hz]
-        PHI = self.at[2]     # phase offset [rad]
-        phase = (M * np.pi / 2 / self.vpi)*np.cos(2*np.pi* NU * env.t + PHI) + (M * np.pi / 2 / self.vpi)
+        BIAS = self.at[2]     # voltage bias [V]
+        phase = (M * np.pi / 2 / self.vpi)*(np.cos(2*np.pi* NU * env.t)) + (BIAS * np.pi / 2 / self.vpi)
         
         # apply phase shift temporally
         At = At * np.exp(1j * phase)                
@@ -362,11 +363,21 @@ class PowerSplitter(Component):
         XX,YY = np.meshgrid(np.linspace(0,num_outputs-1, num_outputs), np.linspace(0,num_inputs-1, num_inputs))
         
         # in the case of 2x2 splitter, this works, but should check for more arms
-        S = np.sqrt(1/num_outputs) * np.exp(np.abs(XX - YY) * 1j * np.pi / num_outputs)
+        S = np.sqrt(1/2) * np.exp(np.abs(XX - YY) * 1j * np.pi )
+        
+        
+#        S = np.sqrt(1/2) * np.array([[1,1],[1,1*np.exp(1j*np.pi)]])
+#        if num_inputs == 1:
+##            S = S[:,0]
+#            S = S[0,:].reshape([1,2])
+#        if num_outputs == 1:
+##            S = S[0,:]
+#            S = S[:,0].reshape([2,1])
+                
 
-        # apply scattering matrix to inputs and return the outputs
+        # apply scattering matrix to inputs and return the outputs        
         At_out = At_in.dot(S)
-   
+        
         return At_out
     
     def newattribute(self):

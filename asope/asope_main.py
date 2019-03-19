@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import multiprocess as mp
 import uuid
 
-from assets.functions import extractlogbook, plot_individual, save_experiment, load_experiment
+from assets.functions import extractlogbook, save_experiment, load_experiment
 from assets.environment import PulseEnvironment
 from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from assets.classes import Experiment, GeneticAlgorithmParameters
@@ -31,7 +31,7 @@ if __name__ == '__main__':
         save = False
     
     # initialize our input pulse, with the fitness function too
-    env = PulseEnvironment(p = 2, q = 1)
+    env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
     
     components = (
         {
@@ -39,7 +39,7 @@ if __name__ == '__main__':
          1:Fiber(),
         })
     adj = [(0,1)]
-    
+        
     # note that the fitness function is evaluated at the first measurement_node
     measurement_nodes = [1]
     
@@ -64,8 +64,8 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0,0.1)     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 30              # number of generations
+    gap.N_POPULATION = 400      # number of individuals in a population
+    gap.N_GEN = 1000              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -76,12 +76,12 @@ if __name__ == '__main__':
     tstart = time.time()
     hof, population, logbook = inner_geneticalgorithm(gap, env, experiment)
     tstop = time.time()
+    print('\nElapsed time = {}'.format(tstop-tstart))
     
     # extract the log of the iterations
-    log = extractlogbook(logbook)    
-    
-    print('\nElapsed time = {}'.format(tstop-tstart))
-    print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
+    if logbook != None: 
+        log = extractlogbook(logbook)    
+        print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
     
     
     # now we visualizing the best HOF individual found, and slightly improve it   

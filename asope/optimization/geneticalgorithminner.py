@@ -4,6 +4,16 @@ import random
 import multiprocess as mp
 from assets.functions import splitindices
 
+
+#
+#import signal
+#def keyboardInterruptHandler(signal, frame):
+#    print(hof)
+#    print("KeyboardInterrupt (ID: {}) has been caught. Cleaning up...".format(signal))
+#    raise SystemExit('Processing terminated')
+#    return hof, population, logbook
+
+
 ## --------------------------------------------------------------------
 """
 Function for creating a New Individual (NA) in the Inner GA
@@ -137,25 +147,37 @@ def inner_geneticalgorithm(gap, env, experiment):
 #    stats.register("std", np.std)
 #    stats.register("min", np.min)
     stats.register("max", np.max)
-    
-    population, logbook = eaSimple(gap, pop, toolbox, cxpb=gap.CRX_PRB, mutpb=gap.MUT_PRB, ngen=gap.N_GEN, stats=stats, halloffame=hof, verbose=gap.VERBOSE)
 
+    # setup variables early, in case of an early termination
+    logbook = tools.Logbook()
+    logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
+    if gap.MULTIPROC:
+        pool = mp.Pool(gap.NCORES)
+    else: 
+        pool = None
+    
+    # catch exceptions to terminate the optimization early
+    try:
+        population, logbook = eaSimple(gap, pop, toolbox, pool, logbook, cxpb=gap.CRX_PRB, mutpb=gap.MUT_PRB, ngen=gap.N_GEN, stats=stats, halloffame=hof, verbose=gap.VERBOSE)
+
+    except KeyboardInterrupt:
+        population, logbook = None, None
+        pool.terminate()
+        print('\n\n>>> Optimization terminated.\n  > Displaying results so far.   \n\n')
+        print(hof[0])
     return hof, population, logbook
 
 
-def eaSimple(gap, population, toolbox, cxpb, mutpb, ngen, stats=None,
+def eaSimple(gap, population, toolbox, pool, logbook, cxpb, mutpb, ngen, stats=None,
              halloffame=None, verbose=__debug__):
 
     assert cxpb < 1.0 and mutpb < 1.0
-    
-    logbook = tools.Logbook()
-    logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
     
     # Evaluate the individuals with an invalid fitness
     invalid_ind = [ind for ind in population if not ind.fitness.valid]
     
     if gap.MULTIPROC:
-        pool = mp.Pool(gap.NCORES)
+#        pool = mp.Pool(gap.NCORES)
 
         splt_indx = splitindices(len(invalid_ind), gap.NCORES) 
                        

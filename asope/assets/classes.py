@@ -32,7 +32,7 @@ class Experiment(nx.DiGraph):
             
             # for each component in the current subpath
             for ii, node in enumerate(subpath):  
-                    
+                                
                 # if component (node) is a splitter, collect all incoming pulses
                 if self.nodes[node]['info'].splitter:
                     
@@ -46,12 +46,12 @@ class Experiment(nx.DiGraph):
                         for jj in range(len(self.pre(node))):
                             At[:, jj] = self[self.pre(node)[jj]][node]['At']
                                   
-                        # simulate the effect of a splitter
-                        At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))))
-                        
-                        # store the split/coupled pulses to the successors
-                        for jj in range(len(self.suc(node))):
-                            self[node][self.suc(node)[jj]]['At'] = At[:,jj]
+                    # simulate the effect of a splitter
+                    At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))))
+                    
+                    # store the split/coupled pulses to the successors
+                    for jj in range(len(self.suc(node))):
+                        self[node][self.suc(node)[jj]]['At'] = At[:,jj]
                 
                 # if component is not a splitter
                 else:    
@@ -68,9 +68,8 @@ class Experiment(nx.DiGraph):
                     # now the pulse is stored in memory properly
                     At = self.nodes[node]['info'].simulate(env, At) 
                     
-                    # if this is the last node in subpath, we simulate and save the pulse for future extraction
+                    # if this is the last node in subpath, we save the pulse for future extraction
                     if ii == len(subpath)-1 and len(self.suc(node)) > 0: 
-                        At = self.nodes[node]['info'].simulate(env, At)
                         self[node][self.suc(node)[0]]['At'] = At
                 
                 # if we're at a measurement node, save the pulse for easy checking later
@@ -215,20 +214,24 @@ class Experiment(nx.DiGraph):
         return list( self.predecessors(node) )
         
 
-    def measure(self, env, measurement_node):
+    def measure(self, env, measurement_node, check_power = False):
         """
             Plots the pulse at a given measurement node
         """
         
         # collect the pulse as was simulated
         At = self.nodes[measurement_node]['output'].reshape(env.N)
-    
+        
+        if check_power:
+            self.power_check_single(At, display=True)
+            
         # plot both temporal and frequency domains, of input and output
         fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
         ax[0].set_title('Measurement node {}: {}'.format(measurement_node, self.nodes[measurement_node]['title']))
         alpha = 0.4
         ax[0].plot(env.t, P(env.At0), lw = 4, label='Input', alpha=alpha)
-        ax[0].plot(env.t, P(At), ls='--', label='Output')    
+        ax[0].plot(env.t, P(At), ls='--', label='Output')  
+        ax[0].set_ylim([0,2])
         ax[0].legend()
         
         Af = FFT(At, env.dt)
@@ -276,6 +279,8 @@ class Experiment(nx.DiGraph):
         """
             Broken function - please ignore. It will potentially be fixed in future updates. Was meant for simple and clean visualization of the pulse as it progressed, but has not been updated since using a graph structure to represent the experiment(s)
         """
+        raise ValueError('This function is not implemented. Please turn off visualization.')
+        
         self.simulate(env, visualize=True)
         fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
         for i in range(0, self.n_components):
@@ -290,10 +295,62 @@ class Experiment(nx.DiGraph):
         ax[0].legend()
         ax[1].legend()
         return
+           
+    
+    
+    def power_check_single(self, At, display=False):
+        """
+            Simple sanity check for total power, that input power >= output power, for one output node
+        """
+        
+        check = True # assume all is good, change to false if there is a problem
+        
+        totalpower_in = 0
+        for node in self.nodes():
+            if len(self.pre(node)) == 0:
+                totalpower_in += np.sum(P(self.nodes[node]['input']))
+        totalpower_out = np.sum(P(At))
+        
+        ratio = (totalpower_out - totalpower_in)/totalpower_in
+        if ratio > 0.001:
+            display = True
+            check = False
+            print('There seems to be an issue in energy conservation')
             
-
+        if display:
+            print('Input power: {}\nOutput power: {}'.format(totalpower_in, totalpower_out))
+        
+        return check
+        
+    def power_check_all(self, display=False):
+        check = True # assume all is good, change to false if there is a problem
+        
+        totalpower_in = 0
+        for node in self.nodes():
+            if len(self.pre(node)) == 0:
+                totalpower_in += np.sum(P(self.nodes[node]['input']))
         
         
+        totalpower_out = 0
+        for node in self.nodes():
+            if len(self.suc(node)) == 0:
+                print(self.nodes[node]['title'])
+                try:
+                    totalpower_out += np.sum(P(self.nodes[node]['At']))
+                except:
+                    totalpower_out += np.sum(P(self.nodes[node]['output']))
+                
+        ratio = (totalpower_out - totalpower_in)/totalpower_in
+        if ratio > 0.001:
+            display = True
+            check = False
+            print('There seems to be an issue in energy conservation')
+            
+        if display:
+            print('Input power: {}\nOutput power: {}'.format(totalpower_in, totalpower_out))
+        
+        return check
+    
 ## ***************************************************************88    
 
 class GeneticAlgorithmParameters(object):

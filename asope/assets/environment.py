@@ -3,11 +3,15 @@ import peakutils
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
 
+def sech(x):
+#    np.seterr('ignore')
+    return 1/np.cosh(x, dtype='complex')
+
 class PulseEnvironment(object):
     """   
         Custom class for the pulse environment, storing all the details of an input pulse train
     """
-    def __init__(self, p, q):
+    def __init__(self, p, q, profile='gauss'):
         
         # the Talbot ratio, used in the fitness function
         self.p = p
@@ -30,10 +34,24 @@ class PulseEnvironment(object):
         df = f[1] - f[0]
         
         # create initial train of Gaussian pulses
-        At0 = np.zeros(N).astype('complex')
-        for i_pulse in range(0,n_pulses+1):
-            At0 += np.exp(-0.5 * (np.power((t+(t[0] + window*(i_pulse/(n_pulses))))/T, 2)))
+        if profile == 'gauss':
+            At0 = np.zeros(N).astype('complex')
+            for i_pulse in range(0,n_pulses+1):
+                At0 += np.exp(-0.5 * (np.power((t+(t[0] + window*(i_pulse/(n_pulses))))/T, 2)))
+        
+        # create initial train of sech2 pulses
+        elif profile == 'sech':
+            At0 = np.zeros(N).astype('complex')
+            for i_pulse in range(0,n_pulses+1):
+                At0 += sech((t+(t[0] + window*(i_pulse/(n_pulses))))/T)
 
+                # create initial cw wave (carrier removed)
+        elif profile == 'cw':
+            At0 = np.ones(N).astype('complex')
+        
+        else:
+            raise ValueError
+            
         # scale by peak power
         At0 *= np.sqrt(peakP)
         Af0 = FFT(At0, dt)

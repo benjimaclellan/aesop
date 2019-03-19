@@ -4,7 +4,7 @@ import multiprocess as mp
 import numpy as np
 import networkx as nx
 
-from assets.functions import extractlogbook, plot_individual, save_experiment, load_experiment, splitindices
+from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.environment import PulseEnvironment
 from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
@@ -16,31 +16,33 @@ A test script for simulating a single experiment, with either user-input paramet
 """
 
 # this class stores all the information about the pulse
-env = PulseEnvironment(p = 3, q = 2)
+env = PulseEnvironment(p = 3, q = 2, profile = 'cw')
 
 # define components wanted in the setup
 components = (
     {
-     'fib_input': Fiber(),
-     'freq_split':FrequencySplitter(),
-     'left':Fiber(),
-     'right':Fiber(),
-     'coupler':PowerSplitter(),
+     'input1': Fiber(),
+     'split1':PowerSplitter(),
+     'mod1':PhaseModulator(),
+     'fiber1':Fiber(),
+     'split2':PowerSplitter(),
+     'output1':Fiber(),
     }
-    )
+    ) 
+
 
 # specify how the components are connected together (first index -> second index)
-adj = [('fib_input','freq_split'), ('freq_split','left'), ('freq_split','right'), ('left','coupler'), ('right','coupler')]
+adj = [('input1','split1'), ('split1','mod1'), ('mod1','split2'), ('split1','fiber1'), ('fiber1','split2'), ('split2', 'output1')]
 
 # which nodes do you want to measure at?
-measurement_nodes = ['coupler']
+measurement_nodes = ['output1']
 
 # what parameters do you want on the components? Or you can randomly generate parameters later
 attributes = {
-                'fib_input':[0],
-                'freq_split':[0],
-                'left':[10],
-                'right':[0]
+                'input1':[0],
+                'mod1':[1,1e7,1],
+                'fiber1':[0],
+                'output1':[0]
              }
 
 
@@ -58,7 +60,7 @@ E.check_path()
 E.print_path()
 
 # if you want random parameters, uncomment the next line
-#attributes = E.newattributes()
+attributes = E.newattributes()
 
 # dial-in the parameters (attributes) to each component
 E.setattributes(attributes)
@@ -73,8 +75,11 @@ E.simulate(env)
 
 # plot the output of each measurement node
 for measurement_node in E.measurement_nodes:
-    E.measure(env, measurement_node)    
+    E.measure(env, measurement_node, check_power = True)   
+
+E.power_check_all(display=True)
 plt.show()
+
 
 # here, we could save the experiment for further use if wanted
 if False:
