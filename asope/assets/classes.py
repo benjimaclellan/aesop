@@ -1,8 +1,8 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
-from assets.functions import recurse
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+import copy
 
 """
 ASOPE
@@ -114,7 +114,10 @@ class Experiment(nx.DiGraph):
         for node in nodes_to_remove:
             print('removing node ', node)
             self.remove_node(node)
-            
+                
+        mapping=dict(zip(self.nodes(),range(0,len(self.nodes()))))
+        self = nx.relabel_nodes(self, mapping)        
+        
         return
     
     def checkexperiment(self):
@@ -150,29 +153,68 @@ class Experiment(nx.DiGraph):
     
     def make_path(self):
         """
-            Defines how to traverse an experiment's graph, such that each component is simulated/applied before the following ones. This is very critical when dealing with splitters, so that each incoming arm is simulated first. The function is recursive and outputs a list of lists (list of subpaths) and are the master instructions on the order to simulate the components (nodes)
+            Defines how to traverse an experiment's graph, such that each component is simulated/applied before the following ones. This is very critical when dealing with splitters, so that each incoming arm is simulated first. The function is recursive and outputs a list of lists (list of path) and are the master instructions on the order to simulate the components (nodes)
         """
         
-        # the number of times we've come *into* a node
-        in_edges = {}
-        for node in self.nodes(): 
-            in_edges[node] = 0
+        node_list = set(self.nodes())
+        path = []
         
-        # all starting points of the setup
-        startpoints = []
+        # find out splitter locations
         for node in self.nodes():
-            if len(self.pre(node)) == 0:
-                startpoints.append(node)
+            if self.nodes[node]['info'].splitter:
+                path.append([node])
+        node_list -= set([item for sublist in path for item in sublist])
         
-        # empty lists for all the out_edges
-        (out_edges, path) = ([], [])
         
-        # initialize at the first startpoint, and remove it from our list for the future
-        node = startpoints[0]
-        startpoints.pop(0)
+        while len(node_list) > 0:
+            base_node = next(iter(node_list))
+            curr_path = [base_node]
+            node_list -= set([base_node])    
+            node = base_node
+            while True:
+                if len(self.pre(node)) > 0:
+                    if not self.nodes[self.pre(node)[0]]['info'].splitter:
+                        node = self.pre(node)[0]
+                        node_list -= set([node])
+                        curr_path = [node] + curr_path
+                    else:
+                        break
+                else:
+                    break
+                
+            node = base_node
+            while True:
+                if len(self.suc(node)) > 0:
+                    if not self.nodes[self.suc(node)[0]]['info'].splitter:
+                        node = self.suc(node)[0]
+                        node_list -= set([node])
+                        curr_path = curr_path + [node]
+                    else:
+                        break
+                else:
+                    break
+            
+            path.append(curr_path)
         
-        # recursive function loops through all branches of graph, and finds the best way to traverse
-        (self, node, out_edges, path, startpoints, in_edges) = recurse(self, node, out_edges, path, startpoints, in_edges)
+        
+        pathscopy = copy.deepcopy(path)
+        for k in range(len(path)):
+            for i in range(k,len(path)):
+                subpath_i = pathscopy[i]
+                node = subpath_i[0]
+                pres = []
+                for pre in self.pre(node):
+                    for idx, subpath in enumerate(path):
+                        if subpath[-1] == pre:
+                            pres.append(idx)
+                
+                if not pres:
+                    continue
+                
+                loc = max(pres)
+                curr_loc = path.index(subpath_i)
+                if loc > curr_loc:
+                    path.insert(loc, path.pop(curr_loc))
         
         # store for future use
         self.path = path
@@ -202,7 +244,7 @@ class Experiment(nx.DiGraph):
 
     def print_path(self):
         """
-            Prints the path that will be traversed (list of subpaths)
+            Prints the path that will be traversed (list of path)
         """
         assert hasattr(self, 'path')
         print('This graph will be transversed as follows: {}'.format(self.path))

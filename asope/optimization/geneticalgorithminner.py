@@ -3,7 +3,7 @@ from deap import tools, base, creator
 import random
 import multiprocess as mp
 from assets.functions import splitindices
-
+import copy
 
 #
 #import signal
@@ -33,11 +33,12 @@ def CX_Inner(ind1, ind2):
 #    ind1 = b
 #    ind2 = a
     keys = list(ind1.keys())
-    
+        
     if len(keys) == 0:
         raise ValueError
     elif len(keys) == 1:
-        ind1, ind2 = ind2.copy(), ind1.copy()
+        ind1, ind2 = copy.deepcopy(ind2), copy.deepcopy(ind1)
+        
     elif len(keys) >= 2:
         cx_split = random.randint(1,len(keys)-1)
     
@@ -105,7 +106,7 @@ def FIT_Inner(individual, env, experiment):
     measurement_node = experiment.measurement_nodes[0]
     At = experiment.nodes[measurement_node]['output'].reshape(env.N)
     fitness = env.fitness(At)
-    
+
     return fitness[0]*fitness[1],
 
 
@@ -157,14 +158,15 @@ def inner_geneticalgorithm(gap, env, experiment):
         pool = None
     
     # catch exceptions to terminate the optimization early
-    try:
-        population, logbook = eaSimple(gap, pop, toolbox, pool, logbook, cxpb=gap.CRX_PRB, mutpb=gap.MUT_PRB, ngen=gap.N_GEN, stats=stats, halloffame=hof, verbose=gap.VERBOSE)
+#    try:
+    population, logbook = eaSimple(gap, pop, toolbox, pool, logbook, cxpb=gap.CRX_PRB, mutpb=gap.MUT_PRB, ngen=gap.N_GEN, stats=stats, halloffame=hof, verbose=gap.VERBOSE)
 
-    except KeyboardInterrupt:
-        population, logbook = None, None
-        pool.terminate()
-        print('\n\n>>> Optimization terminated.\n  > Displaying results so far.   \n\n')
-        print(hof[0])
+#    except KeyboardInterrupt:
+#        population, logbook = None, None
+#        if gap.MULTIPROC:
+#            pool.terminate()
+#        print('\n\n>>> Optimization terminated.\n  > Displaying results so far.   \n\n')
+#        print(hof[0])
     return hof, population, logbook
 
 
@@ -283,7 +285,7 @@ def initialgeneration(args):
     (invalid_ind, toolbox) = args
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     for ind, fit in zip(invalid_ind, fitnesses):
-        ind.fitness.values = fit
+        ind.fitness.values = fit        
     
     return invalid_ind
 
@@ -309,13 +311,19 @@ def varychildren(args):
         if random.random() < cxpb:
             offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1],
                                                           offspring[i])
+#            try:
             del offspring[i - 1].fitness.values, offspring[i].fitness.values
-    
+#            except:
+#                pass
+            
     for i in range(len(offspring)):
         if random.random() < mutpb:
             offspring[i], = toolbox.mutate(offspring[i])
+#            try:
             del offspring[i].fitness.values    
-    
+#            except:
+#                pass
+            
     # Evaluate the individuals with an invalid fitness
     invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)

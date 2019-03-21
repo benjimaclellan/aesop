@@ -106,8 +106,10 @@ class PulseEnvironment(object):
         # one value to optimize is the peak power
 #        fitness2 = np.max(P(At))
         PAt = P(At)
-        fitness2 = np.max(PAt) #* np.std((PAt))
-            
+#        fitness2 = np.max(PAt) #* np.std((PAt))
+        dPAt = np.diff(PAt)
+        fitness2 = np.max(PAt) * ((dPAt[:-1] * dPAt[1:]) < 0).sum() / self.N       
+        
         # find the harmonic frequencies in the RF domain
         peakinds = peakutils.indexes(RFSpectrum(At, self.dt))
         
@@ -123,8 +125,8 @@ class PulseEnvironment(object):
         # if there are peaks in the RF spectrum, define the fitness function here, based on how far we are from the target
         else: 
             fitness1 = 1 - np.power( peakf_distTarget - peakf_dist, 2)
+
         return (fitness1, fitness2)
-        
     
     # --------------------------------------
     def CreateNoise(self):

@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import multiprocess as mp
 import numpy as np
 import networkx as nx
+import keyboard
 
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
@@ -26,18 +27,18 @@ POTENTIALS = {'splitters':[PowerSplitter],
 
 env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
 
-#components = (
-#    {
-#     'a': Fiber(),
-#     'b':PowerSplitter(),
-#     'c':PhaseModulator(),
-#     'd':Fiber(),
-#     'e':PowerSplitter(),
-#     'f':Fiber(),
-#    }
-#    ) 
-#adj = [('a','b'), ('b','c'), ('c','e'), ('b','d'), ('d','e'), ('e', 'f')]
-#measurement_nodes = ['f']
+components = (
+    {
+     'fiber0': Fiber(),
+     'ps0':PowerSplitter(),
+     'pm0':PhaseModulator(),
+     'fiber1':Fiber(),
+     'ps1':PowerSplitter(),
+     'fiber2':Fiber(),
+    }
+    ) 
+adj = [('fiber0','ps0'), ('ps0','pm0'), ('pm0','ps1'), ('ps0','fiber1'), ('fiber1','ps1'), ('ps1', 'fiber2')]
+measurement_nodes = ['fiber2']
 #
 #components = (
 #        {
@@ -49,12 +50,12 @@ env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
 
 
 # now let's create the experiment as a custom class, build it based on specifications, and ensure it is properly connected
-#E = Experiment()
-#E.buildexperiment(components, adj, measurement_nodes)
+E = Experiment()
+E.buildexperiment(components, adj, measurement_nodes)
 #E.checkexperiment()
 
-E = Experiment()
-E,_ = brand_new_experiment(E)
+#E = Experiment()
+#E,_ = brand_new_experiment(E)
 
 
 def random_choice(a, N, replace=False):
@@ -115,44 +116,46 @@ def mutate_experiment(E):
         return E, False
         
     replace_list = copy.copy(valid_nodes)
-#    shuffle(replace_list)
+    shuffle(replace_list)
               
 #    idx = range(len(valid_nodes))
 #    i1, i2 = sample(idx, 2)
 #    replace_list[i1], replace_list[i2] = valid_nodes[i2], valid_nodes[i1]
     
+    
+    
 #    changes = []
-    n_swap = 2
-    swap_nodes = random_choice(valid_nodes, n_swap, replace = False)
-    Ecopy = copy.deepcopy(E)
-    
-    for i, node in enumerate(swap_nodes):
-        node_next = swap_nodes[(i+1)%n_swap]
-        for key in ('title', 'info'):
-            E.nodes[node][key] = Ecopy.nodes[node_next][key]
-        
-    
-#    for i in range(len(valid_nodes)):
-#        changes_i = {}
-#        if valid_nodes[i] != replace_list[i]:
-#            changes_i['node_original'] = valid_nodes[i]
-#            changes_i['node_shuffle'] = replace_list[i]
-#            
-##            for key in E.nodes[changes_i['node_original']]:#('title', 'info'):
-#            for key in ('title', 'info'):
-#                changes_i[key] = E.nodes[valid_nodes[i]][key]
-#        
-#            changes.append(changes_i)
-#    mapping = {}
-#    for changes_i in changes:
-#        mapping[changes_i['node_original']] = changes_i['node_shuffle']
-##    mapping = {changes_i['node_original']:changes_i['node_shuffle']}
-#    nx.relabel_nodes(E, mapping)
+#    n_swap = 2
+#    swap_nodes = random_choice(valid_nodes, n_swap, replace = False)
+#    Ecopy = copy.deepcopy(E)
 #    
-#    for changes_i in changes:    
-##        for key in E.nodes[changes_i['node_original']]:
+#    for i, node in enumerate(swap_nodes):
+#        node_next = swap_nodes[(i+1)%n_swap]
 #        for key in ('title', 'info'):
-#            E.nodes[changes_i['node_shuffle']][key] = changes_i[key]
+#            E.nodes[node][key] = Ecopy.nodes[node_next][key]
+        
+    changes = []
+    for i in range(len(valid_nodes)):
+        changes_i = {}
+        if valid_nodes[i] != replace_list[i]:
+            changes_i['node_original'] = valid_nodes[i]
+            changes_i['node_shuffle'] = replace_list[i]
+            
+#            for key in E.nodes[changes_i['node_original']]:#('title', 'info'):
+            for key in ('title', 'info'):
+                changes_i[key] = E.nodes[valid_nodes[i]][key]
+        
+            changes.append(changes_i)
+    mapping = {}
+    for changes_i in changes:
+        mapping[changes_i['node_original']] = changes_i['node_shuffle']
+#    mapping = {changes_i['node_original']:changes_i['node_shuffle']}
+    nx.relabel_nodes(E, mapping,copy=True)
+    
+    for changes_i in changes:    
+#        for key in E.nodes[changes_i['node_original']]:
+        for key in ('title', 'info'):
+            E.nodes[changes_i['node_shuffle']][key] = changes_i[key]
 #    
     return E, True
     
@@ -392,19 +395,15 @@ def change_experiment_wrapper(E):
 #        try:
         E, check = mut_function(E)
         if check:
-            print('There was a goo job up in ', mut_function.__name__)
+#            print('There was a goo job up in ', mut_function.__name__)
             flag = False
         else:
-            print('There was a fuck up in ', mut_function.__name__)
+#            print('There was a fuck up in ', mut_function.__name__)
             flag = True
         
         cnt += 1
         if cnt > 100:
             raise ValueError('There is something wrong with mutating the graph. An error occurs for everytime we try to change the graph structure')
-            
-#        except Exception as e:
-#            print('Applying {} FAILED'.format(mut_function.__name__))
-#            print('Code: {c}, Message, {m}'.format(c = type(e).__name__, m = str(e)))
 
     return E
 
@@ -415,13 +414,21 @@ def change_experiment_wrapper(E):
 
 fig = plt.figure()
 for i in range(200):
-    E = change_experiment_wrapper(E)
+    for j in range(15):
+        E = change_experiment_wrapper(E)
     E.cleanexperiment()
+    E.make_path()
+    print(E.path)
+    E.check_path()
+    
+    mapping=dict(zip( [item for sublist in E.path for item in sublist],range(0,len(E.nodes()))))
+    E = nx.relabel_nodes(E, mapping) 
+    
     E.checkexperiment()   
     plt.clf()
-    E.draw(node_label='titles', title='its working', fig=fig)
+    E.draw(node_label='keys', title='its working', fig=fig)
     plt.show()
-    plt.pause(0.1)
+    
     
     
     E.injection_nodes = []
@@ -432,23 +439,28 @@ for i in range(200):
             E.nodes[node]['input'] = env.At
         if len(E.suc(node)) == 0:
             E.measurement_nodes.append(node)
-    
+        
     E.make_path()
+    print(E.path)
     E.check_path()
-    
-    at = E.newattributes()
-    E.setattributes(at)
-    
-    E.simulate(env)
+        
+    plt.pause(10)
+#    at = E.newattributes()
+#    E.setattributes(at)
+#    
+#    E.simulate(env)
     
           
     
 """
+save_experiment('test3', E)
+
+
 E.draw(node_label='titles')
 
 for node in E.nodes():
     info = E.nodes[node]['info']
-    print('Name {}, title {}, splitter {}'.format(node, info.name, info.splitter) )
+    print('Name {}, title {}, splitter {}, class {}'.format(node, info.name, info.splitter, info.__class__.__name__) )
 
 """  
 

@@ -52,7 +52,7 @@ Unpacks the list of parameters from the structure used in GD to the GA and simul
 def unpack_opt(ind, experiment, optlist, idx, nodelist):
     for i, ind_pair in enumerate(idx, 0):
         start = ind_pair[0]
-        end = ind_pair[1] + 1
+        end = ind_pair[1]# + 1
         node = nodelist[i]
         cnt = 0
         for j in range(start, end):
