@@ -21,28 +21,28 @@ env = PulseEnvironment(p = 3, q = 2, profile = 'cw')
 # define components wanted in the setup
 components = (
     {
-     'input1': Fiber(),
-     'split1':PowerSplitter(),
-     'mod1':PhaseModulator(),
-     'fiber1':Fiber(),
-     'split2':PowerSplitter(),
-     'output1':Fiber(),
+     'a': Fiber(),
+     'b':PowerSplitter(),
+     'c':PhaseModulator(),
+     'd':Fiber(),
+     'e':PowerSplitter(),
+     'f':Fiber(),
     }
     ) 
 
 
 # specify how the components are connected together (first index -> second index)
-adj = [('input1','split1'), ('split1','mod1'), ('mod1','split2'), ('split1','fiber1'), ('fiber1','split2'), ('split2', 'output1')]
+adj = [('a','b'), ('b','c'), ('c','e'), ('b','d'), ('d','e'), ('e', 'f')]
 
 # which nodes do you want to measure at?
-measurement_nodes = ['output1']
+measurement_nodes = ['f']
 
 # what parameters do you want on the components? Or you can randomly generate parameters later
 attributes = {
-                'input1':[0],
-                'mod1':[1,1e7,1],
-                'fiber1':[0],
-                'output1':[0]
+                'a':[0],
+                'c':[1,1e7,1],
+                'd':[0],
+                'f':[0]
              }
 
 

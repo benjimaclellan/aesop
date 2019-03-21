@@ -104,7 +104,9 @@ class PulseEnvironment(object):
         """
         
         # one value to optimize is the peak power
-        fitness2 = np.max(P(At))
+#        fitness2 = np.max(P(At))
+        PAt = P(At)
+        fitness2 = np.max(PAt) #* np.std((PAt))
             
         # find the harmonic frequencies in the RF domain
         peakinds = peakutils.indexes(RFSpectrum(At, self.dt))

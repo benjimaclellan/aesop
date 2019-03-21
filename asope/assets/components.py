@@ -45,7 +45,10 @@ class Component(object):
             Keeps track of how many of each component is in the setup to ensure they are distinguishable (fiber0, fiber1, etc)
         """
         self.id = next(self._num_instances)
-        
+    
+    def resetinstances(self):
+        self._num_instances = count(0)
+    
     def datasheet(self):
         """
             Different for each component, but saves all important parameters for the physical device

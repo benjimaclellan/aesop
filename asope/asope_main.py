@@ -25,13 +25,13 @@ The main optimization script for ASOPE, which uses a genetic algorihtm (GA) to o
 ## ************************************************
 
 if __name__ == '__main__': 
-    filename = None
-#    filename = 'results/' + time.strftime("%Y_%m_%d-%H_%M_%S")
+    filename, save = None, True
+    filename = 'results/' + time.strftime("%Y_%m_%d-%H_%M_%S")
     if filename == None: 
         save = False
     
     # initialize our input pulse, with the fitness function too
-    env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
+    env = PulseEnvironment(p = 5, q = 2, profile = 'gauss')
     
     components = (
         {
@@ -117,4 +117,4 @@ if __name__ == '__main__':
         plt.show()
                 
         if save:
-            save_experiment(filename, experiment, env)
+            save_experiment(filename, experiment)

@@ -97,27 +97,55 @@ class Experiment(nx.DiGraph):
         for comp_key, comp in components.items():
             self.nodes[comp_key]['title'] = comp.name
             self.nodes[comp_key]['info'] = comp  # this save most of the information
+        return
     
-
+    
+    def cleanexperiment(self):
+        """
+            Removes redundancies in a graph
+        """
+        nodes_to_remove = []
+        for node in self.nodes():
+            if self.nodes[node]['info'].splitter and len(self.pre(node)) == 1 and len(self.suc(node)) == 1:
+                self.add_edge(self.pre(node)[0], self.suc(node)[0])
+                nodes_to_remove.append(node)
+            if self.nodes[node]['info'].splitter and len(self.pre(node)) < 1 and len(self.suc(node)) < 1:
+                nodes_to_remove.append(node)
+        for node in nodes_to_remove:
+            print('removing node ', node)
+            self.remove_node(node)
+            
+        return
     
     def checkexperiment(self):
         """
             A few sanity checks that this experiment setup is valid
         """
         
-        # ensure the adjacency matrix is upper triangular
+        # ensure the adjacency matrix does not have undirected edges (ie two-way)
         mat = nx.adjacency_matrix(self).todense()
-        isuptri = np.allclose(mat, np.triu(mat))
-        assert isuptri
+        for i in range(mat.shape[0]):
+            for j in range(mat.shape[1]):
+                if mat[i,j] > 1 and mat[j,i] > 1:
+                    raise ValueError('There seems to be a two-way edge')
+        # ensure there are no loops in the graph
+        if len(list(nx.simple_cycles(self))) > 0:
+            raise ValueError('There are loops in the graph')
+#        isuptri = np.allclose(mat, np.triu(mat))
+#        assert isuptri
         
         ## ensure that any node with more than one predecessor/successor is a splitter
         for node in self.nodes():
+            if self.nodes[node]['info'].splitter and 'splitter' not in self.nodes[node]['info'].name:
+                print('Splitter, but not really', node )
+            
             if (len(self.suc(node)) + len(self.pre(node)) == 0) and len(self.nodes()) > 1:
                 raise ValueError('There is an unconnected component.')
             
             if (len(self.suc(node)) > 1 or len(self.pre(node)) > 1) and not self.nodes[node]['info'].splitter:
+                print('not a splitter', node)
                 raise ValueError("There is a component which splits the paths, but is not a 'splitter' type")
-    
+        return
     
     
     def make_path(self):
@@ -242,7 +270,7 @@ class Experiment(nx.DiGraph):
         return
 
         
-    def draw(self, titles = 'names'):
+    def draw(self, node_label = 'both', title=None, fig=None):
         """
             Plot the graph structure of the experiment, with either the nases of node key, or both
         """
@@ -250,17 +278,19 @@ class Experiment(nx.DiGraph):
         with_labels = True
         labeldict = {}
         for i in self.nodes():
-            if titles == 'titles':
+            if node_label == 'titles':
                 labeldict[i] = self.nodes[i]['title']
-            elif titles == 'keys':
+            elif node_label == 'keys':
                 labeldict[i] = i
-            elif titles == 'both':
+            elif node_label == 'both':
                 labeldict[i] = '{}, {}'.format(i, self.nodes[i]['title'])
             else:
                 with_labels = False
-        plt.figure()
+        if fig == None:
+            plt.figure()
+            
+        plt.title(title)
         nx.draw_shell(self, labels = labeldict, with_labels=with_labels)    
-        
         
     def printinfo(self):
         """
