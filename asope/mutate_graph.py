@@ -25,7 +25,7 @@ plt.close("all")
 POTENTIALS = {'splitters':[PowerSplitter],
               'nonsplitters':[Fiber, AWG, PhaseModulator, WaveShaper]}
 
-env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
+env = PulseEnvironment(p = 2, q = 1, profile = 'cw')
 
 components = (
     {
@@ -412,23 +412,27 @@ def change_experiment_wrapper(E):
 # -----------------------------------------------------------      
 ##    
 
-fig = plt.figure()
+fig1 = plt.figure()
+fig2 = plt.figure()
+
 for i in range(200):
     for j in range(15):
         E = change_experiment_wrapper(E)
     E.cleanexperiment()
     E.make_path()
-    print(E.path)
+#    print(E.path)
     E.check_path()
     
     mapping=dict(zip( [item for sublist in E.path for item in sublist],range(0,len(E.nodes()))))
     E = nx.relabel_nodes(E, mapping) 
     
     E.checkexperiment()   
+
+    plt.figure(fig1.number)
     plt.clf()
-    E.draw(node_label='keys', title='its working', fig=fig)
-    plt.show()
+    E.draw(node_label='keys', title='its working')#, fig=fig1)
     
+    plt.show()
     
     
     E.injection_nodes = []
@@ -444,16 +448,23 @@ for i in range(200):
     print(E.path)
     E.check_path()
         
-    plt.pause(10)
-#    at = E.newattributes()
-#    E.setattributes(at)
-#    
-#    E.simulate(env)
     
-          
     
+    at = E.newattributes()
+    E.setattributes(at)
+    
+    plt.figure(fig2.number)
+    E.simulate(env)
+    E.measure(env, E.measurement_nodes[0], fig=fig2)  
+    plt.show()
+
+
+
+    plt.pause(0.1)
+
+
 """
-save_experiment('test3', E)
+save_experiment('test4', E)
 
 
 E.draw(node_label='titles')

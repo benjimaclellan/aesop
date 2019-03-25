@@ -16,7 +16,24 @@ from optimization.gradientdescent import finetune_individual
 
 plt.close("all")
 
-E = load_experiment('test3')
+E = load_experiment('test4')
+
+
+
+adj = list(E.edges())
+components = {}
+measurement_nodes = []
+for node in E.nodes:
+    components[node] = E.nodes[node]['info'].__class__()
+    if len(E.suc(node)) == 0:
+        measurement_nodes.append(node)
+E = Experiment()
+E.buildexperiment(components, adj, measurement_nodes)
+E.checkexperiment()
+
+E.cleanexperiment()
+
+env = PulseEnvironment(p = 1, q = 2, profile = 'cw')
 
 
 #components = (
@@ -35,11 +52,32 @@ E = load_experiment('test3')
 #E = Experiment()
 #E.buildexperiment(components, adj, measurement_nodes)
 #E.checkexperiment()
+#
+
+
 
 E.make_path()
 print(E.path)
 E.check_path()
 
-E.draw(node_label='keys')
+
+E.draw(node_label='both')
 plt.show()
+
+
+
+E.injection_nodes = []
+E.measurement_nodes = []
+for node in E.nodes():
+    if len(E.pre(node)) == 0:
+        E.injection_nodes.append(node)
+        E.nodes[node]['input'] = env.At
+    if len(E.suc(node)) == 0:
+        E.measurement_nodes.append(node)
+
+at = E.newattributes()
+E.setattributes(at)
+
+E.simulate(env)
+E.measure(env, E.measurement_nodes[0])
 

@@ -1,5 +1,7 @@
 import scipy.optimize as opt
 from copy import copy
+import numpy as np
+
 
 """
 Wrapping function for final fine-tuning of the GA HOF individuals
@@ -7,7 +9,7 @@ Wrapping function for final fine-tuning of the GA HOF individuals
 def finetune_individual(ind, env, experiment):
     (optlist, idx, nodelist) = pack_opt(ind, experiment)
     
-    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':2000})    
+    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':3000})    
     
     ind = unpack_opt(ind, experiment, optres.x.tolist(), idx, nodelist)
     return ind
@@ -17,6 +19,8 @@ Using standard packages to slightly tweak the best of HOF to optimal individual
 """
 def final_opt(optlist, ind, idx, keylist, env, experiment):    
     ind = unpack_opt(ind, experiment, optlist, idx, keylist)
+#    print('final_opt', ind)
+    
     measurement_node = experiment.measurement_nodes[0]
     
     experiment.setattributes(ind)
@@ -25,7 +29,9 @@ def final_opt(optlist, ind, idx, keylist, env, experiment):
     At = experiment.nodes[measurement_node]['output'].reshape(env.N)
     fitness = env.fitness(At)
     
-    return -fitness[0] * fitness[1] #minus sign is because we want to minimize
+    return -fitness[0]*0.05- fitness[1]*0.95
+#    return np.sqrt(np.sum(np.power(fitness,2))) #* (1-env.component_losses/100)
+#    return -fitness[1] #minus sign is because we want to minimize
 
 """
 Unpacks the list of parameters from the structure used in the GA to the GD
@@ -40,26 +46,26 @@ def pack_opt(ind, experiment):
             if (experiment.nodes[node]['info'].FINETUNE_SKIP != None) and i in (experiment.nodes[node]['info'].FINETUNE_SKIP):
                 continue
             optlist.append(at_i)
-            nodelist.append(node)
+        
             cnt += 1
+        nodelist.append(node)
         a[1] = cnt
         idx.append(copy(a))
+
     return optlist, idx, nodelist
 
 """
 Unpacks the list of parameters from the structure used in GD to the GA and simulation
 """
 def unpack_opt(ind, experiment, optlist, idx, nodelist):
+    cnt = 0
     for i, ind_pair in enumerate(idx, 0):
-        start = ind_pair[0]
-        end = ind_pair[1]# + 1
         node = nodelist[i]
-        cnt = 0
-        for j in range(start, end):
-            if (experiment.nodes[node]['info'].FINETUNE_SKIP != None) and (i-start) in (experiment.nodes[node]['info'].FINETUNE_SKIP):
-                continue
+        for j in range(0, len(ind[node])):
+            if (experiment.nodes[node]['info'].FINETUNE_SKIP != None) and (j) in (experiment.nodes[node]['info'].FINETUNE_SKIP):
+                pass
             else:
-                ind[node][cnt-start] = optlist[cnt]
+                ind[node][j] = optlist[cnt]
                 cnt += 1
     return ind
         

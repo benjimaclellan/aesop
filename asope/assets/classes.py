@@ -109,8 +109,17 @@ class Experiment(nx.DiGraph):
             if self.nodes[node]['info'].splitter and len(self.pre(node)) == 1 and len(self.suc(node)) == 1:
                 self.add_edge(self.pre(node)[0], self.suc(node)[0])
                 nodes_to_remove.append(node)
+            
+            if self.nodes[node]['info'].splitter and len(self.pre(node)) == 0 and len(self.suc(node)) == 1:
+                nodes_to_remove.append(node)
+            
+            if self.nodes[node]['info'].splitter and len(self.pre(node)) == 1 and len(self.suc(node)) == 0:
+                nodes_to_remove.append(node)
+            
+            
             if self.nodes[node]['info'].splitter and len(self.pre(node)) < 1 and len(self.suc(node)) < 1:
                 nodes_to_remove.append(node)
+                
         for node in nodes_to_remove:
             print('removing node ', node)
             self.remove_node(node)
@@ -199,7 +208,7 @@ class Experiment(nx.DiGraph):
         
         pathscopy = copy.deepcopy(path)
         for k in range(len(path)):
-            for i in range(k,len(path)):
+            for i in range(0,len(path)):
                 subpath_i = pathscopy[i]
                 node = subpath_i[0]
                 pres = []
@@ -284,7 +293,7 @@ class Experiment(nx.DiGraph):
         return list( self.predecessors(node) )
         
 
-    def measure(self, env, measurement_node, check_power = False):
+    def measure(self, env, measurement_node, check_power = False, fig = None):
         """
             Plots the pulse at a given measurement node
         """
@@ -296,7 +305,14 @@ class Experiment(nx.DiGraph):
             self.power_check_single(At, display=True)
             
         # plot both temporal and frequency domains, of input and output
-        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
+        if fig == None:
+            fig = plt.figure(dpi=80, figsize=(8, 10))
+        else: 
+            fig.clf()
+        ax = []
+        ax.append(fig.add_subplot(2,1,1))
+        ax.append(fig.add_subplot(2,1,2))            
+#        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
         ax[0].set_title('Measurement node {}: {}'.format(measurement_node, self.nodes[measurement_node]['title']))
         alpha = 0.4
         ax[0].plot(env.t, P(env.At0), lw = 4, label='Input', alpha=alpha)
@@ -328,11 +344,29 @@ class Experiment(nx.DiGraph):
                 labeldict[i] = '{}, {}'.format(i, self.nodes[i]['title'])
             else:
                 with_labels = False
-        if fig == None:
-            plt.figure()
-            
+                
+#        if fig == None:
+#            fig, axis = plt.subplots(1,1, dpi=80, figsize=(6,6))
+#            print('no figure given')
+#        
+#        else:
+##            fig.clf()
+#            if not fig.axes:
+#                fig.add_subplot(1,1,1)
+##                print('fig given, no axes')
+##            else:
+##                print(fig.axes)
+#            axis = fig.axes[0]
+##                print('fig given, with axes')
+#        
+#        axis.cla()
+        
+#        axis = fig.axes[0]
         plt.title(title)
-        nx.draw_shell(self, labels = labeldict, with_labels=with_labels)    
+#        axis.set_title(title)
+        nx.draw_shell(self, labels = labeldict, with_labels=with_labels, arrowstyle='fancy')    
+        return fig
+        
         
     def printinfo(self):
         """

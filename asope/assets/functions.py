@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+#from assets.classes import Experiment
 
 """
     A number of useful functions that are utilized through the package.
@@ -58,6 +59,23 @@ def load_experiment(filename):
     return experiment
 
             
+def reload_experiment(filename):
+    """
+        Reloads an experiment from filename
+    """
+    E = load_experiment('test4')
+
+    adj = list(E.edges())
+    components = {}
+    measurement_nodes = []
+    for node in E.nodes:
+        components[node] = E.nodes[node]['info'].__class__()
+        if len(E.suc(node)) == 0:
+            measurement_nodes.append(node)
+    experiment = Experiment()
+    experiment.buildexperiment(components, adj, measurement_nodes)
+    experiment.checkexperiment()
+
 
 
 def savelogbook(logbook, filepath):

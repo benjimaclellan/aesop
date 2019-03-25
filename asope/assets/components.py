@@ -209,7 +209,7 @@ class AWG(Component):
     def simulate(self, env, At, visualize=False):   
         # extract attributes, first index is the number of steps - which affects the other attributes
         nlevels = self.at[0] + 1
-        
+
         # phase to put on each step
         phasevalues = [0] + self.at[1:]
         
@@ -358,6 +358,12 @@ class PowerSplitter(Component):
         
     def simulate(self, env, At_in, num_outputs, visualize=False):        
         # ensure there is maximum 2 inputs/outputs (for now)
+
+        # this is a hacky fix -- look into a better solution later        
+        if At_in.ndim == 1:
+            At_in = np.atleast_2d(At_in).T
+
+        
         num_inputs = At_in.shape[1]
         assert num_inputs <= 2
         assert num_outputs <= 2

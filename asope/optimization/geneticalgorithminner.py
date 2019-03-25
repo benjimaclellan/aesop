@@ -99,7 +99,7 @@ def SEL_Inner(individuals, k):
 Fitness function for Inner GA
 """
 def FIT_Inner(individual, env, experiment):
-
+        
     experiment.setattributes(individual)
     experiment.simulate(env)
     
@@ -107,7 +107,8 @@ def FIT_Inner(individual, env, experiment):
     At = experiment.nodes[measurement_node]['output'].reshape(env.N)
     fitness = env.fitness(At)
 
-    return fitness[0]*fitness[1],
+#    return np.sqrt(np.sum(np.power(fitness,2))) * (1-env.component_losses/100),
+    return fitness[0],fitness[1],
 
 
 ## --------------------------------------------------------------------
@@ -145,8 +146,8 @@ def inner_geneticalgorithm(gap, env, experiment):
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     
     stats.register("avg", np.mean)
-#    stats.register("std", np.std)
-#    stats.register("min", np.min)
+    stats.register("std", np.std)
+    stats.register("min", np.min)
     stats.register("max", np.max)
 
     # setup variables early, in case of an early termination

@@ -7,6 +7,7 @@ import time
 import matplotlib.pyplot as plt
 import multiprocess as mp
 import uuid
+import copy 
 
 from assets.functions import extractlogbook, save_experiment, load_experiment
 from assets.environment import PulseEnvironment
@@ -32,14 +33,16 @@ if __name__ == '__main__':
         save = False
     
     # initialize our input pulse, with the fitness function too
-    env = PulseEnvironment(p = 1, q = 2, profile = 'gauss')
-    
+    env = PulseEnvironment(p = 3, q = 2, profile = 'gauss')
+#    env = PulseEnvironment(p = 1, q = 2, profile = 'gauss')
+
     components = (
         {
          0:AWG(),
          1:Fiber()
         })
     adj = [(0,1)]
+#    adj = []
     
     # note that the fitness function is evaluated at the first measurement_node
     measurement_nodes = [1]
@@ -62,11 +65,11 @@ if __name__ == '__main__':
     # store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.NFITNESS = 2            # how many values to optimize
-    gap.WEIGHTS = (1.0,1.0)     # weights to put on the multiple fitness values
+    gap.WEIGHTS = (1.0, 1.0)     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 400      # number of individuals in a population
-    gap.N_GEN = 20              # number of generations
+    gap.N_POPULATION = 300      # number of individuals in a population
+    gap.N_GEN = 40              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -83,11 +86,16 @@ if __name__ == '__main__':
     if logbook != None: 
         log = extractlogbook(logbook)    
         print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
-    
-    
+        fig_log = plt.figure(figsize=[8,8], dpi=90)
+        plt.plot(log['gen'], log['max'], label='Max', ls='-', color='salmon', alpha=1.0)
+        plt.plot(log['gen'], log['avg'], label='Avg', ls='-.', color='blue', alpha=0.7)
+        plt.plot(log['gen'], log['std'], label='STD', ls=':', color='orange', alpha=0.4)
+        plt.plot(log['gen'], log['min'], label='Min', ls='-', color='grey', alpha=0.3)
+        
     # now we visualizing the best HOF individual found, and slightly improve it   
     for j in range(gap.N_HOF):
-        individual = hof[j]
+        individual = copy.deepcopy(hof[j])
+#        individual = {0: [3, -3.3231200,0,-3.3231200], 1: [1591.5457908747617]}
         measurement_node = experiment.measurement_nodes[0]
         
         print(individual)
@@ -104,7 +112,7 @@ if __name__ == '__main__':
         plt.show()
         
         
-        # Now fine tune the best individual using gradient descent
+        # Now fine tune the best individual using grad`ient descent
         individual_fine = finetune_individual(individual, env, experiment)
         print(individual_fine)
         
@@ -117,5 +125,5 @@ if __name__ == '__main__':
         experiment.measure(env, measurement_node)  
         plt.show()
                 
-        if save:
-            save_experiment(filename, experiment)
+#        if save:
+#            save_experiment(filename, experiment)
