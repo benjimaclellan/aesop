@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 19 17:16:50 2019
-
-@author: benjamin
-"""
- 
 import copy 
 from random import shuffle, sample
 import time
@@ -15,44 +7,56 @@ import numpy as np
 import networkx as nx
 import keyboard
 
-from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices
+from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.environment import PulseEnvironment
 from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from assets.classes import Experiment
 plt.close("all")
 
-POTENTIALS = {'splitters':[PowerSplitter],
+POTENTIALS = {'splitters':[PowerSplitter, FrequencySplitter],
               'nonsplitters':[Fiber, AWG, PhaseModulator, WaveShaper]}
 
-env = PulseEnvironment(p = 2, q = 1, profile = 'cw')
+env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
+
+#adj = list(E.edges())
+#components = {}
+#measurement_nodes = []
+#for node in E.nodes:
+#    components[node] = eval(E.nodes[node]['info'].__class__.__name__)()
+#    if len(E.suc(node)) == 0:
+#        measurement_nodes.append(node)
+#experiment = Experiment()
+#experiment.buildexperiment(components, adj, measurement_nodes)
+#experiment.checkexperiment()
+#
+#E = experiment
 
 components = (
     {
      'fiber0': Fiber(),
-     'ps0':PowerSplitter(),
+     'ps0':FrequencySplitter(),
      'pm0':PhaseModulator(),
      'fiber1':Fiber(),
-     'ps1':PowerSplitter(),
+     'ps1':FrequencySplitter(),
      'fiber2':Fiber(),
     }
     ) 
 adj = [('fiber0','ps0'), ('ps0','pm0'), ('pm0','ps1'), ('ps0','fiber1'), ('fiber1','ps1'), ('ps1', 'fiber2')]
 measurement_nodes = ['fiber2']
+
+components = (
+        {
+         0:Fiber(),
+        })
+adj = []
+measurement_nodes = [0]
 #
-#components = (
-#        {
-#         'awg':AWG(),
-#         'fiber':Fiber(),
-#        })
-#adj = [('awg','fiber')]
-#measurement_nodes = [1]
-
-
-# now let's create the experiment as a custom class, build it based on specifications, and ensure it is properly connected
+#
+## now let's create the experiment as a custom class, build it based on specifications, and ensure it is properly connected
 E = Experiment()
 E.buildexperiment(components, adj, measurement_nodes)
-#E.checkexperiment()
+E.checkexperiment()
 
 #E = Experiment()
 #E,_ = brand_new_experiment(E)
@@ -415,22 +419,23 @@ def change_experiment_wrapper(E):
 fig1 = plt.figure()
 fig2 = plt.figure()
 
-for i in range(200):
+for i in range(1):
     for j in range(15):
         E = change_experiment_wrapper(E)
     E.cleanexperiment()
     E.make_path()
-#    print(E.path)
     E.check_path()
     
     mapping=dict(zip( [item for sublist in E.path for item in sublist],range(0,len(E.nodes()))))
     E = nx.relabel_nodes(E, mapping) 
     
+    E.make_path()
+    E.check_path()
     E.checkexperiment()   
 
     plt.figure(fig1.number)
     plt.clf()
-    E.draw(node_label='keys', title='its working')#, fig=fig1)
+    E.draw(node_label='disp_name', title='Optical Setup Mutation')#, fig=fig1)
     
     plt.show()
     
@@ -458,9 +463,23 @@ for i in range(200):
     E.measure(env, E.measurement_nodes[0], fig=fig2)  
     plt.show()
 
+    adj = list(E.edges())
+    components = {}
+    measurement_nodes = []
+    for node in E.nodes:
+#        components[node] = eval(E.nodes[node]['info'].__class__.__name__)()
+        components[node] = E.nodes[node]['info'].__class__.__name__
+        if len(E.suc(node)) == 0:
+            measurement_nodes.append(node)
+    print('components = {')
+    for node in components:
+        print('{}:{}(),'.format(node, components[node]))
+    print('}}\nadj = {}\nmeasurement_nodes={}'.format(adj, measurement_nodes))
 
 
-    plt.pause(0.1)
+    plt.pause(0.8)
+
+
 
 
 """

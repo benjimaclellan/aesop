@@ -106,9 +106,10 @@ class Fiber(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'fiber'
+        self.disp_name = 'Dispersive Fiber'
         self.beta = [2e-20]     # second order dispersi on (SI units)
         self.N_PARAMETERS = 1
-        self.UPPER = [2000]
+        self.UPPER = [5000]
         self.LOWER = [0]
         self.DTYPE = ['int']
         self.DSCRTVAL = [1]
@@ -153,13 +154,14 @@ class PhaseModulator(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'phasemodulator'
+        self.disp_name = 'Electro-Optic Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 3
         self.UPPER = [1, 200e6, 1]   # max shift, frequency, bias
         self.LOWER = [0, 1e6, 0]
         self.DTYPE = ['float', 'float', 'float']
         self.DSCRTVAL = [None, 1e6, None]
-        self.FINETUNE_SKIP = False
+        self.FINETUNE_SKIP = None
         self.splitter = False
     
     def simulate(self, env, At,  visualize=False):  
@@ -198,6 +200,7 @@ class AWG(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'awg'
+        self.disp_name = 'Temporal Phase Shifter'
         self.N_PARAMETERS = 2
         self.UPPER = [8] + [np.pi]   # number of steps + 1, phase at each step
         self.LOWER = [1] + [-np.pi]
@@ -222,10 +225,11 @@ class AWG(Component):
             oneperiod = np.concatenate((oneperiod, tmp*phasevalues[i]))  
             
         # tile/repeat the step-waveform for the whole simulation window
-        phasetmp = np.tile(oneperiod, np.ceil(len(env.t)/len(oneperiod)).astype('int') )
+        phasetmp = np.tile(oneperiod, np.ceil(env.N/len(oneperiod)).astype('int'))
+
         shift1 = timeblock//2
         phasetmp = phasetmp[shift1:]
-        phase = phasetmp[0:len(env.t)] 
+        phase = phasetmp[0:env.N].reshape(env.N, 1)
         
         # apply phase profile in the temporal domain, and a type of loss can be added to reduce number of steps
         At = At * np.exp(1j * phase) * (.97**nlevels) #loss here
@@ -271,6 +275,7 @@ class WaveShaper(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'waveshaper'
+        self.disp_name = 'Wave Shaper'
         self.res = 12e9     # resolution of the waveshaper
         self.N_PARAMETERS = 4 * 2 #using a 4-th order polynomial, for now
         self.UPPER = [1,1,1,2] + [1,1,1,2]  #bounds of polynomial coefficients
@@ -348,20 +353,21 @@ class PowerSplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'powersplitter'
+        self.disp_name = '3dB Fiber Splitter'
         self.N_PARAMETERS = 0
         self.UPPER = []
         self.LOWER = []
         self.DTYPE = ['float']
         self.DSCRTVAL = [None]
-        self.FINETUNE_SKIP = 0
+        self.FINETUNE_SKIP = None
         self.splitter = True
         
     def simulate(self, env, At_in, num_outputs, visualize=False):        
         # ensure there is maximum 2 inputs/outputs (for now)
 
         # this is a hacky fix -- look into a better solution later        
-        if At_in.ndim == 1:
-            At_in = np.atleast_2d(At_in).T
+#        if At_in.ndim == 1:
+#            At_in = np.atleast_2d(At_in).T
 
         
         num_inputs = At_in.shape[1]
@@ -409,39 +415,50 @@ class FrequencySplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'frequencysplitter'
+        self.disp_name = 'Chromatic Splitter'
         self.N_PARAMETERS = 1
-        self.UPPER = [0.06]
-        self.LOWER = [-0.06]
+        self.UPPER = [0.1]
+        self.LOWER = [-0.1]
         self.DTYPE = ['float']
         self.DSCRTVAL = [0.02]
-        self.FINETUNE_SKIP = 0
+        self.FINETUNE_SKIP = [0]
         self.splitter = True
         
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensuring that, for now, we only have maximum ONE input. Please use a powersplitter for coupling (easier to deal with)
-        num_inputs = At_in.shape[1]
-        assert num_inputs <= 1
-        
-        # ensuring that, for now, we only have maximum two outputs
-        assert num_outputs <= 2
 
-        # collect the input (single input path)
-        Af_in = FFT(At_in[:,0], env.dt)
+        # ensuring that, for now, we only have maximum two outputs
+        num_inputs = At_in.shape[1]
+        assert num_inputs <= 2
+        assert num_outputs <= 2
                 
-        # extract the frequency location to split at (can be extended to have two)
-        splits = (env.f[0]-env.df, self.at[0]*env.f[-1])
-        split1 = min(splits)
-        split2 = max(splits)
-        
-        # create masks, which are used to select the frequencies on each outgoing spatial path
-        mask1 = np.ones(env.N)
-        mask1[env.f <= split1] = 0; mask1[env.f > split2] = 0   
-        
-        # second mask is the NOT of the first
-        mask2 = np.logical_not(mask1).astype('float')
-        
-        # apply masks and stack the two outputs to be saved and sent to next components
-        At_out = np.stack((IFFT(mask1*Af_in, env.dt), IFFT(mask2*Af_in,env.dt)), axis=1)
+        # collect the input (single input path)
+        if num_inputs > 1:
+            Af_in = FFT(np.sum(At_in, axis=1), env.dt).reshape(env.N,1)
+        else:            
+            Af_in = FFT(At_in, env.dt)
+
+        if num_outputs > 1:
+            # extract the frequency location to split at (can be extended to have two)
+            splits = (env.f[0]-env.df, self.at[0]*env.f[-1])
+            split1 = min(splits)
+            split2 = max(splits)
+            
+            # create masks, which are used to select the frequencies on each outgoing spatial path
+            mask = np.ones([env.N,2], dtype='complex')
+            mask[env.f[:,0] <= split1,0] = 0; 
+            mask[env.f[:,0] > split2,0] = 0   
+            
+            # second mask is the NOT of the first
+            mask[:,1] = np.logical_not(mask[:,0]).astype('float')
+            
+            
+            # apply masks and send to next components
+            At_out = IFFT(mask*Af_in, env.dt)
+            
+        else:
+            At_out = IFFT(Af_in, env.dt)#.reshape(env.N, 1)
+
         return At_out
     
     def newattribute(self):

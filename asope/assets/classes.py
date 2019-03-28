@@ -32,27 +32,27 @@ class Experiment(nx.DiGraph):
             
             # for each component in the current subpath
             for ii, node in enumerate(subpath):  
-                                
+                
                 # if component (node) is a splitter, collect all incoming pulses
                 if self.nodes[node]['info'].splitter:
                     
                     # if this is an input node (no predeccessors), get the prescribed input
                     if len(self.pre(node)) == 0:
-                        At = self.nodes[node]['input']
+                        At = self.nodes[node]['input']#.reshape(env.N,1)
                     
                     # if not an input node (somewhere in the middle of the setup)
                     else:
                         At = np.zeros([env.N, len(self.pre(node))]).astype('complex')
                         for jj in range(len(self.pre(node))):
-                            At[:, jj] = self[self.pre(node)[jj]][node]['At']
+                            At[:, [jj]] = self[self.pre(node)[jj]][node]['At']
                                   
                     # simulate the effect of a splitter
                     At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))))
-                    
                     # store the split/coupled pulses to the successors
+#                    if len(self.suc(node)) > 0:
                     for jj in range(len(self.suc(node))):
-                        self[node][self.suc(node)[jj]]['At'] = At[:,jj]
-                
+                        self[node][self.suc(node)[jj]]['At'] = At[:,[jj]]
+
                 # if component is not a splitter
                 else:    
                     # if this is the first component in the subpath
@@ -67,7 +67,6 @@ class Experiment(nx.DiGraph):
                     
                     # now the pulse is stored in memory properly
                     At = self.nodes[node]['info'].simulate(env, At) 
-                    
                     # if this is the last node in subpath, we save the pulse for future extraction
                     if ii == len(subpath)-1 and len(self.suc(node)) > 0: 
                         self[node][self.suc(node)[0]]['At'] = At
@@ -340,11 +339,28 @@ class Experiment(nx.DiGraph):
                 labeldict[i] = self.nodes[i]['title']
             elif node_label == 'keys':
                 labeldict[i] = i
+            elif node_label == 'disp_name':
+                st = (self.nodes[i]['info'].disp_name).replace(' ', '\n') 
+                labeldict[i] = "{}\n{}".format(i,st)
             elif node_label == 'both':
                 labeldict[i] = '{}, {}'.format(i, self.nodes[i]['title'])
             else:
                 with_labels = False
                 
+                
+#        nodePos = nx.circular_layout(self)
+#        nodePos = nx.bipartite_layout(self, self.nodes())
+#        nodePos = nx.random_layout(self)
+        nodePos = nx.nx_pydot.pydot_layout(self)
+        
+#        nodePos = {}
+#        n = len(self.nodes())
+#        for node in self.nodes():
+#            nodePos[node] = np.array([(i/n, subpath.index(node)/n) for i, subpath in enumerate(self.path) if node in subpath])
+#
+#        print(nodePos)
+        
+        
 #        if fig == None:
 #            fig, axis = plt.subplots(1,1, dpi=80, figsize=(6,6))
 #            print('no figure given')
@@ -364,7 +380,10 @@ class Experiment(nx.DiGraph):
 #        axis = fig.axes[0]
         plt.title(title)
 #        axis.set_title(title)
-        nx.draw_shell(self, labels = labeldict, with_labels=with_labels, arrowstyle='fancy')    
+        
+        print(nodePos)
+        
+        nx.draw(self, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8')    
         return fig
         
         

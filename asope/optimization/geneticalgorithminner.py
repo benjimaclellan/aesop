@@ -141,6 +141,14 @@ def inner_geneticalgorithm(gap, env, experiment):
     
     pop = toolbox.population(n = gap.N_POPULATION)
     
+    tuple(set(dir(pop[0])))
+    
+    if not gap.INIT:
+        pass
+    else:
+        for i, init in enumerate(gap.INIT):
+            pop[i].update(init)
+    
     hof = tools.HallOfFame(gap.N_HOF, similar=np.array_equal)
     
     stats = tools.Statistics(lambda ind: ind.fitness.values)

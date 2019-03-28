@@ -7,6 +7,19 @@ def sech(x):
 #    np.seterr('ignore')
     return 1/np.cosh(x, dtype='complex')
 
+def dsigmoid(X, A):
+    return 4*(1/(1+np.exp(-X*X/A)))*(1-1/(1+np.exp(-X*X/A)))
+
+def clippedfitness(X):
+    return max([0,X])
+
+def gaussian(X,A):
+    return np.exp(-X*X/A)
+
+def supergaussian(X, A, m):
+    return np.exp(-np.power(X*X/A,m))
+
+
 class PulseEnvironment(object):
     """   
         Custom class for the pulse environment, storing all the details of an input pulse train
@@ -18,36 +31,37 @@ class PulseEnvironment(object):
         self.q = q
         
         # pulse parameters
-        N = 2**14        # number of points in the simulation [] 
-        T = 50e-12       # pulse width [s]
+        N = 2**13        # number of points in the simulation [] 
+        T = 500e-12       # pulse width [s]
         res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
-        n_pulses =  10   # number of pulses in simulation window []
+        n_pulses = 30   # number of pulses in simulation window []
         f_rep = 100e6    # repetition rate of the pulse train [Hz]
         peakP = 1        # peak power [W]
         
         # temporal domain
         window = 1/f_rep * n_pulses
-        (t, dt) = np.linspace(-window/2, window/2, N, retstep=True)     # time in s
+        t = np.linspace(-window/2, window/2, N).reshape(N, 1)     # time in s
+        dt = (t[1] - t[0])[0]
                 
         # frequency domain
-        f = np.linspace(-N/2, N/2-1, N) / window    # frequency in Hz
-        df = f[1] - f[0]
+        f = np.linspace(-N/2, N/2-1, N).reshape(N, 1) / window    # frequency in Hz
+        df = (f[1] - f[0])[0]
         
         # create initial train of Gaussian pulses
         if profile == 'gauss':
-            At0 = np.zeros(N).astype('complex')
+            At0 = np.zeros([N, 1], dtype='complex')
             for i_pulse in range(0,n_pulses+1):
                 At0 += np.exp(-0.5 * (np.power((t+(t[0] + window*(i_pulse/(n_pulses))))/T, 2)))
         
         # create initial train of sech2 pulses
         elif profile == 'sech':
-            At0 = np.zeros(N).astype('complex')
+            At0 = np.zeros([N, 1], dtype='complex')
             for i_pulse in range(0,n_pulses+1):
                 At0 += sech((t+(t[0] + window*(i_pulse/(n_pulses))))/T)
 
                 # create initial cw wave (carrier removed)
         elif profile == 'cw':
-            At0 = np.ones(N).astype('complex')
+            At0 = np.ones([N, 1], dtype='complex')
         
         else:
             raise ValueError
@@ -104,9 +118,13 @@ class PulseEnvironment(object):
         """
         
         # one value to optimize is the peak power
-#        fitness2 = np.max(P(At))
         PAt = P(At)
-        fitness2 = 1-np.power( np.max(PAt) - p/q, 2) #
+        X1 = np.power( np.max(PAt) - p/q, 2)
+#        fitness2 = clippedfitness(X1)
+#        fitness2 = gaussian( X1, 1)
+#        fitness2 = dsigmoid(X1, 1)
+        fitness2 = supergaussian(X1,1,1)
+        
 #        dPAt = np.diff(PAt)
 #        fitness2 = np.max(PAt) * ((dPAt[:-1] * dPAt[1:]) < 0).sum() / self.N       
         
@@ -124,10 +142,13 @@ class PulseEnvironment(object):
             fitness1 = 0 #-99999999
         # if there are peaks in the RF spectrum, define the fitness function here, based on how far we are from the target
         else: 
+#            X = np.power( peakf_distTarget/(self.df*self.N/2) - peakf_dist/(self.df*self.N/2), 2)
             X = np.power( peakf_distTarget - peakf_dist, 2)
-#            A = 0.01
-            fitness1 = max([0,1 - X])
-#            fitness1 = 8*(1/(1+np.exp(-X/A)))*(1-1/(1+np.exp(-X/A)))
+
+#            fitness1 = clippedfitness(1-X)
+#            fitness1 = gaussian(X, 1)
+#            fitness1 = dsigmoid(X, 1)
+            fitness1 = supergaussian(X,1,1)
 
 
         return (fitness1, fitness2)

@@ -9,7 +9,7 @@ Wrapping function for final fine-tuning of the GA HOF individuals
 def finetune_individual(ind, env, experiment):
     (optlist, idx, nodelist) = pack_opt(ind, experiment)
     
-    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':3000})    
+    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':1000})    
     
     ind = unpack_opt(ind, experiment, optres.x.tolist(), idx, nodelist)
     return ind
@@ -29,7 +29,8 @@ def final_opt(optlist, ind, idx, keylist, env, experiment):
     At = experiment.nodes[measurement_node]['output'].reshape(env.N)
     fitness = env.fitness(At)
     
-    return -fitness[0]*0.05- fitness[1]*0.95
+    return -fitness[0]*0.2- fitness[1]*0.8
+#    return -fitness[0] * fitness[1]
 #    return np.sqrt(np.sum(np.power(fitness,2))) #* (1-env.component_losses/100)
 #    return -fitness[1] #minus sign is because we want to minimize
 

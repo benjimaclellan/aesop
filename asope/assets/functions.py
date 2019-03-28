@@ -19,17 +19,17 @@ def PSD(Af, df):
     """
     return np.power( np.abs( Af ), 2) / df
 
-def FFT( At, dt, axis = 1):   
+def FFT( At, dt, ax = 0):   
     """
         Proper Fast Fourier Transform for zero-centered vectors
     """
-    return np.fft.fftshift(np.fft.fft(np.fft.fftshift(At)))*dt
+    return np.fft.fftshift(np.fft.fft(np.fft.fftshift(At, axes=ax), axis=ax), axes=ax)*dt
 
-def IFFT( Af, dt,axis=1):
+def IFFT( Af, dt, ax=0):
     """
         Proper Inverse Fast Fourier Transform for zero-centered vectors
     """
-    return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af)))/dt
+    return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af, axes=ax), axis=ax), axes=ax)/dt
     
 def RFSpectrum( At, dt):
     """
@@ -63,8 +63,11 @@ def reload_experiment(filename):
     """
         Reloads an experiment from filename
     """
-    E = load_experiment('test4')
+    E = rebuild_experiment( load_experiment(filename) )
+    return E
+    
 
+def rebuild_experiment(E):
     adj = list(E.edges())
     components = {}
     measurement_nodes = []
@@ -75,7 +78,7 @@ def reload_experiment(filename):
     experiment = Experiment()
     experiment.buildexperiment(components, adj, measurement_nodes)
     experiment.checkexperiment()
-
+    return experiment
 
 
 def savelogbook(logbook, filepath):

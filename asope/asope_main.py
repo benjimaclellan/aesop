@@ -33,26 +33,39 @@ if __name__ == '__main__':
         save = False
     
     # initialize our input pulse, with the fitness function too
-    env = PulseEnvironment(p = 3, q = 2, profile = 'gauss')
-#    env = PulseEnvironment(p = 1, q = 2, profile = 'gauss')
+    env = PulseEnvironment(p = 3, q = 1, profile = 'gauss')
 
-    components = (
-        {
-         0:AWG(),
-         1:Fiber()
-        })
-    adj = [(0,1)]
-#    adj = []
+    components = {
+        6:WaveShaper(),
+        0:PowerSplitter(),
+        5:PowerSplitter(),
+        1:Fiber(),
+        4:WaveShaper(),
+        3:Fiber(),
+        2:AWG(),
+        }
+    adj = [(0, 1), (0, 4), (5, 6), (1, 2), (4, 5), (3, 5), (2, 3)]
+    measurement_nodes=[6]
     
-    # note that the fitness function is evaluated at the first measurement_node
-    measurement_nodes = [1]
-    
+#    components = (
+#        {
+#         'fiber0': Fiber(),
+#         'ps0':FrequencySplitter(),
+#         'pm0':PhaseModulator(),
+#         'fiber1':Fiber(),
+#         'ps1':FrequencySplitter(),
+#         'fiber2':Fiber(),
+#        }
+#        ) 
+#    adj = [('fiber0','ps0'), ('ps0','pm0'), ('pm0','ps1'), ('ps0','fiber1'), ('fiber1','ps1'), ('ps1', 'fiber2')]
+#    measurement_nodes = ['fiber2']
+   
     # initialize the experiment, and perform all the preprocessing steps
     experiment = Experiment()
     experiment.buildexperiment(components, adj, measurement_nodes)
     experiment.checkexperiment()
 
-    experiment.draw(node_label = 'both')
+    experiment.draw(node_label = 'disp_name')
 
     experiment.make_path()
     experiment.check_path()
@@ -69,11 +82,13 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 300      # number of individuals in a population
-    gap.N_GEN = 40              # number of generations
+    gap.N_GEN = 10              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = 1             # verbose print statement for GA statistics
+    gap.INIT = None
+    
     print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))
     
     # run (and time) the genetic algorithm
