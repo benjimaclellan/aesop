@@ -244,7 +244,7 @@ class Experiment(nx.DiGraph):
             for node in self.nodes():
                 assert path_flatten.count(node)
             assert len(path_flatten) == len(self.nodes)
-            print('All seems well to run experiments on this graph')
+#            print('All seems well to run experiments on this graph')
         except:
             raise ValueError('There seems to be a problem with how this graph is transversed to perform the experiment')
         return 
@@ -301,7 +301,7 @@ class Experiment(nx.DiGraph):
         At = self.nodes[measurement_node]['output'].reshape(env.N)
         
         if check_power:
-            self.power_check_single(At, display=True)
+            check = self.power_check_single(At, display=True)
             
         # plot both temporal and frequency domains, of input and output
         if fig == None:
@@ -309,22 +309,29 @@ class Experiment(nx.DiGraph):
         else: 
             fig.clf()
         ax = []
-        ax.append(fig.add_subplot(2,1,1))
-        ax.append(fig.add_subplot(2,1,2))            
+#        ax.append(fig.add_subplot(2,1,1))
+#        ax.append(fig.add_subplot(2,1,2))     
+        ax.append(fig.add_subplot(1,1,1))  
 #        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
-        ax[0].set_title('Measurement node {}: {}'.format(measurement_node, self.nodes[measurement_node]['title']))
+        
+#        ax[0].set_title('Measurement node {}: {}'.format(measurement_node, self.nodes[measurement_node]['title']))
         alpha = 0.4
         ax[0].plot(env.t, P(env.At0), lw = 4, label='Input', alpha=alpha)
         ax[0].plot(env.t, P(At), ls='--', label='Output')  
+#        ax[0].set_ylim([0,max([max(P(At)), max(P(env.At0))])])
         ax[0].set_ylim([0,2])
         ax[0].legend()
         
-        Af = FFT(At, env.dt)
-        ax[1].plot(env.f, PSD(env.Af0, env.df), lw = 4, label='Input', alpha=alpha)
-        ax[1].plot(env.f, PSD(Af, env.df), ls='-', label='Output')
-        ax[1].legend()
+#        Af = FFT(At, env.dt)
+#        ax[1].plot(env.f, PSD(env.Af0, env.df), lw = 4, label='Input', alpha=alpha)
+#        ax[1].plot(env.f, PSD(Af, env.df), ls='-', label='Output')
+#        ax[1].set_ylim([0,max([max(P(Af)), max(P(env.Af0))])])
+#        ax[1].legend()
         
-        return
+        if check_power:
+            return check
+        else:
+            return None
 
         
     def draw(self, node_label = 'both', title=None, fig=None):
@@ -347,41 +354,8 @@ class Experiment(nx.DiGraph):
             else:
                 with_labels = False
                 
-                
-#        nodePos = nx.circular_layout(self)
-#        nodePos = nx.bipartite_layout(self, self.nodes())
-#        nodePos = nx.random_layout(self)
+
         nodePos = nx.nx_pydot.pydot_layout(self)
-        
-#        nodePos = {}
-#        n = len(self.nodes())
-#        for node in self.nodes():
-#            nodePos[node] = np.array([(i/n, subpath.index(node)/n) for i, subpath in enumerate(self.path) if node in subpath])
-#
-#        print(nodePos)
-        
-        
-#        if fig == None:
-#            fig, axis = plt.subplots(1,1, dpi=80, figsize=(6,6))
-#            print('no figure given')
-#        
-#        else:
-##            fig.clf()
-#            if not fig.axes:
-#                fig.add_subplot(1,1,1)
-##                print('fig given, no axes')
-##            else:
-##                print(fig.axes)
-#            axis = fig.axes[0]
-##                print('fig given, with axes')
-#        
-#        axis.cla()
-        
-#        axis = fig.axes[0]
-        plt.title(title)
-#        axis.set_title(title)
-        
-        print(nodePos)
         
         nx.draw(self, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8')    
         return fig
@@ -437,7 +411,7 @@ class Experiment(nx.DiGraph):
         totalpower_out = np.sum(P(At))
         
         ratio = (totalpower_out - totalpower_in)/totalpower_in
-        if ratio > 0.001:
+        if ratio > 0.05:
             display = True
             check = False
             print('There seems to be an issue in energy conservation')
@@ -447,29 +421,29 @@ class Experiment(nx.DiGraph):
         
         return check
         
-    def power_check_all(self, display=False):
-        check = True # assume all is good, change to false if there is a problem
-        
-        totalpower_in = 0
-        for node in self.nodes():
-            if len(self.pre(node)) == 0:
-                totalpower_in += np.sum(P(self.nodes[node]['input']))
-        
-        
-        totalpower_out = 0
-        for node in self.nodes():
-            if len(self.suc(node)) == 0:
-                print(self.nodes[node]['title'])
-                try:
-                    totalpower_out += np.sum(P(self.nodes[node]['At']))
-                except:
-                    totalpower_out += np.sum(P(self.nodes[node]['output']))
-                
-        ratio = (totalpower_out - totalpower_in)/totalpower_in
-        if ratio > 0.001:
-            display = True
-            check = False
-            print('There seems to be an issue in energy conservation')
+#    def power_check_all(self, display=False):
+#        check = True # assume all is good, change to false if there is a problem
+#        
+#        totalpower_in = 0
+#        for node in self.nodes():
+#            if len(self.pre(node)) == 0:
+#                totalpower_in += np.sum(P(self.nodes[node]['input']))
+#        
+#        
+#        totalpower_out = 0
+#        for node in self.nodes():
+#            if len(self.suc(node)) == 0:
+#                print(self.nodes[node]['title'])
+#                try:
+#                    totalpower_out += np.sum(P(self.nodes[node]['At']))
+#                except:
+#                    totalpower_out += np.sum(P(self.nodes[node]['output']))
+#                
+#        ratio = (totalpower_out - totalpower_in)/totalpower_in
+#        if ratio > 0.001:
+#            display = True
+#            check = False
+#            print('There seems to be an issue in energy conservation')
             
         if display:
             print('Input power: {}\nOutput power: {}'.format(totalpower_in, totalpower_out))

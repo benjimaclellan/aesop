@@ -1,10 +1,10 @@
 import numpy as np
 import peakutils
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+from scipy.signal import square
 
 
 def sech(x):
-#    np.seterr('ignore')
     return 1/np.cosh(x, dtype='complex')
 
 def dsigmoid(X, A):
@@ -29,12 +29,13 @@ class PulseEnvironment(object):
         # the Talbot ratio, used in the fitness function
         self.p = p
         self.q = q
+        self.profile = profile
         
         # pulse parameters
         N = 2**13        # number of points in the simulation [] 
         T = 500e-12       # pulse width [s]
         res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
-        n_pulses = 30   # number of pulses in simulation window []
+        n_pulses = 15   # number of pulses in simulation window []
         f_rep = 100e6    # repetition rate of the pulse train [Hz]
         peakP = 1        # peak power [W]
         
@@ -42,7 +43,11 @@ class PulseEnvironment(object):
         window = 1/f_rep * n_pulses
         t = np.linspace(-window/2, window/2, N).reshape(N, 1)     # time in s
         dt = (t[1] - t[0])[0]
-                
+             
+        target = 1 * (square(2*np.pi*50e9*t+0, 0.5)+1)/2
+        self.target = target
+        self.targetRF = RFSpectrum(target, dt)
+        
         # frequency domain
         f = np.linspace(-N/2, N/2-1, N).reshape(N, 1) / window    # frequency in Hz
         df = (f[1] - f[0])[0]
@@ -107,10 +112,15 @@ class PulseEnvironment(object):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-        
-        # currently, we use the Talbot effect as the fitness - either increasing or decreasing the repetition rate of the pulse train by p/q
-        fitness = self.TalbotEffect(At, self.p, self.q)
-        return fitness
+#        fitness = self.PhotonicAWG(At)
+        return self.TalbotEffect(At, self.p, self.q)
+    
+    def PhotonicAWG(self, At):
+        RF = RFSpectrum(At, self.dt)
+        norm = np.sum(RF) + np.sum(self.targetRF)
+        print(RF.shape)
+        metric = np.sum(np.abs(RF - self.targetRF), axis=0)#/norm
+        return (metric, metric)
     
     def TalbotEffect(self, At, p, q):
         """
@@ -124,6 +134,8 @@ class PulseEnvironment(object):
 #        fitness2 = gaussian( X1, 1)
 #        fitness2 = dsigmoid(X1, 1)
         fitness2 = supergaussian(X1,1,1)
+        
+#        fitness2 = np.max(PAt)
         
 #        dPAt = np.diff(PAt)
 #        fitness2 = np.max(PAt) * ((dPAt[:-1] * dPAt[1:]) < 0).sum() / self.N       
@@ -139,16 +151,22 @@ class PulseEnvironment(object):
         
         # sometimes no peaks are found (bad individual with no real structure), so set fitness to 0
         if len(peakinds) <= 1:
-            fitness1 = 0 #-99999999
-        # if there are peaks in the RF spectrum, define the fitness function here, based on how far we are from the target
+            fitness1 = 0 
+        
         else: 
-#            X = np.power( peakf_distTarget/(self.df*self.N/2) - peakf_dist/(self.df*self.N/2), 2)
+#            
             X = np.power( peakf_distTarget - peakf_dist, 2)
 
 #            fitness1 = clippedfitness(1-X)
 #            fitness1 = gaussian(X, 1)
 #            fitness1 = dsigmoid(X, 1)
             fitness1 = supergaussian(X,1,1)
+
+        
+#        left = self.N//2 - int(1/self.f_rep//self.dt//2)
+#        right = self.N//2 + int(1/self.f_rep//self.dt//2)
+#        fitness1 = np.sum(P(At)[left:right])
+        fitness1 = P(At[self.N//2])
 
 
         return (fitness1, fitness2)

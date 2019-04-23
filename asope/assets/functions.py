@@ -1,11 +1,9 @@
 import pickle
 import numpy as np
-#from assets.classes import Experiment
 
 """
     A number of useful functions that are utilized through the package.
 """
-
 
 def P(At):
     """
@@ -31,11 +29,11 @@ def IFFT( Af, dt, ax=0):
     """
     return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af, axes=ax), axis=ax), axes=ax)/dt
     
-def RFSpectrum( At, dt):
+def RFSpectrum( At, dt, ax=0):
     """
         Radio Frequency spectrum (ie spectrum off of a photodiode). Note that we use the real FFT
     """
-    return np.abs(np.fft.rfft(np.power( np.abs( At ), 2)))
+    return np.abs(np.fft.rfft(np.power( np.abs( At ), 2), axis=ax))
 
 
 

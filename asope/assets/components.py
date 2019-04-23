@@ -1,9 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from itertools import count
-from copy import copy, deepcopy
+#from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-import inspect
 
 """
 ASOPE
@@ -106,7 +105,7 @@ class Fiber(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'fiber'
-        self.disp_name = 'Dispersive Fiber'
+        self.disp_name = 'Dispersion Compensating Fiber'
         self.beta = [2e-20]     # second order dispersi on (SI units)
         self.N_PARAMETERS = 1
         self.UPPER = [5000]
@@ -154,7 +153,7 @@ class PhaseModulator(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'phasemodulator'
-        self.disp_name = 'Electro-Optic Modulator'
+        self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 3
         self.UPPER = [1, 200e6, 1]   # max shift, frequency, bias
@@ -200,7 +199,7 @@ class AWG(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'awg'
-        self.disp_name = 'Temporal Phase Shifter'
+        self.disp_name = 'AWG Phase Modulator'
         self.N_PARAMETERS = 2
         self.UPPER = [8] + [np.pi]   # number of steps + 1, phase at each step
         self.LOWER = [1] + [-np.pi]
@@ -275,7 +274,7 @@ class WaveShaper(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'waveshaper'
-        self.disp_name = 'Wave Shaper'
+        self.disp_name = 'Programmable Filter'
         self.res = 12e9     # resolution of the waveshaper
         self.N_PARAMETERS = 4 * 2 #using a 4-th order polynomial, for now
         self.UPPER = [1,1,1,2] + [1,1,1,2]  #bounds of polynomial coefficients
@@ -295,10 +294,17 @@ class WaveShaper(Component):
         amp[amp > 1] = 1
         amp[amp < 0] = 0
         
+        amp = np.ones_like(amp)
+        
+#        plt.figure()
+#        plt.plot(amp)
+        
         # create the phase mask polynomial and clip between 0 and 2pi
         phase = np.polyval(phasevalues, env.f/np.max(env.f))
         phase[phase > 2*np.pi] = 2*np.pi
         phase[phase < 0] = 0
+        
+        phase = np.ones_like(phase)
         
         # discretize based on the resolution of the waveshaper
         n = int( np.floor( self.res/env.df ) )
@@ -353,7 +359,7 @@ class PowerSplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'powersplitter'
-        self.disp_name = '3dB Fiber Splitter'
+        self.disp_name = 'Power Splitter'
         self.N_PARAMETERS = 0
         self.UPPER = []
         self.LOWER = []
@@ -364,12 +370,7 @@ class PowerSplitter(Component):
         
     def simulate(self, env, At_in, num_outputs, visualize=False):        
         # ensure there is maximum 2 inputs/outputs (for now)
-
-        # this is a hacky fix -- look into a better solution later        
-#        if At_in.ndim == 1:
-#            At_in = np.atleast_2d(At_in).T
-
-        
+  
         num_inputs = At_in.shape[1]
         assert num_inputs <= 2
         assert num_outputs <= 2
@@ -378,17 +379,7 @@ class PowerSplitter(Component):
         XX,YY = np.meshgrid(np.linspace(0,num_outputs-1, num_outputs), np.linspace(0,num_inputs-1, num_inputs))
         
         # in the case of 2x2 splitter, this works, but should check for more arms
-        S = np.sqrt(1/2) * np.exp(np.abs(XX - YY) * 1j * np.pi )
-        
-        
-#        S = np.sqrt(1/2) * np.array([[1,1],[1,1*np.exp(1j*np.pi)]])
-#        if num_inputs == 1:
-##            S = S[:,0]
-#            S = S[0,:].reshape([1,2])
-#        if num_outputs == 1:
-##            S = S[0,:]
-#            S = S[:,0].reshape([2,1])
-                
+        S = (1/max([num_outputs,1])) * np.exp(np.abs(XX - YY) * 1j * np.pi  )
 
         # apply scattering matrix to inputs and return the outputs        
         At_out = At_in.dot(S)
@@ -415,7 +406,7 @@ class FrequencySplitter(Component):
     _num_instances = count(0)
     def datasheet(self):
         self.type = 'frequencysplitter'
-        self.disp_name = 'Chromatic Splitter'
+        self.disp_name = 'Wavelength Selective Splitter'
         self.N_PARAMETERS = 1
         self.UPPER = [0.1]
         self.LOWER = [-0.1]
@@ -434,7 +425,8 @@ class FrequencySplitter(Component):
                 
         # collect the input (single input path)
         if num_inputs > 1:
-            Af_in = FFT(np.sum(At_in, axis=1), env.dt).reshape(env.N,1)
+            k = np.array([[np.exp(1j*0)], [np.exp(1j*np.pi)]])
+            Af_in = FFT(np.sum(At_in.dot(k), axis=1), env.dt).reshape(env.N,1)
         else:            
             Af_in = FFT(At_in, env.dt)
 
@@ -450,7 +442,7 @@ class FrequencySplitter(Component):
             mask[env.f[:,0] > split2,0] = 0   
             
             # second mask is the NOT of the first
-            mask[:,1] = np.logical_not(mask[:,0]).astype('float')
+            mask[:,1] = np.logical_not(mask[:,0]).astype('float') * np.exp(1j*np.pi)
             
             
             # apply masks and send to next components
