@@ -12,8 +12,6 @@ def eaSimple(gap, population, toolbox, pool, logbook, cxpb, mutpb, ngen, stats=N
     invalid_ind = [ind for ind in population if not ind.fitness.valid]
     
     if gap.MULTIPROC:
-#        pool = mp.Pool(gap.NCORES)
-
         splt_indx = splitindices(len(invalid_ind), gap.NCORES) 
                        
         mp_input = []
@@ -139,19 +137,13 @@ def varychildren(args):
         if random.random() < cxpb:
             offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1],
                                                           offspring[i])
-#            try:
             del offspring[i - 1].fitness.values, offspring[i].fitness.values
-#            except:
-#                pass
-            
+
     for i in range(len(offspring)):
         if random.random() < mutpb:
             offspring[i], = toolbox.mutate(offspring[i])
-#            try:
             del offspring[i].fitness.values    
-#            except:
-#                pass
-            
+
     # Evaluate the individuals with an invalid fitness
     invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)

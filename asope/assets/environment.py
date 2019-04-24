@@ -2,7 +2,7 @@ import numpy as np
 import peakutils
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from scipy.signal import square
-
+from assets.config import FITNESS_VARS
 
 def sech(x):
     return 1/np.cosh(x, dtype='complex')
@@ -24,13 +24,10 @@ class PulseEnvironment(object):
     """   
         Custom class for the pulse environment, storing all the details of an input pulse train
     """
-    def __init__(self, p, q, profile='gauss'):
+    def __init__(self):
         
-        # the Talbot ratio, used in the fitness function
-        self.p = p
-        self.q = q
-        self.profile = profile
-        
+        self.profile = FITNESS_VARS['profile']
+                
         # pulse parameters
         N = 2**13        # number of points in the simulation [] 
         T = 500e-12       # pulse width [s]
@@ -43,29 +40,25 @@ class PulseEnvironment(object):
         window = 1/f_rep * n_pulses
         t = np.linspace(-window/2, window/2, N).reshape(N, 1)     # time in s
         dt = (t[1] - t[0])[0]
-             
-        target = 1 * (square(2*np.pi*50e9*t+0, 0.5)+1)/2
-        self.target = target
-        self.targetRF = RFSpectrum(target, dt)
-        
+                  
         # frequency domain
         f = np.linspace(-N/2, N/2-1, N).reshape(N, 1) / window    # frequency in Hz
         df = (f[1] - f[0])[0]
         
         # create initial train of Gaussian pulses
-        if profile == 'gauss':
+        if self.profile == 'gauss':
             At0 = np.zeros([N, 1], dtype='complex')
             for i_pulse in range(0,n_pulses+1):
                 At0 += np.exp(-0.5 * (np.power((t+(t[0] + window*(i_pulse/(n_pulses))))/T, 2)))
         
         # create initial train of sech2 pulses
-        elif profile == 'sech':
+        elif self.profile == 'sech':
             At0 = np.zeros([N, 1], dtype='complex')
             for i_pulse in range(0,n_pulses+1):
                 At0 += sech((t+(t[0] + window*(i_pulse/(n_pulses))))/T)
 
                 # create initial cw wave (carrier removed)
-        elif profile == 'cw':
+        elif self.profile == 'cw':
             At0 = np.ones([N, 1], dtype='complex')
         
         else:
@@ -96,6 +89,9 @@ class PulseEnvironment(object):
         self.Af0 = Af0
         
         self.reset()
+        
+        # intialize variables for the fitness function
+        self.init_fitness()
         return
     
             
@@ -107,39 +103,45 @@ class PulseEnvironment(object):
         self.Af = self.Af0
         return
     
-            
+         
+    def init_fitness(self):
+        self.target = FITNESS_VARS['func'](self.t)
+        self.targetRF = RFSpectrum(self.target, self.dt)
+        return 
+    
+    
     def fitness(self, At):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-#        fitness = self.PhotonicAWG(At)
-        return self.TalbotEffect(At, self.p, self.q)
+        return self.PhotonicAWG(At)
+#        return self.TalbotEffect(At)
     
     def PhotonicAWG(self, At):
+        
+        
         RF = RFSpectrum(At, self.dt)
-        norm = np.sum(RF) + np.sum(self.targetRF)
-        print(RF.shape)
-        metric = np.sum(np.abs(RF - self.targetRF), axis=0)#/norm
+#        norm = np.sum(RF) + np.sum(self.targetRF)
+        
+        metric = np.sum(np.abs(RF - self.targetRF))
+#        print(RF.shape)
+#        print(metric.shape)
         return (metric, metric)
     
-    def TalbotEffect(self, At, p, q):
+    
+    
+    def TalbotEffect(self, At):
         """
             One possible fitness function, looking to increase or decrease the repetition rate of the pulse train. We use the harmonic frequencies in the RF spectrum to measure this
         """
+        p = FITNESS_VARS['p']
+        q = FITNESS_VARS['q']
         
         # one value to optimize is the peak power
         PAt = P(At)
-        X1 = np.power( np.max(PAt) - p/q, 2)
-#        fitness2 = clippedfitness(X1)
-#        fitness2 = gaussian( X1, 1)
-#        fitness2 = dsigmoid(X1, 1)
-        fitness2 = supergaussian(X1,1,1)
-        
-#        fitness2 = np.max(PAt)
-        
-#        dPAt = np.diff(PAt)
-#        fitness2 = np.max(PAt) * ((dPAt[:-1] * dPAt[1:]) < 0).sum() / self.N       
-        
+        X1 = np.max(PAt) - p/q
+        fitness2 = supergaussian(X1,1,2)
+
         # find the harmonic frequencies in the RF domain
         peakinds = peakutils.indexes(RFSpectrum(At, self.dt))
         
@@ -154,19 +156,10 @@ class PulseEnvironment(object):
             fitness1 = 0 
         
         else: 
-#            
             X = np.power( peakf_distTarget - peakf_dist, 2)
-
-#            fitness1 = clippedfitness(1-X)
-#            fitness1 = gaussian(X, 1)
-#            fitness1 = dsigmoid(X, 1)
             fitness1 = supergaussian(X,1,1)
 
-        
-#        left = self.N//2 - int(1/self.f_rep//self.dt//2)
-#        right = self.N//2 + int(1/self.f_rep//self.dt//2)
-#        fitness1 = np.sum(P(At)[left:right])
-        fitness1 = P(At[self.N//2])
+#        fitness1 = P(At[self.N//2])
 
 
         return (fitness1, fitness2)

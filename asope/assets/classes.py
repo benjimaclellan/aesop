@@ -103,29 +103,35 @@ class Experiment(nx.DiGraph):
         """
             Removes redundancies in a graph
         """
-        nodes_to_remove = []
+        nodes_to_remove = set()
         for node in self.nodes():
+            if not self.nodes[node]['info'].splitter:
+                for pre in self.pre(node):
+                    if self.nodes[node]['info'].type == self.nodes[pre]['info'].type:
+                        nodes_to_remove.add(node)
+                        if len(self.suc(node)) > 0:
+                            self.add_edge(pre, self.suc(node)[0])
+                            
+                            
+            
             if self.nodes[node]['info'].splitter and len(self.pre(node)) == 1 and len(self.suc(node)) == 1:
                 self.add_edge(self.pre(node)[0], self.suc(node)[0])
-                nodes_to_remove.append(node)
+                nodes_to_remove.add(node)
             
             if self.nodes[node]['info'].splitter and len(self.pre(node)) == 0 and len(self.suc(node)) == 1:
-                nodes_to_remove.append(node)
+                nodes_to_remove.add(node)
             
             if self.nodes[node]['info'].splitter and len(self.pre(node)) == 1 and len(self.suc(node)) == 0:
-                nodes_to_remove.append(node)
+                nodes_to_remove.add(node)
             
             
             if self.nodes[node]['info'].splitter and len(self.pre(node)) < 1 and len(self.suc(node)) < 1:
-                nodes_to_remove.append(node)
-                
-        for node in nodes_to_remove:
-            print('removing node ', node)
-            self.remove_node(node)
-                
-        mapping=dict(zip(self.nodes(),range(0,len(self.nodes()))))
-        self = nx.relabel_nodes(self, mapping)        
+                nodes_to_remove.add(node)
         
+        for node in nodes_to_remove:
+#            print('removing node ', node)
+            self.remove_node(node)
+
         return
     
     def checkexperiment(self):

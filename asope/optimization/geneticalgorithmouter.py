@@ -3,11 +3,13 @@ from deap import tools, base, creator
 #import random
 import matplotlib.pyplot as plt
 import multiprocess as mp
-#import copy
-from optimization.geneticalgorithm import eaSimple
+import copy
+from optimization.geneticalgorithm import eaSimple, initialgeneration, newchildren
 from assets.graph_manipulation import change_experiment_wrapper, brand_new_experiment, remake_experiment
 from assets.classes import Experiment
 from asope_main import optimize_experiment
+from assets.functions import splitindices
+import random
 
 
 #%% 
@@ -29,6 +31,7 @@ def CREATE_Outer():
 Crosses two individuals in Inner GA
 """
 def CX_Outer(ind1, ind2):
+    print('Am I even crossing the fourth wall tho?')
     ind1 = MUT_Outer(ind1)
     ind2 = MUT_Outer(ind2)
     return ind1, ind2
@@ -39,9 +42,12 @@ Mutates a single individual in Inner GA
 """
 
 def MUT_Outer(ind):  
+    fitness = ind.fitness
+    
     for i in range(20):
         ind, _ = change_experiment_wrapper(ind)
         
+    ind.fitness = fitness
     return ind,
 
 
@@ -72,7 +78,7 @@ def FIT_Outer(ind, env):
     
     #this is an ugly, hacky fix. but for now it works.
     # here we are just making an Experiment class from the Individual class, as there is some issues with pickling Individual class.
-    experiment = remake_experiment(ind)
+    experiment = remake_experiment(copy.deepcopy(ind))
     
     # here we initialize what pulse we inject into each starting node
     for node in experiment.nodes():
@@ -84,6 +90,9 @@ def FIT_Outer(ind, env):
     fitness = hof_fine_fitness[0]
     
     ind.inner_attributes = hof_fine[0]
+    
+#    plt.figure()
+#    experiment.draw(node_label='both')
     
     return fitness[0], fitness[1],
 
@@ -118,11 +127,6 @@ def outer_geneticalgorithm(gapO, env):
     toolbox.register("evaluate", FIT_Outer, env=env)
     
     pop = toolbox.population(n = gapO.N_POPULATION)
-    
-#    test_ind = toolbox.individual()
-#    print(test_ind)
-#    issubclass(type(test_ind), Experiment)
-#    test_ind.draw()
     
     
     if not gapO.INIT:

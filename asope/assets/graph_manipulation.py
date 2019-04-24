@@ -178,6 +178,9 @@ def add_loop(E):
     Adds a interferometer(like) loop, replacing a single node 2 splitters/2 components
     """
     
+    if not POTENTIALS['splitters']:
+        return E, True
+    
     valid_nodes = get_nonsplitters(E)
     if not valid_nodes: #no valid nodes (list is empty)
 #        raise ValueError('No valid nodes')
@@ -331,24 +334,53 @@ def change_experiment_wrapper(E):
         cnt += 1
         if cnt > 100:
             raise ValueError('There is something wrong with mutating the graph. An error occurs for everytime we try to change the graph structure')
-
+        
+        
+#    E.cleanexperiment()
+#    E.make_path()
+#    E.check_path()
+#    
+#    mapping=dict(zip( [item for sublist in E.path for item in sublist],range(0,len(E.nodes()))))
+#    E = nx.relabel_nodes(E, mapping) 
+    
     return E, flag
 
 
 
 def remake_experiment(ind):
+    
+    
+#    ind.make_path()
+#    ind.check_path()
+    
+#    mapping=dict(zip( [item for sublist in ind.path for item in sublist],range(0,len(ind.nodes()))))
+#    ind = nx.relabel_nodes(ind, mapping) 
+    ind.cleanexperiment()
+    
+    mapping=dict(zip(ind.nodes(),range(0,len(ind.nodes()))))
+    ind = nx.relabel_nodes(ind, mapping)  
+    
     components, measurement_nodes = {}, []
     for node in ind.nodes():
         components[node] = ind.nodes[node]['info'].__class__()
         if len(ind.suc(node)) == 0:
             measurement_nodes.append(node)
-    
     adj = list(ind.edges())
+    
     
     experiment = Experiment()
     experiment.buildexperiment(components, adj, measurement_nodes)    
-    experiment.checkexperiment()
     
+      
+
+
+#    experiment.cleanexperiment()
+#    experiment.make_path()
+#    experiment.check_path()
+#    
+#    mapping=dict(zip( [item for sublist in experiment.path for item in sublist],range(0,len(experiment.nodes()))))
+#    experiment = nx.relabel_nodes(experiment, mapping) 
+#    
     experiment.make_path()
     experiment.check_path()
     

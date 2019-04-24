@@ -33,6 +33,8 @@ plt.close("all")
 
 #%%
 def optimize_experiment(experiment, env, vis=False): 
+    print('New experiment')
+    
     # store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
@@ -40,15 +42,15 @@ def optimize_experiment(experiment, env, vis=False):
     gap.WEIGHTS = (1.0, 1.0)     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 100      # number of individuals in a population
-    gap.N_GEN = 30              # number of generations
+    gap.N_POPULATION = 25      # number of individuals in a population
+    gap.N_GEN = 25              # number of generations
     gap.MUT_PRB = 0.2           # independent probability of mutation
     gap.CRX_PRB = 0.95          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = 0             # verbose print statement for GA statistics
     gap.INIT = None
-    gap.NUM_ELITE = 5
-    gap.NUM_MATE_POOL = 10
+    gap.NUM_ELITE = 2
+    gap.NUM_MATE_POOL = 0
     
     if vis:
         print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))
@@ -68,9 +70,9 @@ def optimize_experiment(experiment, env, vis=False):
         print('Total number of individuals measured: {}\n'.format(sum(log['nevals'])))
         fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
         ax_log.plot(log['gen'], log['max'], label='Maximum', ls='-', color='salmon', alpha=1.0)
-        ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
-        ax_log.plot(log['gen'], log['std'], label='St. dev.', ls=':', color='orange', alpha=0.4)
-        ax_log.plot(log['gen'], log['min'], label='Minimum', ls='-', color='grey', alpha=0.3)
+#        ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
+#        ax_log.plot(log['gen'], log['std'], label='St. dev.', ls=':', color='orange', alpha=0.4)
+#        ax_log.plot(log['gen'], log['min'], label='Minimum', ls='-', color='grey', alpha=0.3)
         ax_log.legend()
         ax_log.set_xlabel('Generation')
         ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
@@ -130,7 +132,7 @@ if __name__ == '__main__':
 #        save = False
     
     # initialize our input pulse, with the fitness function too
-    env = PulseEnvironment(p = 2, q = 1, profile = 'gauss')
+    env = PulseEnvironment()
 
     components = {
     0:AWG(),
