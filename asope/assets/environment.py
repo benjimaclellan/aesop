@@ -29,11 +29,11 @@ class PulseEnvironment(object):
         self.profile = FITNESS_VARS['profile']
                 
         # pulse parameters
-        N = 2**13        # number of points in the simulation [] 
-        T = 500e-12       # pulse width [s]
+        N = 2**16        # number of points in the simulation [] 
+        T = 50e-9       # pulse width [s]
         res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
-        n_pulses = 15   # number of pulses in simulation window []
-        f_rep = 100e6    # repetition rate of the pulse train [Hz]
+        n_pulses = 50   # number of pulses in simulation window []
+        f_rep = 1e9    # repetition rate of the pulse train [Hz]
         peakP = 1        # peak power [W]
         
         # temporal domain
@@ -105,8 +105,8 @@ class PulseEnvironment(object):
     
          
     def init_fitness(self):
-        self.target = FITNESS_VARS['func'](self.t)
-        self.targetRF = RFSpectrum(self.target, self.dt)
+#        self.target = FITNESS_VARS['func'](self.t)
+#        self.targetRF = RFSpectrum(self.target, self.dt)
         return 
     
     
@@ -114,8 +114,8 @@ class PulseEnvironment(object):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-        return self.PhotonicAWG(At)
-#        return self.TalbotEffect(At)
+#        return self.PhotonicAWG(At)
+        return self.TalbotEffect(At)
     
     def PhotonicAWG(self, At):
         
@@ -123,7 +123,7 @@ class PulseEnvironment(object):
         RF = RFSpectrum(At, self.dt)
 #        norm = np.sum(RF) + np.sum(self.targetRF)
         
-        metric = np.sum(np.abs(RF - self.targetRF))
+        metric = -np.max(np.abs(RF - self.targetRF))
 #        print(RF.shape)
 #        print(metric.shape)
         return (metric, metric)

@@ -110,8 +110,8 @@ class Fiber(Component):
         self.N_PARAMETERS = 1
         self.UPPER = [5000]
         self.LOWER = [0]
-        self.DTYPE = ['int']
-        self.DSCRTVAL = [1]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = None
         self.splitter = False
         
@@ -124,15 +124,15 @@ class Fiber(Component):
         D = np.zeros(env.f.shape).astype('complex')
         for n in range(0, len(self.beta)):    
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
-        D = -1j * D
         
         # apply dispersion
-        Af = np.exp(fiber_len * D) * FFT(At, env.dt)
+        Af = np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
         
         # this visualization functionality was broken, may be fixed later
-#        if visualize:
-#            self.lines = ((None),)
+        if visualize:
+            self.lines = (('f',D, 'Dispersion'),)
+            
         return At
     
     def newattribute(self):
@@ -156,10 +156,10 @@ class PhaseModulator(Component):
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 3
-        self.UPPER = [1, 200e6, 1]   # max shift, frequency, bias
+        self.UPPER = [1, 1e9, 1]   # max shift, frequency, bias
         self.LOWER = [0, 1e6, 0]
         self.DTYPE = ['float', 'float', 'float']
-        self.DSCRTVAL = [None, 1e6, None]
+        self.DSCRTVAL = [None, 10e6, None]
         self.FINETUNE_SKIP = None
         self.splitter = False
     
@@ -173,8 +173,56 @@ class PhaseModulator(Component):
         # apply phase shift temporally
         At = At * np.exp(1j * phase)                
         
-#        if visualize:
-#            self.lines = (('t',phase),)
+        if visualize:
+            self.lines = (('t',phase, 'Phase Modulation'),)
+        
+        return At
+
+    def newattribute(self):
+        
+        at = []
+        for i in range(self.N_PARAMETERS):
+            at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
+        self.at = at
+        return at
+        
+    def mutate(self):
+        mut_loc = np.random.randint(0, self.N_PARAMETERS)
+        self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
+        return self.at
+
+# ----------------------------------------------------------
+class AmplitudeModulator(Component):
+    """
+        Electro-optic amplitude modulator, driven by a single sine tone (for now).
+    """
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'amplitudemodulator'
+        self.disp_name = 'Electro-Optic Amplitude Modulator'
+        self.vpi = 1
+        self.N_PARAMETERS = 3
+        self.UPPER = [1, 200e6, 1]   # max shift, frequency, bias
+        self.LOWER = [0, 1e6, 0]
+        self.DTYPE = ['float', 'float', 'float']
+        self.DSCRTVAL = [None, 1e6, None]
+        self.FINETUNE_SKIP = None
+        self.splitter = False
+    
+    def simulate(self, env, At,  visualize=False):  
+        # extract attributes (parameters) of driving signal
+        M = self.at[0]       # amplitude [V]
+        NU = self.at[1]      # frequency [Hz]
+        BIAS = self.at[2]     # voltage bias [V]
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)) + (BIAS)
+#        amp = np.power((M)*(np.cos(2*np.pi* NU * env.t)), 2)
+        amp = np.exp(1j * np.pi / self.vpi * phase)
+        
+        # apply phase shift temporally
+        At = At/2 * (1 + amp)
+        
+        if visualize:
+            self.lines = (('t',amp, 'Amplitude Modulation'),)
         
         return At
 
@@ -232,6 +280,10 @@ class AWG(Component):
         
         # apply phase profile in the temporal domain, and a type of loss can be added to reduce number of steps
         At = At * np.exp(1j * phase) * (.97**nlevels) #loss here
+        
+        
+        if visualize:
+            self.lines = (('t',phase, 'Arbitrary Phase Pattern'),)
         
         return At
     
@@ -294,7 +346,7 @@ class WaveShaper(Component):
         amp[amp > 1] = 1
         amp[amp < 0] = 0
         
-        amp = np.ones_like(amp)
+#        amp = np.ones_like(amp)
         
 #        plt.figure()
 #        plt.plot(amp)
@@ -304,7 +356,7 @@ class WaveShaper(Component):
         phase[phase > 2*np.pi] = 2*np.pi
         phase[phase < 0] = 0
         
-        phase = np.ones_like(phase)
+#        phase = np.ones_like(phase)
         
         # discretize based on the resolution of the waveshaper
         n = int( np.floor( self.res/env.df ) )
@@ -314,6 +366,9 @@ class WaveShaper(Component):
         # apply the waveshaper in the spectral domain and FFT back to temporal
         Af = ampmask * np.exp(1j * phasemask) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
+        
+        if visualize:
+            self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
         
         return At
     
@@ -383,7 +438,9 @@ class PowerSplitter(Component):
 
         # apply scattering matrix to inputs and return the outputs        
         At_out = At_in.dot(S)
-        
+        if visualize:
+            self.lines = None
+            
         return At_out
     
     def newattribute(self):
@@ -444,13 +501,17 @@ class FrequencySplitter(Component):
             # second mask is the NOT of the first
             mask[:,1] = np.logical_not(mask[:,0]).astype('float') * np.exp(1j*np.pi)
             
+            if visualize:
+                self.lines = (('f', mask[:,0],'WDM Profile'),)
             
             # apply masks and send to next components
             At_out = IFFT(mask*Af_in, env.dt)
             
         else:
             At_out = IFFT(Af_in, env.dt)#.reshape(env.N, 1)
-
+            if visualize:
+                self.lines = None
+            
         return At_out
     
     def newattribute(self):

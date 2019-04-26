@@ -39,7 +39,7 @@ if __name__ == '__main__':
     gapO.WEIGHTS = (1.0, 1.0)    # weights to put on the multiple fitness values
     gapO.MULTIPROC = False       # multiprocess or not
     gapO.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gapO.N_POPULATION = 10       # number of individuals in a population
+    gapO.N_POPULATION = 4       # number of individuals in a population
     gapO.N_GEN = 10              # number of generations
     gapO.MUT_PRB = 1.0           # independent probability of mutation
     gapO.CRX_PRB = 0.0           # independent probability of cross-over
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     gapO.VERBOSE = 1             # verbose print statement for GA statistics
     gapO.INIT = None
     gapO.NUM_ELITE = 1
-    gapO.NUM_MATE_POOL = 0
+    gapO.NUM_MATE_POOL = gapO.N_POPULATION//2 - gapO.NUM_ELITE
     
     env = PulseEnvironment()
 
@@ -73,7 +73,7 @@ if __name__ == '__main__':
         
         experiment.simulate(env)
         
-        experiment.measure(env, measurement_nodes[0], check_power=True)  
+        experiment.measure(env, measurement_nodes[0], check_power=True)
         plt.show()
         
 #        save_experiment("results/current", experiment)

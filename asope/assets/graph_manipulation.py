@@ -11,6 +11,9 @@ from assets.classes import Experiment
 from assets import config
 from assets.config import POTENTIALS
 
+def max_int_in_list(lst):
+    return max((i for i in lst if isinstance(i, int)))
+
 def random_choice(a, N, replace=False):
     """
         Random subset from a list (with/without replacement). This supports lists containing multiple datatypes (unlike np.random.choice)
@@ -62,7 +65,7 @@ def mutate_experiment(E):
     """
         Switch the placements of some nodes, the structure remains the same    
     """
-    
+#    print('mutate_experiment')
     valid_nodes = get_nonsplitters(E)
     if len(valid_nodes) <= 1: #list is empty
 #        raise ValueError('No valid nodes')
@@ -86,7 +89,7 @@ def mutate_experiment(E):
     mapping = {}
     for changes_i in changes:
         mapping[changes_i['node_original']] = changes_i['node_shuffle']
-    nx.relabel_nodes(E, mapping,copy=True)
+    nx.relabel_nodes(E, mapping, copy=True)
     
     for changes_i in changes:    
         for key in ('title', 'info'):
@@ -99,17 +102,19 @@ def mutate_new_components_experiment(E):
     """
         Changes a subset of components to brand new components (but not splitters)
     """
-    
+#    print('mutate_new_components_experiment')
     valid_nodes = get_nonsplitters(E)
     if not valid_nodes: #list is empty
         return E, False
         
         
     replace_list = random_choice(valid_nodes, 1, replace=False)
-
+    
+    
     for i, node in enumerate(replace_list):     
         E.nodes[node]['info'] = select_N_new_components(1, 'nonsplitters')
         E.nodes[node]['title'] = E.nodes[node]['info'].name
+        nx.relabel_nodes(E, {node:max_int_in_list(E.nodes)+1}, copy=True)
         
     return E, True
     
@@ -118,7 +123,7 @@ def one_component_to_two(E):
     """
         Adds in one new component where there is a component with one successor and predeccessor
     """
-
+#    print('one_component_to_two')
     valid_nodes = get_nonsplitters(E)
     if not valid_nodes: #list is empty
 #        raise ValueError('No valid nodes')
@@ -128,9 +133,9 @@ def one_component_to_two(E):
     
     for i, node in enumerate(replace_list):
         new_comp = select_N_new_components(1, 'nonsplitters')
-        node_name = new_comp.name
+        node_name = max_int_in_list(E.nodes) + 1
         E.add_node(node_name)
-        E.nodes[node_name]['title'] = node_name
+        E.nodes[node_name]['title'] = new_comp.name
         E.nodes[node_name]['info'] = new_comp
         
         before_after = np.random.random()
@@ -154,6 +159,9 @@ def remove_one_node(E):
     """
         Remove a single non-splitter node
     """    
+    
+#    print('remove_one_node')
+    
     valid_nodes = get_nonsplitters(E)
     if len(valid_nodes) <= 1:
 #        raise ValueError('There will be nothing left of the graph if we delete this node')
@@ -177,7 +185,7 @@ def add_loop(E):
     """
     Adds a interferometer(like) loop, replacing a single node 2 splitters/2 components
     """
-    
+#    print('***************add_loop')
     if not POTENTIALS['splitters']:
         return E, True
     
@@ -188,41 +196,50 @@ def add_loop(E):
     
     node = random_choice(valid_nodes, 1)[0]    
     
+    tmp = max_int_in_list(E.nodes)+1
+    
     new_comps = select_N_new_components(2, 'nonsplitters', replace = True)
+    new_comps_names = [tmp+1, tmp+2]
+    
     new_splitters = select_N_new_components(2, 'splitters', replace = True)
+    new_splitters_names = [tmp+3, tmp+4]
+    
     
     ## add new splitters (can update later to have FrequencySplitters as well)
-    for splitter_i in new_splitters:
-        E.add_node(splitter_i.name)
-        E.nodes[splitter_i.name]['title'] = splitter_i.name
-        E.nodes[splitter_i.name]['info'] = splitter_i
+    for i, splitter_i in enumerate(new_splitters):
+        E.add_node(new_splitters_names[i])
+        E.nodes[new_splitters_names[i]]['title'] = splitter_i.name
+        E.nodes[new_splitters_names[i]]['info'] = splitter_i
     
     ## add new components and connect loop together
-    for comp_i in new_comps:
-        E.add_node(comp_i.name)
-        E.nodes[comp_i.name]['title'] = comp_i.name
-        E.nodes[comp_i.name]['info'] = comp_i
+    for i, comp_i in enumerate(new_comps):
+        E.add_node(new_comps_names[i])
+        E.nodes[new_comps_names[i]]['title'] = comp_i.name
+        E.nodes[new_comps_names[i]]['info'] = comp_i
         
-        E.add_edge(new_splitters[0].name, comp_i.name)
-        E.add_edge(comp_i.name, new_splitters[1].name)
+        E.add_edge(new_splitters_names[0], new_comps_names[i])
+        E.add_edge(new_comps_names[i], new_splitters_names[1])
     
     pre = E.pre(node)
     suc = E.suc(node)
     
     if len(pre) == 1:
         E.remove_edge(pre[0], node)
-        E.add_edge(pre[0], new_splitters[0].name)
+        E.add_edge(pre[0], new_splitters_names[0])
         
     if len(E.suc(node)) == 1:
         E.remove_edge(node, suc[0])
-        E.add_edge(new_splitters[1].name, suc[0])
+        E.add_edge(new_splitters_names[1], suc[0])
     
     E.remove_node(node)
-    
+
     return E, True
 
 #%%
 def remove_loop(E):
+    
+#    print('remove_loop')
+    
     undirE = E.to_undirected()
     cycles = nx.cycle_basis(undirE)
     valid_nodes = get_nonsplitters(E)
@@ -264,14 +281,18 @@ def remove_loop(E):
  
 #%%
 def brand_new_experiment(E):
+    
+#    print('brand_new_experiment')
+    
     reset_all_instances()
     
     start_comp = select_N_new_components(1, 'nonsplitters')
-    components = {start_comp.name:start_comp}
+    components = {0:start_comp}
     adj = []
-    measurement_nodes = []
+    measurement_nodes = [0]
     E = Experiment()
     E.buildexperiment(components, adj, measurement_nodes)
+    
     return E, True
 
 #%%

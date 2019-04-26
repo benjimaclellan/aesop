@@ -13,50 +13,72 @@ import keyboard
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.environment import PulseEnvironment
-from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
+from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
 from assets.classes import Experiment
 
 from assets.graph_manipulation import *
 
 plt.close("all")
 
+import warnings
+warnings.filterwarnings("ignore")
 
 #%%
-env = PulseEnvironment(p = 2, q = 1, profile = 'cw')
-
-components = {
-1:FrequencySplitter(),
-0:FrequencySplitter(),}
-adj = [(0, 1), (0, 1) ]
-measurement_nodes=[1]
-
-#at = {2: [1, 1e7, 1]}
-
-E = Experiment()
-E.buildexperiment(components, adj, measurement_nodes)
-E.checkexperiment()
-
-E.make_path()
-E.check_path()
-
-E.draw(node_label='disp_name')
-
-for node in E.nodes():
-    if not E.pre(node):
-        E.nodes[node]['input'] = env.At
+for i in range(0,1):
+    plt.close('all')
+    
+    env = PulseEnvironment()
+    
+    
+    components = {
+    1:PhaseModulator(),
+    0:WaveShaper(),
+    2:Fiber()
+    }
+    adj = [(0,1),(1,2)]
+    measurement_nodes=[2]
+    E = Experiment()
+    E.buildexperiment(components, adj, measurement_nodes)
+    
+#    E = Experiment()
+#    E,_ = brand_new_experiment(E)
+    
+#    for i in range(5):
+#        E, _ = change_experiment_wrapper(E)
+    
+    E.cleanexperiment()
+    E.checkexperiment()
+    
+    E.make_path()
+    E.check_path()
+    
+    E.draw(node_label='both')
+    
+    for node in E.nodes():
+        if not E.pre(node):
+            E.nodes[node]['input'] = env.At
+    
+    E.measurement_nodes = []
+    for node in E.nodes():
+        if not E.suc(node):
+            E.measurement_nodes.append(node)
         
-at = E.newattributes()
-E.setattributes(at)
-
-E.simulate(env)
-
-E.measure(env, measurement_nodes[0], check_power=True)
-plt.show()
-
+    at = E.newattributes()
+    #at = {0:[.7,1e8,0.]}
+    
+    E.setattributes(at)
+    E.simulate(env)
+    E.visualize(env, E.measurement_nodes[0])
+    
+    E.measure(env, E.measurement_nodes[0], check_power=True)
+    
+    plt.show()
+    plt.pause(1.5)
+    
 
 
 #%%
-
+"""
 env = PulseEnvironment(p = 2, q = 1, profile = 'cw')
 
 E = Experiment()
@@ -129,18 +151,4 @@ for i in range(60):
 
 
     plt.pause(0.002)
-
-
-
-
-    """
-    save_experiment('test4', E)
-    
-    
-    E.draw(node_label='titles')
-    
-    for node in E.nodes():
-        info = E.nodes[node]['info']
-        print('Name {}, title {}, splitter {}, class {}'.format(node, info.name, info.splitter, info.__class__.__name__) )
-    
-    """  
+"""

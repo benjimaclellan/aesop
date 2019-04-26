@@ -34,6 +34,10 @@ plt.close("all")
 #%%
 def optimize_experiment(experiment, env, vis=False): 
     print('New experiment')
+#    plt.figure()
+#    experiment.draw(node_label='both')
+#    plt.pause(0.01)
+    
     
     # store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
@@ -50,7 +54,7 @@ def optimize_experiment(experiment, env, vis=False):
     gap.VERBOSE = 0             # verbose print statement for GA statistics
     gap.INIT = None
     gap.NUM_ELITE = 2
-    gap.NUM_MATE_POOL = 0
+    gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
     
     if vis:
         print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))

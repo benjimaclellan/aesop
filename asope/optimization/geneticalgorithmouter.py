@@ -43,7 +43,7 @@ Mutates a single individual in Inner GA
 
 def MUT_Outer(ind):  
     fitness = ind.fitness
-    
+    print('mutating baby')
     for i in range(20):
         ind, _ = change_experiment_wrapper(ind)
         

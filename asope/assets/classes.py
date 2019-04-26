@@ -22,11 +22,11 @@ GeneticAlgorithmParameters simply contains variables used in the genetic algorit
 
 class Experiment(nx.DiGraph):
     
-    def simulate(self, env):
+    def simulate(self, env, visualize=False):
         """
             Simulates an experiment once everything is setup, by traversing through the path to each component and applying the transformation(s)
-        """
-        
+        """     
+                
         # loop through each subpath, such that we simulate components in the right order
         for path_i, subpath in enumerate(self.path):
             
@@ -47,7 +47,7 @@ class Experiment(nx.DiGraph):
                             At[:, [jj]] = self[self.pre(node)[jj]][node]['At']
                                   
                     # simulate the effect of a splitter
-                    At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))))
+                    At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))), visualize)
                     # store the split/coupled pulses to the successors
 #                    if len(self.suc(node)) > 0:
                     for jj in range(len(self.suc(node))):
@@ -66,7 +66,7 @@ class Experiment(nx.DiGraph):
                             At = self[self.pre(node)[ii]][node]['At']
                     
                     # now the pulse is stored in memory properly
-                    At = self.nodes[node]['info'].simulate(env, At) 
+                    At = self.nodes[node]['info'].simulate(env, At, visualize) 
                     # if this is the last node in subpath, we save the pulse for future extraction
                     if ii == len(subpath)-1 and len(self.suc(node)) > 0: 
                         self[node][self.suc(node)[0]]['At'] = At
@@ -305,7 +305,10 @@ class Experiment(nx.DiGraph):
         
         # collect the pulse as was simulated
         At = self.nodes[measurement_node]['output'].reshape(env.N)
+        Af = FFT(At, env.dt)
         
+        PAt, PAt0 = P(At), P(env.At0)
+        PAf, PAf0 = PSD(Af, env.df), PSD(env.Af0, env.df)
         if check_power:
             check = self.power_check_single(At, display=True)
             
@@ -314,31 +317,29 @@ class Experiment(nx.DiGraph):
             fig = plt.figure(dpi=80, figsize=(8, 10))
         else: 
             fig.clf()
-        ax = []
-#        ax.append(fig.add_subplot(2,1,1))
-#        ax.append(fig.add_subplot(2,1,2))     
-        ax.append(fig.add_subplot(1,1,1))  
-#        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
         
-#        ax[0].set_title('Measurement node {}: {}'.format(measurement_node, self.nodes[measurement_node]['title']))
+        ax = []
+        ax.append(fig.add_subplot(2,1,1))
+        ax.append(fig.add_subplot(2,1,2))     
+
         alpha = 0.4
-        ax[0].plot(env.t, P(env.At0), lw = 4, label='Input', alpha=alpha)
-        ax[0].plot(env.t, P(At), ls='--', label='Output')  
-#        ax[0].set_ylim([0,max([max(P(At)), max(P(env.At0))])])
-        ax[0].set_ylim([0,2])
+        ax[0].plot(env.t, PAt0, lw = 4, label='Input', alpha=alpha)
+        ax[0].plot(env.t, PAt, ls='--', label='Output')  
+        ax[0].set_ylim([0,2*max([max(PAt), max(PAt0)])])
+#        ax[0].set_ylim([0,2])
         ax[0].legend()
         
-#        Af = FFT(At, env.dt)
-#        ax[1].plot(env.f, PSD(env.Af0, env.df), lw = 4, label='Input', alpha=alpha)
-#        ax[1].plot(env.f, PSD(Af, env.df), ls='-', label='Output')
-#        ax[1].set_ylim([0,max([max(P(Af)), max(P(env.Af0))])])
-#        ax[1].legend()
+        
+        ax[1].plot(env.f, PAf0, lw = 4, label='Input', alpha=alpha)
+        ax[1].plot(env.f, PAf, ls='--', label='Output')
+        ax[1].set_ylim([0,2*max([max(PAf), max(PAf0)])])
+        ax[1].legend()
         
         if check_power:
             return check
         else:
             return None
-
+        return
         
     def draw(self, node_label = 'both', title=None, fig=None):
         """
@@ -380,21 +381,33 @@ class Experiment(nx.DiGraph):
         
         
         
-    def visualize(self, env):
+    def visualize(self, env, measurement_node=None):
         """
             Broken function - please ignore. It will potentially be fixed in future updates. Was meant for simple and clean visualization of the pulse as it progressed, but has not been updated since using a graph structure to represent the experiment(s)
         """
-        raise ValueError('This function is not implemented. Please turn off visualization.')
+#        raise ValueError('This function is not implemented. Please turn off visualization.')
         
         self.simulate(env, visualize=True)
         fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
-        for i in range(0, self.n_components):
-            for line in self.nodes[i]['info'].lines:
-                if line is not None:
+        
+        if measurement_node is not None:
+            At = self.nodes[measurement_node]['output'].reshape(env.N)
+            Af = FFT(At, env.dt)
+            
+            PAt = P(At)
+            PAf = PSD(Af, env.df)
+            
+            ax[0].plot(env.t, PAt/np.max(PAt), label='Power', alpha=0.2)
+            ax[1].plot(env.f, PAf/np.max(PAf), label='PSD', alpha=0.2)
+            
+            
+        for node in self.nodes():
+            if self.nodes[node]['info'].lines is not None:
+                for line in self.nodes[node]['info'].lines:
                     if line[0] == 't':
-                        ax[0].plot(env.t, line[1], label=self.nodes[i]['info'].name)
+                        ax[0].plot(env.t, line[1]/np.max(line[1]), label=line[2])
                     elif line[0] == 'f':
-                        ax[1].plot(env.f, line[1], label=self.nodes[i]['info'].name)
+                        ax[1].plot(env.f, line[1]/np.max(line[1]), label=line[2])
                     else:
                         raise ValueError('Invalid x variable')                    
         ax[0].legend()
