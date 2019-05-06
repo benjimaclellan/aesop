@@ -20,11 +20,13 @@ import multiprocess as mp
 import uuid
 import copy 
 import scipy
+import numpy as np
 
 from assets.functions import extractlogbook, save_experiment, load_experiment
 from assets.environment import PulseEnvironment
 from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from assets.classes import Experiment, GeneticAlgorithmParameters
+from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
@@ -42,18 +44,18 @@ def optimize_experiment(experiment, env, vis=False):
     # store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
-    gap.NFITNESS = 2           # how many values to optimize
-    gap.WEIGHTS = (1.0, 1.0)     # weights to put on the multiple fitness values
+    gap.NFITNESS = 1           # how many values to optimize
+    gap.WEIGHTS = (1.0),# 1.0)     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 25      # number of individuals in a population
-    gap.N_GEN = 25              # number of generations
-    gap.MUT_PRB = 0.2           # independent probability of mutation
-    gap.CRX_PRB = 0.95          # independent probability of cross-over
+    gap.N_POPULATION = 200      # number of individuals in a population
+    gap.N_GEN = 150              # number of generations
+    gap.MUT_PRB = 0.5           # independent probability of mutation
+    gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
-    gap.VERBOSE = 0             # verbose print statement for GA statistics
+    gap.VERBOSE = 1             # verbose print statement for GA statistics
     gap.INIT = None
-    gap.NUM_ELITE = 2
+    gap.NUM_ELITE = 1
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
     
     if vis:
@@ -91,6 +93,8 @@ def optimize_experiment(experiment, env, vis=False):
         individual = copy.deepcopy(hof[j])
         measurement_node = experiment.measurement_nodes[0]            
         
+        hof_fine.append(individual)
+        
         # run experiment with the best individual of the optimization
         experiment.setattributes(individual)
         experiment.simulate(env)
@@ -104,6 +108,7 @@ def optimize_experiment(experiment, env, vis=False):
             experiment.measure(env, measurement_node)    
             plt.show()
             
+        """    
         # Now fine tune the best individual using grad`ient descent
         individual_fine = finetune_individual(individual, env, experiment)
         hof_fine.append(individual_fine)
@@ -121,7 +126,7 @@ def optimize_experiment(experiment, env, vis=False):
             print(individual_fine)
             experiment.measure(env, measurement_node, check_power=True)  
             plt.show()
-                
+        """
 #        if save:
 #            save_experiment(filename, experiment)
         
@@ -137,20 +142,35 @@ if __name__ == '__main__':
     
     # initialize our input pulse, with the fitness function too
     env = PulseEnvironment()
-
+    
     components = {
-    0:AWG(),
-    1:Fiber()
+    0:PhaseModulator(),
+    1:WaveShaper(),
+#    2:Fiber(),
     }
-    adj = [(0, 1)]
-    measurement_nodes = [1]
+    adj = [(0,1)]
+    measurement_nodes=[1]
+#    E = Experiment()
+#    E.buildexperiment(components, adj, measurement_nodes)
+#
+#    E.checkexperiment()
+#    
+#    E.make_path()
+#    E.check_path()
+#    
+#    E.draw(node_label='both')
+#    
+#    for node in E.nodes():
+#        if not E.pre(node):
+#            E.nodes[node]['input'] = env.At
 
+        
     # initialize the experiment, and perform all the preprocessing steps
     experiment = Experiment()
     experiment.buildexperiment(components, adj, measurement_nodes)
     experiment.checkexperiment()
 
-    experiment.draw(node_label = 'disp_name')
+#    experiment.draw(node_label = 'disp_name')
 
     experiment.make_path()
     experiment.check_path()
@@ -160,4 +180,34 @@ if __name__ == '__main__':
         if len(experiment.pre(node)) == 0:
             experiment.nodes[node]['input'] = env.At
           
-    experiment, hof, hof_fine, hof_fine_fitness = optimize_experiment(experiment, env, vis=True) 
+    experiment, hof, hof_fine, hof_fine_fitness = optimize_experiment(experiment, env, vis=False) 
+    
+    at = hof_fine[0]
+    
+    experiment.setattributes(at)
+    experiment.simulate(env)
+    
+    At = experiment.nodes[measurement_nodes[0]]['output']
+    
+    print(at)
+    
+    fit = env.fitness(At)
+    print(fit)
+    
+    plt.figure()
+    PAt = P(At)
+#    minPAt, maxPAt = np.min(PAt), np.max(PAt)
+#    scaled = (PAt-minPAt)/(maxPAt-minPAt)
+    plt.plot(env.t, PAt,label='current')
+    plt.plot(env.t, env.target,label='target',ls=':')
+    plt.legend()
+    plt.show()
+    
+    plt.figure()
+    plt.plot(RFSpectrum(env.target, env.dt),label='target',ls=':')
+    plt.plot(RFSpectrum(At, env.dt),label='current')
+    plt.legend()
+    plt.show()
+    
+    experiment.visualize(env, measurement_node = 1)
+#    plt.show()

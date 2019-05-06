@@ -20,6 +20,30 @@ def supergaussian(X, A, m):
     return np.exp(-np.power(X*X/A,m))
 
 
+
+def fitness_shift(target, target_rfft, generated, array, target_harmonic, target_harmonic_ind, dt):
+    shifted = shift_function(target, target_rfft, generated, array, target_harmonic, target_harmonic_ind, dt)
+    return -np.sum(np.abs(target-shifted)), shifted
+
+def shift_function(target, target_rfft, generated, array, target_harmonic, target_harmonic_ind, dt):
+    generated_rfft = np.fft.fft(generated, axis=0)
+    phase = np.angle(generated_rfft[target_harmonic_ind]/target_rfft[target_harmonic_ind])
+#    print('Detected phase is ',phase)
+#    generated_rfft=np.expand_dims(generated_rfft, 2)
+#    assert generated_rfft.shape == array.shape
+    
+#    print(generated_rfft.shape, phase.shape, target_rfft.shape, array.shape)
+    shift = phase / ( target_harmonic * dt )
+    shifted_rfft = generated_rfft * np.exp(-1j* shift * array)
+    shifted = np.abs( np.fft.ifft(shifted_rfft, axis=0) )
+    return shifted
+
+
+def find_nearest(array, value):
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+
 class PulseEnvironment(object):
     """   
         Custom class for the pulse environment, storing all the details of an input pulse train
@@ -28,16 +52,28 @@ class PulseEnvironment(object):
         
         self.profile = FITNESS_VARS['profile']
                 
+#        # pulse parameters
+#        N = 2**13+1        # number of points in the simulation [] 
+#        T = 500e-9       # pulse width [s]
+#        res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
+#        n_pulses = 10   # number of pulses in simulation window []
+#        f_rep = 1e9    # repetition rate of the pulse train [Hz]
+#        peakP = 1        # peak power [W]
+#        window = 1/f_rep * n_pulses
+        
+        
         # pulse parameters
-        N = 2**16        # number of points in the simulation [] 
-        T = 50e-9       # pulse width [s]
+        N = 2**13+1        # number of points in the simulation [] 
+        T = 500e-9       # pulse width [s]
         res = 2**17      # resolution the agent sees from 'oscilliscope' [2^bits]
-        n_pulses = 50   # number of pulses in simulation window []
-        f_rep = 1e9    # repetition rate of the pulse train [Hz]
+        n_pulses = 100   # number of pulses in simulation window []
+        f_rep = 1e6    # repetition rate of the pulse train [Hz]
         peakP = 1        # peak power [W]
         
+        window = 50 * 1/FITNESS_VARS['target_harmonic']
+        
         # temporal domain
-        window = 1/f_rep * n_pulses
+        
         t = np.linspace(-window/2, window/2, N).reshape(N, 1)     # time in s
         dt = (t[1] - t[0])[0]
                   
@@ -83,6 +119,7 @@ class PulseEnvironment(object):
         self.t = t
         self.dt = dt
         self.f = f
+        self.f_rf = f[N//2:]
         self.df = df
         
         self.At0 = At0
@@ -105,8 +142,19 @@ class PulseEnvironment(object):
     
          
     def init_fitness(self):
-#        self.target = FITNESS_VARS['func'](self.t)
-#        self.targetRF = RFSpectrum(self.target, self.dt)
+        self.target = FITNESS_VARS['func'](self.t)
+        self.targetRF = RFSpectrum(self.target, self.dt)
+        
+        self.target_rfft = np.fft.fft(self.target, axis=0)
+        self.array = (np.fft.fftshift( np.linspace(0,len(self.target_rfft)-1,len(self.target_rfft)) )/ self.N).reshape((self.N, 1))
+        self.target_harmonic = FITNESS_VARS['target_harmonic']
+        
+#        rf = np.fft.fftfreq(self.N,self.dt)
+
+#        self.target_harmonic_ind = find_nearest(rf, self.target_harmonic)
+        self.target_harmonic_ind = (self.target_harmonic/self.df).astype('int')
+        
+        
         return 
     
     
@@ -114,19 +162,42 @@ class PulseEnvironment(object):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-#        return self.PhotonicAWG(At)
-        return self.TalbotEffect(At)
+        return self.PhotonicAWG(At)
+#        return self.TalbotEffect(At)
     
     def PhotonicAWG(self, At):
         
+#        
+#        RF = RFSpectrum(At, self.dt)
+##        norm = np.sum(RF) + np.sum(self.targetRF)
+#        if RF.shape != self.targetRF.shape:
+#            RF=np.expand_dims(RF, 2)
+#        metric = -np.sum(np.abs(RF - self.targetRF),axis=0)[0]
+#        assert RF.shape == self.targetRF.shape
         
-        RF = RFSpectrum(At, self.dt)
+        
+#        RF = RFSpectrum(At, self.dt)
 #        norm = np.sum(RF) + np.sum(self.targetRF)
+#        if RF.shape != self.targetRF.shape:
+#            RF=np.expand_dims(RF, 2)
+#        metric = -np.sum(np.abs(RF - self.targetRF),axis=0)[0]
+#        metric = -np.sum(np.abs(np.fft.rfft(P(At)) - np.fft.rfft(self.target)))
+            
+            
+        PAt = P(At)
+#        minPAt, maxPAt = np.min(PAt), np.max(PAt)
+#        generated = (PAt-minPAt)/(maxPAt-minPAt)
+        generated = (PAt)
+
         
-        metric = -np.max(np.abs(RF - self.targetRF))
-#        print(RF.shape)
-#        print(metric.shape)
-        return (metric, metric)
+#        metric = -np.sum(np.abs((PAt-minPAt)/(maxPAt-minPAt) - self.target))
+#        assert RF.shape == self.targetRF.shape
+        
+        fit, shifted = fitness_shift(self.target, self.target_rfft, generated, self.array, self.target_harmonic, self.target_harmonic_ind, self.dt)
+        
+#        self.shifted = shifted
+        
+        return (fit),# (maxPAt-minPAt))
     
     
     

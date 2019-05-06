@@ -1,5 +1,7 @@
 from assets.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
 import numpy as np
+from scipy import signal
+
 """
 Things that need to be fixed
 - all simulation parameters are based on pulsed excitation. make more general
@@ -14,8 +16,8 @@ ideas:
 
 POTENTIALS = {'splitters':[PowerSplitter, FrequencySplitter],
               'nonsplitters':[Fiber, PhaseModulator, WaveShaper, AmplitudeModulator]}
-#POTENTIALS = {'splitters':[],
-#              'nonsplitters':[Fiber, PhaseModulator, WaveShaper]}
+POTENTIALS = {'splitters':[],
+              'nonsplitters':[PhaseModulator, WaveShaper]}
 
 #goal = 'Talbot'
 goal = 'PA-AWG'
@@ -23,5 +25,8 @@ goal = 'PA-AWG'
 if goal == 'Talbot':
     FITNESS_VARS = {'profile':'gauss', 'p':3, 'q':1}
 elif goal == 'PA-AWG':
-    func = lambda t: np.sin(2*np.pi*1e9*t)
-    FITNESS_VARS = {'profile':'cw', 'func':func}
+    target_harmonic = 12e9
+#    func = lambda t: 0.5*(np.cos(2*np.pi*target_harmonic*t)+1)
+#    func = lambda t: 0.5*(signal.square(2*np.pi*target_harmonic*t)+1)
+    func = lambda t: 0.5*(signal.sawtooth(2*np.pi*target_harmonic*t)+1)
+    FITNESS_VARS = {'profile':'cw', 'target_harmonic':target_harmonic, 'func':func}

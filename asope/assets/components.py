@@ -155,20 +155,26 @@ class PhaseModulator(Component):
         self.type = 'phasemodulator'
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
-        self.N_PARAMETERS = 3
-        self.UPPER = [1, 1e9, 1]   # max shift, frequency, bias
-        self.LOWER = [0, 1e6, 0]
-        self.DTYPE = ['float', 'float', 'float']
-        self.DSCRTVAL = [None, 10e6, None]
+#        self.N_PARAMETERS = 3
+#        self.UPPER = [1, 1e8, 1]   # max shift, frequency, bias
+#        self.LOWER = [0, 1e8, 0]
+#        self.DTYPE = ['float', 'float', 'float']
+#        self.DSCRTVAL = [None, 1e8, None]
+        self.N_PARAMETERS = 1
+        self.UPPER = [10]# max shift, frequency, bias
+        self.LOWER = [0]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = None
         self.splitter = False
     
     def simulate(self, env, At,  visualize=False):  
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # amplitude [V]
-        NU = self.at[1]      # frequency [Hz]
-        BIAS = self.at[2]     # voltage bias [V]
-        phase = (M * np.pi / 2 / self.vpi)*(np.cos(2*np.pi* NU * env.t)) + (BIAS * np.pi / 2 / self.vpi)
+        NU = 12e9#self.at[1]      # frequency [Hz]
+#        BIAS = self.at[2]     # voltage bias [V]
+#        phase = (M * np.pi / 2 / self.vpi)*(np.cos(2*np.pi* NU * env.t)) + (BIAS * np.pi / 2 / self.vpi)
+        phase = (M * np.pi / 2 / self.vpi)*(np.cos(2*np.pi* NU * env.t)+1) #+ (BIAS * np.pi / 2 / self.vpi)
         
         # apply phase shift temporally
         At = At * np.exp(1j * phase)                
@@ -202,10 +208,10 @@ class AmplitudeModulator(Component):
         self.disp_name = 'Electro-Optic Amplitude Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 3
-        self.UPPER = [1, 200e6, 1]   # max shift, frequency, bias
-        self.LOWER = [0, 1e6, 0]
+        self.UPPER = [1, 24e9, 1]   # max shift, frequency, bias
+        self.LOWER = [0, 6e9, 0]
         self.DTYPE = ['float', 'float', 'float']
-        self.DSCRTVAL = [None, 1e6, None]
+        self.DSCRTVAL = [None, 6e9, None]
         self.FINETUNE_SKIP = None
         self.splitter = False
     
@@ -214,9 +220,12 @@ class AmplitudeModulator(Component):
         M = self.at[0]       # amplitude [V]
         NU = self.at[1]      # frequency [Hz]
         BIAS = self.at[2]     # voltage bias [V]
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)) + (BIAS)
+#        phase = (M)*(np.cos(2*np.pi* NU * env.t)) + (BIAS)
+        
 #        amp = np.power((M)*(np.cos(2*np.pi* NU * env.t)), 2)
-        amp = np.exp(1j * np.pi / self.vpi * phase)
+#        amp = np.exp(1j * np.pi / self.vpi * phase)
+        
+        amp = (M/2)*(np.cos(2*np.pi* NU * env.t)+1)
         
         # apply phase shift temporally
         At = At/2 * (1 + amp)
@@ -324,70 +333,115 @@ class WaveShaper(Component):
         Waveshaper, with amplitude and phase masks. Currently, the mask profile are made with a polynomial (parameters are the polynomial coefficients) and then clipped to valid levels (0-1 for amplitude, 0-2pi for phase). This is admittedly likely not the best solution - but for now it can work.
     """
     _num_instances = count(0)
+#    def datasheet(self):
+#        self.type = 'waveshaper'
+#        self.disp_name = 'Programmable Filter'
+#        self.res = 12e9     # resolution of the waveshaper
+#        self.N_PARAMETERS = 4 * 2 #using a 4-th order polynomial, for now
+#        self.UPPER = [1,1,1,2] + [1,1,1,2]  #bounds of polynomial coefficients
+#        self.LOWER = [-1,-1,-1,0] + [-1,-1,-1,0]
+#        self.DTYPE = self.N_PARAMETERS * ['float']
+#        self.DSCRTVAL = self.N_PARAMETERS * [None]
+#        self.FINETUNE_SKIP = None
+#        self.splitter = False
+    
     def datasheet(self):
         self.type = 'waveshaper'
         self.disp_name = 'Programmable Filter'
         self.res = 12e9     # resolution of the waveshaper
-        self.N_PARAMETERS = 4 * 2 #using a 4-th order polynomial, for now
-        self.UPPER = [1,1,1,2] + [1,1,1,2]  #bounds of polynomial coefficients
-        self.LOWER = [-1,-1,-1,0] + [-1,-1,-1,0]
-        self.DTYPE = self.N_PARAMETERS * ['float']
-        self.DSCRTVAL = self.N_PARAMETERS * [None]
+        self.n_windows = 13
+        self.N_PARAMETERS = 2*self.n_windows
+        self.UPPER = self.n_windows*[1] + self.n_windows*[2] 
+        self.LOWER = self.n_windows*[0] + self.n_windows*[0] 
+        self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
+        self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
         self.FINETUNE_SKIP = None
         self.splitter = False
     
+    
     def simulate(self, env, At, visualize = False):
-        # extract phase and amplitude mask values (polynomial coefficients)
         ampvalues = self.at[0:self.N_PARAMETERS//2]
         phasevalues = self.at[self.N_PARAMETERS//2:]
         
-        # create the amplitude mask polynomial and clip between 0 and 1
-        amp = np.polyval(ampvalues, env.f/np.max(env.f))
-        amp[amp > 1] = 1
-        amp[amp < 0] = 0
+        phasemask = np.zeros_like(env.f)
+        ampmask = np.zeros_like(env.f)
+                
+        n = np.floor(env.N/((1/env.dt)/self.res)).astype('int')
+        tmp = np.ones((n,1))
         
-#        amp = np.ones_like(amp)
+        a = [i*tmp for i in ampvalues]
+        p = [i*tmp*np.pi for i in phasevalues]
         
-#        plt.figure()
-#        plt.plot(amp)
+        amp1 = np.concatenate(a)
+        phase1 = np.concatenate(p)
         
-        # create the phase mask polynomial and clip between 0 and 2pi
-        phase = np.polyval(phasevalues, env.f/np.max(env.f))
-        phase[phase > 2*np.pi] = 2*np.pi
-        phase[phase < 0] = 0
+        left = np.floor((env.N - amp1.shape[0])/2).astype('int')
+        right = env.N - np.ceil((env.N - amp1.shape[0])/2).astype('int')
         
-#        phase = np.ones_like(phase)
+        phasemask[left:right] = phase1
+        ampmask[left:right] = amp1
         
-        # discretize based on the resolution of the waveshaper
-        n = int( np.floor( self.res/env.df ) )
-        ampmask = self.windowmask(amp, env.N, n)
-        phasemask = self.windowmask(phase, env.N, n)
         
-        # apply the waveshaper in the spectral domain and FFT back to temporal
         Af = ampmask * np.exp(1j * phasemask) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
         
         if visualize:
             self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
-        
         return At
     
-    def windowmask(self, mask, N, n):
-        # helper function for discretizing the masks based on the resolution
-        
-        totalbins = int(np.ceil( N / n ) )   # number of bins that fit into the window
-        center = N // 2     # center of the window
-        bins2center = int( np.floor( center / n ) )
-        offset = abs((bins2center*n) - center) - n//2
-        coursemask = np.zeros(mask.shape)
-        slc = (0, n-offset)
-        coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
-        for i in range(0,totalbins):
-            slc = ( offset + i*n, offset + (i+1)*n)
-            coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
-        slc = (offset + (totalbins)*n,-1) 
-        coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
-        return coursemask
+    
+#    def simulate(self, env, At, visualize = False):
+#        # extract phase and amplitude mask values (polynomial coefficients)
+#        ampvalues = self.at[0:self.N_PARAMETERS//2]
+#        phasevalues = self.at[self.N_PARAMETERS//2:]
+#        
+#        # create the amplitude mask polynomial and clip between 0 and 1
+#        amp = np.polyval(ampvalues, env.f/np.max(env.f))
+#        amp[amp > 1] = 1
+#        amp[amp < 0] = 0
+#        
+##        amp = np.ones_like(amp)
+#        
+##        plt.figure()
+##        plt.plot(amp)
+#        
+#        # create the phase mask polynomial and clip between 0 and 2pi
+#        phase = np.polyval(phasevalues, env.f/np.max(env.f))
+#        phase[phase > 2*np.pi] = 2*np.pi
+#        phase[phase < 0] = 0
+#        
+##        phase = np.ones_like(phase)
+#        
+#        # discretize based on the resolution of the waveshaper
+#        n = int( np.floor( self.res/env.df ) )
+#        ampmask = self.windowmask(amp, env.N, n)
+#        phasemask = self.windowmask(phase, env.N, n)
+#        
+#        # apply the waveshaper in the spectral domain and FFT back to temporal
+#        Af = ampmask * np.exp(1j * phasemask) * FFT(At, env.dt)
+#        At = IFFT( Af, env.dt )
+#        
+#        if visualize:
+#            self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
+#        
+#        return At
+    
+#    def windowmask(self, mask, N, n):
+#        # helper function for discretizing the masks based on the resolution
+#        
+#        totalbins = int(np.ceil( N / n ) )   # number of bins that fit into the window
+#        center = N // 2     # center of the window
+#        bins2center = int( np.floor( center / n ) )
+#        offset = abs((bins2center*n) - center) - n//2
+#        coursemask = np.zeros(mask.shape)
+#        slc = (0, n-offset)
+#        coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
+#        for i in range(0,totalbins):
+#            slc = ( offset + i*n, offset + (i+1)*n)
+#            coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
+#        slc = (offset + (totalbins)*n,-1) 
+#        coursemask[ slc[0]:slc[1]] = np.mean(mask[ slc[0]:slc[1]])
+#        return coursemask
         
         
     def newattribute(self):

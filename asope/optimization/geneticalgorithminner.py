@@ -87,7 +87,8 @@ def FIT_Inner(ind, env, experiment):
     fitness = env.fitness(At)
 
 #    return np.sqrt(np.sum(np.power(fitness,2))) * (1-env.component_losses/100),
-    return fitness[0],fitness[1],
+#    print(fitness)
+    return fitness[0],#fitness[1],
 
 
 #%%

@@ -390,6 +390,12 @@ class Experiment(nx.DiGraph):
         self.simulate(env, visualize=True)
         fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
         
+#        fig1,ax1 = plt.subplots(1, 1, figsize=(4, 4), dpi=150)
+#        fig2,ax2 = plt.subplots(1, 1, figsize=(4, 4), dpi=150)
+#        ax = [ax1,ax2]
+        
+        if measurement_node is None:
+            measurement_node = self.measurement_nodes[0]
         if measurement_node is not None:
             At = self.nodes[measurement_node]['output'].reshape(env.N)
             Af = FFT(At, env.dt)
@@ -397,19 +403,25 @@ class Experiment(nx.DiGraph):
             PAt = P(At)
             PAf = PSD(Af, env.df)
             
-            ax[0].plot(env.t, PAt/np.max(PAt), label='Power', alpha=0.2)
-            ax[1].plot(env.f, PAf/np.max(PAf), label='PSD', alpha=0.2)
+            ax[0].plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
+            ax[1].plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
             
             
         for node in self.nodes():
             if self.nodes[node]['info'].lines is not None:
                 for line in self.nodes[node]['info'].lines:
                     if line[0] == 't':
-                        ax[0].plot(env.t, line[1]/np.max(line[1]), label=line[2])
+                        ax[0].plot(env.t/1e-9, line[1]/np.max(line[1]), label=line[2])
                     elif line[0] == 'f':
-                        ax[1].plot(env.f, line[1]/np.max(line[1]), label=line[2])
+                        ax[1].plot(env.f/1e9, line[1]/np.max(line[1]), label=line[2])
                     else:
                         raise ValueError('Invalid x variable')                    
+        ax[0].set_xlabel('Time (ns)')
+        ax[0].set_ylabel(' ')
+        
+        ax[1].set_xlabel('Frequency Offset from Carrier (GHz)')
+        ax[1].set_ylabel(' ')
+        
         ax[0].legend()
         ax[1].legend()
         return
