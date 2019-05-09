@@ -11,11 +11,11 @@ def P(At):
     """
     return np.power( np.abs( At ), 2)
     
-def PSD(Af, df):
+def PSD(At, dt, df, ax = 0):
     """
         Power spectral density of a spectrum
     """
-    return np.power( np.abs( Af ), 2) / df
+    return np.power( np.abs( FFT(At,dt,ax) ), 2) / df
 
 def FFT( At, dt, ax = 0):   
     """

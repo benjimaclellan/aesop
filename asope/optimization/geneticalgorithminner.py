@@ -10,12 +10,7 @@ from optimization.geneticalgorithm import eaSimple
 Function for creating a New Individual (NA) in the Inner GA
 """
 def CREATE_Inner(experiment):
-#    print(experiment.__dict__.keys())
-#    object_methods = [method_name for method_name in dir(object)
-#                  if callable(getattr(experiment, method_name))]
-#    print(object_methods)
     ind = experiment.newattributes()
-#    print(ind)
     return ind
 
 #%%
@@ -83,18 +78,15 @@ def FIT_Inner(ind, env, experiment):
     experiment.simulate(env)
     
     measurement_node = experiment.measurement_nodes[0]
-    At = experiment.nodes[measurement_node]['output'].reshape(env.N)
+    At = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
     fitness = env.fitness(At)
 
-#    return np.sqrt(np.sum(np.power(fitness,2))) * (1-env.component_losses/100),
-#    print(fitness)
-    return fitness[0],#fitness[1],
+    return fitness
 
 
 #%%
-## --------------------------------------------------------------------
-## --------------------------------------------------------------------
-def inner_geneticalgorithm(gap, env, experiment):
+ 
+def inner_geneticalgorithm(gapI, env, experiment):
     """
     Here, we set up our inner genetic algorithm. This will eventually be moved to a different function/file to reduce clutter
     """    
@@ -103,7 +95,7 @@ def inner_geneticalgorithm(gap, env, experiment):
         del(creator.FitnessMax)
     except: pass
 
-    creator.create("FitnessMax", base.Fitness, weights=gap.WEIGHTS)
+    creator.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
     creator.create("Individual", dict, fitness=creator.FitnessMax)
 
     toolbox = base.Toolbox()
@@ -119,21 +111,19 @@ def inner_geneticalgorithm(gap, env, experiment):
 
     toolbox.register("evaluate", FIT_Inner, env=env, experiment=experiment)
     
-    pop = toolbox.population(n = gap.N_POPULATION)
-    
-#    tuple(set(dir(pop[0])))
-    
-    if not gap.INIT:
+    pop = toolbox.population(n = gapI.N_POPULATION)
+        
+    if not gapI.INIT:
         pass
     else:
-        for i, init in enumerate(gap.INIT):
+        for i, init in enumerate(gapI.INIT):
             pop[i].update(init)
     
-    hof = tools.HallOfFame(gap.N_HOF, similar=np.array_equal)
+    hof = tools.HallOfFame(gapI.N_HOF, similar=np.array_equal)
     
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     
-#    stats.register("avg", np.mean)
+    stats.register("avg", np.mean)
 #    stats.register("std", np.std)
 #    stats.register("min", np.min)
     stats.register("max", np.max)
@@ -141,18 +131,18 @@ def inner_geneticalgorithm(gap, env, experiment):
     # setup variables early, in case of an early termination
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
-    if gap.MULTIPROC:
-        pool = mp.Pool(gap.NCORES)
+    if gapI.MULTIPROC:
+        pool = mp.Pool(gapI.NCORES)
     else: 
         pool = None
     
     # catch exceptions to terminate the optimization early
 #    try:
-    population, logbook = eaSimple(gap, pop, toolbox, pool, logbook, cxpb=gap.CRX_PRB, mutpb=gap.MUT_PRB, ngen=gap.N_GEN, stats=stats, halloffame=hof, verbose=gap.VERBOSE)
+    population, logbook = eaSimple(gapI, pop, toolbox, pool, logbook, cxpb=gapI.CRX_PRB, mutpb=gapI.MUT_PRB, ngen=gapI.N_GEN, stats=stats, halloffame=hof, verbose=gapI.VERBOSE)
 
 #    except KeyboardInterrupt:
 #        population, logbook = None, None
-#        if gap.MULTIPROC:
+#        if gapI.MULTIPROC:
 #            pool.terminate()
 #        print('\n\n>>> Optimization terminated.\n  > Displaying results so far.   \n\n')
 #        print(hof[0])

@@ -1,75 +1,78 @@
+"""
+Copyright Benjamin MacLellan
+
+Graph manipulation functions. These change the topology of the graph based on physically realistic rules.
+"""
+#%% library imports
 import copy 
 from random import shuffle
-
 import numpy as np
 import networkx as nx
 
-from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+#%% custom module imports
+from classes.experiment import Experiment
 
-from assets.classes import Experiment
-
-from assets import config
-from assets.config import POTENTIALS
-
+#%% 
 def max_int_in_list(lst):
+    """
+        Finds the maximum integer in a list of mixed datatypes, used to label new nodes
+    """
     return max((i for i in lst if isinstance(i, int)))
 
-def random_choice(a, N, replace=False):
+#%%
+def random_choice(options, num_choices, replace=False):
     """
         Random subset from a list (with/without replacement). This supports lists containing multiple datatypes (unlike np.random.choice)
     """
-    assert N > 0
-    
-    inds = np.random.choice(range(len(a)), N, replace=replace)
+    assert num_choices > 0
+    inds = np.random.choice(range(len(options)), num_choices, replace=replace)
     choice = []
     for ind in inds:
-        choice.append(a[ind])
+        choice.append(options[ind])
     return choice
 
-
-def get_nonsplitters(E):
+#%%
+def get_nonsplitters(experiment):
     valid_nodes = []
-    for node in E.nodes():
-        if not E.nodes[node]['info'].splitter: #len(E.suc(node)) == 1 and len(E.pre(node)) == 1:
+    for node in experiment.nodes():
+        if not experiment.nodes[node]['info'].splitter: 
             valid_nodes.append(node)
     return valid_nodes
 
-def select_N_new_components(N, comp_type, replace=False):
+#%%
+def select_N_new_components(num_new_components, POTENTIAL_COMPS, comp_type, replace=False):
     """
         Selects N new components (power or freq), making a new instance of each 
     """
-    assert N > 0
-    
-    global POTENTIALS
-    
-    inds = np.random.choice(range(len(POTENTIALS[comp_type])), N, replace=replace)
+    assert num_new_components > 0
+        
+    inds = np.random.choice(range(len(POTENTIAL_COMPS[comp_type])), num_new_components, replace=replace)
     new_comps = []
     for ind in inds:
-        new_comps.append(POTENTIALS[comp_type][ind]())
+        new_comps.append(POTENTIAL_COMPS[comp_type][ind]())
     
-    if N == 1:
+    if num_new_components == 1:
         return new_comps[0]
     else:
         return new_comps
     
-def reset_all_instances():
-    global POTENTIALS
     
-    for key, item in POTENTIALS.items():
-        for class_i in POTENTIALS[key]:
+#%%
+def reset_all_instances(POTENTIAL_COMPS):    
+    for key, item in POTENTIAL_COMPS.items():
+        for class_i in POTENTIAL_COMPS[key]:
             class_i.resetinstances(class_i)
     return
 
 #%%  
-def mutate_experiment(E):
+def mutate_experiment(experiment, POTENTIAL_COMPS):
     """
         Switch the placements of some nodes, the structure remains the same    
     """
 #    print('mutate_experiment')
-    valid_nodes = get_nonsplitters(E)
+    valid_nodes = get_nonsplitters(experiment)
     if len(valid_nodes) <= 1: #list is empty
-#        raise ValueError('No valid nodes')
-        return E, False
+        return experiment, False
         
     replace_list = copy.copy(valid_nodes)
     shuffle(replace_list)
@@ -81,173 +84,167 @@ def mutate_experiment(E):
             changes_i['node_original'] = valid_nodes[i]
             changes_i['node_shuffle'] = replace_list[i]
             
-#            for key in E.nodes[changes_i['node_original']]:#('title', 'info'):
             for key in ('title', 'info'):
-                changes_i[key] = E.nodes[valid_nodes[i]][key]
+                changes_i[key] = experiment.nodes[valid_nodes[i]][key]
         
             changes.append(changes_i)
     mapping = {}
     for changes_i in changes:
         mapping[changes_i['node_original']] = changes_i['node_shuffle']
-    nx.relabel_nodes(E, mapping, copy=True)
+    nx.relabel_nodes(experiment, mapping, copy=True)
     
     for changes_i in changes:    
         for key in ('title', 'info'):
-            E.nodes[changes_i['node_shuffle']][key] = changes_i[key]
-#    
-    return E, True
+            experiment.nodes[changes_i['node_shuffle']][key] = changes_i[key]
+    
+    return experiment, True
     
 #%%   
-def mutate_new_components_experiment(E):
+def mutate_new_components_experiment(experiment, POTENTIAL_COMPS):
     """
         Changes a subset of components to brand new components (but not splitters)
     """
 #    print('mutate_new_components_experiment')
-    valid_nodes = get_nonsplitters(E)
+    valid_nodes = get_nonsplitters(experiment)
     if not valid_nodes: #list is empty
-        return E, False
-        
+        return experiment, False
         
     replace_list = random_choice(valid_nodes, 1, replace=False)
     
-    
     for i, node in enumerate(replace_list):     
-        E.nodes[node]['info'] = select_N_new_components(1, 'nonsplitters')
-        E.nodes[node]['title'] = E.nodes[node]['info'].name
-        nx.relabel_nodes(E, {node:max_int_in_list(E.nodes)+1}, copy=True)
+        experiment.nodes[node]['info'] = select_N_new_components(1, POTENTIAL_COMPS, 'nonsplitters')
+        experiment.nodes[node]['title'] = experiment.nodes[node]['info'].name
+        nx.relabel_nodes(experiment, {node:max_int_in_list(experiment.nodes)+1}, copy=True)
         
-    return E, True
+    return experiment, True
     
 #%%
-def one_component_to_two(E):
+def one_component_to_two(experiment, POTENTIAL_COMPS):
     """
         Adds in one new component where there is a component with one successor and predeccessor
     """
 #    print('one_component_to_two')
-    valid_nodes = get_nonsplitters(E)
+    valid_nodes = get_nonsplitters(experiment)
     if not valid_nodes: #list is empty
-#        raise ValueError('No valid nodes')
-        return E, False
+        return experiment, False
 
     replace_list = random_choice(valid_nodes, 1, replace=False)
     
     for i, node in enumerate(replace_list):
-        new_comp = select_N_new_components(1, 'nonsplitters')
-        node_name = max_int_in_list(E.nodes) + 1
-        E.add_node(node_name)
-        E.nodes[node_name]['title'] = new_comp.name
-        E.nodes[node_name]['info'] = new_comp
+        new_comp = select_N_new_components(1, POTENTIAL_COMPS, 'nonsplitters')
+        node_name = max_int_in_list(experiment.nodes) + 1
+        experiment.add_node(node_name)
+        experiment.nodes[node_name]['title'] = new_comp.name
+        experiment.nodes[node_name]['info'] = new_comp
         
         before_after = np.random.random()
         if before_after >= 0.5: # add the new node BEFORE the current one
-            if len(E.pre(node)) != 0: # if we have connections, delete them and rebuild
-                pre = E.pre(node)[0]
-                E.remove_edge(pre, node)
-                E.add_edge(pre, node_name)
-            E.add_edge(node_name, node)
+            if len(experiment.pre(node)) != 0: # if we have connections, delete them and rebuild
+                pre = experiment.pre(node)[0]
+                experiment.remove_edge(pre, node)
+                experiment.add_edge(pre, node_name)
+            experiment.add_edge(node_name, node)
         else: # add the new node AFTER the current one
-            if len(E.suc(node)) != 0: # if we have connections, delete them and rebuild
-                suc = E.suc(node)[0]
-                E.remove_edge(node, suc)
-                E.add_edge(node_name, suc)
-            E.add_edge(node, node_name)
+            if len(experiment.suc(node)) != 0: # if we have connections, delete them and rebuild
+                suc = experiment.suc(node)[0]
+                experiment.remove_edge(node, suc)
+                experiment.add_edge(node_name, suc)
+            experiment.add_edge(node, node_name)
             
-    return E, True
+    return experiment, True
 
 #%%
-def remove_one_node(E):
+def remove_one_node(experiment, POTENTIAL_COMPS):
     """
         Remove a single non-splitter node
     """    
     
 #    print('remove_one_node')
     
-    valid_nodes = get_nonsplitters(E)
+    valid_nodes = get_nonsplitters(experiment)
     if len(valid_nodes) <= 1:
 #        raise ValueError('There will be nothing left of the graph if we delete this node')
-        return E, False
+        return experiment, False
         
     node = random_choice(valid_nodes, 1)[0] # node to remove
-    pre = E.pre(node)
-    suc = E.suc(node)
+    pre = experiment.pre(node)
+    suc = experiment.suc(node)
     
     if len(pre) == 1:
-        E.remove_edge(pre[0], node)
+        experiment.remove_edge(pre[0], node)
     if len(suc) == 1:
-        E.remove_edge(node, suc[0])
+        experiment.remove_edge(node, suc[0])
     if len(pre) == 1 and len(suc) == 1:
-        E.add_edge(pre[0], suc[0])    
-    E.remove_node(node)
-    return E, True
+        experiment.add_edge(pre[0], suc[0])    
+    experiment.remove_node(node)
+    return experiment, True
   
 #%%      
-def add_loop(E):
+def add_loop(experiment, POTENTIAL_COMPS):
     """
     Adds a interferometer(like) loop, replacing a single node 2 splitters/2 components
     """
 #    print('***************add_loop')
-    if not POTENTIALS['splitters']:
-        return E, True
+    if not POTENTIAL_COMPS['splitters']:
+        return experiment, True
     
-    valid_nodes = get_nonsplitters(E)
+    valid_nodes = get_nonsplitters(experiment)
     if not valid_nodes: #no valid nodes (list is empty)
-#        raise ValueError('No valid nodes')
-        return E, False    
+        return experiment, False    
     
     node = random_choice(valid_nodes, 1)[0]    
     
-    tmp = max_int_in_list(E.nodes)+1
+    tmp = max_int_in_list(experiment.nodes)+1
     
-    new_comps = select_N_new_components(2, 'nonsplitters', replace = True)
+    new_comps = select_N_new_components(2, POTENTIAL_COMPS, 'nonsplitters', replace = True)
     new_comps_names = [tmp+1, tmp+2]
     
-    new_splitters = select_N_new_components(2, 'splitters', replace = True)
+    new_splitters = select_N_new_components(2, POTENTIAL_COMPS, 'splitters', replace = True)
     new_splitters_names = [tmp+3, tmp+4]
     
     
     ## add new splitters (can update later to have FrequencySplitters as well)
     for i, splitter_i in enumerate(new_splitters):
-        E.add_node(new_splitters_names[i])
-        E.nodes[new_splitters_names[i]]['title'] = splitter_i.name
-        E.nodes[new_splitters_names[i]]['info'] = splitter_i
+        experiment.add_node(new_splitters_names[i])
+        experiment.nodes[new_splitters_names[i]]['title'] = splitter_i.name
+        experiment.nodes[new_splitters_names[i]]['info'] = splitter_i
     
     ## add new components and connect loop together
     for i, comp_i in enumerate(new_comps):
-        E.add_node(new_comps_names[i])
-        E.nodes[new_comps_names[i]]['title'] = comp_i.name
-        E.nodes[new_comps_names[i]]['info'] = comp_i
+        experiment.add_node(new_comps_names[i])
+        experiment.nodes[new_comps_names[i]]['title'] = comp_i.name
+        experiment.nodes[new_comps_names[i]]['info'] = comp_i
         
-        E.add_edge(new_splitters_names[0], new_comps_names[i])
-        E.add_edge(new_comps_names[i], new_splitters_names[1])
+        experiment.add_edge(new_splitters_names[0], new_comps_names[i])
+        experiment.add_edge(new_comps_names[i], new_splitters_names[1])
     
-    pre = E.pre(node)
-    suc = E.suc(node)
+    pre = experiment.pre(node)
+    suc = experiment.suc(node)
     
     if len(pre) == 1:
-        E.remove_edge(pre[0], node)
-        E.add_edge(pre[0], new_splitters_names[0])
+        experiment.remove_edge(pre[0], node)
+        experiment.add_edge(pre[0], new_splitters_names[0])
         
-    if len(E.suc(node)) == 1:
-        E.remove_edge(node, suc[0])
-        E.add_edge(new_splitters_names[1], suc[0])
+    if len(experiment.suc(node)) == 1:
+        experiment.remove_edge(node, suc[0])
+        experiment.add_edge(new_splitters_names[1], suc[0])
     
-    E.remove_node(node)
+    experiment.remove_node(node)
 
-    return E, True
+    return experiment, True
 
 #%%
-def remove_loop(E):
-    
+def remove_loop(experiment,POTENTIAL_COMPS):
 #    print('remove_loop')
     
-    undirE = E.to_undirected()
+    undirE = experiment.to_undirected()
     cycles = nx.cycle_basis(undirE)
-    valid_nodes = get_nonsplitters(E)
+    valid_nodes = get_nonsplitters(experiment)
     
     if len(cycles) == 0:
         # there are no cycles
 #        raise ValueError('No loops to remove')
-        return E, False
+        return experiment, False
         
     cycle_lens = []
     for cycle in cycles:
@@ -256,7 +253,7 @@ def remove_loop(E):
     min_len = min(cycle_lens)
     if len(valid_nodes) < min_len + 1:
 #        raise ValueError('There will be nothing left of the graph if we delete this loop')
-        return E, False
+        return experiment, False
     
     
     valid_cycles = []
@@ -265,38 +262,37 @@ def remove_loop(E):
             valid_cycles.append(cycle)
     remove_cycle = random_choice(valid_cycles, 1)[0]
     for node in remove_cycle:    
-        if not set(E.pre(node)).issubset(remove_cycle) or len(E.pre(node)) == 0:
+        if not set(experiment.pre(node)).issubset(remove_cycle) or len(experiment.pre(node)) == 0:
             loop_init = node  
-        if not set(E.suc(node)).issubset(remove_cycle) or len(E.suc(node)) == 0:
+        if not set(experiment.suc(node)).issubset(remove_cycle) or len(experiment.suc(node)) == 0:
             loop_term = node
 
     ## patch graph
-    if len(E.pre(loop_init)) == 1 and len(E.suc(loop_term)) == 1:
-        E.add_edge(E.pre(loop_init)[0], E.suc(loop_term)[0])
+    if len(experiment.pre(loop_init)) == 1 and len(experiment.suc(loop_term)) == 1:
+        experiment.add_edge(experiment.pre(loop_init)[0], experiment.suc(loop_term)[0])
 
     for node in remove_cycle:
-        E.remove_node(node)
+        experiment.remove_node(node)
     
-    return E, True
+    return experiment, True
  
 #%%
-def brand_new_experiment(E):
-    
+def brand_new_experiment(experiment, POTENTIAL_COMPS):
 #    print('brand_new_experiment')
     
-    reset_all_instances()
+    reset_all_instances(POTENTIAL_COMPS)
     
-    start_comp = select_N_new_components(1, 'nonsplitters')
+    start_comp = select_N_new_components(1, POTENTIAL_COMPS,  'nonsplitters')
     components = {0:start_comp}
     adj = []
     measurement_nodes = [0]
-    E = Experiment()
-    E.buildexperiment(components, adj, measurement_nodes)
+    experiment = Experiment()
+    experiment.buildexperiment(components, adj, measurement_nodes)
     
-    return E, True
+    return experiment, True
 
 #%%
-def change_experiment_wrapper(E):
+def change_experiment_wrapper(experiment, POTENTIAL_COMPS):
     rates_base = {
                     mutate_experiment:0.4,
                     mutate_new_components_experiment:0.4,
@@ -313,25 +309,37 @@ def change_experiment_wrapper(E):
     flag = True
     cnt = 0
     while flag:
-        if E.number_of_nodes() > 7:
+        if experiment.number_of_nodes() > 7:
             rates[remove_one_node] = 0.9
             rates[remove_loop] = 0.9
             rates[one_component_to_two] = 0.1
             rates[add_loop] = 0.0
             rates[brand_new_experiment] = 0.4
             
-        elif E.number_of_nodes() > 10:
+        elif experiment.number_of_nodes() > 10:
             rates[brand_new_experiment] = 999
             
-        elif E.number_of_nodes() < 2:
+        elif experiment.number_of_nodes() < 2:
             rates[remove_one_node] = 0.1
             rates[remove_loop] = 0.05
             rates[one_component_to_two] = 0.4
             rates[add_loop] = 0.2
-        
         else:
             rates = rates_base
         
+        
+        
+        num_splitters = 0
+        for node in experiment.nodes():
+            if experiment.nodes[node]['info'].splitter:
+                num_splitters += 1
+        if num_splitters/experiment.number_of_nodes() > 0.6:
+            rates[remove_one_node] = 0.9
+            rates[remove_loop] = 0.9
+            rates[one_component_to_two] = 0.0
+            rates[add_loop] = 0.0
+            rates[brand_new_experiment] = 10
+            
         
         probs = list(rates.values())
         norm = sum(probs)
@@ -339,76 +347,40 @@ def change_experiment_wrapper(E):
         
         
         mut_function = np.random.choice(funcs, 1, replace=False, p=probs)[0]
-#        E = mut_function(E)
         flag = False
-#        print('Applying {} worked'.format(mut_function.__name__))
         
-#        try:
-        E, check = mut_function(E)
+        experiment, check = mut_function(experiment, POTENTIAL_COMPS)
         if check:
-#            print('There was a goo job up in ', mut_function.__name__)
             flag = False
         else:
-#            print('There was a fuck up in ', mut_function.__name__)
             flag = True
         
         cnt += 1
         if cnt > 100:
             raise ValueError('There is something wrong with mutating the graph. An error occurs for everytime we try to change the graph structure')
-        
-        
-#    E.cleanexperiment()
-#    E.make_path()
-#    E.check_path()
-#    
-#    mapping=dict(zip( [item for sublist in E.path for item in sublist],range(0,len(E.nodes()))))
-#    E = nx.relabel_nodes(E, mapping) 
     
-    return E, flag
+    return experiment, flag
 
 
 
 def remake_experiment(ind):
     
-    
-#    ind.make_path()
-#    ind.check_path()
-    
-#    mapping=dict(zip( [item for sublist in ind.path for item in sublist],range(0,len(ind.nodes()))))
-#    ind = nx.relabel_nodes(ind, mapping) 
-    ind.cleanexperiment()
-    
+    ind.cleanexperiment()    
     mapping=dict(zip(ind.nodes(),range(0,len(ind.nodes()))))
     ind = nx.relabel_nodes(ind, mapping)  
     
-    components, measurement_nodes = {}, []
+    components = {}
     for node in ind.nodes():
         components[node] = ind.nodes[node]['info'].__class__()
-        if len(ind.suc(node)) == 0:
-            measurement_nodes.append(node)
+#        if len(ind.suc(node)) == 0:
+#            measurement_nodes.append(node)
+#    print(measurement_nodes)
     adj = list(ind.edges())
-    
-    
+
     experiment = Experiment()
-    experiment.buildexperiment(components, adj, measurement_nodes)    
-    
-      
+    experiment.buildexperiment(components, adj)#, measurement_nodes)    
 
-
-#    experiment.cleanexperiment()
-#    experiment.make_path()
-#    experiment.check_path()
-#    
-#    mapping=dict(zip( [item for sublist in experiment.path for item in sublist],range(0,len(experiment.nodes()))))
-#    experiment = nx.relabel_nodes(experiment, mapping) 
-#    
     experiment.make_path()
     experiment.check_path()
     
     return experiment
-
-#def remake_at(ind):
-#    at = {}
-#    for node in ind.nodes():
-#        at[node] = ind.nodes[node]['info'].at
-#    return at

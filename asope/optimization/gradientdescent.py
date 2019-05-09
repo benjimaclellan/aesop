@@ -19,20 +19,16 @@ Using standard packages to slightly tweak the best of HOF to optimal individual
 """
 def final_opt(optlist, ind, idx, keylist, env, experiment):    
     ind = unpack_opt(ind, experiment, optlist, idx, keylist)
-#    print('final_opt', ind)
     
     measurement_node = experiment.measurement_nodes[0]
     
     experiment.setattributes(ind)
     experiment.simulate(env)
     
-    At = experiment.nodes[measurement_node]['output'].reshape(env.N)
+    At = experiment.nodes[measurement_node]['output']#.reshape(env.N)
     fitness = env.fitness(At)
     
-    return -fitness[0]*0.2- fitness[1]*0.8
-#    return -fitness[0] * fitness[1]
-#    return np.sqrt(np.sum(np.power(fitness,2))) #* (1-env.component_losses/100)
-#    return -fitness[1] #minus sign is because we want to minimize
+    return -fitness[0]
 
 """
 Unpacks the list of parameters from the structure used in the GA to the GD
