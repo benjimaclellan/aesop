@@ -33,6 +33,8 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
+from noise_sim import update_error_attributes
+
 plt.close("all")
 
 #%%
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 200              # number of generations
+    gap.N_GEN = 10              # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -103,10 +105,11 @@ if __name__ == '__main__':
     components = {
                     0:PhaseModulator(),
                     1:WaveShaper(),
-                    2:PhaseModulator(),
-                    3:WaveShaper(),
+                    2:Fiber(),
+                    3:PhaseModulator(),
+                    4:WaveShaper(),
                  }
-    adj = [(0,1), (1,2), (2,3)]
+    adj = [(0,1), (1,2), (2,3), (3,4)]
 
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
@@ -137,12 +140,24 @@ if __name__ == '__main__':
     
     exp.setattributes(at)
     exp.simulate(env)
-    
+
     At = exp.nodes[exp.measurement_nodes[0]]['output']
     
     fit = env.fitness(At)
-    print(fit)
-    
+
+    N_samples = 10
+    fitnesses = np.zeros((N_samples, 2))
+    for i in np.arange(N_samples):
+        update_error_attributes(exp)
+        exp.simulate(env)
+        At = exp.nodes[exp.measurement_nodes[0]]['output']
+        fit = env.fitness(At)
+        fitnesses[i] = fit
+
+    print("Fitness Array: ")
+    print(fitnesses)
+    print("________________")
+
     #%%
     plt.figure()
     generated = env.shift_function(P(At))

@@ -114,7 +114,12 @@ class Fiber(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = None
         self.splitter = False
-        
+        # Noise Properties
+        self.N_EPARAMETERS = 1
+        self.EUPPER = [1]
+        self.ELOWER = [0]
+        self.attenuation = 0
+
     def simulate(self, env, At, visualize=False):
         
         # attribute list is extracted. For fiber, only one parameter which is length
@@ -126,7 +131,7 @@ class Fiber(Component):
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
         
         # apply dispersion
-        Af = np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
+        Af = (1-self.attenuation*fiber_len)*np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
         
         # this visualization functionality was broken, may be fixed later
@@ -144,6 +149,19 @@ class Fiber(Component):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
         self.at = at
         return at
+
+    def error_model(self):
+        """
+        Model the distribution of component error and return a float
+
+        :return:
+        """
+        sample = np.random.normal(0.9, 0.05)
+        return sample
+
+    def update_error_attributes(self, sample):
+        self.attenuation = sample
+        return 0
         
 # ----------------------------------------------------------
 class PhaseModulator(Component):
@@ -162,6 +180,8 @@ class PhaseModulator(Component):
         self.DSCRTVAL = [None]#, 6e9]
         self.FINETUNE_SKIP = None
         self.splitter = False
+
+        self.N_EPARAMETERS = 0
     
     def simulate(self, env, At,  visualize=False):  
         # extract attributes (parameters) of driving signal
@@ -210,7 +230,8 @@ class WaveShaper(Component):
         self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [0.1]
         self.FINETUNE_SKIP = None
         self.splitter = False
-    
+
+        self.N_EPARAMETERS = 0
     
     def simulate(self, env, At, visualize = False):
         ampvalues = self.at[0:self.N_PARAMETERS//2]
