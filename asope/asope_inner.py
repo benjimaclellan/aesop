@@ -33,7 +33,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import update_error_attributes
+from noise_sim import update_error_attributes, simulate_component_noise
 
 plt.close("all")
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 10              # number of generations
+    gap.N_GEN = 5              # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -145,17 +145,27 @@ if __name__ == '__main__':
     
     fit = env.fitness(At)
 
-    N_samples = 10
-    fitnesses = np.zeros((N_samples, 2))
-    for i in np.arange(N_samples):
-        update_error_attributes(exp)
-        exp.simulate(env)
-        At = exp.nodes[exp.measurement_nodes[0]]['output']
-        fit = env.fitness(At)
-        fitnesses[i] = fit
 
+    """
+    Robustness/Noise Simulation 
+    """
+    # Number of Monte Carlo trials to preform
+    N_samples = 10
+
+    # Generate an array of fitness
+    fitnesses = simulate_component_noise(exp, env, At, N_samples)
     print("Fitness Array: ")
     print(fitnesses)
+
+    # Calculate statistics (mean/std) of the tests
+    i = 0
+    for row in fitnesses.T:
+        std = np.std(row)
+        mean = np.mean(row)
+        print("Mean of column " + str(i) + " : " + str(mean))
+        print("Standard deviation of column " + str(i) + " : " + str(std))
+        i += 1
+
     print("________________")
 
     #%%
