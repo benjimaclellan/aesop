@@ -80,7 +80,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 5              # number of generations
+    gap.N_GEN = 200              # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -105,11 +105,10 @@ if __name__ == '__main__':
     components = {
                     0:PhaseModulator(),
                     1:WaveShaper(),
-                    2:Fiber(),
-                    3:PhaseModulator(),
-                    4:WaveShaper(),
+                    2:PhaseModulator(),
+                    3:WaveShaper(),
                  }
-    adj = [(0,1), (1,2), (2,3), (3,4)]
+    adj = [(0,1), (1,2), (2,3)]
 
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
@@ -150,10 +149,10 @@ if __name__ == '__main__':
     Robustness/Noise Simulation 
     """
     # Number of Monte Carlo trials to preform
-    N_samples = 10
+    N_samples = 50
 
     # Generate an array of fitness
-    fitnesses = simulate_component_noise(exp, env, At, N_samples)
+    fitnesses, optical_fields = simulate_component_noise(exp, env, At, N_samples)
     print("Fitness Array: ")
     print(fitnesses)
 
@@ -168,22 +167,42 @@ if __name__ == '__main__':
 
     print("________________")
 
+    At_avg = np.mean(optical_fields, axis=0)
+    print(At_avg)
+    At_std = np.std(optical_fields, axis=0)
+    print(At_std)
+
+    # clear memory space
+    del At
+    del fitnesses
+    del optical_fields
+
     #%%
     plt.figure()
-    generated = env.shift_function(P(At))
-    minval, maxval = np.min(generated), np.max(generated)
+    #generated = env.shift_function(P(At_avg))
+    minval, maxval = np.min(At_avg), np.max(At_avg)
     if env.normalize:
-        generated = (generated-minval)/(maxval-minval)
+        #TODO: Determine how to properly normalize STD
+        At_avg = (At_avg-minval)/(maxval-minval)
+        At_std = At_std/maxval
 
-    plt.plot(env.t, generated,label='current')
+    print(At_avg)
+    print(At_std)
+
+    #plt.plot(env.t, generated,label='current')
     plt.plot(env.t, env.target,label='target',ls=':')
+    plt.plot(env.t, At_avg,'r', label='current')
+    plt.plot(env.t, At_avg + At_std, 'r--')
+    plt.plot(env.t, At_avg - At_std, 'r--')
     plt.xlim([0,10/env.target_harmonic])
     plt.legend()
     plt.show()
     
     plt.figure()
     plt.plot(RFSpectrum(env.target, env.dt),label='target',ls=':')
-    plt.plot(RFSpectrum(At, env.dt),label='current')
+    plt.plot(RFSpectrum(At_avg, env.dt),label='current')
+    plt.plot(RFSpectrum(At_avg + At_std, env.dt), label='upper std')
+    plt.plot(RFSpectrum(At_avg - At_std, env.dt), label='lower std')
     plt.legend()
     plt.show()
     

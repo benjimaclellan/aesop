@@ -157,11 +157,20 @@ class Fiber(Component):
 
         :return:
         """
-        sample = np.random.normal(0.9, 0.05)
+        sample = np.array([
+                 np.random.normal(0.1, 0.05) # Attenuation
+                 ])
         return sample
 
     def update_error_attributes(self, sample):
-        self.attenuation = sample
+        i = 0
+        for val in sample:
+            if val < self.ELOWER[i]:
+                val = self.ELOWER[i]
+            if val > self.EUPPER[i]:
+                val = self.EUPPER[i]
+            i+=1
+        self.attenuation = sample[0]
         return 0
 
 # ----------------------------------------------------------
@@ -183,17 +192,21 @@ class PhaseModulator(Component):
         self.splitter = False
 
         # Error Parameters
-        self.N_EPARAMETERS = 0
+        self.N_EPARAMETERS = 2
+        self.phasenoise = 0 #+- radians of phase noise
+        self.insertionloss = 0 # percent
+        self.EUPPER = [2*np.pi, 100]
+        self.ELOWER = [0, 0]
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # amplitude [V]
         NU = 12e9#self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.phasenoise*np.random.randn(*np.shape(env.t))
 
         # apply phase shift temporally
-        At = At * np.exp(1j * phase)
+        At = (1-self.insertionloss)*At * np.exp(1j * phase)
 
         if visualize:
             self.lines = (('t',phase, 'Phase Modulation'),)
@@ -213,6 +226,23 @@ class PhaseModulator(Component):
         self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
         return self.at
 
+    def error_model(self):
+        sample = np.array([
+            np.random.normal(0, 0.01), # Phase Noise
+            np.random.normal(0.02, 0.01) # Insertion loss
+            ])
+        return sample
+
+    def update_error_attributes(self, sample):
+        i = 0
+        for val in sample:
+            if val < self.ELOWER[i]:
+                val = self.ELOWER[i]
+            if val > self.EUPPER[i]:
+                val = self.EUPPER[i]
+            i+=1
+        self.phasenoise, self.insertionloss = sample[0], sample[1]
+        return 0
 
 #%%
 class WaveShaper(Component):

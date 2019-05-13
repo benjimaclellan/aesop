@@ -16,12 +16,13 @@ def update_error_attributes(experiment):
                 #error_model() will return an array of appropriately sampled error attributes
                 #update_error_attributes() will use the array to save the properties to the component
                 new_at = component.error_model()
+
                 component.update_error_attributes(new_at)
         except AttributeError:
             print("Exception occurred updating error models - is there a component without an implemented error model?")
 
 
-def simulate_component_noise(experiment, environment, input_At, N_samples):
+def simulate_component_noise(experiment, environment, input_At, N_samples, record=True):
     """
     Runs a monte carlo simulation of the component noise. Returns a (N_samples, m) array, where m is the number
     of parameters returned by environment.fitness
@@ -29,6 +30,7 @@ def simulate_component_noise(experiment, environment, input_At, N_samples):
     :param experiment:
     :param environment:
     :param input_At:
+    :param record:
     :param N_samples:
     :return:
     """
@@ -39,13 +41,16 @@ def simulate_component_noise(experiment, environment, input_At, N_samples):
     m = np.shape(env.fitness(At))[0]
     #create empty array with the correct shape
     fitnesses = np.zeros((N_samples, m))
+    length = np.shape(At)[0]
+    optical_fields = np.zeros((N_samples, length))
     for i in np.arange(N_samples):
         update_error_attributes(exp)
         # Simulate the experiment with the sampled error profile
         exp.simulate(env)
         At = exp.nodes[exp.measurement_nodes[0]]['output']
-        # Evaluate the fitness and store it in the aray
+        optical_fields[i] = At[:, 0]
+        # Evaluate the fitness and store it in the array
         fit = env.fitness(At)
         fitnesses[i] = fit
 
-    return fitnesses
+    return fitnesses, optical_fields
