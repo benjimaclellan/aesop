@@ -27,7 +27,7 @@ class Experiment(nx.DiGraph):
                 
                 # if component (node) is a splitter, collect all incoming pulses
                 if self.nodes[node]['info'].splitter:
-                    
+                    print("There is a splitter")
                     # if this is an input node (no predeccessors), get the prescribed input
                     if len(self.pre(node)) == 0:
                         At = self.nodes[node]['input']#.reshape(env.n_samples,1)
@@ -468,13 +468,6 @@ class Experiment(nx.DiGraph):
         return check
         
 
-        if display:
-            print('Input power: {}\nOutput power: {}'.format(totalpower_in, totalpower_out))
-        
-        return check
-    
-    
-    
     
     
     

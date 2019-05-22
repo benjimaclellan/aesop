@@ -1,7 +1,7 @@
 """
 Copyright Benjamin MacLellan
 
-The inner optimization process for the Automoated Search for Optical Processing Experiments (ASOPE). This uses a genetic algorithm (GA) to optimize the parameters (attributes) on the components (nodes) in the experiment (graph). 
+The inner optimization process for the Automated Search for Optical Processing Experiments (ASOPE). This uses a genetic algorithm (GA) to optimize the parameters (attributes) on the components (nodes) in the experiment (graph).
 
 """
 
@@ -24,6 +24,7 @@ from scipy import signal
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.waveforms import random_bit_pattern
+from assets.graph_manipulation import get_nonsplitters
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
 from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
@@ -33,12 +34,12 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import update_error_attributes, simulate_component_noise
+from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies
 
 plt.close("all")
 
 #%%
-def optimize_experiment(experiment, env, gap, verbose=False): 
+def optimize_experiment(experiment, env, gap, verbose=False):
     
     if verbose:
         print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))
@@ -60,8 +61,9 @@ def optimize_experiment(experiment, env, gap, verbose=False):
         individual = copy.deepcopy(hof[j])        
         hof_fine.append(individual)
 
-        #%% Now fine tune the best individual using grad`ient descent
+        #%% Now fine tune the best individual using gradient descent
         if gap.FINE_TUNE:
+            print("Fine tuning with gradient descent...")
             individual_fine = finetune_individual(individual, env, experiment)
         else:
             individual_fine = individual
@@ -79,20 +81,22 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 200              # number of generations
+    gap.N_POPULATION = 100      # number of individuals in a population
+    gap.N_GEN = 5             # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
-    gap.VERBOSE = 1             # verbose print statement for GA statistics
+    gap.VERBOSE = 0             # verbose print statement for GA statistics
     gap.INIT = None
     gap.FINE_TUNE = True
     gap.NUM_ELITE = 1
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
     
     #%% initialize our input pulse, with the fitness function too
-    env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)    
+    env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
+    #env.createnoise()
+    #env.addnoise()
     
     env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.25)+1), target_harmonic, normalize=True)
     
@@ -106,9 +110,10 @@ if __name__ == '__main__':
                     0:PhaseModulator(),
                     1:WaveShaper(),
                     2:PhaseModulator(),
-                    3:WaveShaper(),
+                    3:Fiber(),
+                    4:WaveShaper()
                  }
-    adj = [(0,1), (1,2), (2,3)]
+    adj = [(0,1),(1,2),(2,3),(3,4)]
 
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
@@ -123,7 +128,7 @@ if __name__ == '__main__':
 
     
     #%%
-    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=False) 
+    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
     
     #%%
     fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
@@ -146,15 +151,28 @@ if __name__ == '__main__':
 
 
     """
+    Redundancy Check
+    """
+
+    print("Beginning Redundancy Check")
+    exp = remove_redundancies(exp, env, gap.VERBOSE)
+    plt.show()
+    exp.draw()
+    plt.show()
+
+
+    """
     Robustness/Noise Simulation 
     """
+    print("Beginning Monte Carlo simulation")
     # Number of Monte Carlo trials to preform
-    N_samples = 50
+    N_samples = 20
 
     # Generate an array of fitness
     fitnesses, optical_fields = simulate_component_noise(exp, env, At, N_samples)
-    print("Fitness Array: ")
-    print(fitnesses)
+    if gap.VERBOSE:
+        print("Fitness Array: ")
+        print(fitnesses)
 
     # Calculate statistics (mean/std) of the tests
     i = 0
@@ -168,9 +186,7 @@ if __name__ == '__main__':
     print("________________")
 
     At_avg = np.mean(optical_fields, axis=0)
-    print(At_avg)
     At_std = np.std(optical_fields, axis=0)
-    print(At_std)
 
     # clear memory space
     del At
@@ -186,11 +202,10 @@ if __name__ == '__main__':
         At_avg = (At_avg-minval)/(maxval-minval)
         At_std = At_std/maxval
 
-    print(At_avg)
-    print(At_std)
 
     #plt.plot(env.t, generated,label='current')
     plt.plot(env.t, env.target,label='target',ls=':')
+    plt.plot(env.t, env.At0, label='initial')
     plt.plot(env.t, At_avg,'r', label='current')
     plt.plot(env.t, At_avg + At_std, 'r--')
     plt.plot(env.t, At_avg - At_std, 'r--')
@@ -199,10 +214,10 @@ if __name__ == '__main__':
     plt.show()
     
     plt.figure()
-    plt.plot(RFSpectrum(env.target, env.dt),label='target',ls=':')
-    plt.plot(RFSpectrum(At_avg, env.dt),label='current')
-    plt.plot(RFSpectrum(At_avg + At_std, env.dt), label='upper std')
-    plt.plot(RFSpectrum(At_avg - At_std, env.dt), label='lower std')
+    plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
+    plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
+    plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
+    plt.plot(np.abs(RFSpectrum(At_avg - At_std, env.dt)), label='lower std')
     plt.legend()
     plt.show()
     

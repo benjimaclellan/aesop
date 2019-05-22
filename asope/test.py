@@ -14,6 +14,7 @@ from assets.functions import extractlogbook, save_experiment, load_experiment, s
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.waveforms import random_bit_pattern
 from assets.graph_manipulation import change_experiment_wrapper
+from noise_sim import remove_redundancies
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
 from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
@@ -28,18 +29,21 @@ warnings.filterwarnings("ignore")
 env = OpticalField_CW(n_samples=2**13+1, window_t=10e-9, peak_power=1)
 
 target_harmonic = 12e9
-#env.init_fitness(0.5*(signal.square(2*np.pi*target_harmonic*env.t)+1), target_harmonic, normalize=False)
+env.init_fitness(0.5*(signal.square(2*np.pi*target_harmonic*env.t)+1), target_harmonic, normalize=False)
 
-target, bit_sequence = random_bit_pattern(env.n_samples, 8, target_harmonic, None, env.dt)
-env.init_fitness(target, target_harmonic, normalize=False)
-env.bit_sequence = bit_sequence
+#target, bit_sequence = random_bit_pattern(env.n_samples, 8, target_harmonic, None, env.dt)
+#env.init_fitness(target, target_harmonic, normalize=False)
+#env.bit_sequence = bit_sequence
 
 #%% define experimental setup
 components = {
                 0:PhaseModulator(),
-                1:WaveShaper()
+                1:WaveShaper(),
+                2:Fiber(),
+                3:PhaseModulator(),
+                4:Fiber()
              }
-adj = [(0,1)]
+adj = [(0,1),(1,2),(2,3),(3,4)]
 
 exp = Experiment()
 exp.buildexperiment(components, adj)
@@ -66,7 +70,17 @@ exp.measure(env, exp.measurement_nodes[0], check_power=True)
 fit = env.fitness(At)
 print(fit)
 
-print(env.bit_sequence)
+"""
+Remove Redundancies
+"""
+print("Checking for Redundancies")
+exp_new = remove_redundancies(exp, env)
+print("Drawing less redundant graph")
+plt.show()
+exp_new.draw()
+
+
+
 plt.figure()
 plt.plot(env.t, env.target)
 
@@ -77,4 +91,18 @@ plt.plot(env.t, env.target)
 #    exp, _ = change_experiment_wrapper(exp, {'splitters':[PowerSplitter, FrequencySplitter], 'nonsplitters':[Fiber, PhaseModulator, WaveShaper, AmplitudeModulator]})
 #    plt.clf()
 #    exp.draw(node_label='both', title='Something', fig=fig)
-#    plt.pause(0.1)
+#    plt.pause(0.1    #plt.plot(env.t, generated,label='current')
+plt.plot(env.t, env.target,label='target',ls=':')
+plt.plot(env.t, np.abs(At),'r', label='current')
+plt.xlim([0,10/env.target_harmonic])
+plt.legend()
+plt.show()
+
+plt.figure()
+plt.plot(RFSpectrum(env.target, env.dt),label='target',ls=':')
+plt.plot(RFSpectrum(At, env.dt),label='current')
+plt.legend()
+plt.show()
+
+exp.visualize(env)
+plt.show()

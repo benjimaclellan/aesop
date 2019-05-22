@@ -3,7 +3,7 @@ import numpy as np
 from itertools import count
 #from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-
+from scipy.constants import *
 """
 ASOPE
 |- components.py
@@ -107,7 +107,7 @@ class Fiber(Component):
     def datasheet(self):
         self.type = 'fiber'
         self.disp_name = 'Dispersion Compensating Fiber'
-        self.beta = [2e-20]     # second order dispersi on (SI units)
+        self.beta = [2e-20]     # second order dispersion (SI units)
         self.N_PARAMETERS = 1
         self.UPPER = [5000]
         self.LOWER = [0]
@@ -203,10 +203,10 @@ class PhaseModulator(Component):
         M = self.at[0]       # amplitude [V]
         NU = 12e9#self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.phasenoise*np.random.randn(*np.shape(env.t))
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)# + self.phasenoise*np.random.randn(*np.shape(env.t))
 
         # apply phase shift temporally
-        At = (1-self.insertionloss)*At * np.exp(1j * phase)
+        At = At * np.exp(1j * phase)
 
         if visualize:
             self.lines = (('t',phase, 'Phase Modulation'),)
@@ -253,18 +253,22 @@ class WaveShaper(Component):
     def datasheet(self):
         self.type = 'waveshaper'
         self.disp_name = 'Programmable Filter'
+        self.bitdepth = 8
         self.res = 12e9     # resolution of the waveshaper
         self.n_windows = 7
         self.N_PARAMETERS = 2*self.n_windows
-        self.UPPER = self.n_windows*[1] + self.n_windows*[2]
+        self.UPPER = self.n_windows*[1] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0] + self.n_windows*[0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
-        self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [0.1]
+        self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = None
         self.splitter = False
-
         #Error Parameters
         self.N_EPARAMETERS = 0
+        #self.chromatic_dispersion = 10*pico/nano # 10ps/nm - max value on finistar4000s datasheet
+        #self.EUPPER = [10*pico/nano]
+        #self.ELOWER = [0]
+
 
     def simulate(self, env, At, visualize = False):
         ampvalues = self.at[0:self.N_PARAMETERS//2]
@@ -278,7 +282,7 @@ class WaveShaper(Component):
         tmp = np.ones((n,1))
 
         a = [i*tmp for i in ampvalues]
-        p = [i*tmp*np.pi for i in phasevalues]
+        p = [i*tmp for i in phasevalues]
 
         amp1 = np.concatenate(a)
         phase1 = np.concatenate(p)
@@ -296,8 +300,10 @@ class WaveShaper(Component):
         phasemask[left:right] = phase1
         ampmask[left:right] = amp1
 
-
-        Af = ampmask * np.exp(1j * phasemask) * FFT(At, env.dt)
+        # Chromatic Dispersion
+        # TODO: Implement/Confirm that this is correctly computed
+        #D = 2*np.pi*self.chromatic_dispersion*c*np.log(2*np.pi*env.f)
+        Af = ampmask * np.exp(1j*(phasemask)) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
 
         if visualize:
@@ -409,7 +415,7 @@ class FrequencySplitter(Component):
 
             # create masks, which are used to select the frequencies on each outgoing spatial path
             mask = np.ones([env.n_samples,2], dtype='complex')
-            mask[env.f[:,0] <= split1,0] = 0;
+            mask[env.f[:,0] <= split1,0] = 0
             mask[env.f[:,0] > split2,0] = 0
 
             # second mask is the NOT of the first
