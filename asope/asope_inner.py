@@ -61,6 +61,8 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
         #%% Now fine tune the best individual using grad`ient descent
         if gap.FINE_TUNE:
+            if verbose:
+                print('Fine-tuning the most fit individual using quasi-Newton method')
             individual_fine = finetune_individual(individual, env, experiment)
         else:
             individual_fine = individual
@@ -78,9 +80,9 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 50              # number of generations
-    gap.MUT_PRB = 0.5           # independent probability of mutation
+    gap.N_POPULATION = 20      # number of individuals in a population
+    gap.N_GEN = 10              # number of generations
+    gap.MUT_PRB = 0.9           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = 1             # verbose print statement for GA statistics
@@ -93,26 +95,14 @@ if __name__ == '__main__':
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)    
     target_harmonic = 12e9
     
-    env.init_fitness(0.5*(signal.square(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
-    
-    
-#    target_harmonic = 12e9
-#    target = rf_chirp(env.t, target_harmonic, 4/target_harmonic, 1.1*target_harmonic)
-#    env.init_fitness(target, target_harmonic, normalize=True)
-    
-#    target, bit_sequence = bit_pattern(env.n_samples, [0,1,1,0,1,0,0,1], target_harmonic, env.dt)
-#    env.init_fitness(target, target_harmonic, normalize=True)
-#    env.bit_sequence = bit_sequence
-#    print(bit_sequence)
+    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
     
     #%%
     components = {
-                    0:PowerSplitter(),
-                    1:Fiber(),
-                    2:PhaseModulator(),
-                    3:PowerSplitter()
+                    0:PhaseModulator(),
+                    1:WaveShaper()
                  }
-    adj = [(0,1), (0,2), (1,3), (2,3)]
+    adj = [(0,1)]
 
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()

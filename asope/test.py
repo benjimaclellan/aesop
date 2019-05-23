@@ -54,9 +54,16 @@ exp.inject_optical_field(env.At)
 exp.draw(node_label='both')
 
 #%% make a random set of parameters (attributes) and simulate
-for i in range(0,10):
+for i in range(0,100):
     at = exp.newattributes()
-    print(at)
+    for at_i in at:
+        if (at_i < 0):
+            print('bug') 
+        
+    
+
+#at = exp.newattributes()
+#print(at)
 #
 #exp.setattributes(at)
 #exp.simulate(env)
@@ -72,7 +79,7 @@ for i in range(0,10):
 #plt.figure()
 #plt.plot(env.t, env.target)
 #
-#save_experiment_and_plot(exp, env, At)
+##save_experiment_and_plot(exp, env, At)
 
 
 #%% Here we can see lots of graph configurations
