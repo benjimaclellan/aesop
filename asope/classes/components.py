@@ -155,18 +155,18 @@ class PhaseModulator(Component):
         self.type = 'phasemodulator'
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
-        self.N_PARAMETERS = 1
-        self.UPPER = [2*np.pi]#, 36e9]   # max shift, frequency
-        self.LOWER = [0]#, 6e9]
-        self.DTYPE = ['float']#, 'float']
-        self.DSCRTVAL = [None]#, 6e9]
+        self.N_PARAMETERS = 2
+        self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
+        self.LOWER = [0, 6e9]
+        self.DTYPE = ['float', 'float']
+        self.DSCRTVAL = [None, 6e9]
         self.FINETUNE_SKIP = None
         self.splitter = False
     
     def simulate(self, env, At,  visualize=False):  
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # amplitude [V]
-        NU = 12e9#self.at[1]      # frequency [Hz]
+        NU = self.at[1]      # frequency [Hz]
         BIAS = 1
         phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)
         
@@ -207,7 +207,7 @@ class WaveShaper(Component):
         self.UPPER = self.n_windows*[1] + self.n_windows*[2] 
         self.LOWER = self.n_windows*[0] + self.n_windows*[0] 
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
-        self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [0.1]
+        self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
         self.FINETUNE_SKIP = None
         self.splitter = False
     

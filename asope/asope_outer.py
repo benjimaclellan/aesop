@@ -9,12 +9,14 @@ import matplotlib.pyplot as plt
 import multiprocess as mp
 from scipy import signal
 import numpy as np
+import copy 
 
 #%% import custom modules
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.waveforms import random_bit_pattern
 from assets.graph_manipulation import change_experiment_wrapper, brand_new_experiment, remake_experiment
+from assets.callbacks import save_experiment_and_plot
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
 from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
@@ -37,12 +39,12 @@ if __name__ == '__main__':
     #%% store all our hyper-parameters for the genetic algorithm
     gapO = GeneticAlgorithmParameters()
     gapO.TYPE = "outer"
-    gapO.NFITNESS = 1            # how many values to optimize
-    gapO.WEIGHTS = (1.0),    # weights to put on the multiple fitness values
+    gapO.NFITNESS = 2            # how many values to optimize
+    gapO.WEIGHTS = (1.0, 1.0)    # weights to put on the multiple fitness values
     gapO.MULTIPROC = False       # multiprocess or not
     gapO.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gapO.N_POPULATION = 5       # number of individuals in a population
-    gapO.N_GEN = 3              # number of generations
+    gapO.N_POPULATION = 20       # number of individuals in a population
+    gapO.N_GEN = 12              # number of generations
     gapO.MUT_PRB = 1.0           # independent probability of mutation
     gapO.CRX_PRB = 0.0           # independent probability of cross-over
     gapO.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -50,8 +52,9 @@ if __name__ == '__main__':
     gapO.INIT = None
     gapO.NUM_ELITE = 1
     gapO.NUM_MATE_POOL = gapO.N_POPULATION - gapO.NUM_ELITE
-#    gapO.POTENTIAL_COMPS = {'splitters':[PowerSplitter, FrequencySplitter], 'nonsplitters':[Fiber, PhaseModulator, WaveShaper, AmplitudeModulator]}
-    gapO.POTENTIAL_COMPS = {'splitters':[], 'nonsplitters':[PhaseModulator, WaveShaper]}
+    gapO.POTENTIAL_COMPS = {'splitters':[PowerSplitter, FrequencySplitter], 'nonsplitters':[Fiber, PhaseModulator, WaveShaper]}
+#    gapO.POTENTIAL_COMPS = {'splitters':[], 'nonsplitters':[PhaseModulator, WaveShaper]}
+    gapO.CALLBACK = save_experiment_and_plot
     
     #%%
     gapI = GeneticAlgorithmParameters()
@@ -81,11 +84,11 @@ if __name__ == '__main__':
     tstart = time.time()  
     hof, population, logbook = outer_geneticalgorithm(env, gapO, gapI)
     tstop = time.time() 
-    
+    print('Total computation time: {}'.format(tstop-tstart))
     
     #%%
     for k in range(0,1):
-        exp = remake_experiment(hof[k])
+        exp = remake_experiment(copy.deepcopy(hof[k]))
         exp.setattributes(hof[k].inner_attributes)
         exp.draw(node_label = 'both')
         exp.inject_optical_field(env.At)
@@ -95,11 +98,22 @@ if __name__ == '__main__':
         exp.simulate(env)
         
         At = exp.measure(env, exp.measurement_nodes[0], check_power=True)
+#        plt.show()
+        if At.ndim == 1:
+            At = At.reshape(env.n_samples, 1)
+        
+        plt.figure()
+        generated = env.shift_function(P(At))
+        minval, maxval = np.min(generated), np.max(generated)
+        if env.normalize:
+            generated = (generated-minval)/(maxval-minval)
+    
+        plt.plot(env.t, generated,label='current')
+        plt.plot(env.t, env.target,label='target',ls=':')
+        plt.xlim([0,10/env.target_harmonic])
+        plt.legend()
         plt.show()
-        
-        env.compare(At)
-        
-        exp.visualize()
-        
-        save_experiment("results/current", exp)
+
+        #%%
+        save_experiment_and_plot(exp, env, At)
     

@@ -23,7 +23,8 @@ from scipy import signal
 #%% import custom modules
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-from assets.waveforms import random_bit_pattern
+from assets.waveforms import random_bit_pattern, bit_pattern, rf_chirp
+from assets.callbacks import save_experiment_and_plot
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
 from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 200      # number of individuals in a population
-    gap.N_GEN = 200              # number of generations
+    gap.N_GEN = 50              # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -92,21 +93,26 @@ if __name__ == '__main__':
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)    
     target_harmonic = 12e9
     
-    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.25)+1), target_harmonic, normalize=True)
+    env.init_fitness(0.5*(signal.square(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
     
-#    target, bit_sequence = random_bit_pattern(env.n_samples, 8, target_harmonic, 3/8, env.dt)
+    
+#    target_harmonic = 12e9
+#    target = rf_chirp(env.t, target_harmonic, 4/target_harmonic, 1.1*target_harmonic)
+#    env.init_fitness(target, target_harmonic, normalize=True)
+    
+#    target, bit_sequence = bit_pattern(env.n_samples, [0,1,1,0,1,0,0,1], target_harmonic, env.dt)
 #    env.init_fitness(target, target_harmonic, normalize=True)
 #    env.bit_sequence = bit_sequence
 #    print(bit_sequence)
     
     #%%
     components = {
-                    0:PhaseModulator(),
-                    1:WaveShaper(),
+                    0:PowerSplitter(),
+                    1:Fiber(),
                     2:PhaseModulator(),
-                    3:WaveShaper(),
+                    3:PowerSplitter()
                  }
-    adj = [(0,1), (1,2), (2,3)]
+    adj = [(0,1), (0,2), (1,3), (2,3)]
 
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
@@ -164,3 +170,6 @@ if __name__ == '__main__':
     
     exp.visualize(env)
     plt.show()
+    
+#    save_experiment_and_plot(exp, env, At)
+

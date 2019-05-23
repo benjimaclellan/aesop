@@ -155,7 +155,7 @@ class OpticalField_CW(OpticalField):
         overlap_integral = -np.sum(np.abs(self.target-shifted))
         total_amplitude = maxval-minval
 
-        return overlap_integral, total_amplitude        
+        return overlap_integral, #total_amplitude        
 
     def shift_function(self, generated):
         generated_f = np.fft.fft(generated, axis=0)
@@ -167,14 +167,14 @@ class OpticalField_CW(OpticalField):
         shifted = np.abs( np.fft.ifft(shifted_rfft, axis=0) )
         return shifted
 
-    def compare(self, At):
-        generated = self.shift_function( P(At) )
-        fig, ax = plt.subplots(1, 1, figsize=(8, 10), dpi=80)
-        ax.plot(self.t, self.target, label='Target')
-        ax.plot(self.t, generated, label='Generated')    
-        plt.legend()
-        
-        return
+#    def compare(self, At):
+#        generated = self.shift_function( P(At) )
+#        fig, ax = plt.subplots(1, 1, figsize=(8, 10), dpi=80)
+#        ax.plot(self.t, self.target, label='Target')
+#        ax.plot(self.t, generated, label='Generated')    
+#        plt.legend()
+#        
+#        return
 #%%
 class OpticalField_Pulse(OpticalField):
     """   

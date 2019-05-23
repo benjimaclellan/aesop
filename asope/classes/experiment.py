@@ -347,7 +347,7 @@ class Experiment(nx.DiGraph):
         
         
         
-    def draw(self, node_label = 'both', title=None, fig=None):
+    def draw(self, node_label = 'both', title=None, ax=None):
         """
             Plot the graph structure of the experiment, with either the nases of node key, or both
         """
@@ -369,9 +369,11 @@ class Experiment(nx.DiGraph):
                 
 
         nodePos = nx.nx_pydot.pydot_layout(self)
+        if ax == None:
+            fig, ax = plt.subplots(1,1)
         
-        nx.draw(self, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8')    
-        return fig
+        nx.draw(self, ax= ax, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8')    
+        return ax
         
         
     def printinfo(self):
@@ -387,16 +389,20 @@ class Experiment(nx.DiGraph):
         
         
         
-    def visualize(self, env, measurement_node=None):
+    def visualize(self, env, measurement_node=None, ax1=None, ax2=None):
         """
             Broken function - please ignore. It will potentially be fixed in future updates. Was meant for simple and clean visualization of the pulse as it progressed, but has not been updated since using a graph structure to represent the experiment(s)
         """
         
         self.simulate(env, visualize=True)
-        fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
         
+        if ax1 == None or ax2 == None:
+            fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
+            ax1, ax2 = ax[0], ax[1]
+            
         if measurement_node is None:
             measurement_node = self.measurement_nodes[0]
+            
         if measurement_node is not None:
             At = self.nodes[measurement_node]['output'].reshape(env.n_samples)
 #            Af = FFT(At, env.dt)
@@ -404,27 +410,27 @@ class Experiment(nx.DiGraph):
             PAt = P(At)
             PAf = PSD(At, env.dt, env.df)
             
-            ax[0].plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
-            ax[1].plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
+            ax1.plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
+            ax2.plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
             
             
         for node in self.nodes():
             if self.nodes[node]['info'].lines is not None:
                 for line in self.nodes[node]['info'].lines:
                     if line[0] == 't':
-                        ax[0].plot(env.t/1e-9, line[1]/np.max(line[1]), label=line[2])
+                        ax1.plot(env.t/1e-9, line[1]/np.max(line[1]), label=line[2])
                     elif line[0] == 'f':
-                        ax[1].plot(env.f/1e9, line[1]/np.max(line[1]), label=line[2])
+                        ax2.plot(env.f/1e9, line[1]/np.max(line[1]), label=line[2])
                     else:
                         raise ValueError('Invalid x variable')                    
-        ax[0].set_xlabel('Time (ns)')
-        ax[0].set_ylabel(' ')
+        ax1.set_xlabel('Time (ns)')
+        ax1.set_ylabel(' ')
         
-        ax[1].set_xlabel('Frequency Offset from Carrier (GHz)')
-        ax[1].set_ylabel(' ')
+        ax2.set_xlabel('Frequency Offset from Carrier (GHz)')
+        ax2.set_ylabel(' ')
         
-        ax[0].legend()
-        ax[1].legend()
+        ax1.legend()
+        ax2.legend()
         return
            
     
