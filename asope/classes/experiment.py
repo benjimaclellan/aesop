@@ -4,6 +4,7 @@ import numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 import copy
 
+
 """
 
 Experiment() defines an experiment as a directed graph (based on a DirectedGraph() from the networkx package), and stores all the class functions/variables to simulate a pulse through the setup. 
@@ -26,7 +27,7 @@ class Experiment(nx.DiGraph):
                 
                 # if component (node) is a splitter, collect all incoming pulses
                 if self.nodes[node]['info'].splitter:
-                    
+                    print("There is a splitter")
                     # if this is an input node (no predeccessors), get the prescribed input
                     if len(self.pre(node)) == 0:
                         At = self.nodes[node]['input']#.reshape(env.n_samples,1)
@@ -294,6 +295,19 @@ class Experiment(nx.DiGraph):
             if self.nodes[node]['info'].N_PARAMETERS > 0:
                 self.nodes[node]['info'].at = attributes[node]
 
+    def seterrorattributes(self, error_attributes):
+        """
+        Saves a set of error attributes (parameters) to the nodes
+
+        :param error_attributes:
+        :return:
+        """
+
+        for node in self.nodes():
+            if self.nodes[node]['error'].N_EPARAMETERS > 0:
+                self.nodes[node]['error'].eat = error_attributes[node]
+
+        return 0
 
     def suc(self, node):
         """
@@ -460,13 +474,6 @@ class Experiment(nx.DiGraph):
         return check
         
 
-        if display:
-            print('Input power: {}\nOutput power: {}'.format(totalpower_in, totalpower_out))
-        
-        return check
-    
-    
-    
     
     
     

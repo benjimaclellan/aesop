@@ -93,7 +93,8 @@ def inner_geneticalgorithm(gapI, env, experiment):
     try: 
         del(creator.Individual) 
         del(creator.FitnessMax)
-    except: pass
+    except AttributeError:
+        pass
 
     creator.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
     creator.create("Individual", dict, fitness=creator.FitnessMax)

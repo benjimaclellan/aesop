@@ -35,7 +35,7 @@ def random_choice(options, num_choices, replace=False):
 def get_nonsplitters(experiment):
     valid_nodes = []
     for node in experiment.nodes():
-        if not experiment.nodes[node]['info'].splitter: 
+        if not experiment.nodes[node]['info'].splitter:
             valid_nodes.append(node)
     return valid_nodes
 

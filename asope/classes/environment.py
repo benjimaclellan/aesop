@@ -62,7 +62,7 @@ class OpticalField(object):
             
     def reset(self):
         """
-            Resets the optical field to the intial
+            Resets the optical field to the initial
         """
         self.At = self.At0
         return
@@ -89,15 +89,15 @@ class OpticalField(object):
         """
             Noise model - not fully implemented
         """
-        raise RuntimeError('Noise models not implemented')
-        return 
+        self.noise = np.random.normal(0, 0.05, np.shape(self.At0))
+        return True
     
     def addnoise(self):
         """
             Injects the noise model on the pulse - not fully implemented
         """
-        raise RuntimeError('Noise models not implemented')
-        return
+        self.At0 += self.noise
+        return True
     
 
 
