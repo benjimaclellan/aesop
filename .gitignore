@@ -60,3 +60,7 @@ target/
 *.pkl
 
 runremote\.py
+
+asope/results/
+
+*.png

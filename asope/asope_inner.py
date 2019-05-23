@@ -23,7 +23,9 @@ from scipy import signal
 #%% import custom modules
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-from assets.waveforms import random_bit_pattern
+
+from assets.waveforms import random_bit_pattern, bit_pattern, rf_chirp
+from assets.callbacks import save_experiment_and_plot
 from assets.graph_manipulation import get_nonsplitters
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
@@ -63,7 +65,9 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
         #%% Now fine tune the best individual using gradient descent
         if gap.FINE_TUNE:
-            print("Fine tuning with gradient descent...")
+            if verbose:
+                print('Fine-tuning the most fit individual using quasi-Newton method')
+
             individual_fine = finetune_individual(individual, env, experiment)
         else:
             individual_fine = individual
@@ -98,12 +102,7 @@ if __name__ == '__main__':
     #env.createnoise()
     #env.addnoise()
     
-    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.25)+1), target_harmonic, normalize=True)
-    
-#    target, bit_sequence = random_bit_pattern(env.n_samples, 8, target_harmonic, 3/8, env.dt)
-#    env.init_fitness(target, target_harmonic, normalize=True)
-#    env.bit_sequence = bit_sequence
-#    print(bit_sequence)
+    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
     
     #%%
     components = {
@@ -223,3 +222,6 @@ if __name__ == '__main__':
     
     exp.visualize(env)
     plt.show()
+    
+#    save_experiment_and_plot(exp, env, At)
+

@@ -31,7 +31,6 @@ def CREATE_Outer(gapO):
 Crosses two individuals in Inner GA
 """
 def CX_Outer(ind1, ind2, gapO):
-    print('Am I even crossing the fourth wall tho?')
     ind1 = MUT_Outer(ind1)
     ind2 = MUT_Outer(ind2)
     return ind1, ind2
@@ -43,7 +42,6 @@ Mutates a single individual in Inner GA
 
 def MUT_Outer(ind, gapO):  
     fitness = ind.fitness
-    print('mutating baby')
     for i in range(5):
         ind, _ = change_experiment_wrapper(ind, gapO.POTENTIAL_COMPS)
         
@@ -82,11 +80,15 @@ def FIT_Outer(ind, env, gapO, gapI):
     exp.inject_optical_field(env.At)
     
     exp, hof, hof_fine, log = optimize_experiment(exp, env, gapI, verbose=False) 
-
-    fitness = env.fitness(env.At)
+    at = hof_fine[0]
+    exp.setattributes(at)
+    exp.simulate(env)
+    
+    At = exp.nodes[exp.measurement_nodes[0]]['output']
+    fitness = env.fitness(At)
     ind.inner_attributes = hof_fine[0]
     
-    return fitness
+    return (fitness[0], -exp.number_of_nodes())
 
 
 #%%

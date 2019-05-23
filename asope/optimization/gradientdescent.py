@@ -9,8 +9,22 @@ Wrapping function for final fine-tuning of the GA HOF individuals
 def finetune_individual(ind, env, experiment):
     (optlist, idx, nodelist) = pack_opt(ind, experiment)
     
-    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':1000})    
+    # extract the bounds into the correct data format
+    lower_bounds, upper_bounds = {}, {}
+    for node in experiment.nodes():
+        lower_bounds[node] = experiment.nodes[node]['info'].LOWER
+        upper_bounds[node] = experiment.nodes[node]['info'].UPPER
+    (lower, idx, nodelist) = pack_opt(lower_bounds, experiment)
+    (upper, idx, nodelist) = pack_opt(upper_bounds, experiment)
+    bounds = list(zip(lower, upper))
     
+    # the Nelder-Mead method seems to be faster, but does not allow bounded
+#    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':1000}, adaptive=True) 
+    
+    # we use the L-BFGS-B algorithm as it allows bounded optimization
+    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='L-BFGS-B', bounds=bounds, options={'maxiter':100})  
+    
+    # now unpack all fine-tuned values
     ind = unpack_opt(ind, experiment, optres.x.tolist(), idx, nodelist)
     return ind
 
