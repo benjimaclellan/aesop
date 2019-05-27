@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="dc8e97b5-6ca0-422e-9aab-395723e35e71" name="Default Changelist" comment="" />
+    <list default="true" id="dc8e97b5-6ca0-422e-9aab-395723e35e71" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/asope/asope_inner.py" beforeDir="false" afterPath="$PROJECT_DIR$/asope/asope_inner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/asope/classes/components.py" beforeDir="false" afterPath="$PROJECT_DIR$/asope/classes/components.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/asope/classes/environment.py" beforeDir="false" afterPath="$PROJECT_DIR$/asope/classes/environment.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,24 +27,27 @@
     <expand />
     <select />
   </component>
+  <component name="FavoritesManager">
+    <favorites_list name="ASOPE" />
+  </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/asope/asope_inner.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="495">
-              <caret line="158" column="14" selection-start-line="158" selection-start-column="14" selection-end-line="158" selection-end-column="14" />
+            <state relative-caret-position="342">
+              <caret line="111" column="21" selection-start-line="111" selection-start-column="21" selection-end-line="111" selection-end-column="21" />
             </state>
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/asope/test.py">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/asope/classes/components.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="525">
-              <caret line="107" column="9" selection-start-line="107" selection-start-column="9" selection-end-line="107" selection-end-column="9" />
+            <state relative-caret-position="-240">
+              <caret line="230" column="35" selection-start-line="230" selection-start-column="35" selection-end-line="230" selection-end-column="35" />
               <folding>
-                <element signature="e#110#141#0" expanded="true" />
+                <element signature="e#0#18#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -50,17 +58,8 @@
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="45">
               <caret line="3" column="4" selection-start-line="3" selection-start-column="4" selection-end-line="3" selection-end-column="4" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/asope/bugtest.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="360">
-              <caret line="114" column="17" lean-forward="true" selection-start-line="114" selection-start-column="17" selection-end-line="114" selection-end-column="17" />
               <folding>
-                <element signature="e#0#18#0" expanded="true" />
+                <element signature="e#110#141#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -69,22 +68,10 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/asope/classes/environment.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1305">
-              <caret line="91" column="45" selection-start-line="91" selection-start-column="45" selection-end-line="91" selection-end-column="45" />
+            <state relative-caret-position="225">
+              <caret line="166" column="38" lean-forward="true" selection-start-line="166" selection-start-column="38" selection-end-line="166" selection-end-column="38" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/asope/classes/experiment.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-4065">
-              <caret line="83" column="36" selection-start-line="83" selection-start-column="36" selection-end-line="83" selection-end-column="36" />
-              <folding>
-                <element signature="e#0#21#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -111,14 +98,14 @@
         <option value="$APPLICATION_CONFIG_DIR$/scratches/scrap.py" />
         <option value="$PROJECT_DIR$/asope/scrap.py" />
         <option value="$PROJECT_DIR$/asope/optimization/geneticalgorithminner.py" />
-        <option value="$PROJECT_DIR$/asope/classes/environment.py" />
-        <option value="$PROJECT_DIR$/asope/classes/components.py" />
         <option value="$PROJECT_DIR$/asope/assets/graph_manipulation.py" />
         <option value="$PROJECT_DIR$/asope/classes/experiment.py" />
         <option value="$PROJECT_DIR$/asope/noise_sim.py" />
-        <option value="$PROJECT_DIR$/asope/asope_inner.py" />
         <option value="$PROJECT_DIR$/asope/test.py" />
         <option value="$PROJECT_DIR$/asope/optimization/bugtest.py" />
+        <option value="$PROJECT_DIR$/asope/classes/environment.py" />
+        <option value="$PROJECT_DIR$/asope/asope_inner.py" />
+        <option value="$PROJECT_DIR$/asope/classes/components.py" />
       </list>
     </option>
   </component>
@@ -149,7 +136,7 @@
               <item name="ASOPE" type="b2602c69:ProjectViewProjectNode" />
               <item name="ASOPE" type="462c0819:PsiDirectoryNode" />
               <item name="asope" type="462c0819:PsiDirectoryNode" />
-              <item name="optimization" type="462c0819:PsiDirectoryNode" />
+              <item name="classes" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ASOPE" type="b2602c69:ProjectViewProjectNode" />
@@ -194,7 +181,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.test">
+  <component name="RunManager" selected="Python.asope_inner">
     <configuration name="Unnamed" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="ASOPE" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -337,8 +324,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.test" />
         <item itemvalue="Python.asope_inner" />
+        <item itemvalue="Python.test" />
         <item itemvalue="Python.scrap (1)" />
         <item itemvalue="Python.scrap" />
         <item itemvalue="Python.scratch" />
@@ -379,11 +366,14 @@
       <workItem from="1558531718258" duration="15937000" />
       <workItem from="1558554569863" duration="2648000" />
       <workItem from="1558704795818" duration="1920000" />
+      <workItem from="1558707062277" duration="4491000" />
+      <workItem from="1558720166600" duration="3963000" />
+      <workItem from="1558965367130" duration="10965000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="90545000" />
+    <option name="totallyTimeSpent" value="109964000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -396,14 +386,13 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-1" y="-22" width="1442" height="899" extended-state="0" />
-    <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.19957082" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.49837664" visible="true" weight="0.15307583" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
-      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info id="Favorites" order="2" sideWeight="0.5016234" side_tool="true" visible="true" weight="0.15307583" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.21227622" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.21227622" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39641944" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -419,7 +408,7 @@
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" x="74" y="64" width="1287" height="659" id="SciView" order="3" sideWeight="0.9464286" visible="true" weight="0.13519314" />
+      <window_info active="true" anchor="right" x="74" y="64" width="1287" height="659" id="SciView" order="3" sideWeight="0.9464286" visible="true" weight="0.37195995" />
       <window_info anchor="right" id="Database" order="4" weight="0.3297568" />
       <window_info anchor="right" x="0" y="0" width="310" height="679" id="Documentation" order="5" sideWeight="0.049868766" side_tool="true" weight="0.10658083" />
     </layout>
@@ -466,10 +455,10 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/ASOPE$asope_outer.coverage" NAME="asope_outer Coverage Results" MODIFIED="1557433421849" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/asope" />
-    <SUITE FILE_PATH="coverage/ASOPE$test.coverage" NAME="test Coverage Results" MODIFIED="1558707064089" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/asope" />
+    <SUITE FILE_PATH="coverage/ASOPE$test.coverage" NAME="test Coverage Results" MODIFIED="1558709097040" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/asope" />
     <SUITE FILE_PATH="coverage/ASOPE$Unnamed.coverage" NAME="Unnamed Coverage Results" MODIFIED="1557930910705" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
     <SUITE FILE_PATH="coverage/ASOPE$scrap__1_.coverage" NAME="scrap (1) Coverage Results" MODIFIED="1558016189439" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/asope" />
-    <SUITE FILE_PATH="coverage/ASOPE$asope_inner.coverage" NAME="asope_inner Coverage Results" MODIFIED="1558547285894" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/asope" />
+    <SUITE FILE_PATH="coverage/ASOPE$asope_inner.coverage" NAME="asope_inner Coverage Results" MODIFIED="1558985579849" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/asope" />
     <SUITE FILE_PATH="coverage/ASOPE$setup.coverage" NAME="setup Coverage Results" MODIFIED="1557418666250" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/ASOPE$scratch.coverage" NAME="scratch Coverage Results" MODIFIED="1557933033568" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
     <SUITE FILE_PATH="coverage/ASOPE$scrap.coverage" NAME="scrap Coverage Results" MODIFIED="1557933050507" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
@@ -563,16 +552,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/asope/scrap.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="16" selection-start-line="16" selection-end-line="16" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/asope/scrap.py" />
     <entry file="file://$APPLICATION_HOME_DIR$/helpers/pydev/pydevd.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="213">
@@ -608,32 +588,12 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/asope/classes/components.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2835">
-          <caret line="194" column="29" selection-start-line="194" selection-start-column="29" selection-end-line="194" selection-end-column="29" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/asope/optimization/geneticalgorithm.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="375">
           <caret line="27" column="29" selection-start-line="27" selection-start-column="29" selection-end-line="27" selection-end-column="29" />
           <folding>
             <element signature="e#0#37#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/asope/classes/environment.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1305">
-          <caret line="91" column="45" selection-start-line="91" selection-start-column="45" selection-end-line="91" selection-end-column="45" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -654,26 +614,6 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/asope/noise_sim.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="369">
-          <caret line="119" column="13" selection-start-line="119" selection-start-column="13" selection-end-line="119" selection-end-column="13" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/asope/classes/experiment.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-4065">
-          <caret line="83" column="36" selection-start-line="83" selection-start-column="36" selection-end-line="83" selection-end-column="36" />
-          <folding>
-            <element signature="e#0#21#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/asope/noise_sim.py">
-      <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="525">
           <caret line="107" column="9" selection-start-line="107" selection-start-column="9" selection-end-line="107" selection-end-column="9" />
           <folding>
@@ -689,13 +629,50 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/asope/bugtest.py">
+    <entry file="file://$PROJECT_DIR$/asope/bugtest.py" />
+    <entry file="file://$PROJECT_DIR$/asope/test.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="360">
-          <caret line="114" column="17" lean-forward="true" selection-start-line="114" selection-start-column="17" selection-end-line="114" selection-end-column="17" />
+        <state relative-caret-position="45">
+          <caret line="3" column="4" selection-start-line="3" selection-start-column="4" selection-end-line="3" selection-end-column="4" />
           <folding>
-            <element signature="e#0#15#0" expanded="true" />
-            <element signature="e#139#164#0" />
+            <element signature="e#110#141#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/asope/classes/experiment.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1245">
+          <caret line="83" column="36" selection-start-line="83" selection-start-column="36" selection-end-line="83" selection-end-column="36" />
+          <folding>
+            <element signature="e#0#21#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/asope/classes/environment.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="166" column="38" lean-forward="true" selection-start-line="166" selection-start-column="38" selection-end-line="166" selection-end-column="38" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/asope/asope_inner.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="342">
+          <caret line="111" column="21" selection-start-line="111" selection-start-column="21" selection-end-line="111" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/asope/classes/components.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-240">
+          <caret line="230" column="35" selection-start-line="230" selection-start-column="35" selection-end-line="230" selection-end-column="35" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>

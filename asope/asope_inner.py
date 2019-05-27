@@ -56,7 +56,7 @@ def optimize_experiment(experiment, env, gap, verbose=False):
     
     #%% convert DEAP logbook to easier datatype
     log = extractlogbook(logbook)    
-           
+
     #%%    
     hof_fine = []
     for j in range(gap.N_HOF):
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 100      # number of individuals in a population
-    gap.N_GEN = 5             # number of generations
+    gap.N_GEN = 10             # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -109,10 +109,9 @@ if __name__ == '__main__':
                     0:PhaseModulator(),
                     1:WaveShaper(),
                     2:PhaseModulator(),
-                    3:Fiber(),
-                    4:WaveShaper()
+                    3:WaveShaper()
                  }
-    adj = [(0,1),(1,2),(2,3),(3,4)]
+    adj = [(0,1),(1,2),(2,3)]
 
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
@@ -148,6 +147,11 @@ if __name__ == '__main__':
     
     fit = env.fitness(At)
 
+    plt.show()
+    plt.plot(env.t, env.target,label='target',ls=':')
+    plt.plot(env.t, np.abs(At))
+    plt.xlim([0,10/env.target_harmonic])
+    plt.show()
 
     """
     Redundancy Check
@@ -158,7 +162,6 @@ if __name__ == '__main__':
     plt.show()
     exp.draw()
     plt.show()
-
 
     """
     Robustness/Noise Simulation 
@@ -184,11 +187,14 @@ if __name__ == '__main__':
 
     print("________________")
 
-    At_avg = np.mean(optical_fields, axis=0)
-    At_std = np.std(optical_fields, axis=0)
+    At_avg = np.mean(np.abs(optical_fields), axis=0)
+    At_std = np.std(np.abs(optical_fields), axis=0)
 
+    #At_avg = env.shift_function(At_avg)
+
+    noise_sample = np.abs(optical_fields[0])
+    print("Power Check: " + str(exp.power_check_single(At_avg)))
     # clear memory space
-    del At
     del fitnesses
     del optical_fields
 
@@ -196,27 +202,32 @@ if __name__ == '__main__':
     plt.figure()
     #generated = env.shift_function(P(At_avg))
     minval, maxval = np.min(At_avg), np.max(At_avg)
+    print("Normalize? " + str(env.normalize))
     if env.normalize:
         #TODO: Determine how to properly normalize STD
-        At_avg = (At_avg-minval)/(maxval-minval)
-        At_std = At_std/maxval
+        At_avg = At_avg/maxval
+        #At_avg = (At_avg-minval)/(maxval-minval)
+        #At_std = At_std/maxval
+        noise_sample = (noise_sample-minval)/(maxval-minval)
 
 
     #plt.plot(env.t, generated,label='current')
     plt.plot(env.t, env.target,label='target',ls=':')
     plt.plot(env.t, env.At0, label='initial')
     plt.plot(env.t, At_avg,'r', label='current')
-    plt.plot(env.t, At_avg + At_std, 'r--')
-    plt.plot(env.t, At_avg - At_std, 'r--')
+    #plt.plot(env.t, At_avg + At_std, 'r--')
+    #plt.plot(env.t, At_avg - At_std, 'r--')
+    plt.plot(env.t, noise_sample, 'k--', label="noise sample")
     plt.xlim([0,10/env.target_harmonic])
     plt.legend()
     plt.show()
+
     
     plt.figure()
     plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
     plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
-    plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
-    plt.plot(np.abs(RFSpectrum(At_avg - At_std, env.dt)), label='lower std')
+    #plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
+    #plt.plot(np.abs(RFSpectrum(At_avg - At_std, env.dt)), label='lower std')
     plt.legend()
     plt.show()
     
@@ -224,4 +235,6 @@ if __name__ == '__main__':
     plt.show()
     
 #    save_experiment_and_plot(exp, env, At)
+
+
 

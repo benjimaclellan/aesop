@@ -158,13 +158,13 @@ class OpticalField_CW(OpticalField):
         return overlap_integral, #total_amplitude        
 
     def shift_function(self, generated):
-        generated_f = np.fft.fft(generated, axis=0)
-        phase = np.angle(generated_f[self.target_harmonic_ind]/self.target_f[self.target_harmonic_ind])
+        rfft = np.fft.fft(generated, axis=0)
+        phase = np.angle(rfft[self.target_harmonic_ind]/self.target_f[self.target_harmonic_ind])
 
         
         shift = phase / ( self.target_harmonic * self.dt )
-        shifted_rfft = generated_f * np.exp(-1j* shift * self.scale_array)
-        shifted = np.abs( np.fft.ifft(shifted_rfft, axis=0) )
+        rfft = rfft * np.exp(-1j* shift * self.scale_array)
+        shifted = np.abs( np.fft.ifft(rfft, axis=0) )
         return shifted
 
 #    def compare(self, At):

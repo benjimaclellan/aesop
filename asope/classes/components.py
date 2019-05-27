@@ -132,7 +132,7 @@ class Fiber(Component):
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
 
         # apply dispersion
-        Af = (1-self.attenuation*fiber_len)*np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
+        Af = np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
 
         # this visualization functionality was broken, may be fixed later
@@ -200,10 +200,10 @@ class PhaseModulator(Component):
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
-        M = self.at[0]       # amplitude [V]
+        M = self.at[0]       # phase amplitude [V/Vpi]
         NU = self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)# + self.phasenoise*np.random.randn(*np.shape(env.t))
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.phasenoise*np.random.randn(*np.shape(env.t))
 
         # apply phase shift temporally
         At = At * np.exp(1j * phase)
@@ -228,7 +228,7 @@ class PhaseModulator(Component):
 
     def error_model(self):
         sample = np.array([
-            np.random.normal(0, 0.01), # Phase Noise
+            np.random.normal(0, 0.1), # Phase Noise
             np.random.normal(0.02, 0.01) # Insertion loss
             ])
         return sample
@@ -260,8 +260,8 @@ class WaveShaper(Component):
         self.UPPER = self.n_windows*[1] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0] + self.n_windows*[0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
-        self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
-        #self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
+        #self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
+        self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = None
         self.splitter = False
         #Error Parameters
@@ -344,6 +344,11 @@ class PowerSplitter(Component):
         self.FINETUNE_SKIP = None
         self.splitter = True
 
+        self.N_EPARAMETERS = 1
+        self.power_split = 0.5
+        self.EUPPER = [1]
+        self.ELOWER = [0]
+
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensure there is maximum 2 inputs/outputs (for now)
 
@@ -359,6 +364,10 @@ class PowerSplitter(Component):
 
         # apply scattering matrix to inputs and return the outputs
         At_out = At_in.dot(S)
+
+        # apply error
+        At_out[0] = 2*At_out[0]*self.power_split
+        At_out[1] = 2*At_out[1]*(1-self.power_split)
         if visualize:
             self.lines = None
 
@@ -374,8 +383,22 @@ class PowerSplitter(Component):
         self.at = at
         return at
 
+    def error_model(self):
+        sample = np.array([
+            np.random.normal(0.5, 0.01), # Power split
+            ])
+        return sample
 
-
+    def update_error_attributes(self, sample):
+        i = 0
+        for val in sample:
+            if val < self.ELOWER[i]:
+                val = self.ELOWER[i]
+            if val > self.EUPPER[i]:
+                val = self.EUPPER[i]
+            i+=1
+        self.phasenoise, self.power_split = sample[0]
+        return 0
 #%%
 class FrequencySplitter(Component):
     """
