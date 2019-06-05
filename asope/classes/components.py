@@ -29,6 +29,10 @@ There is also important class functions:
     - randomattribute() = based on the settings for the component (bounds, discretization, etc), will generate ONE random attribute (setting) for the component
 """
 
+def normal_pdf(x, mu=0., sigma=1.):
+    scale = 1/(np.sqrt(2*np.pi*sigma**2))
+    exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
+    return scale*exp
 
 class Component(object):
     def __init__(self):
@@ -119,7 +123,9 @@ class Fiber(Component):
         self.N_EPARAMETERS = 1
         self.EUPPER = [1]
         self.ELOWER = [0]
-        self.attenuation = 0
+        self.ERROR_PARAMETERS = {
+            'attenuation':0
+        }
 
     def simulate(self, env, At, visualize=False):
 
@@ -170,7 +176,7 @@ class Fiber(Component):
             if val > self.EUPPER[i]:
                 val = self.EUPPER[i]
             i+=1
-        self.attenuation = sample[0]
+        self.ERROR_PARAMETERS['attenuation'] = sample[0]
         return 0
 
 # ----------------------------------------------------------
@@ -193,17 +199,23 @@ class PhaseModulator(Component):
 
         # Error Parameters
         self.N_EPARAMETERS = 2
-        self.phasenoise = 0 #+- radians of phase noise
-        self.insertionloss = 0 # percent
         self.EUPPER = [2*np.pi, 100]
         self.ELOWER = [0, 0]
+        self.ERROR_PARAMETERS = {
+            'phasenoise':0,
+            'insertionloss':0
+        }
+        self.ERROR_PDFS = {
+            'phasenoise': self.pdf_phasenoise,
+            'insertionloss': self.pdf_insertionloss
+        }
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # phase amplitude [V/Vpi]
         NU = self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.phasenoise*np.random.randn(*np.shape(env.t))
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.ERROR_PARAMETERS['phasenoise']*np.random.randn(*np.shape(env.t))
 
         # apply phase shift temporally
         At = At * np.exp(1j * phase)
@@ -233,6 +245,13 @@ class PhaseModulator(Component):
             ])
         return sample
 
+    def pdf_phasenoise(self, x):
+        return normal_pdf(x, 0, 0.1)
+
+    def pdf_insertionloss(self, x):
+        return normal_pdf(x, 0.02, 0.01)
+
+
     def update_error_attributes(self, sample):
         i = 0
         for val in sample:
@@ -241,7 +260,8 @@ class PhaseModulator(Component):
             if val > self.EUPPER[i]:
                 val = self.EUPPER[i]
             i+=1
-        self.phasenoise, self.insertionloss = sample[0], sample[1]
+        self.ERROR_PARAMETERS['phasenoise'] = sample[0]
+        self.ERROR_PARAMETERS['insertionloss'] = sample[1]
         return 0
 
 #%%
@@ -266,6 +286,8 @@ class WaveShaper(Component):
         self.splitter = False
         #Error Parameters
         self.N_EPARAMETERS = 0
+        self.ERROR_PARAMETERS = {}
+        self.ERROR_PDFS = {}
         #self.chromatic_dispersion = 10*pico/nano # 10ps/nm - max value on finistar4000s datasheet
         #self.EUPPER = [10*pico/nano]
         #self.ELOWER = [0]
@@ -345,9 +367,11 @@ class PowerSplitter(Component):
         self.splitter = True
 
         self.N_EPARAMETERS = 1
-        self.power_split = 0.5
         self.EUPPER = [1]
         self.ELOWER = [0]
+        self.ERROR_PARAMETERS = {
+            'power_split':0.5
+        }
 
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensure there is maximum 2 inputs/outputs (for now)
@@ -366,8 +390,8 @@ class PowerSplitter(Component):
         At_out = At_in.dot(S)
 
         # apply error
-        At_out[0] = 2*At_out[0]*self.power_split
-        At_out[1] = 2*At_out[1]*(1-self.power_split)
+        At_out[0] = 2*At_out[0]*self.ERROR_PARAMETERS['power_split']
+        At_out[1] = 2*At_out[1]*(1-self.ERROR_PARAMETERS['power_split'])
         if visualize:
             self.lines = None
 
@@ -397,7 +421,7 @@ class PowerSplitter(Component):
             if val > self.EUPPER[i]:
                 val = self.EUPPER[i]
             i+=1
-        self.phasenoise, self.power_split = sample[0]
+        self.ERROR_PARAMETERS['power_split'] = sample[0]
         return 0
 #%%
 class FrequencySplitter(Component):

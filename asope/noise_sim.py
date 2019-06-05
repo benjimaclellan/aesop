@@ -1,5 +1,7 @@
 import numpy as np
 from assets.graph_manipulation import get_nonsplitters
+import scipy.integrate as integrate
+from scipy.special import binom
 from copy import deepcopy
 
 def update_error_attributes(experiment):
@@ -21,6 +23,7 @@ def update_error_attributes(experiment):
 
                 component.update_error_attributes(new_at)
         except AttributeError:
+            print(node)
             print("Exception occurred updating error models - is there a component without an implemented error model?")
 
 
@@ -118,3 +121,83 @@ def remove_redundancies(experiment, env, verbose=False):
             At = At_mod
 
     return exp
+
+def get_error_parameters(experiment):
+    error_params = np.zeros((0,2))
+    for node in experiment.nodes():
+        node_ep = experiment.nodes()[node]['info'].ERROR_PARAMETERS
+        for key in node_ep:
+            tuple = np.array([[node, key]])
+            error_params = np.append(error_params, tuple, axis=0)
+
+    return error_params
+
+def get_error_functions(experiment):
+    error_functions = np.zeros(0)
+    for node in experiment.nodes():
+        node_ep = experiment.nodes()[node]['info'].ERROR_PDFS
+        for key in node_ep:
+            tuple = [node, key]
+            fx = node_ep[key]
+            error_functions = np.append(error_functions, fx)
+
+    return error_functions
+
+
+def simulate_with_error(perturb, experiment, environment):
+    # Perturb is a triple with the error parameter key and the new value
+    if perturb is not None:
+        node, key, val = perturb
+        experiment.nodes()[int(node)]['info'].ERROR_PARAMETERS[key] = val
+
+    experiment.simulate(environment)
+    At = experiment.nodes[experiment.measurement_nodes[0]]['output']
+
+    fit = environment.fitness(At)
+    return fit[0]
+
+'''
+j indexes the random variable i.e. j \in [1,N]
+i indexes the moment i.e. i \in [1,l]
+
+'''
+
+def normal_pdf(x, mu=30, sigma=11):
+    scale = 1/(np.sqrt(2*np.pi*sigma**2))
+    exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
+    return scale*exp
+
+def evintegrand(val,node,key,fx,y,m):
+    perturb = [node, key, val]
+    return y(perturb)**m*fx(val)
+
+def expectationValueM(node, key, fx, y, m):
+    I = integrate.quad(evintegrand, -np.inf, np.inf, args=(node, key, fx, y, m))
+    return I[0]
+
+def S(i,j,y, error_params, error_functions):
+    """Sij = Sum(k=0...i) iCk Skj-1 E(Y^(i-k)(mu1,...,Xj,...,muN) """
+    node, key = error_params[j-1]
+    fx = error_functions[j-1]
+
+    if j<1:
+        raise AttributeError
+    if j==1:
+        a = expectationValueM(node, key, fx, y, i)
+        return a
+    else:
+        sum = 0
+        for k in np.arange(i+1):
+            print(i, k)
+            sum += binom(i, k)*expectationValueM(node, key, fx, y, i-k)*S(k, j-1, y, error_params, error_functions)
+        return sum
+
+def UDR_moments(y, l, error_params, error_functions):
+    N = np.shape(error_params)[0]
+    moment = 0.
+    meanval = y(['0','phasenoise',0])
+    for i in np.arange(l+1):
+        sval = S(i, N, y, error_params, error_functions)
+        moment += binom(l, i)*sval*(-(N-1)*meanval)**(l-i)
+    return moment
+
