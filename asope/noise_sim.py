@@ -123,6 +123,14 @@ def remove_redundancies(experiment, env, verbose=False):
     return exp
 
 def get_error_parameters(experiment):
+    """
+    Iterate through the list of nodes in the experiment, and append their error keyvals into an array.
+    The components of the array are tuples of the form [node, key] which has the dictionary key 'node'
+    indicating which node and 'key' indicating which error parameter.
+
+    :param experiment:
+    :return:
+    """
     error_params = np.zeros((0,2))
     for node in experiment.nodes():
         node_ep = experiment.nodes()[node]['info'].ERROR_PARAMETERS
@@ -133,6 +141,12 @@ def get_error_parameters(experiment):
     return error_params
 
 def get_error_functions(experiment):
+    """
+    Iterature through the list of nodes in the experiment, and append their error pdf keyvals into an array.
+
+    :param experiment:
+    :return:
+    """
     error_functions = np.zeros(0)
     for node in experiment.nodes():
         node_ep = experiment.nodes()[node]['info'].ERROR_PDFS
@@ -145,6 +159,16 @@ def get_error_functions(experiment):
 
 
 def simulate_with_error(perturb, experiment, environment):
+    """
+    Given an error perturbation, return the fitness.
+    Param should be a triple of the form [node, key, val] where node and key are dictionary keys identifying
+    which error parameter is being perturbed, and val is the value of the perturbation.
+
+    :param perturb:
+    :param experiment:
+    :param environment:
+    :return:
+    """
     # Perturb is a triple with the error parameter key and the new value
     if perturb is not None:
         node, key, val = perturb
@@ -162,25 +186,59 @@ i indexes the moment i.e. i \in [1,l]
 
 '''
 
-def normal_pdf(x, mu=30, sigma=11):
+def normal_pdf(x, mu=0, sigma=1):
+    """
+    Probability distribution function of normal distribution.
+
+    :param x:
+    :param mu:
+    :param sigma:
+    :return:
+    """
     scale = 1/(np.sqrt(2*np.pi*sigma**2))
     exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
     return scale*exp
 
 def evintegrand(val,node,key,fx,y,m):
+    """
+    Returns the integrand for the expected value function. Meant to be called by expectationValueM.
+
+    :param val:
+    :param node:
+    :param key:
+    :param fx:
+    :param y:
+    :param m:
+    :return:
+    """
     perturb = [node, key, val]
     return y(perturb)**m*fx(val)
 
 def expectationValueM(node, key, fx, y, m):
+    """
+    Compute the expectation value of Y^m (mu_i,...,x_j,...,mu_N) for a given error parameter x_j and function y.
+
+    :param node:
+    :param key:
+    :param fx:
+    :param y:
+    :param m:
+    :return:
+    """
     I = integrate.quad(evintegrand, -np.inf, np.inf, args=(node, key, fx, y, m))
     return I[0]
 
 def S(i,j,y, error_params, error_functions):
-    """Sij = Sum(k=0...i) iCk Skj-1 E(Y^(i-k)(mu1,...,Xj,...,muN) """
+    """
+    Recursive function to compute Sij required for UDR, returns float
+    Sij = Sum(k=0...i) iCk Skj-1 E(Y^(i-k)(mu1,...,Xj,...,muN)
+    """
+    # Get the jth error parameter
     node, key = error_params[j-1]
     fx = error_functions[j-1]
 
     if j<1:
+        # j should never be negative
         raise AttributeError
     if j==1:
         a = expectationValueM(node, key, fx, y, i)
@@ -188,16 +246,37 @@ def S(i,j,y, error_params, error_functions):
     else:
         sum = 0
         for k in np.arange(i+1):
-            print(i, k)
             sum += binom(i, k)*expectationValueM(node, key, fx, y, i-k)*S(k, j-1, y, error_params, error_functions)
         return sum
 
 def UDR_moments(y, l, error_params, error_functions):
-    N = np.shape(error_params)[0]
+    """
+    Compute the lth moment of Y(error_params) using univariate dimension reduction.
+    See 'A univariate dimension-reduction method for multi-dimensional integration in stochastic mechanics' by Rahman and Xu
+
+    :param y:
+    :param l:
+    :param error_params:
+    :param error_functions:
+    :return:
+    """
+    N = np.shape(error_params)[0] # Get the number of error params
     moment = 0.
-    meanval = y(['0','phasenoise',0])
+    meanval = y(['0','phasenoise',0]) #TODO: properly get the meanval
     for i in np.arange(l+1):
-        sval = S(i, N, y, error_params, error_functions)
+        sval = S(i, N, y, error_params, error_functions) # Compute S^i_N
         moment += binom(l, i)*sval*(-(N-1)*meanval)**(l-i)
     return moment
 
+def compute_moment_matrix(error_params, error_functions, M):
+    N = np.shape(error_params)[0]
+    moment_matrix = np.zeros([N,M])
+    identity = lambda x: x
+    for j in np.arange(N):
+        node, key = error_params[j-1]
+        fx = error_functions[j-1]
+        for i in np.arange(M):
+            mu_ij = expectationValueM(node, key, fx, identity, i)
+            moment_matrix[j, i] = mu_ij
+
+    return moment_matrix
