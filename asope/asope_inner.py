@@ -37,7 +37,7 @@ from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
 from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments
-from noise_sim import simulate_with_error, get_error_parameters, get_error_functions
+from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
 
 plt.close("all")
 
@@ -147,6 +147,7 @@ if __name__ == '__main__':
     At = exp.nodes[exp.measurement_nodes[0]]['output']
 
     fit = env.fitness(At)
+    print("Fitness: " + str(fit))
 
     plt.show()
     plt.plot(env.t, env.target,label='target',ls=':')
@@ -169,7 +170,8 @@ if __name__ == '__main__':
     """
     print("Beginning Monte Carlo simulation")
     # Number of Monte Carlo trials to preform
-    N_samples = 200
+    start = time.time()
+    N_samples = 100
 
     # Generate an array of fitness
     fitnesses, optical_fields = simulate_component_noise(exp, env, At, N_samples)
@@ -186,15 +188,27 @@ if __name__ == '__main__':
         print("Standard deviation of column " + str(i) + " : " + str(std))
         i += 1
 
+    stop = time.time()
+    print("Time: " + str(stop - start))
     print("________________")
     print("Beginning Univariate Dimension Reduction")
+    start = time.time()
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    mean = UDR_moments(f2, 1, error_params, error_functions) + fit[0]
+    matrix_moments = compute_moment_matrices(error_params, error_functions, 9)
+    x, r = compute_interpolation_points(matrix_moments)
+    xim = np.imag(x)
+    xre = np.real(x)
+    if np.any(np.imag(x) != 0):
+        raise np.linalg.LinAlgError
+    x = np.real(x)
+    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments, fit[0]) + fit[0]
     print("mu: " + str(mean))
-    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions))
+    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments, fit[0]))
     print("std: " + str(std))
+    stop = time.time()
+    print("Time: " + str(stop - start))
     print("________________")
 
     At_avg = np.mean(np.abs(optical_fields), axis=0)
@@ -243,8 +257,6 @@ if __name__ == '__main__':
     
     exp.visualize(env)
     plt.show()
-    
+    raise AttributeError
 #    save_experiment_and_plot(exp, env, At)
-
-
 

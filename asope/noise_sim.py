@@ -131,7 +131,7 @@ def get_error_parameters(experiment):
     :param experiment:
     :return:
     """
-    error_params = np.zeros((0,2))
+    error_params = np.zeros((0, 2))
     for node in experiment.nodes():
         node_ep = experiment.nodes()[node]['info'].ERROR_PARAMETERS
         for key in node_ep:
@@ -193,13 +193,13 @@ def normal_pdf(x, mu=0, sigma=1):
     :param x:
     :param mu:
     :param sigma:
-    :return:
+    :return float:
     """
     scale = 1/(np.sqrt(2*np.pi*sigma**2))
     exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
     return scale*exp
 
-def evintegrand(val,node,key,fx,y,m):
+def evintegrand(val, node, key, fx, y, m):
     """
     Returns the integrand for the expected value function. Meant to be called by expectationValueM.
 
@@ -209,7 +209,7 @@ def evintegrand(val,node,key,fx,y,m):
     :param fx:
     :param y:
     :param m:
-    :return:
+    :return float:
     """
     perturb = [node, key, val]
     return y(perturb)**m*fx(val)
@@ -223,12 +223,12 @@ def expectationValueM(node, key, fx, y, m):
     :param fx:
     :param y:
     :param m:
-    :return:
+    :return float:
     """
     I = integrate.quad(evintegrand, -np.inf, np.inf, args=(node, key, fx, y, m))
     return I[0]
 
-def S(i,j,y, error_params, error_functions):
+def S(i, j, y, matrix_array, error_params, error_functions, x):
     """
     Recursive function to compute Sij required for UDR, returns float
     Sij = Sum(k=0...i) iCk Skj-1 E(Y^(i-k)(mu1,...,Xj,...,muN)
@@ -241,15 +241,15 @@ def S(i,j,y, error_params, error_functions):
         # j should never be negative
         raise AttributeError
     if j==1:
-        a = expectationValueM(node, key, fx, y, i)
+        a = UDR_evCalculation(j, y, i, x, matrix_array, error_params)
         return a
     else:
         sum = 0
-        for k in np.arange(i+1):
-            sum += binom(i, k)*expectationValueM(node, key, fx, y, i-k)*S(k, j-1, y, error_params, error_functions)
+        for k in np.arange(i+1): # Sum k=0 up to i
+            sum += binom(i, k)*UDR_evCalculation(j, y, i-k, x, matrix_array, error_params)*S(k, j-1, y, matrix_array, error_params, error_functions, x)
         return sum
 
-def UDR_moments(y, l, error_params, error_functions):
+def UDR_moments(y, l, error_params, error_functions, x, matrix_array, meanval):
     """
     Compute the lth moment of Y(error_params) using univariate dimension reduction.
     See 'A univariate dimension-reduction method for multi-dimensional integration in stochastic mechanics' by Rahman and Xu
@@ -258,25 +258,118 @@ def UDR_moments(y, l, error_params, error_functions):
     :param l:
     :param error_params:
     :param error_functions:
-    :return:
+    :param x:
+    :param matrix_array:
+    :return float:
     """
     N = np.shape(error_params)[0] # Get the number of error params
     moment = 0.
-    meanval = y(['0','phasenoise',0]) #TODO: properly get the meanval
-    for i in np.arange(l+1):
-        sval = S(i, N, y, error_params, error_functions) # Compute S^i_N
+    for i in np.arange(l+1): # sum i = 0 to l
+        sval = S(i, N, y, matrix_array, error_params, error_functions, x) # Compute S^i_N
         moment += binom(l, i)*sval*(-(N-1)*meanval)**(l-i)
     return moment
 
-def compute_moment_matrix(error_params, error_functions, M):
-    N = np.shape(error_params)[0]
-    moment_matrix = np.zeros([N,M])
-    identity = lambda x: x
-    for j in np.arange(N):
-        node, key = error_params[j-1]
-        fx = error_functions[j-1]
-        for i in np.arange(M):
-            mu_ij = expectationValueM(node, key, fx, identity, i)
-            moment_matrix[j, i] = mu_ij
+def compute_moment_matrices(error_params, error_functions, N):
+    ## We want to solve Ax = b but need to find A and b
+    matrix_array = np.zeros((0, N-1, N))
+    moment_matrix = np.zeros([N-1, N])
+    identity = lambda x: x[2]
+    for j in np.arange(np.shape(error_params)[0]):
+        node, key = error_params[j]
+        fx = error_functions[j]
+        for i in np.arange(N):
+            for k in np.arange(N-1):
+                mu_ik = ((-1)**(i+1))*expectationValueM(node, key, fx, identity, N-i+k-1)
+                if i == 0: # The 0th column should be positive as I am going to slice it off as b
+                    mu_ik = -1*mu_ik
+                moment_matrix[k, i] = mu_ik
 
-    return moment_matrix
+        matrix_array = np.append(matrix_array, np.array([moment_matrix]), axis=0)
+
+    return matrix_array
+
+def compute_interpolation_points(matrix_array):
+    """
+    Invert the moment matrix to get polynomial coefficients and find the roots, which are the interpolation points
+    for the UDR integral approximation.
+
+    :param matrix_array:
+    :return ndarray:
+    """
+    N = np.shape(matrix_array)[1]
+    x = np.zeros((0, N))
+    r = np.zeros((0, N+1))
+
+    for j in np.arange(np.shape(matrix_array)[0]):
+        moment_matrix = matrix_array[j]
+        b = moment_matrix[:, 0]
+        A = moment_matrix[:, 1:]
+        ri = np.linalg.solve(A, b)
+        ri = np.append(np.array([1]),ri)
+        r = np.append(r, np.array([ri]), axis=0)
+        for i in np.arange(N+1):
+            r[j, i] = (-1)**(N-i)*r[j, i]
+
+        xi = np.roots(r[j, :])
+        #while np.shape(xi)[0] < N-1:
+        #    xi = np.append(xi, [0]
+        x = np.append(x, np.array([xi]), axis=0)
+        x[j, :] = xi
+        r[j, :] = ri
+
+    return [x,r]
+
+def q(r, x, j,i,k):
+    if k == 0:
+        return 1
+    else:
+        return r[j, k] - x[j, i]*q(r, x, j, i, (k-1))
+
+def weights(j, i, r, x, matrix_array):
+    """
+    Compute integration weights for UDR integration
+
+    :param j:
+    :param i:
+    :param r:
+    :param x:
+    :param matrix_array:
+    :return float:
+    """
+    N = np.shape(matrix_array)[1]
+    sum = 0
+    for k in np.arange(N): # k=0 ... N-1
+        sum += (-1)**k * matrix_array[j, -1, N-k-1] * q(r, x, j, i, k)
+
+    product = 1
+    for k in np.arange(N): # k = 1, k=/=i, up to n
+        if k == i:
+            term = 1
+        else:
+            term = x[j, i] - x[j, k]
+
+        product = product * term
+
+    return sum/product
+
+def UDR_evCalculation(j, y, l, xr, matrix_array, error_parameters):
+    """
+    Approximate the lth moment of y(mu_1,...,xj,...,mu_N) with the UDR weighted sum.
+
+    :param j:
+    :param error_parameters:
+    :param y:
+    :param l:
+    :param xr:
+    :return float:
+    """
+    x, r = xr
+    sum = 0
+    N = np.shape(x)[0]-1
+    node, key = error_parameters[j-1]
+    for i in np.arange(N):
+        perturb = [node, key, x[j-1, i]]
+        sum += weights(j-1, i, r, x, matrix_array) * (y(perturb))**l
+
+    return sum
+
