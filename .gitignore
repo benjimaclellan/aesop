@@ -64,3 +64,6 @@ runremote\.py
 asope/results/
 
 *.png
+
+#pycharm
+.idea/
