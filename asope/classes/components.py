@@ -249,6 +249,7 @@ class PhaseModulator(Component):
         return normal_pdf(x, 0, 0.1)
 
     def pdf_insertionloss(self, x):
+        #return normal_pdf(x, 0.02, 0.01)
         return normal_pdf(x, 0.02, 0.01)
 
 
