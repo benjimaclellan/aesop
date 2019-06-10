@@ -2,6 +2,7 @@ import numpy as np
 from assets.graph_manipulation import get_nonsplitters
 import scipy.integrate as integrate
 from scipy.special import binom
+from scipy.misc import factorial2
 from copy import deepcopy
 
 def update_error_attributes(experiment):
@@ -199,6 +200,12 @@ def normal_pdf(x, mu=0, sigma=1):
     exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
     return scale*exp
 
+def normal_moments(n, mu, sigma):
+    if n % 2 == 0:
+        return sigma**n * factorial2(n-1)
+    if n % 2 == 1:
+        return 0
+
 def evintegrand(val, node, key, fx, y, m):
     """
     Returns the integrand for the expected value function. Meant to be called by expectationValueM.
@@ -227,6 +234,15 @@ def expectationValueM(node, key, fx, y, m):
     """
     I = integrate.quad(evintegrand, -np.inf, np.inf, args=(node, key, fx, y, m))
     return I[0]
+
+'''
+Functions from here down are used for UDR calculations. The conventions are as follows;
+j in [1,...,N] indexes the input random variables
+i in [1,...,n] indexes the interpolation points
+
+for python arrays indexed starting from 0, we must always call the array element i-1 or j-1
+
+'''
 
 def S(i, j, y, matrix_array, error_params, error_functions, x):
     """
@@ -269,20 +285,22 @@ def UDR_moments(y, l, error_params, error_functions, x, matrix_array, meanval):
         moment += binom(l, i)*sval*(-(N-1)*meanval)**(l-i)
     return moment
 
-def compute_moment_matrices(error_params, error_functions, N):
+def compute_moment_matrices(error_params, error_functions, n):
     ## We want to solve Ax = b but need to find A and b
-    matrix_array = np.zeros((0, N-1, N))
-    moment_matrix = np.zeros([N-1, N])
-    identity = lambda x: x[2]
-    for j in np.arange(np.shape(error_params)[0]):
-        node, key = error_params[j]
-        fx = error_functions[j]
-        for i in np.arange(N):
-            for k in np.arange(N-1):
-                mu_ik = ((-1)**(i+1))*expectationValueM(node, key, fx, identity, N-i+k-1)
-                if i == 0: # The 0th column should be positive as I am going to slice it off as b
+    matrix_array = np.zeros((0, n, n+1))
+    moment_matrix = np.zeros([n, n+1])
+    identity = lambda x: x[2] #TODO: remove jank
+    for j in np.arange(1, np.shape(error_params)[0]+1): # j=1,..,N
+        node, key = error_params[j-1]
+        fx = error_functions[j-1]
+        ## Here we construct an n x n+1 matrix, which we will split into a n dimensional column vector
+        ## and a n x n dimensional matrix M (the moment matrix)
+        for i in np.arange(1, n+2): # i = 1,...,n+1
+            for k in np.arange(1, n+1): # k = 1,...,n
+                mu_ik = ((-1)**(i))*expectationValueM(node, key, fx, identity, n-i+k)
+                if i == 1: # The 0th column should be positive as I am going to slice it off as b
                     mu_ik = -1*mu_ik
-                moment_matrix[k, i] = mu_ik
+                moment_matrix[k-1, i-1] = mu_ik
 
         matrix_array = np.append(matrix_array, np.array([moment_matrix]), axis=0)
 
@@ -296,26 +314,26 @@ def compute_interpolation_points(matrix_array):
     :param matrix_array:
     :return ndarray:
     """
-    N = np.shape(matrix_array)[1]
-    x = np.zeros((0, N))
-    r = np.zeros((0, N+1))
+    N = np.shape(matrix_array)[2]
+    x = np.zeros((0, N-1))
+    r = np.zeros((0, N))
 
     for j in np.arange(np.shape(matrix_array)[0]):
-        moment_matrix = matrix_array[j]
+        moment_matrix = matrix_array[j-1]
         b = moment_matrix[:, 0]
         A = moment_matrix[:, 1:]
         ri = np.linalg.solve(A, b)
         ri = np.append(np.array([1]),ri)
         r = np.append(r, np.array([ri]), axis=0)
         for i in np.arange(N+1):
-            r[j, i] = (-1)**(N-i)*r[j, i]
+            r[j-1, i-1] = (-1)**(N-i)*r[j-1, i-1]
 
         xi = np.roots(r[j, :])
         #while np.shape(xi)[0] < N-1:
         #    xi = np.append(xi, [0]
         x = np.append(x, np.array([xi]), axis=0)
-        x[j, :] = xi
-        r[j, :] = ri
+        x[j-1, :] = xi
+        r[j-1, :] = ri
 
     return [x,r]
 
@@ -323,7 +341,7 @@ def q(r, x, j,i,k):
     if k == 0:
         return 1
     else:
-        return r[j, k] - x[j, i]*q(r, x, j, i, (k-1))
+        return r[j-1, k-1] - x[j-1, i-1]*q(r, x, j, i, (k-1))
 
 def weights(j, i, r, x, matrix_array):
     """
@@ -339,14 +357,14 @@ def weights(j, i, r, x, matrix_array):
     N = np.shape(matrix_array)[1]
     sum = 0
     for k in np.arange(N): # k=0 ... N-1
-        sum += (-1)**k * matrix_array[j, -1, N-k-1] * q(r, x, j, i, k)
+        sum += (-1)**k * matrix_array[j-1, -1, N-k-1] * q(r, x, j, i, k)
 
     product = 1
-    for k in np.arange(N): # k = 1, k=/=i, up to n
+    for k in np.arange(1, N): # k = 1, k=/=i, up to n
         if k == i:
             term = 1
         else:
-            term = x[j, i] - x[j, k]
+            term = x[j-1, i-1] - x[j-1, k-1]
 
         product = product * term
 
@@ -365,11 +383,11 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, error_parameters):
     """
     x, r = xr
     sum = 0
-    N = np.shape(x)[0]-1
+    N = np.shape(x)[1]
     node, key = error_parameters[j-1]
     for i in np.arange(N):
-        perturb = [node, key, x[j-1, i]]
-        sum += weights(j-1, i, r, x, matrix_array) * (y(perturb))**l
+        perturb = [node, key, x[j-1, i-1]]
+        sum += weights(j, i, r, x, matrix_array) * (y(perturb))**l
 
     return sum
 

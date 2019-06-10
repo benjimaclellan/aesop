@@ -196,7 +196,7 @@ if __name__ == '__main__':
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 9)
+    matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
     x, r = compute_interpolation_points(matrix_moments)
     xim = np.imag(x)
     xre = np.real(x)
@@ -257,6 +257,6 @@ if __name__ == '__main__':
     
     exp.visualize(env)
     plt.show()
-    raise AttributeError
 #    save_experiment_and_plot(exp, env, At)
 
+raise AttributeError
