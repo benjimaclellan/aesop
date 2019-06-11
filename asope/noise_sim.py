@@ -297,7 +297,7 @@ def compute_moment_matrices(error_params, error_functions, n):
         ## and a n x n dimensional matrix M (the moment matrix)
         for i in np.arange(1, n+2): # i = 1,...,n+1
             for k in np.arange(1, n+1): # k = 1,...,n
-                mu_ik = ((-1)**(i))*expectationValueM(node, key, fx, identity, n-i+k)
+                mu_ik = ((-1)**i)*expectationValueM(node, key, fx, identity, n-i+k)
                 if i == 1: # The 0th column should be positive as I am going to slice it off as b
                     mu_ik = -1*mu_ik
                 moment_matrix[k-1, i-1] = mu_ik
@@ -341,7 +341,8 @@ def q(r, x, j,i,k):
     if k == 0:
         return 1
     else:
-        return r[j-1, k-1] - x[j-1, i-1]*q(r, x, j, i, (k-1))
+        # Here the second index of r doesn't get a -1 because we added a 1 to the 0th spot of rj
+        return r[j-1, k] - x[j-1, i-1]*q(r, x, j, i, (k-1))
 
 def weights(j, i, r, x, matrix_array):
     """
@@ -354,20 +355,26 @@ def weights(j, i, r, x, matrix_array):
     :param matrix_array:
     :return float:
     """
-    N = np.shape(matrix_array)[1]
+    n = np.shape(matrix_array)[1]
     sum = 0
-    for k in np.arange(N): # k=0 ... N-1
-        sum += (-1)**k * matrix_array[j-1, -1, N-k-1] * q(r, x, j, i, k)
+    for k in np.arange(n): # k = 0 ... N-1
+        qtest = q(r,x,j,i,k)
+        #print("k " + str(k))
+        #print("q " + str(qtest))
+        sum += (-1)**k * (-1)**(n-1)*matrix_array[j-1, n-k-1, -1] * q(r, x, j, i, k)
 
     product = 1
-    for k in np.arange(1, N): # k = 1, k=/=i, up to n
+    for k in np.arange(1, n+1): # k = 1, k=/=i, up to n
         if k == i:
             term = 1
         else:
             term = x[j-1, i-1] - x[j-1, k-1]
 
         product = product * term
-
+    #print(i,j)
+    #print("sum: " + str(sum))
+    #print("product: " + str(product))
+    #print("____")
     return sum/product
 
 def UDR_evCalculation(j, y, l, xr, matrix_array, error_parameters):
@@ -383,10 +390,15 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, error_parameters):
     """
     x, r = xr
     sum = 0
-    N = np.shape(x)[1]
+    n = np.shape(x)[1]
     node, key = error_parameters[j-1]
-    for i in np.arange(N):
+    test = 0
+    for i in np.arange(1, n+1):
         perturb = [node, key, x[j-1, i-1]]
+        w = weights(j, i, r, x, matrix_array)
+        print('w ' +str(w))
+        print(y(perturb)**l)
+        test += w
         sum += weights(j, i, r, x, matrix_array) * (y(perturb))**l
 
     return sum

@@ -196,7 +196,7 @@ if __name__ == '__main__':
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
+    matrix_moments = compute_moment_matrices(error_params, error_functions, 2)
     x, r = compute_interpolation_points(matrix_moments)
     xim = np.imag(x)
     xre = np.real(x)
@@ -246,7 +246,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    
+
     plt.figure()
     plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
     plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     #plt.plot(np.abs(RFSpectrum(At_avg - At_std, env.dt)), label='lower std')
     plt.legend()
     plt.show()
-    
+
     exp.visualize(env)
     plt.show()
 #    save_experiment_and_plot(exp, env, At)
