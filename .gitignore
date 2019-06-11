@@ -66,4 +66,4 @@ asope/results/
 *.png
 
 #pycharm
-.idea/
+.idea/*.xml
