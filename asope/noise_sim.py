@@ -136,8 +136,8 @@ def get_error_parameters(experiment):
     for node in experiment.nodes():
         node_ep = experiment.nodes()[node]['info'].ERROR_PARAMETERS
         for key in node_ep:
-            tuple = np.array([[node, key]])
-            error_params = np.append(error_params, tuple, axis=0)
+            dict_tuple = np.array([[node, key]])
+            error_params = np.append(error_params, dict_tuple, axis=0)
 
     return error_params
 
@@ -152,7 +152,6 @@ def get_error_functions(experiment):
     for node in experiment.nodes():
         node_ep = experiment.nodes()[node]['info'].ERROR_PDFS
         for key in node_ep:
-            tuple = [node, key]
             fx = node_ep[key]
             error_functions = np.append(error_functions, fx)
 
@@ -162,13 +161,16 @@ def get_error_functions(experiment):
 def simulate_with_error(perturb, experiment, environment):
     """
     Given an error perturbation, return the fitness.
+
     Param should be a triple of the form [node, key, val] where node and key are dictionary keys identifying
     which error parameter is being perturbed, and val is the value of the perturbation.
+
+    Currently, this code will only work for one fitness parameter.
 
     :param perturb:
     :param experiment:
     :param environment:
-    :return:
+    :return float:
     """
     # Perturb is a triple with the error parameter key and the new value
     if perturb is not None:
@@ -182,8 +184,8 @@ def simulate_with_error(perturb, experiment, environment):
     return fit[0]
 
 '''
-j indexes the random variable i.e. j \in [1,N]
-i indexes the moment i.e. i \in [1,l]
+j indexes the random variable i.e. j in [1,N]
+i indexes the moment i.e. i in [1,l]
 
 '''
 
@@ -199,12 +201,6 @@ def normal_pdf(x, mu=0, sigma=1):
     scale = 1/(np.sqrt(2*np.pi*sigma**2))
     exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
     return scale*exp
-
-def normal_moments(n, mu, sigma):
-    if n % 2 == 0:
-        return sigma**n * factorial2(n-1)
-    if n % 2 == 1:
-        return 0
 
 def evintegrand(val, node, key, fx, y, m):
     """
@@ -232,8 +228,8 @@ def expectationValueM(node, key, fx, y, m):
     :param m:
     :return float:
     """
-    I = integrate.quad(evintegrand, -np.inf, np.inf, args=(node, key, fx, y, m))
-    return I[0]
+    expected_value = integrate.quad(evintegrand, -np.inf, np.inf, args=(node, key, fx, y, m))
+    return expected_value[0]
 
 '''
 Functions from here down are used for UDR calculations. The conventions are as follows;
@@ -242,54 +238,65 @@ i in [1,...,n] indexes the interpolation points
 
 for python arrays indexed starting from 0, we must always call the array element i-1 or j-1
 
+UDR = univariate dimensional reduction. see Rahman and Xu (2004)
 '''
 
-def S(i, j, y, matrix_array, error_params, error_functions, x):
+def S(i, j, y, matrix_array, input_variables, input_pdfs, x):
     """
-    Recursive function to compute Sij required for UDR, returns float
+    Computes Sij, coefficients required for UDR. Recursive function that recurses on j.
+
     Sij = Sum(k=0...i) iCk Skj-1 E(Y^(i-k)(mu1,...,Xj,...,muN)
+
+    :param i:
+    :param j:
+    :param y:
+    :param matrix_array:
+    :param input_variables:
+    :param input_pdfs:
+    :param x:
+    :return float:
     """
-    # Get the jth error parameter
-    node, key = error_params[j-1]
-    fx = error_functions[j-1]
 
     if j<1:
-        # j should never be negative
-        raise AttributeError
+        # j should range from N to 1, never less
+        raise ValueError("j should never be less then 1")
 
     if j==1:
-        a = UDR_evCalculation(j, y, i, x, matrix_array, error_params)
-        return a
+        # The base case, Si1 = E[Y^i(X_1, mu_2, ... , mu_N)]
+        base = UDR_evCalculation(j, y, i, x, matrix_array, input_variables)
+        return base
 
     else:
-        sum = 0
+        sigma = 0
         for k in np.arange(i+1): # Sum k=0 up to i
-            sum += binom(i, k)*UDR_evCalculation(j, y, i-k, x, matrix_array, error_params)*S(k, j-1, y, matrix_array, error_params, error_functions, x)
-        return sum
+            # Compute S recursively
+            S_val = S(k, j - 1, y, matrix_array, input_variables, input_pdfs, x)
+            sigma += binom(i, k) * UDR_evCalculation(j, y, i - k, x, matrix_array, input_variables) * S_val
+        return sigma
 
-def UDR_moments(y, l, error_params, error_functions, x, matrix_array, meanval):
+def UDR_moments(y, l, input_variables, input_pdfs, x, matrix_array):
     """
     Compute the lth moment of Y(error_params) using univariate dimension reduction.
-    See 'A univariate dimension-reduction method for multi-dimensional integration in stochastic mechanics' by Rahman and Xu
+    See 'A univariate dimension-reduction method for multi-dimensional integration in stochastic mechanics' 
+    by Rahman and Xu (2004) for an exposition of the technique.
 
     :param y:
     :param l:
-    :param error_params:
-    :param error_functions:
+    :param input_variables:
+    :param input_pdfs:
     :param x:
     :param matrix_array:
     :return float:
     """
-    N = np.shape(error_params)[0] # Get the number of error params
+    N = np.shape(input_variables)[0] # Get the number of input random variables
     moment = 0.
-    meanval = 0
     for i in np.arange(l+1): # sum i = 0 to l
-        sval = S(i, N, y, matrix_array, error_params, error_functions, x) # Compute S^i_N
-        moment += binom(l, i)*sval*(-(N-1)*meanval)**(l-i)
+        sval = S(i, N, y, matrix_array, input_variables, input_pdfs, x) # Compute S^i_N
+        moment += binom(l, i)*sval*(-(N-1)*0)**(l-i) #y(mu) = 0, due to shifting in compute_with_error
 
     return moment
 
-def compute_moment_matrices(error_params, error_functions, n):
+def compute_moment_matrices(input_variables, input_pdfs, n):
     """
     To find the interpolation points we need to construct a matrix
 
@@ -300,8 +307,8 @@ def compute_moment_matrices(error_params, error_functions, n):
 
     this function will return a 3d matrix, where the jth element is the above 2d matrix
 
-    :param error_params:
-    :param error_functions:
+    :param input_variables:
+    :param input_pdfs:
     :param n:
     :return:
     """
@@ -309,9 +316,9 @@ def compute_moment_matrices(error_params, error_functions, n):
     matrix_array = np.zeros((0, n, n+1))
     moment_matrix = np.zeros([n, n+1])
     identity = lambda x: x[2] #TODO: remove jank
-    for j in np.arange(1, np.shape(error_params)[0]+1): # j=1,..,N
-        node, key = error_params[j-1]
-        fx = error_functions[j-1]
+    for j in np.arange(1, np.shape(input_variables)[0] + 1): # j=1,..,N
+        node, key = input_variables[j - 1]
+        fx = input_pdfs[j - 1]
         ## Here we construct an n x n+1 matrix, which we will split into a n dimensional column vector
         ## and a n x n dimensional matrix M (the moment matrix)
         for i in np.arange(1, n+2): # i = 1,...,n+1
@@ -333,30 +340,33 @@ def compute_interpolation_points(matrix_array):
     :param matrix_array:
     :return ndarray:
     """
+    # declare arrays
     N = np.shape(matrix_array)[2]
     x = np.zeros((0, N-1))
     r = np.zeros((0, N))
 
     for j in np.arange(np.shape(matrix_array)[0]):
+        # get the jth moment matrix
         moment_matrix = matrix_array[j-1]
+        # slice off the b vector (Ax = b)
         b = moment_matrix[:, 0]
         A = moment_matrix[:, 1:]
+        # solve for the interpolation points xi
+        # 0 = x0^N + r_1 x1^(N-1) + ... + r_N
         ri = np.linalg.solve(A, b)
-        ri = np.append(np.array([1]),ri)
+        ri = np.append(np.array([1]), ri) # add a 1 coefficient for the x0^n term
         r = np.append(r, np.array([ri]), axis=0)
         for i in np.arange(N+1):
             r[j-1, i-1] = (-1)**(N-i)*r[j-1, i-1]
 
         xi = np.roots(r[j, :])
-        #while np.shape(xi)[0] < N-1:
-        #    xi = np.append(xi, [0]
         x = np.append(x, np.array([xi]), axis=0)
         x[j-1, :] = xi
         r[j-1, :] = ri
 
-    return [x,r]
+    return [x, r]
 
-def q(r, x, j,i,k):
+def q(r, x, j, i, k):
     if k == 0:
         return 1
     else:
@@ -375,9 +385,9 @@ def weights(j, i, r, x, matrix_array):
     :return float:
     """
     n = np.shape(matrix_array)[1]
-    sum = 0
+    sigma = 0
     for k in np.arange(n): # k = 0 ... N-1
-        sum += (-1)**k * (-1)**(n-1)*matrix_array[j-1, n-k-1, -1] * q(r, x, j, i, k)
+        sigma += (-1)**k * (-1)**(n-1)*matrix_array[j-1, n-k-1, -1] * q(r, x, j, i, k)
 
     product = 1
     for k in np.arange(1, n+1): # k = 1, k=/=i, up to n
@@ -387,30 +397,28 @@ def weights(j, i, r, x, matrix_array):
             term = x[j-1, i-1] - x[j-1, k-1]
 
         product = product * term
-    #print(i,j)
-    #print("sum: " + str(sum))
-    #print("product: " + str(product))
-    #print("____")
-    return sum/product
 
-def UDR_evCalculation(j, y, l, xr, matrix_array, error_parameters):
+    return sigma/product
+
+def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
     """
     Approximate the lth moment of y(mu_1,...,xj,...,mu_N) with the UDR weighted sum.
 
     :param j:
-    :param error_parameters:
+    :param input_variables:
     :param y:
     :param l:
     :param xr:
+    :param matrix_array:
     :return float:
     """
     x, r = xr
-    sum = 0
+    sigma = 0
     n = np.shape(x)[1]
-    node, key = error_parameters[j-1]
-    for i in np.arange(1, n+1):
+    node, key = input_variables[j - 1]
+    for i in np.arange(1, n+1): # sum i = 1 ... N
         #perturb = [node, key, 0]
         perturb = [node, key, x[j-1, i-1]]
-        sum += weights(j, i, r, x, matrix_array) * (y(perturb))**l
+        sigma += weights(j, i, r, x, matrix_array) * (y(perturb))**l
 
-    return sum
+    return sigma

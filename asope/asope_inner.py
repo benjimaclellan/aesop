@@ -195,12 +195,14 @@ if __name__ == '__main__':
     start = time.time()
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
+    # Create a lambda function as we do not want to pass exp,env
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
     matrix_moments = compute_moment_matrices(error_params, error_functions, 15)
     x, r = compute_interpolation_points(matrix_moments)
     xim = np.imag(x)
     xre = np.real(x)
     if np.any(np.imag(x) != 0):
+        # check for machine accuracy errors causing imaginary vals
         raise np.linalg.LinAlgError
     x = np.real(x)
     mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments, fit[0]) + fit[0]
