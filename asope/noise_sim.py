@@ -256,9 +256,11 @@ def S(i, j, y, matrix_array, error_params, error_functions, x):
     if j<1:
         # j should never be negative
         raise AttributeError
+
     if j==1:
         a = UDR_evCalculation(j, y, i, x, matrix_array, error_params)
         return a
+
     else:
         sum = 0
         for k in np.arange(i+1): # Sum k=0 up to i
@@ -280,12 +282,29 @@ def UDR_moments(y, l, error_params, error_functions, x, matrix_array, meanval):
     """
     N = np.shape(error_params)[0] # Get the number of error params
     moment = 0.
+    meanval = 0
     for i in np.arange(l+1): # sum i = 0 to l
         sval = S(i, N, y, matrix_array, error_params, error_functions, x) # Compute S^i_N
         moment += binom(l, i)*sval*(-(N-1)*meanval)**(l-i)
+
     return moment
 
 def compute_moment_matrices(error_params, error_functions, n):
+    """
+    To find the interpolation points we need to construct a matrix
+
+    |mu_(j, n-1), ... , (-1)^(n-1) mu_(j, 0) |
+    |mu_(j, n)  , ... , (-1)^(n-1) mu_(j, 1) |
+    |   ...     , ... ,         ...          |
+    |mu(j, 2n-2), ... , (-1)^(n-1) mu_(j,n-1)|
+
+    this function will return a 3d matrix, where the jth element is the above 2d matrix
+
+    :param error_params:
+    :param error_functions:
+    :param n:
+    :return:
+    """
     ## We want to solve Ax = b but need to find A and b
     matrix_array = np.zeros((0, n, n+1))
     moment_matrix = np.zeros([n, n+1])
@@ -358,9 +377,6 @@ def weights(j, i, r, x, matrix_array):
     n = np.shape(matrix_array)[1]
     sum = 0
     for k in np.arange(n): # k = 0 ... N-1
-        qtest = q(r,x,j,i,k)
-        #print("k " + str(k))
-        #print("q " + str(qtest))
         sum += (-1)**k * (-1)**(n-1)*matrix_array[j-1, n-k-1, -1] * q(r, x, j, i, k)
 
     product = 1
@@ -392,14 +408,9 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, error_parameters):
     sum = 0
     n = np.shape(x)[1]
     node, key = error_parameters[j-1]
-    test = 0
     for i in np.arange(1, n+1):
+        #perturb = [node, key, 0]
         perturb = [node, key, x[j-1, i-1]]
-        w = weights(j, i, r, x, matrix_array)
-        print('w ' +str(w))
-        print(y(perturb)**l)
-        test += w
         sum += weights(j, i, r, x, matrix_array) * (y(perturb))**l
 
     return sum
-
