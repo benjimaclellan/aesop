@@ -173,9 +173,27 @@ def simulate_with_error(perturb, experiment, environment):
     :return float:
     """
     # Perturb is a triple with the error parameter key and the new value
-    if perturb is not None:
-        node, key, val = perturb
-        experiment.nodes()[int(node)]['info'].ERROR_PARAMETERS[key] = val
+    node, key, val = perturb
+
+    mu, sigma = experiment.node()[int(node)]['info'].ERROR_PDFS[key]
+    upper = experiment.node()[int(node)]['info'].EUPPER_d[key]
+    lower = experiment.node()[int(node)]['info'].ELOWER_d[key]
+
+    # Perturb is a triple with the error parameter key and the new value
+    # co-ordinate xform
+    real_val = sigma*val + mu
+
+    if real_val > upper:
+        real_val = upper
+    if real_val < lower:
+        real_val = lower
+
+    #print('val ' + str(val))
+    #print('rval ' + str(real_val))
+
+
+
+    experiment.nodes()[int(node)]['info'].ERROR_PARAMETERS[key] = real_val
 
     experiment.simulate(environment)
     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
@@ -318,7 +336,8 @@ def compute_moment_matrices(input_variables, input_pdfs, n):
     identity = lambda x: x[2] #TODO: remove jank
     for j in np.arange(1, np.shape(input_variables)[0] + 1): # j=1,..,N
         node, key = input_variables[j - 1]
-        fx = input_pdfs[j - 1]
+        #fx = input_pdfs[j - 1]
+        fx = normal_pdf # use a standard normal and do a co-ordinate transform later
         ## Here we construct an n x n+1 matrix, which we will split into a n dimensional column vector
         ## and a n x n dimensional matrix M (the moment matrix)
         for i in np.arange(1, n+2): # i = 1,...,n+1

@@ -43,22 +43,81 @@ plt.close("all")
 
 #%%
 
+
+#%%
+def optimize_experiment(experiment, env, gap, verbose=False):
+
+    if verbose:
+        print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))
+
+    # run (and time) the genetic algorithm
+    tstart = time.time()
+    hof, population, logbook = inner_geneticalgorithm(gap, env, experiment)
+    tstop = time.time()
+
+    if verbose:
+        print('\nElapsed time = {}'.format(tstop-tstart))
+
+    #%% convert DEAP logbook to easier datatype
+    log = extractlogbook(logbook)
+
+    #%%
+    hof_fine = []
+    for j in range(gap.N_HOF):
+        individual = copy.deepcopy(hof[j])
+        hof_fine.append(individual)
+
+        #%% Now fine tune the best individual using gradient descent
+        if gap.FINE_TUNE:
+            if verbose:
+                print('Fine-tuning the most fit individual using quasi-Newton method')
+
+            individual_fine = finetune_individual(individual, env, experiment)
+        else:
+            individual_fine = individual
+        hof_fine.append(individual_fine)
+
+    return experiment, hof, hof_fine, log
+
 #%%
 if __name__ == '__main__':
+
+    #%% store all our hyper-parameters for the genetic algorithm
+    gap = GeneticAlgorithmParameters()
+    gap.TYPE = "inner"
+    gap.NFITNESS = 1            # how many values to optimize
+    gap.WEIGHTS = (1.0),        # weights to put on the multiple fitness values
+    gap.MULTIPROC = True        # multiprocess or not
+    gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
+    gap.N_POPULATION = 100      # number of individuals in a population
+    gap.N_GEN = 10              # number of generations
+    gap.MUT_PRB = 0.5           # independent probability of mutation
+    gap.CRX_PRB = 0.5           # independent probability of cross-over
+    gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
+    gap.VERBOSE = 0             # verbose print statement for GA statistics
+    gap.INIT = None
+    gap.FINE_TUNE = True
+    gap.NUM_ELITE = 1
+    gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
 
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
+    #env.createnoise()
+    #env.addnoise()
 
     env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
 
     #%%
     components = {
                     0:PhaseModulator(),
-                    1:WaveShaper()
+                    1:WaveShaper(),
+                    #2:Fiber(),
+                    #3:PhaseModulator(),
+                    #4:WaveShaper()
                  }
+    #adj = [(0,1), (1,2), (2,3), (3,4)]
     adj = [(0,1)]
-
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
     exp.buildexperiment(components, adj)
@@ -70,7 +129,20 @@ if __name__ == '__main__':
 
     exp.draw(node_label = 'disp_name')
 
-    at = {0: [1.0885386831780766, 10000000000.0], 1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
+
+    #%%
+    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+
+    #%%
+    fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
+    ax_log.plot(log['gen'], log['max'], label='Maximum', ls='-', color='salmon', alpha=1.0)
+    ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
+    ax_log.legend()
+    ax_log.set_xlabel('Generation')
+    ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
+
+    #%%
+    at = hof_fine[0]
 
     print(at)
 
@@ -87,8 +159,8 @@ if __name__ == '__main__':
     plt.plot(env.t, np.abs(At))
     plt.xlim([0,10/env.target_harmonic])
     plt.show()
-    samples = [10, 100, 1000]
-    time_elapsed = [0, 0, 0]
+    samples = [10, 100]
+    time_elapsed = [0, 0]
     j = 0
     for N in samples:
         """
@@ -118,32 +190,35 @@ if __name__ == '__main__':
 
     plt.title("Monte Carlo Time Elapsed")
     plt.plot(samples, time_elapsed)
-    plt.show()
-    """
+
     print("Beginning Univariate Dimension Reduction")
-    start = time.time()
     error_params = get_error_parameters(exp)
+    print("N: " + str(np.shape(error_params)))
     error_functions = get_error_functions(exp)
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
+    matrix_moments = compute_moment_matrices(error_params, error_functions, 20)
     x, r = compute_interpolation_points(matrix_moments)
     xim = np.imag(x)
     xre = np.real(x)
     if np.any(np.imag(x) != 0):
         raise np.linalg.LinAlgError
     x = np.real(x)
-    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments, fit[0]) + fit[0]
+    start = time.time()
+    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
     print("mu: " + str(mean))
-    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments, fit[0]))
+    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
     print("std: " + str(std))
     stop = time.time()
     print("Time: " + str(stop - start))
     print("________________")
-    """
+
+    plt.axhline(stop-start)
+    plt.show()
+
     At_avg = np.mean(np.abs(optical_fields), axis=0)
     At_std = np.std(np.abs(optical_fields), axis=0)
 
     noise_sample = np.abs(optical_fields[0])
     print("Power Check: " + str(exp.power_check_single(At_avg)))
 
-
+raise AttributeError

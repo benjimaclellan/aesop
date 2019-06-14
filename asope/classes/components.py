@@ -126,6 +126,15 @@ class Fiber(Component):
         self.ERROR_PARAMETERS = {
             'attenuation':0
         }
+        self.ERROR_PDFS = {
+            'attenuation': [0.05, 0.01]
+        }
+        self.EUPPER_d = {
+            'attenuation': 1
+        }
+        self.ELOWER_d = {
+            'attenuation': 0
+        }
 
     def simulate(self, env, At, visualize=False):
 
@@ -164,9 +173,15 @@ class Fiber(Component):
         :return:
         """
         sample = np.array([
-                 np.random.normal(0.1, 0.05) # Attenuation
+                 np.random.normal(0, 0.05) # Attenuation
                  ])
         return sample
+
+    def pdf_attenuation(self):
+        return 0, 0.05 #normal_pdf(x, 0, 0.05)
+
+    def pdf_length(self):
+        return 0, 0.005 #normal_pdf(x, 0, 0.005)
 
     def update_error_attributes(self, sample):
         i = 0
@@ -196,18 +211,26 @@ class PhaseModulator(Component):
         self.DSCRTVAL = [None, 6e9]
         self.FINETUNE_SKIP = None
         self.splitter = False
+        self.EUPPER = [2*np.pi, 1]
+        self.ELOWER = [0, 0]
 
         # Error Parameters
         self.N_EPARAMETERS = 2
-        self.EUPPER = [2*np.pi, 100]
-        self.ELOWER = [0, 0]
         self.ERROR_PARAMETERS = {
             'phasenoise':0,
             'insertionloss':0
         }
         self.ERROR_PDFS = {
-            'phasenoise': self.pdf_phasenoise,
-            'insertionloss': self.pdf_insertionloss
+            'phasenoise': [0, 0.1],
+            'insertionloss': [0.02, 0.01]
+        }
+        self.EUPPER_d = {
+            'phasenoise': 2*np.pi,
+            'insertionloss': 1
+        }
+        self.ELOWER_d = {
+            'phasenoise': 0,
+            'insertionloss': 0
         }
 
     def simulate(self, env, At,  visualize=False):
@@ -241,16 +264,16 @@ class PhaseModulator(Component):
     def error_model(self):
         sample = np.array([
             np.random.normal(0, 0.1), # Phase Noise
-            np.random.normal(0.02, 0.01) # Insertion loss
+            np.random.normal(0, 0.01) # Insertion loss
             ])
         return sample
 
-    def pdf_phasenoise(self, x):
-        return normal_pdf(x, 0, 0.1)
+    def pdf_phasenoise(self):
+        return 0, 0.1 #normal_pdf(x, 0, 0.1)
 
-    def pdf_insertionloss(self, x):
+    def pdf_insertionloss(self):
         #return normal_pdf(x, 0.02, 0.01)
-        return normal_pdf(x, 0.02, 0.01)
+        return 0.02, 0.01 #normal_pdf(x, 0, 0.01)
 
 
     def update_error_attributes(self, sample):

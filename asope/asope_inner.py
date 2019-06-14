@@ -56,12 +56,12 @@ def optimize_experiment(experiment, env, gap, verbose=False):
         print('\nElapsed time = {}'.format(tstop-tstart))
     
     #%% convert DEAP logbook to easier datatype
-    log = extractlogbook(logbook)    
+    log = extractlogbook(logbook)
 
     #%%    
     hof_fine = []
     for j in range(gap.N_HOF):
-        individual = copy.deepcopy(hof[j])        
+        individual = copy.deepcopy(hof[j])
         hof_fine.append(individual)
 
         #%% Now fine tune the best individual using gradient descent
