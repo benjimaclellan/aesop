@@ -238,7 +238,7 @@ class PhaseModulator(Component):
         M = self.at[0]       # phase amplitude [V/Vpi]
         NU = self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.ERROR_PARAMETERS['phasenoise']*np.random.randn(*np.shape(env.t))
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.ERROR_PARAMETERS['phasenoise']
 
         # apply phase shift temporally
         At = At * np.exp(1j * phase)

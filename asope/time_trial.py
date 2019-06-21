@@ -42,6 +42,7 @@ from noise_sim import simulate_with_error, get_error_parameters, get_error_funct
 plt.close("all")
 
 #%%
+np.random.seed(seed=3141)
 
 
 #%%
@@ -79,20 +80,19 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
     return experiment, hof, hof_fine, log
 
-#%%
 if __name__ == '__main__':
 
     #%% store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
-    gap.NFITNESS = 1            # how many values to optimize
-    gap.WEIGHTS = (1.0),        # weights to put on the multiple fitness values
+    gap.NFITNESS = 1           # how many values to optimize
+    gap.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 100      # number of individuals in a population
-    gap.N_GEN = 10              # number of generations
+    gap.N_GEN = 10             # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
-    gap.CRX_PRB = 0.5           # independent probability of cross-over
+    gap.CRX_PRB = 0.5          # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = 0             # verbose print statement for GA statistics
     gap.INIT = None
@@ -111,13 +111,10 @@ if __name__ == '__main__':
     #%%
     components = {
                     0:PhaseModulator(),
-                    1:WaveShaper(),
-                    #2:Fiber(),
-                    #3:PhaseModulator(),
-                    #4:WaveShaper()
+                    1:WaveShaper()
                  }
-    #adj = [(0,1), (1,2), (2,3), (3,4)]
     adj = [(0,1)]
+
     #%% initialize the experiment, and perform all the preprocessing steps
     exp = Experiment()
     exp.buildexperiment(components, adj)
@@ -131,18 +128,19 @@ if __name__ == '__main__':
 
 
     #%%
-    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+    #exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
 
     #%%
-    fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
-    ax_log.plot(log['gen'], log['max'], label='Maximum', ls='-', color='salmon', alpha=1.0)
-    ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
-    ax_log.legend()
-    ax_log.set_xlabel('Generation')
-    ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
+    #fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
+    #ax_log.plot(log['gen'], log['max'], label='Maximum', ls='-', color='salmon', alpha=1.0)
+    #ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
+    #ax_log.legend()
+    #ax_log.set_xlabel('Generation')
+    #ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
 
     #%%
-    at = hof_fine[0]
+    #at = hof_fine[0]
+    at = {0: [1.0885386831780766, 10000000000.0], 1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
 
     print(at)
 
@@ -159,8 +157,12 @@ if __name__ == '__main__':
     plt.plot(env.t, np.abs(At))
     plt.xlim([0,10/env.target_harmonic])
     plt.show()
-    samples = [10, 100]
-    time_elapsed = [0, 0]
+
+    samples = [1000]
+
+    time_elapsed = [0]
+    mean_array = [0]
+    std_array = [0]
     j = 0
     for N in samples:
         """
@@ -170,13 +172,15 @@ if __name__ == '__main__':
         start = time.time()
 
         # Generate an array of fitness
-        fitnesses, optical_fields = simulate_component_noise(exp, env, At, N)
+        fitnesses = simulate_component_noise(exp, env, At, N)
 
         # Calculate statistics (mean/std) of the tests
         i = 0
         for row in fitnesses.T:
             std = np.std(row)
             mean = np.mean(row)
+            mean_array[j] = mean
+            std_array[j] = std
             print("Mean of column " + str(i) + " : " + str(mean))
             print("Standard deviation of column " + str(i) + " : " + str(std))
             i += 1
@@ -188,37 +192,82 @@ if __name__ == '__main__':
         print("Time: " + str(elapsed))
         print("________________")
 
-    plt.title("Monte Carlo Time Elapsed")
-    plt.plot(samples, time_elapsed)
-
     print("Beginning Univariate Dimension Reduction")
-    error_params = get_error_parameters(exp)
-    print("N: " + str(np.shape(error_params)))
-    error_functions = get_error_functions(exp)
-    f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 20)
-    x, r = compute_interpolation_points(matrix_moments)
-    xim = np.imag(x)
-    xre = np.real(x)
-    if np.any(np.imag(x) != 0):
-        raise np.linalg.LinAlgError
-    x = np.real(x)
-    start = time.time()
-    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
-    print("mu: " + str(mean))
-    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
-    print("std: " + str(std))
-    stop = time.time()
-    print("Time: " + str(stop - start))
-    print("________________")
 
-    plt.axhline(stop-start)
+    udr_samples = [5, 8, 11, 14, 17, 20, 23, 26, 29, 32]
+    #ep = get_error_parameters(exp)[:,0]
+    udr_means = np.zeros(5)
+    udr_std = np.zeros_like(udr_means)
+    udr_time = np.zeros_like(udr_means)
+
+    simulate_with_error.count = 0
+    j = 1
+    #for item in np.arange(np.shape(get_error_parameters(exp))[0]):
+    for item in np.arange(5):
+        #error_params = get_error_parameters(exp)[0:j]
+        error_params = get_error_parameters(exp)
+        print("N: " + str(np.shape(error_params)))
+        #error_functions = get_error_functions(exp)[0:j]
+        error_functions = get_error_functions(exp)
+        f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
+        matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
+        x, r = compute_interpolation_points(matrix_moments)
+        xim = np.imag(x)
+        xre = np.real(x)
+        if np.any(np.imag(x) != 0):
+            raise np.linalg.LinAlgError
+        x = np.real(x)
+        simulate_with_error.count = 0
+        start = time.time()
+        mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
+        print("mu: " + str(mean))
+        std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
+        print("std: " + str(std))
+        stop = time.time()
+        udr_time[j-1] = (stop-start)
+        udr_means[j-1] = mean
+        udr_std[j-1] = std
+        print("Time: " + str(stop - start))
+        print("number of function calls : " + str(simulate_with_error.count))
+        print("________________")
+        j+=1
+
+    x = [1,2,3,4,5]
+    plt.title("Time vs number of parameters")
+    #plt.plot(time_elapsed, label='MC')
+    plt.plot(x, udr_time)#, 'b-o', label='UDR')
+    plt.ylabel("t (s)")
+    plt.xlabel("# of params - 1")
+    plt.legend()
     plt.show()
 
-    At_avg = np.mean(np.abs(optical_fields), axis=0)
-    At_std = np.std(np.abs(optical_fields), axis=0)
+    plt.title("Mean")
+    #plt.plot(mean_array, label='MC')
+    plt.axhline(mean_array[0])
+    plt.plot(x,udr_means, label='UDR')
+    plt.legend()
+    plt.show()
 
-    noise_sample = np.abs(optical_fields[0])
-    print("Power Check: " + str(exp.power_check_single(At_avg)))
+    plt.title("Standard deviation")
+    plt.axhline(std_array[0])
+    plt.plot(x,udr_std, label='UDR')
+    plt.legend()
+    plt.show()
+
+    #plt.title("Error in mean")
+    #plt.plot(np.abs(udr_means - mean_array[0]))
+    #plt.savefig("muerror_monday.png")
+    #plt.show()
+
+    #plt.title("Error in standard deviation")
+    #plt.plot(np.abs(udr_std - std_array[0]))
+    #plt.savefig("stderror_monday.png")
+    #plt.show()
+
+    #At_avg = np.mean(np.abs(optical_fields), axis=0)
+    #At_std = np.std(np.abs(optical_fields), axis=0)
+
+    #noise_sample = np.abs(optical_fields[0])
+    #print("Power Check: " + str(exp.power_check_single(At_avg)))
 
 raise AttributeError

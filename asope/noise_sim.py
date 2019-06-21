@@ -2,7 +2,6 @@ import numpy as np
 from assets.graph_manipulation import get_nonsplitters
 import scipy.integrate as integrate
 from scipy.special import binom
-from scipy.misc import factorial2
 from copy import deepcopy
 
 def update_error_attributes(experiment):
@@ -47,18 +46,18 @@ def simulate_component_noise(experiment, environment, input_At, N_samples):
     #create empty array with the correct shape
     fitnesses = np.zeros((N_samples, m))
     length = np.shape(At)[0]
-    optical_fields = np.zeros((N_samples, length), dtype=np.complex)
+    #optical_fields = np.zeros((N_samples, length), dtype=np.complex)
     for i in np.arange(N_samples):
         update_error_attributes(exp)
         # Simulate the experiment with the sampled error profile
         exp.simulate(env)
         At = exp.nodes[exp.measurement_nodes[0]]['output']
-        optical_fields[i] = At[:, 0]
+        #optical_fields[i] = At[:, 0]
         # Evaluate the fitness and store it in the array
         fit = env.fitness(At)
         fitnesses[i] = fit
 
-    return fitnesses, optical_fields
+    return fitnesses#, optical_fields
 
 def drop_node(experiment, node):
     """
@@ -134,6 +133,8 @@ def get_error_parameters(experiment):
     """
     error_params = np.zeros((0, 2))
     for node in experiment.nodes():
+        #test = experiment.nodes()[node]['info'].at
+        #print(test)
         node_ep = experiment.nodes()[node]['info'].ERROR_PARAMETERS
         for key in node_ep:
             dict_tuple = np.array([[node, key]])
@@ -159,6 +160,7 @@ def get_error_functions(experiment):
 
 
 def simulate_with_error(perturb, experiment, environment):
+    simulate_with_error.count += 1
     """
     Given an error perturbation, return the fitness.
 
@@ -199,7 +201,10 @@ def simulate_with_error(perturb, experiment, environment):
     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
 
     fit = environment.fitness(At)
+
     return fit[0]
+
+simulate_with_error.count = 0
 
 '''
 j indexes the random variable i.e. j in [1,N]
@@ -431,13 +436,19 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
     :param matrix_array:
     :return float:
     """
+    if l == 0: # trivial case
+        return 1
+
     x, r = xr
     sigma = 0
     n = np.shape(x)[1]
     node, key = input_variables[j - 1]
-    for i in np.arange(1, n+1): # sum i = 1 ... N
+    for i in np.arange(1, n+1): # sum i = 1 ... n
         #perturb = [node, key, 0]
         perturb = [node, key, x[j-1, i-1]]
         sigma += weights(j, i, r, x, matrix_array) * (y(perturb))**l
 
     return sigma
+
+UDR_evCalculation.count = 0
+

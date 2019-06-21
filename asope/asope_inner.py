@@ -36,7 +36,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments
+from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments, UDR_evCalculation
 from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
 
 plt.close("all")
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     N_samples = 500
 
     # Generate an array of fitness
-    fitnesses, optical_fields = simulate_component_noise(exp, env, At, N_samples)
+    fitnesses = simulate_component_noise(exp, env, At, N_samples)
     if gap.VERBOSE:
         print("Fitness Array: ")
         print(fitnesses)
@@ -188,6 +188,8 @@ if __name__ == '__main__':
         print("Standard deviation of column " + str(i) + " : " + str(std))
         i += 1
 
+    print("sim count " + str(simulate_with_error.count))
+
     stop = time.time()
     print("Time: " + str(stop - start))
     print("________________")
@@ -197,7 +199,7 @@ if __name__ == '__main__':
     error_functions = get_error_functions(exp)
     # Create a lambda function as we do not want to pass exp,env
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 15)
+    matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
     x, r = compute_interpolation_points(matrix_moments)
     xim = np.imag(x)
     xre = np.real(x)
@@ -205,59 +207,61 @@ if __name__ == '__main__':
         # check for machine accuracy errors causing imaginary vals
         raise np.linalg.LinAlgError
     x = np.real(x)
-    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments, fit[0]) + fit[0]
+    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
     print("mu: " + str(mean))
-    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments, fit[0]))
-    print("std: " + str(std))
+    #std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
+    #print("std: " + str(std))
     stop = time.time()
     print("Time: " + str(stop - start))
     print("________________")
-
-    At_avg = np.mean(np.abs(optical_fields), axis=0)
-    At_std = np.std(np.abs(optical_fields), axis=0)
+    print("sim count " + str(simulate_with_error.count))
+    print("udr count " + str(UDR_evCalculation.count))
+    print("number of variables " + str(np.shape(error_params)[0]))
+    #At_avg = np.mean(np.abs(optical_fields), axis=0)
+    #At_std = np.std(np.abs(optical_fields), axis=0)
 
     #At_avg = env.shift_function(At_avg)
 
-    noise_sample = np.abs(optical_fields[0])
-    print("Power Check: " + str(exp.power_check_single(At_avg)))
+    #noise_sample = np.abs(optical_fields[0])
+    #print("Power Check: " + str(exp.power_check_single(At_avg)))
     # clear memory space
     del fitnesses
-    del optical_fields
+    #del optical_fields
 
     #%%
     plt.figure()
     #generated = env.shift_function(P(At_avg))
-    minval, maxval = np.min(At_avg), np.max(At_avg)
+    #minval, maxval = np.min(At_avg), np.max(At_avg)
     print("Normalize? " + str(env.normalize))
-    if env.normalize:
+    '''if env.normalize:
         #TODO: Determine how to properly normalize STD
         At_avg = At_avg/maxval
         #At_avg = (At_avg-minval)/(maxval-minval)
         #At_std = At_std/maxval
         noise_sample = (noise_sample-minval)/(maxval-minval)
-
+    '''
 
     #plt.plot(env.t, generated,label='current')
-    plt.plot(env.t, env.target,label='target',ls=':')
-    plt.plot(env.t, env.At0, label='initial')
-    plt.plot(env.t, At_avg,'r', label='current')
+    #plt.plot(env.t, env.target,label='target',ls=':')
+    #plt.plot(env.t, env.At0, label='initial')
+    #plt.plot(env.t, At_avg,'r', label='current')
     #plt.plot(env.t, At_avg + At_std, 'r--')
     #plt.plot(env.t, At_avg - At_std, 'r--')
-    plt.plot(env.t, noise_sample, 'k--', label="noise sample")
-    plt.xlim([0,10/env.target_harmonic])
-    plt.legend()
-    plt.show()
+    #plt.plot(env.t, noise_sample, 'k--', label="noise sample")
+    #plt.xlim([0,10/env.target_harmonic])
+    #plt.legend()
+    #plt.show()
 
 
-    plt.figure()
-    plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
-    plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
+    #plt.figure()
+    #plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
+    #plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
     #plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
     #plt.plot(np.abs(RFSpectrum(At_avg - At_std, env.dt)), label='lower std')
-    plt.legend()
-    plt.show()
+    #plt.legend()
+    #plt.show()
 
-    exp.visualize(env)
-    plt.show()
+    #exp.visualize(env)
+    #plt.show()
 #    save_experiment_and_plot(exp, env, At)
 
