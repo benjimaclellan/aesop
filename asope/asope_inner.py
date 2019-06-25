@@ -188,6 +188,7 @@ if __name__ == '__main__':
         print("Standard deviation of column " + str(i) + " : " + str(std))
         i += 1
 
+
     print("sim count " + str(simulate_with_error.count))
 
     stop = time.time()
@@ -199,7 +200,9 @@ if __name__ == '__main__':
     error_functions = get_error_functions(exp)
     # Create a lambda function as we do not want to pass exp,env
     f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
+
     matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
+
     x, r = compute_interpolation_points(matrix_moments)
     xim = np.imag(x)
     xre = np.real(x)
@@ -211,6 +214,7 @@ if __name__ == '__main__':
     print("mu: " + str(mean))
     #std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
     #print("std: " + str(std))
+
     stop = time.time()
     print("Time: " + str(stop - start))
     print("________________")
@@ -251,8 +255,7 @@ if __name__ == '__main__':
     #plt.xlim([0,10/env.target_harmonic])
     #plt.legend()
     #plt.show()
-
-
+    
     #plt.figure()
     #plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
     #plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
@@ -263,5 +266,6 @@ if __name__ == '__main__':
 
     #exp.visualize(env)
     #plt.show()
+
 #    save_experiment_and_plot(exp, env, At)
 

@@ -165,6 +165,7 @@ if __name__ == '__main__':
             mean = np.mean(row)
             mean_array[j] = mean
             std_array[j] = std
+
             print("Mean of column " + str(i) + " : " + str(mean))
             print("Standard deviation of column " + str(i) + " : " + str(std))
             i += 1
@@ -230,5 +231,3 @@ if __name__ == '__main__':
     plt.plot(x,udr_std, label='UDR')
     plt.legend()
     plt.show()
-
-

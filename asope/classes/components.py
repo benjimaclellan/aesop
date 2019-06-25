@@ -249,11 +249,10 @@ class PhaseModulator(Component):
 
     def pdf_phasenoise(self):
         return 0, 0.1 #normal_pdf(x, 0, 0.1)
-
+      
     def pdf_insertionloss(self):
         #return normal_pdf(x, 0.02, 0.01)
         return 0.02, 0.01 #normal_pdf(x, 0, 0.01)
-
 
     def update_error_attributes(self, sample):
         i = 0

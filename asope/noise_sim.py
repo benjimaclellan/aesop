@@ -2,6 +2,7 @@ import numpy as np
 from assets.graph_manipulation import get_nonsplitters
 import scipy.integrate as integrate
 from scipy.special import binom
+from scipy.misc import factorial2
 from copy import deepcopy
 
 def update_error_attributes(experiment):
@@ -290,6 +291,7 @@ UDR = univariate dimensional reduction. see Rahman and Xu (2004)
 '''
 
 def S(i, j, y, matrix_array, input_variables, input_pdfs, x):
+
     """
     Computes Sij, coefficients required for UDR. Recursive function that recurses on j.
 
@@ -306,6 +308,7 @@ def S(i, j, y, matrix_array, input_variables, input_pdfs, x):
     """
 
     if j<1:
+
         # j should range from N to 1, never less
         raise ValueError("j should never be less then 1")
 
@@ -338,6 +341,7 @@ def UDR_moments(y, l, input_variables, input_pdfs, x, matrix_array):
     """
     N = np.shape(input_variables)[0] # Get the number of input random variables
     moment = 0.
+
     for i in np.arange(l+1): # sum i = 0 to l
         sval = S(i, N, y, matrix_array, input_variables, input_pdfs, x) # Compute S^i_N
         moment += binom(l, i)*sval*(-(N-1)*0)**(l-i) #y(mu) = 0, due to shifting in compute_with_error
@@ -354,7 +358,7 @@ def compute_moment_matrices(input_variables, input_pdfs, n):
     |mu(j, 2n-2), ... , (-1)^(n-1) mu_(j,n-1)|
 
     this function will return a 3d matrix, where the jth element is the above 2d matrix
-
+    
     :param input_variables:
     :param input_pdfs:
     :param n:
@@ -364,6 +368,7 @@ def compute_moment_matrices(input_variables, input_pdfs, n):
     matrix_array = np.zeros((0, n, n+1))
     moment_matrix = np.zeros([n, n+1])
     identity = lambda x: x[2] #TODO: remove jank
+
     for j in np.arange(1, np.shape(input_variables)[0] + 1): # j=1,..,N
         node, key = input_variables[j - 1]
         fx = normal_pdf # use a standard normal and do a co-ordinate transform later
@@ -388,12 +393,15 @@ def compute_interpolation_points(matrix_array):
     :param matrix_array:
     :return ndarray:
     """
+
     # declare arrays
+
     N = np.shape(matrix_array)[2]
     x = np.zeros((0, N-1))
     r = np.zeros((0, N))
 
     for j in np.arange(np.shape(matrix_array)[0]):
+
         # get the jth moment matrix
         moment_matrix = matrix_array[j-1]
         # slice off the b vector (Ax = b)
@@ -415,6 +423,7 @@ def compute_interpolation_points(matrix_array):
     return [x, r]
 
 def q(r, x, j, i, k):
+
     if k == 0:
         return 1
     else:
@@ -433,6 +442,7 @@ def weights(j, i, r, x, matrix_array):
     :return float:
     """
     n = np.shape(matrix_array)[1]
+
     sigma = 0
     for k in np.arange(n): # k = 0 ... N-1
         sigma += (-1)**k * (-1)**(n-1)*matrix_array[j-1, n-k-1, -1] * q(r, x, j, i, k)
@@ -445,7 +455,7 @@ def weights(j, i, r, x, matrix_array):
             term = x[j-1, i-1] - x[j-1, k-1]
 
         product = product * term
-
+        
     return sigma/product
 
 def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
@@ -474,4 +484,3 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
     return sigma
 
 UDR_evCalculation.count = 0
-
