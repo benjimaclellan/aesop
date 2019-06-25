@@ -15,6 +15,7 @@ def update_error_attributes(experiment):
     for node in exp.node():
         # Check that there is an error model to update
         try:
+            '''
             if exp.node()[node]['info'].N_EPARAMETERS != 0:
                 component = exp.node()[node]['info']
                 #error_model() will return an array of appropriately sampled error attributes
@@ -22,6 +23,18 @@ def update_error_attributes(experiment):
                 new_at = component.error_model()
 
                 component.update_error_attributes(new_at)
+            '''
+            pdfs = exp.node()[node]['info'].at_pdfs
+
+            at = exp.node()[node]['info'].at
+
+            new_at = np.zeros((exp.nodes()[node]['info'].N_PARAMETERS))
+            i = 0
+            for mu, std in pdfs:
+                new_at[i] = np.random.normal(mu, std)
+
+            exp.node()[node]['info'].at = new_at + at
+
         except AttributeError:
             print(node)
             print("Exception occurred updating error models - is there a component without an implemented error model?")
@@ -46,13 +59,11 @@ def simulate_component_noise(experiment, environment, input_At, N_samples):
     #create empty array with the correct shape
     fitnesses = np.zeros((N_samples, m))
     length = np.shape(At)[0]
-    #optical_fields = np.zeros((N_samples, length), dtype=np.complex)
     for i in np.arange(N_samples):
         update_error_attributes(exp)
         # Simulate the experiment with the sampled error profile
         exp.simulate(env)
         At = exp.nodes[exp.measurement_nodes[0]]['output']
-        #optical_fields[i] = At[:, 0]
         # Evaluate the fitness and store it in the array
         fit = env.fitness(At)
         fitnesses[i] = fit
@@ -66,7 +77,6 @@ def drop_node(experiment, node):
     :param experiment:
     :param node:
     """
-#    print('remove_one_node')
 
     pre = experiment.pre(node)
     suc = experiment.suc(node)
@@ -133,12 +143,12 @@ def get_error_parameters(experiment):
     """
     error_params = np.zeros((0, 2))
     for node in experiment.nodes():
-        #test = experiment.nodes()[node]['info'].at
-        #print(test)
-        node_ep = experiment.nodes()[node]['info'].ERROR_PARAMETERS
-        for key in node_ep:
-            dict_tuple = np.array([[node, key]])
-            error_params = np.append(error_params, dict_tuple, axis=0)
+        i = 0
+        node_at = experiment.node()[node]['info'].at
+        for val in node_at:
+            tuple = np.array([[node, i]])
+            i += 1
+            error_params = np.append(error_params, tuple, axis=0)
 
     return error_params
 
@@ -150,10 +160,18 @@ def get_error_functions(experiment):
     :return:
     """
     error_functions = np.zeros(0)
+
     for node in experiment.nodes():
+        '''
         node_ep = experiment.nodes()[node]['info'].ERROR_PDFS
         for key in node_ep:
             fx = node_ep[key]
+            error_functions = np.append(error_functions, fx)
+        '''
+
+        node_pdfs = experiment.node()[node]['info'].at_pdfs
+        i = 0
+        for fx in node_pdfs:
             error_functions = np.append(error_functions, fx)
 
     return error_functions
@@ -175,32 +193,39 @@ def simulate_with_error(perturb, experiment, environment):
     :return float:
     """
     # Perturb is a triple with the error parameter key and the new value
-    node, key, val = perturb
+    node, index, val = perturb
 
-    mu, sigma = experiment.node()[int(node)]['info'].ERROR_PDFS[key]
-    upper = experiment.node()[int(node)]['info'].EUPPER_d[key]
-    lower = experiment.node()[int(node)]['info'].ELOWER_d[key]
+    if index - int(index) != 0:
+        raise ValueError("All attribute indices should be integers!")
+    index = int(index)
+
+    mu, sigma = experiment.node()[int(node)]['info'].at_pdfs[index]
+    upper = experiment.node()[int(node)]['info'].UPPER[index]
+    lower = experiment.node()[int(node)]['info'].LOWER[index]
+
+    # get the current value
+    optimal_val = experiment.nodes()[int(node)]['info'].at[index]
 
     # Perturb is a triple with the error parameter key and the new value
     # co-ordinate xform
     real_val = sigma*val + mu
+
+    real_val += optimal_val
 
     if real_val > upper:
         real_val = upper
     if real_val < lower:
         real_val = lower
 
-    #print('val ' + str(val))
-    #print('rval ' + str(real_val))
-
-
-
-    experiment.nodes()[int(node)]['info'].ERROR_PARAMETERS[key] = real_val
+    experiment.nodes()[int(node)]['info'].at[index] = real_val
 
     experiment.simulate(environment)
     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
 
     fit = environment.fitness(At)
+
+    # reset to optimal value
+    experiment.node()[int(node)]['info'].at[index] = optimal_val
 
     return fit[0]
 
@@ -341,7 +366,6 @@ def compute_moment_matrices(input_variables, input_pdfs, n):
     identity = lambda x: x[2] #TODO: remove jank
     for j in np.arange(1, np.shape(input_variables)[0] + 1): # j=1,..,N
         node, key = input_variables[j - 1]
-        #fx = input_pdfs[j - 1]
         fx = normal_pdf # use a standard normal and do a co-ordinate transform later
         ## Here we construct an n x n+1 matrix, which we will split into a n dimensional column vector
         ## and a n x n dimensional matrix M (the moment matrix)
@@ -444,7 +468,6 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
     n = np.shape(x)[1]
     node, key = input_variables[j - 1]
     for i in np.arange(1, n+1): # sum i = 1 ... n
-        #perturb = [node, key, 0]
         perturb = [node, key, x[j-1, i-1]]
         sigma += weights(j, i, r, x, matrix_array) * (y(perturb))**l
 

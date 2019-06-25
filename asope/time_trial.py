@@ -103,8 +103,6 @@ if __name__ == '__main__':
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
-    #env.createnoise()
-    #env.addnoise()
 
     env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
 
@@ -126,20 +124,6 @@ if __name__ == '__main__':
 
     exp.draw(node_label = 'disp_name')
 
-
-    #%%
-    #exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
-
-    #%%
-    #fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
-    #ax_log.plot(log['gen'], log['max'], label='Maximum', ls='-', color='salmon', alpha=1.0)
-    #ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
-    #ax_log.legend()
-    #ax_log.set_xlabel('Generation')
-    #ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
-
-    #%%
-    #at = hof_fine[0]
     at = {0: [1.0885386831780766, 10000000000.0], 1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
 
     print(at)
@@ -194,21 +178,16 @@ if __name__ == '__main__':
 
     print("Beginning Univariate Dimension Reduction")
 
-    udr_samples = [5, 8, 11, 14, 17, 20, 23, 26, 29, 32]
-    #ep = get_error_parameters(exp)[:,0]
-    udr_means = np.zeros(5)
+    udr_means = np.zeros(16)
     udr_std = np.zeros_like(udr_means)
     udr_time = np.zeros_like(udr_means)
 
     simulate_with_error.count = 0
     j = 1
-    #for item in np.arange(np.shape(get_error_parameters(exp))[0]):
-    for item in np.arange(5):
-        #error_params = get_error_parameters(exp)[0:j]
-        error_params = get_error_parameters(exp)
+    for item in np.arange(16):
+        error_params = get_error_parameters(exp)[0:j]
         print("N: " + str(np.shape(error_params)))
-        #error_functions = get_error_functions(exp)[0:j]
-        error_functions = get_error_functions(exp)
+        error_functions = get_error_functions(exp)[0:j]
         f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
         matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
         x, r = compute_interpolation_points(matrix_moments)
@@ -232,9 +211,8 @@ if __name__ == '__main__':
         print("________________")
         j+=1
 
-    x = [1,2,3,4,5]
+    x = np.arange(16) + 1
     plt.title("Time vs number of parameters")
-    #plt.plot(time_elapsed, label='MC')
     plt.plot(x, udr_time)#, 'b-o', label='UDR')
     plt.ylabel("t (s)")
     plt.xlabel("# of params - 1")
@@ -242,7 +220,6 @@ if __name__ == '__main__':
     plt.show()
 
     plt.title("Mean")
-    #plt.plot(mean_array, label='MC')
     plt.axhline(mean_array[0])
     plt.plot(x,udr_means, label='UDR')
     plt.legend()
@@ -254,20 +231,4 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    #plt.title("Error in mean")
-    #plt.plot(np.abs(udr_means - mean_array[0]))
-    #plt.savefig("muerror_monday.png")
-    #plt.show()
 
-    #plt.title("Error in standard deviation")
-    #plt.plot(np.abs(udr_std - std_array[0]))
-    #plt.savefig("stderror_monday.png")
-    #plt.show()
-
-    #At_avg = np.mean(np.abs(optical_fields), axis=0)
-    #At_std = np.std(np.abs(optical_fields), axis=0)
-
-    #noise_sample = np.abs(optical_fields[0])
-    #print("Power Check: " + str(exp.power_check_single(At_avg)))
-
-raise AttributeError
