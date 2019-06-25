@@ -3,6 +3,7 @@ import numpy as np
 from itertools import count
 #from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+from noise_sim import normal_pdf
 from scipy.constants import *
 """
 ASOPE
@@ -123,9 +124,10 @@ class Fiber(Component):
         self.N_EPARAMETERS = 1
         self.EUPPER = [1]
         self.ELOWER = [0]
-        self.ERROR_PARAMETERS = {
-            'attenuation':0
-        }
+
+        self.at_pdfs = np.array([
+            [self.pdf_length] # Length
+        ])
 
     def simulate(self, env, At, visualize=False):
 
@@ -164,9 +166,15 @@ class Fiber(Component):
         :return:
         """
         sample = np.array([
-                 np.random.normal(0.1, 0.05) # Attenuation
+                 np.random.normal(0, 0.05) # Attenuation
                  ])
         return sample
+
+    def pdf_attenuation(self):
+        return 0, 0.05 #normal_pdf(x, 0, 0.05)
+
+    def pdf_length(self):
+        return 0, 0. #normal_pdf(x, 0, 0.005)
 
     def update_error_attributes(self, sample):
         i = 0
@@ -196,26 +204,20 @@ class PhaseModulator(Component):
         self.DSCRTVAL = [None, 6e9]
         self.FINETUNE_SKIP = None
         self.splitter = False
-
-        # Error Parameters
-        self.N_EPARAMETERS = 2
-        self.EUPPER = [2*np.pi, 100]
+        self.EUPPER = [2*np.pi, 1]
         self.ELOWER = [0, 0]
-        self.ERROR_PARAMETERS = {
-            'phasenoise':0,
-            'insertionloss':0
-        }
-        self.ERROR_PDFS = {
-            'phasenoise': self.pdf_phasenoise,
-            'insertionloss': self.pdf_insertionloss
-        }
+
+        self.at_pdfs = np.array([
+            [0, 0], # max shift
+            [0, 0]  # frequency
+        ])
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # phase amplitude [V/Vpi]
         NU = self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS) + self.ERROR_PARAMETERS['phasenoise']*np.random.randn(*np.shape(env.t))
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)# + self.ERROR_PARAMETERS['phasenoise']
 
         # apply phase shift temporally
         At = At * np.exp(1j * phase)
@@ -241,17 +243,16 @@ class PhaseModulator(Component):
     def error_model(self):
         sample = np.array([
             np.random.normal(0, 0.1), # Phase Noise
-            np.random.normal(0.02, 0.01) # Insertion loss
+            np.random.normal(0, 0.01) # Insertion loss
             ])
         return sample
 
-    def pdf_phasenoise(self, x):
-        return normal_pdf(x, 0, 0.1)
-
-    def pdf_insertionloss(self, x):
+    def pdf_phasenoise(self):
+        return 0, 0.1 #normal_pdf(x, 0, 0.1)
+      
+    def pdf_insertionloss(self):
         #return normal_pdf(x, 0.02, 0.01)
-        return normal_pdf(x, 0.02, 0.01)
-
+        return 0.02, 0.01 #normal_pdf(x, 0, 0.01)
 
     def update_error_attributes(self, sample):
         i = 0
@@ -285,14 +286,13 @@ class WaveShaper(Component):
         self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = None
         self.splitter = False
-        #Error Parameters
-        self.N_EPARAMETERS = 0
-        self.ERROR_PARAMETERS = {}
-        self.ERROR_PDFS = {}
-        #self.chromatic_dispersion = 10*pico/nano # 10ps/nm - max value on finistar4000s datasheet
-        #self.EUPPER = [10*pico/nano]
-        #self.ELOWER = [0]
 
+        self.at_pdfs = np.zeros((2*self.n_windows, 2))
+        for i in np.arange(2*self.n_windows):
+            if i%2 == 0:
+                self.at_pdfs[i] = [0, 0] #window amplitude
+            else:
+                self.at_pdfs[i] = [0, 0] #window phase
 
     def simulate(self, env, At, visualize = False):
         ampvalues = self.at[0:self.N_PARAMETERS//2]
@@ -324,9 +324,6 @@ class WaveShaper(Component):
         phasemask[left:right] = phase1
         ampmask[left:right] = amp1
 
-        # Chromatic Dispersion
-        # TODO: Implement/Confirm that this is correctly computed
-        #D = 2*np.pi*self.chromatic_dispersion*c*np.log(2*np.pi*env.f)
         Af = ampmask * np.exp(1j*(phasemask)) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
 
@@ -348,8 +345,6 @@ class WaveShaper(Component):
         return self.at
 
 
-
-
 #%%
 class PowerSplitter(Component):
     """
@@ -367,13 +362,6 @@ class PowerSplitter(Component):
         self.FINETUNE_SKIP = None
         self.splitter = True
 
-        self.N_EPARAMETERS = 1
-        self.EUPPER = [1]
-        self.ELOWER = [0]
-        self.ERROR_PARAMETERS = {
-            'power_split':0.5
-        }
-
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensure there is maximum 2 inputs/outputs (for now)
 
@@ -390,9 +378,6 @@ class PowerSplitter(Component):
         # apply scattering matrix to inputs and return the outputs
         At_out = At_in.dot(S)
 
-        # apply error
-        At_out[0] = 2*At_out[0]*self.ERROR_PARAMETERS['power_split']
-        At_out[1] = 2*At_out[1]*(1-self.ERROR_PARAMETERS['power_split'])
         if visualize:
             self.lines = None
 

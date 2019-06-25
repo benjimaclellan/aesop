@@ -42,9 +42,63 @@ from noise_sim import simulate_with_error, get_error_parameters, get_error_funct
 plt.close("all")
 
 #%%
+np.random.seed(seed=3141)
+
 
 #%%
+def optimize_experiment(experiment, env, gap, verbose=False):
+
+    if verbose:
+        print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))
+
+    # run (and time) the genetic algorithm
+    tstart = time.time()
+    hof, population, logbook = inner_geneticalgorithm(gap, env, experiment)
+    tstop = time.time()
+
+    if verbose:
+        print('\nElapsed time = {}'.format(tstop-tstart))
+
+    #%% convert DEAP logbook to easier datatype
+    log = extractlogbook(logbook)
+
+    #%%
+    hof_fine = []
+    for j in range(gap.N_HOF):
+        individual = copy.deepcopy(hof[j])
+        hof_fine.append(individual)
+
+        #%% Now fine tune the best individual using gradient descent
+        if gap.FINE_TUNE:
+            if verbose:
+                print('Fine-tuning the most fit individual using quasi-Newton method')
+
+            individual_fine = finetune_individual(individual, env, experiment)
+        else:
+            individual_fine = individual
+        hof_fine.append(individual_fine)
+
+    return experiment, hof, hof_fine, log
+
 if __name__ == '__main__':
+
+    #%% store all our hyper-parameters for the genetic algorithm
+    gap = GeneticAlgorithmParameters()
+    gap.TYPE = "inner"
+    gap.NFITNESS = 1           # how many values to optimize
+    gap.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
+    gap.MULTIPROC = True        # multiprocess or not
+    gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
+    gap.N_POPULATION = 100      # number of individuals in a population
+    gap.N_GEN = 10             # number of generations
+    gap.MUT_PRB = 0.5           # independent probability of mutation
+    gap.CRX_PRB = 0.5          # independent probability of cross-over
+    gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
+    gap.VERBOSE = 0             # verbose print statement for GA statistics
+    gap.INIT = None
+    gap.FINE_TUNE = True
+    gap.NUM_ELITE = 1
+    gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
 
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
@@ -87,8 +141,12 @@ if __name__ == '__main__':
     plt.plot(env.t, np.abs(At))
     plt.xlim([0,10/env.target_harmonic])
     plt.show()
-    samples = [10, 100, 1000]
-    time_elapsed = [0, 0, 0]
+
+    samples = [1000]
+
+    time_elapsed = [0]
+    mean_array = [0]
+    std_array = [0]
     j = 0
     for N in samples:
         """
@@ -98,13 +156,16 @@ if __name__ == '__main__':
         start = time.time()
 
         # Generate an array of fitness
-        fitnesses, optical_fields = simulate_component_noise(exp, env, At, N)
+        fitnesses = simulate_component_noise(exp, env, At, N)
 
         # Calculate statistics (mean/std) of the tests
         i = 0
         for row in fitnesses.T:
             std = np.std(row)
             mean = np.mean(row)
+            mean_array[j] = mean
+            std_array[j] = std
+
             print("Mean of column " + str(i) + " : " + str(mean))
             print("Standard deviation of column " + str(i) + " : " + str(std))
             i += 1
@@ -116,34 +177,57 @@ if __name__ == '__main__':
         print("Time: " + str(elapsed))
         print("________________")
 
-    plt.title("Monte Carlo Time Elapsed")
-    plt.plot(samples, time_elapsed)
-    plt.show()
-    """
     print("Beginning Univariate Dimension Reduction")
-    start = time.time()
-    error_params = get_error_parameters(exp)
-    error_functions = get_error_functions(exp)
-    f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
-    x, r = compute_interpolation_points(matrix_moments)
-    xim = np.imag(x)
-    xre = np.real(x)
-    if np.any(np.imag(x) != 0):
-        raise np.linalg.LinAlgError
-    x = np.real(x)
-    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments, fit[0]) + fit[0]
-    print("mu: " + str(mean))
-    std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments, fit[0]))
-    print("std: " + str(std))
-    stop = time.time()
-    print("Time: " + str(stop - start))
-    print("________________")
-    """
-    At_avg = np.mean(np.abs(optical_fields), axis=0)
-    At_std = np.std(np.abs(optical_fields), axis=0)
 
-    noise_sample = np.abs(optical_fields[0])
-    print("Power Check: " + str(exp.power_check_single(At_avg)))
+    udr_means = np.zeros(16)
+    udr_std = np.zeros_like(udr_means)
+    udr_time = np.zeros_like(udr_means)
 
+    simulate_with_error.count = 0
+    j = 1
+    for item in np.arange(16):
+        error_params = get_error_parameters(exp)[0:j]
+        print("N: " + str(np.shape(error_params)))
+        error_functions = get_error_functions(exp)[0:j]
+        f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
+        matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
+        x, r = compute_interpolation_points(matrix_moments)
+        xim = np.imag(x)
+        xre = np.real(x)
+        if np.any(np.imag(x) != 0):
+            raise np.linalg.LinAlgError
+        x = np.real(x)
+        simulate_with_error.count = 0
+        start = time.time()
+        mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
+        print("mu: " + str(mean))
+        std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
+        print("std: " + str(std))
+        stop = time.time()
+        udr_time[j-1] = (stop-start)
+        udr_means[j-1] = mean
+        udr_std[j-1] = std
+        print("Time: " + str(stop - start))
+        print("number of function calls : " + str(simulate_with_error.count))
+        print("________________")
+        j+=1
 
+    x = np.arange(16) + 1
+    plt.title("Time vs number of parameters")
+    plt.plot(x, udr_time)#, 'b-o', label='UDR')
+    plt.ylabel("t (s)")
+    plt.xlabel("# of params - 1")
+    plt.legend()
+    plt.show()
+
+    plt.title("Mean")
+    plt.axhline(mean_array[0])
+    plt.plot(x,udr_means, label='UDR')
+    plt.legend()
+    plt.show()
+
+    plt.title("Standard deviation")
+    plt.axhline(std_array[0])
+    plt.plot(x,udr_std, label='UDR')
+    plt.legend()
+    plt.show()
