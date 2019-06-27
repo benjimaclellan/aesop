@@ -42,7 +42,7 @@ from noise_sim import simulate_with_error, get_error_parameters, get_error_funct
 plt.close("all")
 
 #%%
-np.random.seed(seed=3141)
+#np.random.seed(seed=3141)
 
 
 #%%
@@ -124,7 +124,9 @@ if __name__ == '__main__':
 
     exp.draw(node_label = 'disp_name')
 
-    at = {0: [1.0885386831780766, 10000000000.0], 1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
+    at = {0: [1.0885386831780766, 10000000000.0],
+          1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
+
 
     print(at)
 
@@ -148,6 +150,8 @@ if __name__ == '__main__':
     mean_array = [0]
     std_array = [0]
     j = 0
+    at_optimal = at
+    print("Beginning Monte Carlo Simulation")
     for N in samples:
         """
         Robustness/Noise Simulation 
@@ -157,6 +161,8 @@ if __name__ == '__main__':
 
         # Generate an array of fitness
         fitnesses = simulate_component_noise(exp, env, At, N)
+        print(np.amax(fitnesses))
+        print(np.amin(fitnesses))
 
         # Calculate statistics (mean/std) of the tests
         i = 0
@@ -176,6 +182,12 @@ if __name__ == '__main__':
         j+=1
         print("Time: " + str(elapsed))
         print("________________")
+    exp.setattributes(at_optimal)
+
+    num_bins = 20
+    n, bins, patches = plt.hist(fitnesses, num_bins)
+    plt.title("Output distribution")
+    plt.show()
 
     print("Beginning Univariate Dimension Reduction")
 
@@ -222,12 +234,12 @@ if __name__ == '__main__':
 
     plt.title("Mean")
     plt.axhline(mean_array[0])
-    plt.plot(x,udr_means, label='UDR')
+    plt.plot(x,udr_means, 'r', label='UDR')
     plt.legend()
     plt.show()
 
     plt.title("Standard deviation")
     plt.axhline(std_array[0])
-    plt.plot(x,udr_std, label='UDR')
+    plt.plot(x,udr_std, 'r', label='UDR')
     plt.legend()
     plt.show()

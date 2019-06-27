@@ -33,8 +33,21 @@ def update_error_attributes(experiment):
             i = 0
             for mu, std in pdfs:
                 new_at[i] = np.random.normal(mu, std)
+                i += 1
 
-            exp.node()[node]['info'].at = new_at + at
+            new_at += at
+
+            i = 0
+            for val in new_at:
+                upper = exp.node()[node]['info'].UPPER[i]
+                lower = exp.node()[node]['info'].LOWER[i]
+                if val > upper:
+                    val = upper
+                if val < lower:
+                    val = lower
+                i += 1
+
+            exp.node()[node]['info'].at = new_at
 
         except AttributeError:
             print(node)

@@ -208,7 +208,7 @@ class PhaseModulator(Component):
         self.ELOWER = [0, 0]
 
         self.at_pdfs = np.array([
-            [0, 0], # max shift
+            [0, 0.1], # max shift
             [0, 0]  # frequency
         ])
 
@@ -289,7 +289,7 @@ class WaveShaper(Component):
 
         self.at_pdfs = np.zeros((2*self.n_windows, 2))
         for i in np.arange(2*self.n_windows):
-            if i%2 == 0:
+            if i < self.n_windows:
                 self.at_pdfs[i] = [0, 0] #window amplitude
             else:
                 self.at_pdfs[i] = [0, 0] #window phase
