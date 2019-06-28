@@ -4,6 +4,7 @@ import scipy.integrate as integrate
 from scipy.special import binom
 from scipy.misc import factorial2
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 def update_error_attributes(experiment):
     """
@@ -28,11 +29,13 @@ def update_error_attributes(experiment):
             pdfs = exp.node()[node]['info'].at_pdfs
 
             at = exp.node()[node]['info'].at
-
+            test = np.zeros(0)
             new_at = np.zeros((exp.nodes()[node]['info'].N_PARAMETERS))
             i = 0
             for mu, std in pdfs:
                 new_at[i] = np.random.normal(mu, std)
+                if std != 0:
+                    test = np.append(test, new_at[i])
                 i += 1
 
             new_at += at
@@ -468,7 +471,7 @@ def weights(j, i, r, x, matrix_array):
             term = x[j-1, i-1] - x[j-1, k-1]
 
         product = product * term
-        
+
     return sigma/product
 
 def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):

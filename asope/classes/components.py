@@ -159,34 +159,6 @@ class Fiber(Component):
         self.at = at
         return at
 
-    def error_model(self):
-        """
-        Model the distribution of component error and return a float
-
-        :return:
-        """
-        sample = np.array([
-                 np.random.normal(0, 0.05) # Attenuation
-                 ])
-        return sample
-
-    def pdf_attenuation(self):
-        return 0, 0.05 #normal_pdf(x, 0, 0.05)
-
-    def pdf_length(self):
-        return 0, 0. #normal_pdf(x, 0, 0.005)
-
-    def update_error_attributes(self, sample):
-        i = 0
-        for val in sample:
-            if val < self.ELOWER[i]:
-                val = self.ELOWER[i]
-            if val > self.EUPPER[i]:
-                val = self.EUPPER[i]
-            i+=1
-        self.ERROR_PARAMETERS['attenuation'] = sample[0]
-        return 0
-
 # ----------------------------------------------------------
 class PhaseModulator(Component):
     """
@@ -240,31 +212,6 @@ class PhaseModulator(Component):
         self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
         return self.at
 
-    def error_model(self):
-        sample = np.array([
-            np.random.normal(0, 0.1), # Phase Noise
-            np.random.normal(0, 0.01) # Insertion loss
-            ])
-        return sample
-
-    def pdf_phasenoise(self):
-        return 0, 0.1 #normal_pdf(x, 0, 0.1)
-      
-    def pdf_insertionloss(self):
-        #return normal_pdf(x, 0.02, 0.01)
-        return 0.02, 0.01 #normal_pdf(x, 0, 0.01)
-
-    def update_error_attributes(self, sample):
-        i = 0
-        for val in sample:
-            if val < self.ELOWER[i]:
-                val = self.ELOWER[i]
-            if val > self.EUPPER[i]:
-                val = self.EUPPER[i]
-            i+=1
-        self.ERROR_PARAMETERS['phasenoise'] = sample[0]
-        self.ERROR_PARAMETERS['insertionloss'] = sample[1]
-        return 0
 
 #%%
 class WaveShaper(Component):
@@ -393,22 +340,6 @@ class PowerSplitter(Component):
         self.at = at
         return at
 
-    def error_model(self):
-        sample = np.array([
-            np.random.normal(0.5, 0.01), # Power split
-            ])
-        return sample
-
-    def update_error_attributes(self, sample):
-        i = 0
-        for val in sample:
-            if val < self.ELOWER[i]:
-                val = self.ELOWER[i]
-            if val > self.EUPPER[i]:
-                val = self.EUPPER[i]
-            i+=1
-        self.ERROR_PARAMETERS['power_split'] = sample[0]
-        return 0
 #%%
 class FrequencySplitter(Component):
     """

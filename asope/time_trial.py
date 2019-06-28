@@ -85,14 +85,14 @@ if __name__ == '__main__':
     #%% store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
-    gap.NFITNESS = 1           # how many values to optimize
-    gap.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
+    gap.NFITNESS = 1            # how many values to optimize
+    gap.WEIGHTS = (1.0),        # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 100      # number of individuals in a population
-    gap.N_GEN = 10             # number of generations
+    gap.N_GEN = 10              # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
-    gap.CRX_PRB = 0.5          # independent probability of cross-over
+    gap.CRX_PRB = 0.5           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = 0             # verbose print statement for GA statistics
     gap.INIT = None
@@ -202,7 +202,7 @@ if __name__ == '__main__':
         print("N: " + str(np.shape(error_params)))
         error_functions = get_error_functions(exp)[0:j]
         f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-        matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
+        matrix_moments = compute_moment_matrices(error_params, error_functions, 7)
         x, r = compute_interpolation_points(matrix_moments)
         xim = np.imag(x)
         xre = np.real(x)
@@ -222,7 +222,7 @@ if __name__ == '__main__':
         print("Time: " + str(stop - start))
         print("number of function calls : " + str(simulate_with_error.count))
         print("________________")
-        j+=1
+        j += 1
 
     x = np.arange(16) + 1
     plt.title("Time vs number of parameters")
@@ -243,3 +243,5 @@ if __name__ == '__main__':
     plt.plot(x,udr_std, 'r', label='UDR')
     plt.legend()
     plt.show()
+
+raise AttributeError
