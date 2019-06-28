@@ -295,6 +295,14 @@ class Experiment(nx.DiGraph):
             if self.nodes[node]['info'].N_PARAMETERS > 0:
                 self.nodes[node]['info'].at = attributes[node]
 
+    def getattributes(self):
+        """
+            Get a set of attributes from all the nodes
+        :return dictionary:
+        """
+        at = {node: self.nodes[node]['info'].at for node in self.nodes()}
+        return at
+
     def seterrorattributes(self, error_attributes):
         """
         Saves a set of error attributes (parameters) to the nodes

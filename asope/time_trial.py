@@ -36,7 +36,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments
+from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments, mc_error_propagation
 from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
 
 plt.close("all")
@@ -151,39 +151,13 @@ if __name__ == '__main__':
     std_array = [0]
     j = 0
     at_optimal = at
-    print("Beginning Monte Carlo Simulation")
-    for N in samples:
-        """
-        Robustness/Noise Simulation 
-        """
-        # Number of Monte Carlo trials to preform
-        start = time.time()
 
-        # Generate an array of fitness
-        fitnesses = simulate_component_noise(exp, env, At, N)
-        print(np.amax(fitnesses))
-        print(np.amin(fitnesses))
-
-        # Calculate statistics (mean/std) of the tests
-        i = 0
-        for row in fitnesses.T:
-            std = np.std(row)
-            mean = np.mean(row)
-            mean_array[j] = mean
-            std_array[j] = std
-
-            print("Mean of column " + str(i) + " : " + str(mean))
-            print("Standard deviation of column " + str(i) + " : " + str(std))
-            i += 1
-
-        stop = time.time()
-        elapsed = stop-start
-        time_elapsed[j] = elapsed
-        j+=1
-        print("Time: " + str(elapsed))
-        print("________________")
-    exp.setattributes(at_optimal)
-
+    start = time.time()
+    fitnesses = mc_error_propagation(exp, env, 5000)
+    stop = time.time()
+    print("Time elapsed: " + str(stop-start) + "s")
+    print('Mean fitness ' + str(np.mean(fitnesses)))
+    print('Standard deviation ' + str(np.std(fitnesses)))
     num_bins = 20
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")

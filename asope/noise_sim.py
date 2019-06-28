@@ -4,88 +4,64 @@ import scipy.integrate as integrate
 from scipy.special import binom
 from scipy.misc import factorial2
 from copy import deepcopy
-import matplotlib.pyplot as plt
+import sys
 
-def update_error_attributes(experiment):
-    """
-    Goes through each component in the experiment and gives them new sampled error parameters
-
-    :param experiment:
-    :return:
-    """
-    exp = experiment
-    for node in exp.node():
-        # Check that there is an error model to update
-        try:
-            '''
-            if exp.node()[node]['info'].N_EPARAMETERS != 0:
-                component = exp.node()[node]['info']
-                #error_model() will return an array of appropriately sampled error attributes
-                #update_error_attributes() will use the array to save the properties to the component
-                new_at = component.error_model()
-
-                component.update_error_attributes(new_at)
-            '''
-            pdfs = exp.node()[node]['info'].at_pdfs
-
-            at = exp.node()[node]['info'].at
-            test = np.zeros(0)
-            new_at = np.zeros((exp.nodes()[node]['info'].N_PARAMETERS))
-            i = 0
-            for mu, std in pdfs:
-                new_at[i] = np.random.normal(mu, std)
-                if std != 0:
-                    test = np.append(test, new_at[i])
-                i += 1
-
-            new_at += at
-
-            i = 0
-            for val in new_at:
-                upper = exp.node()[node]['info'].UPPER[i]
-                lower = exp.node()[node]['info'].LOWER[i]
-                if val > upper:
-                    val = upper
-                if val < lower:
-                    val = lower
-                i += 1
-
-            exp.node()[node]['info'].at = new_at
-
-        except AttributeError:
-            print(node)
-            print("Exception occurred updating error models - is there a component without an implemented error model?")
-
-
-def simulate_component_noise(experiment, environment, input_At, N_samples):
-    """
-    Runs a monte carlo simulation of the component noise. Returns a (N_samples, m) array, where m is the number
-    of parameters returned by environment.fitness
+def perturb_experiment_parameters(experiment):
+    '''
 
     :param experiment:
-    :param environment:
-    :param input_At:
-    :param N_samples:
+    :param input_params:
+    :param input_pdfs:
     :return:
-    """
-    #rename variables
-    At = input_At
-    env = environment
-    exp = experiment
-    m = np.shape(env.fitness(At))[0]
-    #create empty array with the correct shape
-    fitnesses = np.zeros((N_samples, m))
-    length = np.shape(At)[0]
-    for i in np.arange(N_samples):
-        update_error_attributes(exp)
+    '''
+    # Get the original set of attributes
+    at_original = experiment.getattributes()
+    # Get the list of nodes
+    expnodes = experiment.nodes()
+
+    # Sample the input parameters from their pdfs
+    at_perturb = {}
+    for node in expnodes:
+        node_at = []
+        for moments in expnodes[node]['info'].at_pdfs:
+            mu, sigma = moments
+            sample_val = np.random.normal(mu, sigma)
+
+            node_at.append(sample_val)
+
+        at_perturb[node] = node_at
+
+    new_at = {node: [sum(x) for x in zip(at_original[node], at_perturb[node])] for node in at_original}
+
+    experiment.setattributes(new_at)
+
+    return new_at
+
+def mc_error_propagation(experiment, environment, N):
+    fitnesses = np.zeros(N)
+    print("Monte Carlo simulation:")
+    bar_length = 20
+
+    at_optimal = experiment.getattributes()
+    for i in np.arange(N):
+        progress = int(bar_length * (i+1)/N)
+        sys.stdout.write("\r" + "[" + "|"*progress + " "*(bar_length-progress) + "]")
+        sys.stdout.flush()
+        # Randomly perturb the experiment
+        perturb_experiment_parameters(experiment)
+
         # Simulate the experiment with the sampled error profile
-        exp.simulate(env)
-        At = exp.nodes[exp.measurement_nodes[0]]['output']
-        # Evaluate the fitness and store it in the array
-        fit = env.fitness(At)
-        fitnesses[i] = fit
+        experiment.simulate(environment)
+        At = experiment.nodes[experiment.measurement_nodes[0]]['output']
 
-    return fitnesses#, optical_fields
+        # Evaluate the fitness and store it in the array
+        fitnesses[i] = environment.fitness(At)[0]
+
+    print(" ")
+    # Reset the experiment to optimal parameters
+    experiment.setattributes(at_optimal)
+
+    return fitnesses
 
 def drop_node(experiment, node):
     """
