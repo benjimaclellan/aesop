@@ -36,7 +36,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments, mc_error_propagation
+from noise_sim import drop_node, remove_redundancies, UDR_moments, mc_error_propagation
 from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
 
 plt.close("all")
@@ -144,45 +144,55 @@ if __name__ == '__main__':
     plt.xlim([0,10/env.target_harmonic])
     plt.show()
 
-    samples = [1000]
-
-    time_elapsed = [0]
-    mean_array = [0]
-    std_array = [0]
-    j = 0
-    at_optimal = at
-
+    ## Monte Carlo
+    print("Beginning Monte Carlo Simulation")
+    N = 10000
     start = time.time()
-    fitnesses = mc_error_propagation(exp, env, 5000)
+    fitnesses = mc_error_propagation(exp, env, N)
     stop = time.time()
+
+    mu = np.mean(fitnesses)
+    std = np.std(fitnesses)
+
     print("Time elapsed: " + str(stop-start) + "s")
-    print('Mean fitness ' + str(np.mean(fitnesses)))
-    print('Standard deviation ' + str(np.std(fitnesses)))
+    print('Mean fitness ' + str(mu))
+    print('Standard deviation ' + str(std))
+    # make histogram
     num_bins = 20
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")
     plt.show()
 
+
+    ## UDR
     print("Beginning Univariate Dimension Reduction")
 
-    udr_means = np.zeros(16)
+    vals = [3,5,7,9,11,13]
+
+
+    udr_means = np.zeros(np.size(vals))
     udr_std = np.zeros_like(udr_means)
     udr_time = np.zeros_like(udr_means)
 
     simulate_with_error.count = 0
     j = 1
-    for item in np.arange(16):
-        error_params = get_error_parameters(exp)[0:j]
+    for item in vals:
+        ## Compute the interpolation points
+        error_params = get_error_parameters(exp)
         print("N: " + str(np.shape(error_params)))
-        error_functions = get_error_functions(exp)[0:j]
+        error_functions = get_error_functions(exp)
         f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-        matrix_moments = compute_moment_matrices(error_params, error_functions, 7)
+        matrix_moments = compute_moment_matrices(error_params, item)
         x, r = compute_interpolation_points(matrix_moments)
+
+        ## Make sure there wasn't any underflow errors etc
         xim = np.imag(x)
         xre = np.real(x)
         if np.any(np.imag(x) != 0):
-            raise np.linalg.LinAlgError
+            raise np.linalg.LinAlgError("Complex values found in interpolation points")
         x = np.real(x)
+
+        ## Compute moments of the output distribution
         simulate_with_error.count = 0
         start = time.time()
         mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
@@ -198,24 +208,27 @@ if __name__ == '__main__':
         print("________________")
         j += 1
 
-    x = np.arange(16) + 1
-    plt.title("Time vs number of parameters")
-    plt.plot(x, udr_time)#, 'b-o', label='UDR')
+    #x = np.arange(16) + 1
+    plt.title("Time vs number of interpolation pts")
+    plt.plot(vals, udr_time)#, 'b-o', label='UDR')
     plt.ylabel("t (s)")
-    plt.xlabel("# of params - 1")
+    plt.xlabel("number of interpolation points")
     plt.legend()
     plt.show()
 
-    plt.title("Mean")
-    plt.axhline(mean_array[0])
-    plt.plot(x,udr_means, 'r', label='UDR')
+    plt.title("Error in mean")
+    #plt.axhline(mean_array[0])
+    plt.xlabel("number of interpolation points")
+    plt.ylabel("relative error")
+    plt.plot(vals, (udr_means-udr_means[-1])/udr_means[-1], 'r', label='UDR')
     plt.legend()
     plt.show()
 
-    plt.title("Standard deviation")
-    plt.axhline(std_array[0])
-    plt.plot(x,udr_std, 'r', label='UDR')
+    plt.title("Error in Standard deviation")
+    #plt.axhline(std_array[0])
+    plt.xlabel("number of interpolation points")
+    plt.ylabel("relative error")
+    plt.plot(vals, (udr_std-udr_std[-1])/(udr_std[-1]), 'r', label='UDR')
     plt.legend()
     plt.show()
 
-raise AttributeError

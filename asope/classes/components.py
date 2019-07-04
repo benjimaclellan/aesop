@@ -181,7 +181,7 @@ class PhaseModulator(Component):
 
         self.at_pdfs = np.array([
             [0, 0.1], # max shift
-            [0, 0]  # frequency
+            [0, 1]  # frequency
         ])
 
     def simulate(self, env, At,  visualize=False):
@@ -239,7 +239,7 @@ class WaveShaper(Component):
             if i < self.n_windows:
                 self.at_pdfs[i] = [0, 0] #window amplitude
             else:
-                self.at_pdfs[i] = [0, 0] #window phase
+                self.at_pdfs[i] = [0, 0.1] #window phase
 
     def simulate(self, env, At, visualize = False):
         ampvalues = self.at[0:self.N_PARAMETERS//2]

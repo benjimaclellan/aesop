@@ -163,7 +163,6 @@ def get_error_functions(experiment):
         '''
 
         node_pdfs = experiment.node()[node]['info'].at_pdfs
-        i = 0
         for fx in node_pdfs:
             error_functions = np.append(error_functions, fx)
 
@@ -340,7 +339,7 @@ def UDR_moments(y, l, input_variables, input_pdfs, x, matrix_array):
 
     return moment
 
-def compute_moment_matrices(input_variables, input_pdfs, n):
+def compute_moment_matrices(input_variables, n):
     """
     To find the interpolation points we need to construct a matrix
 
