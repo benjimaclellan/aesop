@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
     ## Monte Carlo
     print("Beginning Monte Carlo Simulation")
-    N = 10000
+    N = 1000
     start = time.time()
     fitnesses = mc_error_propagation(exp, env, N)
     stop = time.time()
@@ -167,8 +167,7 @@ if __name__ == '__main__':
     ## UDR
     print("Beginning Univariate Dimension Reduction")
 
-    vals = [3,5,7,9,11,13]
-
+    vals = [5]
 
     udr_means = np.zeros(np.size(vals))
     udr_std = np.zeros_like(udr_means)

@@ -214,7 +214,7 @@ def simulate_with_error(perturb, experiment, environment):
     experiment.simulate(environment)
     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
 
-    fit = environment.fitness(At)
+    fit = environment.waveform_temporal_overlap(At)
 
     # reset to optimal value
     experiment.node()[int(node)]['info'].at[index] = optimal_val
@@ -299,7 +299,6 @@ def S(i, j, y, matrix_array, input_variables, input_pdfs, x):
     """
 
     if j<1:
-
         # j should range from N to 1, never less
         raise ValueError("j should never be less then 1")
 
@@ -384,15 +383,12 @@ def compute_interpolation_points(matrix_array):
     :param matrix_array:
     :return ndarray:
     """
-
     # declare arrays
-
     N = np.shape(matrix_array)[2]
     x = np.zeros((0, N-1))
     r = np.zeros((0, N))
 
     for j in np.arange(np.shape(matrix_array)[0]):
-
         # get the jth moment matrix
         moment_matrix = matrix_array[j-1]
         # slice off the b vector (Ax = b)
@@ -475,3 +471,25 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
     return sigma
 
 UDR_evCalculation.count = 0
+
+def UDR_moment_approximation(exp, env, l, n):
+    ## Compute the interpolation points
+    error_params = get_error_parameters(exp)
+    error_functions = get_error_functions(exp)
+    fit_mean = simulate_with_error([0,0,0], exp, env)
+    f2 = lambda x: simulate_with_error(x, exp, env) - fit_mean
+    matrix_moments = compute_moment_matrices(error_params, n)
+    x, r = compute_interpolation_points(matrix_moments)
+
+    ## Make sure there wasn't any underflow errors etc
+    xim = np.imag(x)
+    xre = np.real(x)
+    if np.any(np.imag(x) != 0):
+        raise np.linalg.LinAlgError("Complex values found in interpolation points")
+    x = np.real(x)
+
+    ## Compute moments of the output distribution
+    simulate_with_error.count = 0
+    moment = UDR_moments(f2, l, error_params, error_functions, [x,r], matrix_moments)
+
+    return moment

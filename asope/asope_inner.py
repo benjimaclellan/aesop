@@ -36,8 +36,8 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import update_error_attributes, simulate_component_noise, drop_node, remove_redundancies, UDR_moments, UDR_evCalculation
-from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
+from noise_sim import drop_node, remove_redundancies, mc_error_propagation
+from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation
 
 plt.close("all")
 
@@ -82,16 +82,16 @@ if __name__ == '__main__':
     #%% store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
-    gap.NFITNESS = 1           # how many values to optimize
-    gap.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
+    gap.NFITNESS = 2            # how many values to optimize
+    gap.WEIGHTS = (1.0, 1.0)    # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 100      # number of individuals in a population
-    gap.N_GEN = 10             # number of generations
+    gap.N_POPULATION = 12       # number of individuals in a population (make this a multiple of NCORES!)
+    gap.N_GEN = 2               # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
-    gap.CRX_PRB = 0.5          # independent probability of cross-over
+    gap.CRX_PRB = 0.5           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
-    gap.VERBOSE = 0             # verbose print statement for GA statistics
+    gap.VERBOSE = True          # verbose print statement for GA statistics
     gap.INIT = None
     gap.FINE_TUNE = True
     gap.NUM_ELITE = 1
@@ -122,22 +122,20 @@ if __name__ == '__main__':
     exp.inject_optical_field(env.At)
     
     exp.draw(node_label = 'disp_name')
-
     
     #%%
-    #exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
     
     #%%
-    #fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
-    #ax_log.plot(log['gen'], log['max'], label='Maximum', ls='-', color='salmon', alpha=1.0)
-    #ax_log.plot(log['gen'], log['avg'], label='Mean', ls='-.', color='blue', alpha=0.7)
-    #ax_log.legend()
-    #ax_log.set_xlabel('Generation')
-    #ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
+    fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
+    ax_log.plot(log['gen'], log["Best [fitness, variance]"], label='Maximum', ls='-', color='salmon', alpha=1.0)
+    ax_log.plot(log['gen'], log["Average [fitness, variance]"], label='Mean', ls='-.', color='blue', alpha=0.7)
+    ax_log.legend()
+    ax_log.set_xlabel('Generation')
+    ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
     
     #%%
-    #at = hof_fine[0]
-    at = {0: [1.0885386831780766, 10000000000.0], 1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
+    at = hof_fine[0]
 
     print(at)
     
@@ -165,71 +163,9 @@ if __name__ == '__main__':
     #exp.draw()
     #plt.show()
 
-    """
-    Robustness/Noise Simulation 
-    """
-    print("Beginning Monte Carlo simulation")
-    # Number of Monte Carlo trials to preform
-    start = time.time()
-    N_samples = 500
-
-    # Generate an array of fitness
-    fitnesses = simulate_component_noise(exp, env, At, N_samples)
-    if gap.VERBOSE:
-        print("Fitness Array: ")
-        print(fitnesses)
-
-    # Calculate statistics (mean/std) of the tests
-    i = 0
-    for row in fitnesses.T:
-        std = np.std(row)
-        mean = np.mean(row)
-        print("Mean of column " + str(i) + " : " + str(mean))
-        print("Standard deviation of column " + str(i) + " : " + str(std))
-        i += 1
-
-
-    print("sim count " + str(simulate_with_error.count))
-
-    stop = time.time()
-    print("Time: " + str(stop - start))
-    print("________________")
-    print("Beginning Univariate Dimension Reduction")
-    start = time.time()
-    error_params = get_error_parameters(exp)
-    error_functions = get_error_functions(exp)
-    # Create a lambda function as we do not want to pass exp,env
-    f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-
-    matrix_moments = compute_moment_matrices(error_params, error_functions, 5)
-
-    x, r = compute_interpolation_points(matrix_moments)
-    xim = np.imag(x)
-    xre = np.real(x)
-    if np.any(np.imag(x) != 0):
-        # check for machine accuracy errors causing imaginary vals
-        raise np.linalg.LinAlgError
-    x = np.real(x)
-    mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
-    print("mu: " + str(mean))
-    #std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
-    #print("std: " + str(std))
-
-    stop = time.time()
-    print("Time: " + str(stop - start))
-    print("________________")
-    print("sim count " + str(simulate_with_error.count))
-    print("udr count " + str(UDR_evCalculation.count))
-    print("number of variables " + str(np.shape(error_params)[0]))
-    #At_avg = np.mean(np.abs(optical_fields), axis=0)
-    #At_std = np.std(np.abs(optical_fields), axis=0)
-
-    #At_avg = env.shift_function(At_avg)
-
     #noise_sample = np.abs(optical_fields[0])
     #print("Power Check: " + str(exp.power_check_single(At_avg)))
     # clear memory space
-    del fitnesses
     #del optical_fields
 
     #%%
@@ -267,5 +203,29 @@ if __name__ == '__main__':
     #exp.visualize(env)
     #plt.show()
 
-#    save_experiment_and_plot(exp, env, At)
+    #save_experiment_and_plot(exp, env, At)
+    print("Preforming UDR")
+    mu = UDR_moment_approximation(exp, env, 1, 5)
+    print("MEAN: " + str(mu))
+    std = np.sqrt(UDR_moment_approximation(exp, env, 2, 5))
+    print("STD: " + str(std))
+
+    ## Monte Carlo
+    print("Beginning Monte Carlo Simulation")
+    N = 1000
+    start = time.time()
+    fitnesses = mc_error_propagation(exp, env, N)
+    stop = time.time()
+
+    mu = np.mean(fitnesses)
+    std = np.std(fitnesses)
+
+    print("Time elapsed: " + str(stop-start) + "s")
+    print('Mean fitness ' + str(mu))
+    print('Standard deviation ' + str(std))
+    # make histogram
+    num_bins = 20
+    n, bins, patches = plt.hist(fitnesses, num_bins)
+    plt.title("Output distribution")
+    plt.show()
 
