@@ -96,7 +96,7 @@ if __name__ == '__main__':
     gap.FINE_TUNE = True
     gap.NUM_ELITE = 1
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
-    
+
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
@@ -163,41 +163,22 @@ if __name__ == '__main__':
     #exp.draw()
     #plt.show()
 
-    #noise_sample = np.abs(optical_fields[0])
-    #print("Power Check: " + str(exp.power_check_single(At_avg)))
-    # clear memory space
-    #del optical_fields
 
     #%%
     plt.figure()
-    #generated = env.shift_function(P(At_avg))
-    #minval, maxval = np.min(At_avg), np.max(At_avg)
+    generated = env.shift_function(P(At))
+    minval, maxval = np.min(At), np.max(At)
     print("Normalize? " + str(env.normalize))
-    '''if env.normalize:
+    if env.normalize:
         #TODO: Determine how to properly normalize STD
-        At_avg = At_avg/maxval
+        At_norm = At / maxval
         #At_avg = (At_avg-minval)/(maxval-minval)
         #At_std = At_std/maxval
-        noise_sample = (noise_sample-minval)/(maxval-minval)
-    '''
 
-    #plt.plot(env.t, generated,label='current')
-    #plt.plot(env.t, env.target,label='target',ls=':')
-    #plt.plot(env.t, env.At0, label='initial')
-    #plt.plot(env.t, At_avg,'r', label='current')
-    #plt.plot(env.t, At_avg + At_std, 'r--')
-    #plt.plot(env.t, At_avg - At_std, 'r--')
-    #plt.plot(env.t, noise_sample, 'k--', label="noise sample")
-    #plt.xlim([0,10/env.target_harmonic])
-    #plt.legend()
-    #plt.show()
-    
     #plt.figure()
     #plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
     #plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
     #plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
-    #plt.plot(np.abs(RFSpectrum(At_avg - At_std, env.dt)), label='lower std')
-    #plt.legend()
     #plt.show()
 
     #exp.visualize(env)
@@ -228,4 +209,3 @@ if __name__ == '__main__':
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")
     plt.show()
-
