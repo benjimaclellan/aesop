@@ -184,6 +184,11 @@ class PhaseModulator(Component):
             [0, 1]  # frequency
         ])
 
+        self.at_labels = [
+            'max shift',
+            'frequency'
+        ]
+
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # phase amplitude [V/Vpi]
@@ -235,11 +240,16 @@ class WaveShaper(Component):
         self.splitter = False
 
         self.at_pdfs = np.zeros((2*self.n_windows, 2))
+        self.at_labels = []
         for i in np.arange(2*self.n_windows):
             if i < self.n_windows:
                 self.at_pdfs[i] = [0, 0] #window amplitude
+                self.at_labels.append('window ampltiude ' + str(i))
             else:
                 self.at_pdfs[i] = [0, 0.1] #window phase
+                self.at_labels.append('window phase ' + str(i-self.n_windows))
+
+
 
     def simulate(self, env, At, visualize = False):
         ampvalues = self.at[0:self.N_PARAMETERS//2]

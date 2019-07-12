@@ -13,6 +13,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 #%% import public modules
 import time
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocess as mp
@@ -36,7 +37,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import drop_node, remove_redundancies, UDR_moments, mc_error_propagation
+from noise_sim import drop_node, remove_redundancies, UDR_moments, mc_error_propagation, UDRAnalysis
 from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
 
 plt.close("all")
@@ -127,7 +128,6 @@ if __name__ == '__main__':
     at = {0: [1.0885386831780766, 10000000000.0],
           1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
 
-
     print(at)
 
     exp.setattributes(at)
@@ -167,67 +167,47 @@ if __name__ == '__main__':
     ## UDR
     print("Beginning Univariate Dimension Reduction")
 
-    vals = [5]
+    print("Output standard deviation varying individual parameters:")
+    stds = np.sqrt(UDRAnalysis(exp, env))
+    labels = []
+    for node, key in get_error_parameters(exp):
+        title = exp.nodes()[node]['title']
+        labels.append(title)
 
-    udr_means = np.zeros(np.size(vals))
+    results = pd.DataFrame(labels, columns=["Component"])
+    results = results.assign(Output_Deviation = stds)
+    print(results)
+
+    udr_means = np.zeros(np.size(5))
     udr_std = np.zeros_like(udr_means)
     udr_time = np.zeros_like(udr_means)
 
     simulate_with_error.count = 0
-    j = 1
-    for item in vals:
-        ## Compute the interpolation points
-        error_params = get_error_parameters(exp)
-        print("N: " + str(np.shape(error_params)))
-        error_functions = get_error_functions(exp)
-        f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
-        matrix_moments = compute_moment_matrices(error_params, item)
-        x, r = compute_interpolation_points(matrix_moments)
 
-        ## Make sure there wasn't any underflow errors etc
-        xim = np.imag(x)
-        xre = np.real(x)
-        if np.any(np.imag(x) != 0):
-            raise np.linalg.LinAlgError("Complex values found in interpolation points")
-        x = np.real(x)
+    ## Compute the interpolation points
+    error_params = get_error_parameters(exp)
+    error_functions = get_error_functions(exp)
+    f = lambda x: simulate_with_error(x, exp, env) - fit[0]
+    matrix_moments = compute_moment_matrices(error_params, 5)
+    x, r = compute_interpolation_points(matrix_moments)
 
-        ## Compute moments of the output distribution
-        simulate_with_error.count = 0
-        start = time.time()
-        mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
-        print("mu: " + str(mean))
-        std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
-        print("std: " + str(std))
-        stop = time.time()
-        udr_time[j-1] = (stop-start)
-        udr_means[j-1] = mean
-        udr_std[j-1] = std
-        print("Time: " + str(stop - start))
-        print("number of function calls : " + str(simulate_with_error.count))
-        print("________________")
-        j += 1
+    ## Make sure there wasn't any underflow errors etc
+    xim = np.imag(x)
+    xre = np.real(x)
+    if np.any(np.imag(x) != 0):
+        raise np.linalg.LinAlgError("Complex values found in interpolation points")
+    x = np.real(x)
 
-    #x = np.arange(16) + 1
-    plt.title("Time vs number of interpolation pts")
-    plt.plot(vals, udr_time)#, 'b-o', label='UDR')
-    plt.ylabel("t (s)")
-    plt.xlabel("number of interpolation points")
-    plt.legend()
-    plt.show()
+    ## Compute moments of the output distribution
+    simulate_with_error.count = 0
+    start = time.time()
+    mean = UDR_moments(f, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
 
-    plt.title("Error in mean")
-    #plt.axhline(mean_array[0])
-    plt.xlabel("number of interpolation points")
-    plt.ylabel("relative error")
-    plt.plot(vals, (udr_means-udr_means[-1])/udr_means[-1], 'r', label='UDR')
-    plt.legend()
-    plt.show()
-
-    plt.title("Error in Standard deviation")
-    #plt.axhline(std_array[0])
-    plt.xlabel("number of interpolation points")
-    plt.ylabel("relative error")
-    plt.plot(vals, (udr_std-udr_std[-1])/(udr_std[-1]), 'r', label='UDR')
-    plt.legend()
-    plt.show()
-
+    print("Results for all variables together")
+    print("Mean fitness: " + str(mean))
+    std = np.sqrt(UDR_moments(f, 2, error_params, error_functions, [x,r], matrix_moments))
+    print("Standard Deviation: " + str(std))
+    stop = time.time()
+    print("Time elapsed: " + str(stop - start))
+    #print("number of function calls : " + str(simulate_with_error.count))
+    print("________________")

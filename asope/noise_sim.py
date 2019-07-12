@@ -493,3 +493,39 @@ def UDR_moment_approximation(exp, env, l, n):
     moment = UDR_moments(f2, l, error_params, error_functions, [x,r], matrix_moments)
 
     return moment
+
+def UDRAnalysis(exp, env):
+    """
+    Function to fully do error analysis after the inner algorithm runs.
+
+    :param exp:
+    :param env:
+    :return:
+    """
+    #Get parameters and compute interpolation points.
+    error_params = get_error_parameters(exp)
+    error_functions = get_error_functions(exp)
+    fit_mean = simulate_with_error([0,0,0], exp, env)
+
+    # We will compute the individual std of each component:
+
+    variances = []
+    f = lambda x: simulate_with_error(x, exp, env) - fit_mean
+
+    j = 0
+    for param in error_params:
+        matrix_moments = compute_moment_matrices([param], 5)
+        x, r = compute_interpolation_points(matrix_moments)
+
+        xim = np.imag(x)
+        xre = np.real(x)
+        if np.any(np.imag(x) != 0):
+            raise np.linalg.LinAlgError("Complex values found in interpolation points")
+
+        x = xre
+        variance = UDR_moments(f, 2, [param], [error_functions[j]], [x,r], matrix_moments)
+
+        variances.append(variance)
+
+    return variances
+

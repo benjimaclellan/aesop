@@ -18,6 +18,7 @@ import matplotlib as mpl
 import multiprocess as mp
 import copy 
 import numpy as np
+import pandas as pd
 from scipy import signal 
 
 #%% import custom modules
@@ -36,8 +37,8 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import drop_node, remove_redundancies, mc_error_propagation
-from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation
+from noise_sim import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points
+from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
 
 plt.close("all")
 
@@ -112,7 +113,7 @@ if __name__ == '__main__':
                  }
     adj = [(0,1)]
 
-    #%% initialize the experiment, and perform all the preprocessing steps
+    #%% initialize the experiment, and perform all the pre-processing steps
     exp = Experiment()
     exp.buildexperiment(components, adj)
     exp.checkexperiment()
@@ -156,13 +157,11 @@ if __name__ == '__main__':
     """
     Redundancy Check
     """
-
     #print("Beginning Redundancy Check")
     #exp = remove_redundancies(exp, env, gap.VERBOSE)
     #plt.show()
     #exp.draw()
     #plt.show()
-
 
     #%%
     plt.figure()
@@ -175,6 +174,59 @@ if __name__ == '__main__':
         #At_avg = (At_avg-minval)/(maxval-minval)
         #At_std = At_std/maxval
 
+    ## UDR
+    print("Beginning Univariate Dimension Reduction")
+
+    print("Output standard deviation varying individual parameters:")
+    stds = np.sqrt(UDRAnalysis(exp, env))
+    comp_labels = []
+    at_labels = []
+    for node, key in get_error_parameters(exp):
+        # Get the component labels and construct a string for the dataframe
+        node, key = int(node), int(key)
+        try:
+            title = exp.nodes()[node]['title']
+            label = exp.nodes()[node]['info'].at_labels[key]
+            comp_labels.append(title)
+            at_labels.append(label)
+        except AttributeError or TypeError:
+            print("Error getting component and attribute labels")
+
+    results = pd.DataFrame(comp_labels, columns=["Component"])
+    results = results.assign(Attribute = at_labels)
+    results = results.assign(Output_Deviation = stds)
+    print(results)
+
+    simulate_with_error.count = 0
+
+    ## Compute the interpolation points
+    error_params = get_error_parameters(exp)
+    error_functions = get_error_functions(exp)
+    f = lambda x: simulate_with_error(x, exp, env) - fit[0]
+    matrix_moments = compute_moment_matrices(error_params, 5)
+    x, r = compute_interpolation_points(matrix_moments)
+
+    ## Make sure there wasn't any underflow errors etc
+    xim = np.imag(x)
+    xre = np.real(x)
+    if np.any(np.imag(x) != 0):
+        raise np.linalg.LinAlgError("Complex values found in interpolation points")
+    x = np.real(x)
+
+    ## Compute moments of the output distribution
+    simulate_with_error.count = 0
+    start = time.time()
+    mean = UDR_moments(f, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
+
+    print("Results for all variables together")
+    print("Mean fitness: " + str(mean))
+    std = np.sqrt(UDR_moments(f, 2, error_params, error_functions, [x,r], matrix_moments))
+    print("Standard Deviation: " + str(std))
+    stop = time.time()
+    print("Time elapsed: " + str(stop - start))
+    #print("number of function calls : " + str(simulate_with_error.count))
+    print("________________")
+
     #plt.figure()
     #plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
     #plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
@@ -183,13 +235,6 @@ if __name__ == '__main__':
 
     #exp.visualize(env)
     #plt.show()
-
-    #save_experiment_and_plot(exp, env, At)
-    print("Preforming UDR")
-    mu = UDR_moment_approximation(exp, env, 1, 5)
-    print("MEAN: " + str(mu))
-    std = np.sqrt(UDR_moment_approximation(exp, env, 2, 5))
-    print("STD: " + str(std))
 
     ## Monte Carlo
     print("Beginning Monte Carlo Simulation")
