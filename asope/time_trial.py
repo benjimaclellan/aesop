@@ -7,18 +7,18 @@ The inner optimization process for the Automated Search for Optical Processing E
 
 #%% this allows proper multiprocessing (overrides internal multiprocessing settings)
 import os
-os.environ["MKL_NUM_THREADS"] = "1" 
-os.environ["NUMEXPR_NUM_THREADS"] = "1" 
-os.environ["OMP_NUM_THREADS"] = "1" 
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
 
 #%% import public modules
 import time
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocess as mp
-import copy 
+import copy
 import numpy as np
-from scipy import signal 
+from scipy import signal
 
 #%% import custom modules
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
@@ -36,29 +36,33 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import drop_node, remove_redundancies, mc_error_propagation
-from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation
+from noise_sim import drop_node, remove_redundancies, UDR_moments, mc_error_propagation
+from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, compute_moment_matrices, compute_interpolation_points
 
 plt.close("all")
 
 #%%
+#np.random.seed(seed=3141)
+
+
+#%%
 def optimize_experiment(experiment, env, gap, verbose=False):
-    
+
     if verbose:
         print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN, gap.N_POPULATION))
-    
+
     # run (and time) the genetic algorithm
     tstart = time.time()
     hof, population, logbook = inner_geneticalgorithm(gap, env, experiment)
     tstop = time.time()
-    
+
     if verbose:
         print('\nElapsed time = {}'.format(tstop-tstart))
-    
+
     #%% convert DEAP logbook to easier datatype
     log = extractlogbook(logbook)
 
-    #%%    
+    #%%
     hof_fine = []
     for j in range(gap.N_HOF):
         individual = copy.deepcopy(hof[j])
@@ -76,22 +80,21 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
     return experiment, hof, hof_fine, log
 
-#%%
-if __name__ == '__main__': 
+if __name__ == '__main__':
 
     #%% store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
-    gap.NFITNESS = 2            # how many values to optimize
-    gap.WEIGHTS = (1.0, 1.0)    # weights to put on the multiple fitness values
+    gap.NFITNESS = 1            # how many values to optimize
+    gap.WEIGHTS = (1.0),        # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 12       # number of individuals in a population (make this a multiple of NCORES!)
-    gap.N_GEN = 2               # number of generations
+    gap.N_POPULATION = 100      # number of individuals in a population
+    gap.N_GEN = 10              # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
-    gap.VERBOSE = True          # verbose print statement for GA statistics
+    gap.VERBOSE = 0             # verbose print statement for GA statistics
     gap.INIT = None
     gap.FINE_TUNE = True
     gap.NUM_ELITE = 1
@@ -100,11 +103,9 @@ if __name__ == '__main__':
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
-    #env.createnoise()
-    #env.addnoise()
-    
+
     env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
-    
+
     #%%
     components = {
                     0:PhaseModulator(),
@@ -120,25 +121,15 @@ if __name__ == '__main__':
     exp.make_path()
     exp.check_path()
     exp.inject_optical_field(env.At)
-    
+
     exp.draw(node_label = 'disp_name')
-    
-    #%%
-    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
-    
-    #%%
-    fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
-    ax_log.plot(log['gen'], log["Best [fitness, variance]"], label='Maximum', ls='-', color='salmon', alpha=1.0)
-    ax_log.plot(log['gen'], log["Average [fitness, variance]"], label='Mean', ls='-.', color='blue', alpha=0.7)
-    ax_log.legend()
-    ax_log.set_xlabel('Generation')
-    ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
-    
-    #%%
-    at = hof_fine[0]
+
+    at = {0: [1.0885386831780766, 10000000000.0],
+          1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
+
 
     print(at)
-    
+
     exp.setattributes(at)
     exp.simulate(env)
 
@@ -152,44 +143,6 @@ if __name__ == '__main__':
     plt.plot(env.t, np.abs(At))
     plt.xlim([0,10/env.target_harmonic])
     plt.show()
-
-    """
-    Redundancy Check
-    """
-
-    #print("Beginning Redundancy Check")
-    #exp = remove_redundancies(exp, env, gap.VERBOSE)
-    #plt.show()
-    #exp.draw()
-    #plt.show()
-
-
-    #%%
-    plt.figure()
-    generated = env.shift_function(P(At))
-    minval, maxval = np.min(At), np.max(At)
-    print("Normalize? " + str(env.normalize))
-    if env.normalize:
-        #TODO: Determine how to properly normalize STD
-        At_norm = At / maxval
-        #At_avg = (At_avg-minval)/(maxval-minval)
-        #At_std = At_std/maxval
-
-    #plt.figure()
-    #plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
-    #plt.plot(np.abs(RFSpectrum(At_avg, env.dt)),label='current')
-    #plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
-    #plt.show()
-
-    #exp.visualize(env)
-    #plt.show()
-
-    #save_experiment_and_plot(exp, env, At)
-    print("Preforming UDR")
-    mu = UDR_moment_approximation(exp, env, 1, 5)
-    print("MEAN: " + str(mu))
-    std = np.sqrt(UDR_moment_approximation(exp, env, 2, 5))
-    print("STD: " + str(std))
 
     ## Monte Carlo
     print("Beginning Monte Carlo Simulation")
@@ -209,3 +162,72 @@ if __name__ == '__main__':
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")
     plt.show()
+
+
+    ## UDR
+    print("Beginning Univariate Dimension Reduction")
+
+    vals = [5]
+
+    udr_means = np.zeros(np.size(vals))
+    udr_std = np.zeros_like(udr_means)
+    udr_time = np.zeros_like(udr_means)
+
+    simulate_with_error.count = 0
+    j = 1
+    for item in vals:
+        ## Compute the interpolation points
+        error_params = get_error_parameters(exp)
+        print("N: " + str(np.shape(error_params)))
+        error_functions = get_error_functions(exp)
+        f2 = lambda x: simulate_with_error(x, exp, env) - fit[0]
+        matrix_moments = compute_moment_matrices(error_params, item)
+        x, r = compute_interpolation_points(matrix_moments)
+
+        ## Make sure there wasn't any underflow errors etc
+        xim = np.imag(x)
+        xre = np.real(x)
+        if np.any(np.imag(x) != 0):
+            raise np.linalg.LinAlgError("Complex values found in interpolation points")
+        x = np.real(x)
+
+        ## Compute moments of the output distribution
+        simulate_with_error.count = 0
+        start = time.time()
+        mean = UDR_moments(f2, 1, error_params, error_functions, [x,r], matrix_moments) + fit[0]
+        print("mu: " + str(mean))
+        std = np.sqrt(UDR_moments(f2, 2, error_params, error_functions, [x,r], matrix_moments))
+        print("std: " + str(std))
+        stop = time.time()
+        udr_time[j-1] = (stop-start)
+        udr_means[j-1] = mean
+        udr_std[j-1] = std
+        print("Time: " + str(stop - start))
+        print("number of function calls : " + str(simulate_with_error.count))
+        print("________________")
+        j += 1
+
+    #x = np.arange(16) + 1
+    plt.title("Time vs number of interpolation pts")
+    plt.plot(vals, udr_time)#, 'b-o', label='UDR')
+    plt.ylabel("t (s)")
+    plt.xlabel("number of interpolation points")
+    plt.legend()
+    plt.show()
+
+    plt.title("Error in mean")
+    #plt.axhline(mean_array[0])
+    plt.xlabel("number of interpolation points")
+    plt.ylabel("relative error")
+    plt.plot(vals, (udr_means-udr_means[-1])/udr_means[-1], 'r', label='UDR')
+    plt.legend()
+    plt.show()
+
+    plt.title("Error in Standard deviation")
+    #plt.axhline(std_array[0])
+    plt.xlabel("number of interpolation points")
+    plt.ylabel("relative error")
+    plt.plot(vals, (udr_std-udr_std[-1])/(udr_std[-1]), 'r', label='UDR')
+    plt.legend()
+    plt.show()
+

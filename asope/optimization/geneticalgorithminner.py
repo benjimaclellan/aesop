@@ -4,7 +4,7 @@ import random
 import multiprocess as mp
 import copy
 from optimization.geneticalgorithm import eaSimple
-
+from noise_sim import UDR_moment_approximation
 #%% 
 """
 Function for creating a New Individual (NA) in the Inner GA
@@ -79,9 +79,10 @@ def FIT_Inner(ind, env, experiment):
     
     measurement_node = experiment.measurement_nodes[0]
     At = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
-    fitness = env.fitness(At)
+    opt_fit = env.fitness(At)[0]
+    variance = UDR_moment_approximation(experiment, env, 2, 5)
 
-    return fitness
+    return [opt_fit, variance]
 
 
 #%%
@@ -124,10 +125,10 @@ def inner_geneticalgorithm(gapI, env, experiment):
     
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     
-    stats.register("avg", np.mean)
+    stats.register("Average [fitness, variance]", np.mean, axis = 0)
 #    stats.register("std", np.std)
 #    stats.register("min", np.min)
-    stats.register("max", np.max)
+    stats.register("Best [fitness, variance]", np.max, axis = 0)
 
     # setup variables early, in case of an early termination
     logbook = tools.Logbook()

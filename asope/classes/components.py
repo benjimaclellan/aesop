@@ -3,6 +3,7 @@ import numpy as np
 from itertools import count
 #from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+from noise_sim import normal_pdf
 from scipy.constants import *
 """
 ASOPE
@@ -29,6 +30,10 @@ There is also important class functions:
     - randomattribute() = based on the settings for the component (bounds, discretization, etc), will generate ONE random attribute (setting) for the component
 """
 
+def normal_pdf(x, mu=0., sigma=1.):
+    scale = 1/(np.sqrt(2*np.pi*sigma**2))
+    exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
+    return scale*exp
 
 class Component(object):
     def __init__(self):
@@ -119,7 +124,10 @@ class Fiber(Component):
         self.N_EPARAMETERS = 1
         self.EUPPER = [1]
         self.ELOWER = [0]
-        self.attenuation = 0
+
+        self.at_pdfs = np.array([
+            [self.pdf_length] # Length
+        ])
 
     def simulate(self, env, At, visualize=False):
 
@@ -132,7 +140,7 @@ class Fiber(Component):
             D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
 
         # apply dispersion
-        Af = (1-self.attenuation*fiber_len)*np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
+        Af = np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
 
         # this visualization functionality was broken, may be fixed later
@@ -151,28 +159,6 @@ class Fiber(Component):
         self.at = at
         return at
 
-    def error_model(self):
-        """
-        Model the distribution of component error and return a float
-
-        :return:
-        """
-        sample = np.array([
-                 np.random.normal(0.1, 0.05) # Attenuation
-                 ])
-        return sample
-
-    def update_error_attributes(self, sample):
-        i = 0
-        for val in sample:
-            if val < self.ELOWER[i]:
-                val = self.ELOWER[i]
-            if val > self.EUPPER[i]:
-                val = self.EUPPER[i]
-            i+=1
-        self.attenuation = sample[0]
-        return 0
-
 # ----------------------------------------------------------
 class PhaseModulator(Component):
     """
@@ -190,20 +176,20 @@ class PhaseModulator(Component):
         self.DSCRTVAL = [None, 6e9]
         self.FINETUNE_SKIP = None
         self.splitter = False
-
-        # Error Parameters
-        self.N_EPARAMETERS = 2
-        self.phasenoise = 0 #+- radians of phase noise
-        self.insertionloss = 0 # percent
-        self.EUPPER = [2*np.pi, 100]
+        self.EUPPER = [2*np.pi, 1]
         self.ELOWER = [0, 0]
+
+        self.at_pdfs = np.array([
+            [0, 0.1], # max shift
+            [0, 1]  # frequency
+        ])
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
-        M = self.at[0]       # amplitude [V]
+        M = self.at[0]       # phase amplitude [V/Vpi]
         NU = self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)# + self.phasenoise*np.random.randn(*np.shape(env.t))
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)# + self.ERROR_PARAMETERS['phasenoise']
 
         # apply phase shift temporally
         At = At * np.exp(1j * phase)
@@ -226,23 +212,6 @@ class PhaseModulator(Component):
         self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
         return self.at
 
-    def error_model(self):
-        sample = np.array([
-            np.random.normal(0, 0.01), # Phase Noise
-            np.random.normal(0.02, 0.01) # Insertion loss
-            ])
-        return sample
-
-    def update_error_attributes(self, sample):
-        i = 0
-        for val in sample:
-            if val < self.ELOWER[i]:
-                val = self.ELOWER[i]
-            if val > self.EUPPER[i]:
-                val = self.EUPPER[i]
-            i+=1
-        self.phasenoise, self.insertionloss = sample[0], sample[1]
-        return 0
 
 #%%
 class WaveShaper(Component):
@@ -260,16 +229,17 @@ class WaveShaper(Component):
         self.UPPER = self.n_windows*[1] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0] + self.n_windows*[0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
-        self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
-        #self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
+        #self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
+        self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = None
         self.splitter = False
-        #Error Parameters
-        self.N_EPARAMETERS = 0
-        #self.chromatic_dispersion = 10*pico/nano # 10ps/nm - max value on finistar4000s datasheet
-        #self.EUPPER = [10*pico/nano]
-        #self.ELOWER = [0]
 
+        self.at_pdfs = np.zeros((2*self.n_windows, 2))
+        for i in np.arange(2*self.n_windows):
+            if i < self.n_windows:
+                self.at_pdfs[i] = [0, 0] #window amplitude
+            else:
+                self.at_pdfs[i] = [0, 0.1] #window phase
 
     def simulate(self, env, At, visualize = False):
         ampvalues = self.at[0:self.N_PARAMETERS//2]
@@ -301,9 +271,6 @@ class WaveShaper(Component):
         phasemask[left:right] = phase1
         ampmask[left:right] = amp1
 
-        # Chromatic Dispersion
-        # TODO: Implement/Confirm that this is correctly computed
-        #D = 2*np.pi*self.chromatic_dispersion*c*np.log(2*np.pi*env.f)
         Af = ampmask * np.exp(1j*(phasemask)) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
 
@@ -323,8 +290,6 @@ class WaveShaper(Component):
         mut_loc = np.random.randint(0, self.N_PARAMETERS)
         self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
         return self.at
-
-
 
 
 #%%
@@ -359,6 +324,7 @@ class PowerSplitter(Component):
 
         # apply scattering matrix to inputs and return the outputs
         At_out = At_in.dot(S)
+
         if visualize:
             self.lines = None
 
@@ -373,8 +339,6 @@ class PowerSplitter(Component):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
         self.at = at
         return at
-
-
 
 #%%
 class FrequencySplitter(Component):
