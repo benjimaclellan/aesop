@@ -1,5 +1,5 @@
 import pickle
-import numpy as np
+import autograd.numpy as np
 
 """
     A number of useful functions that are utilized through the package.
@@ -114,3 +114,14 @@ def splitindices(num, div):
         indices.append(val + prev)
     return indices
 
+
+def hessian(x):
+    x_prime = np.gradient(x)
+    hess = np.empty((x.ndim, x.ndim) + x.shape, dtype=x.dtype)
+    for k, grd_k in enumerate(x_prime):
+        # Take gradient of each component
+        tmp = np.gradient(grd_k)
+        for l, grd_kl in enumerate(tmp):
+            hess[k, l, :, :] = grd_kl
+
+    return hess

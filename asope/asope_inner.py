@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocess as mp
 import copy 
-import numpy as np
+import autograd.numpy as np
 import pandas as pd
 from scipy import signal 
 
@@ -196,7 +196,6 @@ if __name__ == '__main__':
     results = results.assign(Attribute = at_labels)
     results = results.assign(Output_Deviation = stds)
     print(results)
-
     simulate_with_error.count = 0
 
     ## Compute the interpolation points
@@ -254,3 +253,5 @@ if __name__ == '__main__':
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")
     plt.show()
+
+raise TypeError

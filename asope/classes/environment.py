@@ -1,4 +1,4 @@
-import numpy as np
+import autograd.numpy as np
 import peakutils
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from scipy.signal import square

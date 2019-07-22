@@ -1,4 +1,5 @@
-import numpy as np
+import autograd.numpy as np
+from autograd import grad
 from assets.graph_manipulation import get_nonsplitters
 import scipy.integrate as integrate
 from scipy.special import binom
@@ -466,7 +467,8 @@ def UDR_evCalculation(j, y, l, xr, matrix_array, input_variables):
     node, key = input_variables[j - 1]
     for i in np.arange(1, n+1): # sum i = 1 ... n
         perturb = [node, key, x[j-1, i-1]]
-        sigma += weights(j, i, r, x, matrix_array) * (y(perturb))**l
+        yval = y(perturb)
+        sigma += weights(j, i, r, x, matrix_array) * (yval)**l
 
     return sigma
 
@@ -528,4 +530,51 @@ def UDRAnalysis(exp, env):
         variances.append(variance)
 
     return variances
+
+def multivariable_simulate(x, experiment, environment):
+
+    at = experiment.getattributes()
+
+    j = 0
+    for node in experiment.node():
+        i = 0
+        y = experiment.node()[int(node)]['info'].at
+        n_node = np.shape(y)[0]
+        print("n" + str(n_node))
+        experiment.node()[int(node)]['info'].at = y*0
+        experiment.node()[int(node)]['info'].at = y + x[j:n_node+j]
+        j += n_node
+
+        '''
+        for optimal_val in y:
+            mu, sigma = experiment.node()[int(node)]['info'].at_pdfs[i]
+            upper = experiment.node()[int(node)]['info'].UPPER[i]
+            lower = experiment.node()[int(node)]['info'].LOWER[i]
+
+            val = x[j]
+            real_val = val
+            # Perturb is a triple with the error parameter key and the new value
+            # co-ordinate xform
+            #real_val = sigma*val + mu
+
+            #real_val += optimal_val
+
+            #if real_val > upper:
+            #    real_val = upper
+            #if real_val < lower:
+            #    real_val = lower
+            print(real_val)
+            experiment.nodes()[int(node)]['info'].at[i] = real_val
+
+            j += 1
+        '''
+    experiment.simulate(environment)
+    At = experiment.nodes[experiment.measurement_nodes[0]]['output']
+
+    fit = environment.waveform_temporal_overlap(At)
+
+    # reset to optimal value
+    experiment.setattributes(at)
+    print(fit)
+    return fit[0]
 

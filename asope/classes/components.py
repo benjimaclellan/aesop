@@ -1,4 +1,4 @@
-import numpy as np
+import autograd.numpy as np
 #import matplotlib.pyplot as plt
 from itertools import count
 #from copy import copy, deepcopy
@@ -29,11 +29,6 @@ There is also important class functions:
     
     - randomattribute() = based on the settings for the component (bounds, discretization, etc), will generate ONE random attribute (setting) for the component
 """
-
-def normal_pdf(x, mu=0., sigma=1.):
-    scale = 1/(np.sqrt(2*np.pi*sigma**2))
-    exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
-    return scale*exp
 
 class Component(object):
     def __init__(self):
@@ -249,27 +244,33 @@ class WaveShaper(Component):
                 self.at_pdfs[i] = [0, 0.1] #window phase
                 self.at_labels.append('window phase ' + str(i-self.n_windows))
 
-
+    def temp_func(self, left, right, i, vals):
+        if i >= left and i < right:
+            return vals[i-left][0]
+        else:
+            return 0
 
     def simulate(self, env, At, visualize = False):
+        # Slice at into the first half (amp) and last half (phase)
         ampvalues = self.at[0:self.N_PARAMETERS//2]
         phasevalues = self.at[self.N_PARAMETERS//2:]
 
-        phasemask = np.zeros_like(env.f)
-        ampmask = np.zeros_like(env.f)
-
         n = np.floor(env.n_samples/((1/env.dt)/self.res)).astype('int')
-
+        N = np.shape(env.f)[0]
         tmp = np.ones((n,1))
 
-        a = [i*tmp for i in ampvalues]
-        p = [i*tmp for i in phasevalues]
+        a = np.array([i*tmp for i in ampvalues])
+        p = np.array([i*tmp for i in phasevalues])
 
         amp1 = np.concatenate(a)
         phase1 = np.concatenate(p)
 
         left = np.floor((env.n_samples - amp1.shape[0])/2).astype('int')
         right = env.n_samples - np.ceil((env.n_samples - amp1.shape[0])/2).astype('int')
+
+        # we will pad amp1 and phase1 with zeros so they are the correct size
+        padleft = np.zeros((left, 1))
+        padright = np.zeros((N-right, 1))
 
         if right - left > env.n_samples:
             left = 0
@@ -278,8 +279,11 @@ class WaveShaper(Component):
             print('Frequency window less than the resolution of waveshaper')
             phase1 = np.ones_like(env.f) * phasevalues[0]
             amp1 = np.ones_like(env.f) * ampvalues[0]
-        phasemask[left:right] = phase1
-        ampmask[left:right] = amp1
+
+        # Concatenate the arrays together
+        # We cannot use array assignment as it is not supported by autograd
+        ampmask = np.concatenate((padleft, amp1, padright), axis=0)
+        phasemask = np.concatenate((padleft, phase1, padright), axis=0)
 
         Af = ampmask * np.exp(1j*(phasemask)) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )

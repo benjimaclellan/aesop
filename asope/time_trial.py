@@ -18,8 +18,12 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocess as mp
 import copy
-import numpy as np
+#import numpy as np
 from scipy import signal
+
+import autograd.numpy as np
+from autograd import grad, elementwise_grad, jacobian
+from noise_sim import multivariable_simulate
 
 #%% import custom modules
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
@@ -81,6 +85,23 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
     return experiment, hof, hof_fine, log
 
+def autograd_hessian(fun, argnum = 0):
+    '''
+    Compute the hessian by computing the transpose of the jacobian of the gradient.
+    
+    :param fun: 
+    :param argnum: 
+    :return: 
+    '''
+
+    def sum_latter_dims(x):
+        return np.sum(x.reshape(x.shape[0], -1), 1)
+
+    def sum_grad_output(*args, **kwargs):
+        return sum_latter_dims(elementwise_grad(fun)(*args, **kwargs))
+
+    return jacobian(sum_grad_output, argnum)
+
 if __name__ == '__main__':
 
     #%% store all our hyper-parameters for the genetic algorithm
@@ -125,8 +146,8 @@ if __name__ == '__main__':
 
     exp.draw(node_label = 'disp_name')
 
-    at = {0: [1.0885386831780766, 10000000000.0],
-          1: [0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184]}
+    at = {0: np.array([1.0885386831780766, 10000000000.0]),
+          1: np.array([0.1600913131373453, 0.9644562615852816, 0.8162365069799228, 0.7571936468447649, 0.40455545122113784, 0.0, 0.45345425331484, 6.283185307179586, 4.99676751969036, 3.064033992879826, 2.4118305095380235, 0.4892691534724825, 5.294011788726437, 6.282336557917184])}
 
     print(at)
 
@@ -188,7 +209,7 @@ if __name__ == '__main__':
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
     f = lambda x: simulate_with_error(x, exp, env) - fit[0]
-    matrix_moments = compute_moment_matrices(error_params, 5)
+    matrix_moments = compute_moment_matrices(error_params, 3)
     x, r = compute_interpolation_points(matrix_moments)
 
     ## Make sure there wasn't any underflow errors etc
@@ -211,3 +232,31 @@ if __name__ == '__main__':
     print("Time elapsed: " + str(stop - start))
     #print("number of function calls : " + str(simulate_with_error.count))
     print("________________")
+
+    f = lambda x: multivariable_simulate(x, exp, env)
+
+    print("Beginning Autodifferentiation")
+    df = grad(f)
+
+    Hf = autograd_hessian(f)
+
+    muv = np.empty(16)
+    j = 0
+    for item in at:
+        for q in at[item]:
+            muv[j] = q
+            j += 1
+
+    H0 = Hf(muv)
+
+    print(H0)
+
+    print("Symmetry Check")
+
+    sym_dif = H0 - H0.T
+    print(sym_dif)
+    print("Max asymmetry " + str(np.amax(sym_dif)))
+
+    eigenvalues = np.linalg.eig(H0)
+    print("EVs " + str(eigenvalues[0]))
+    print(np.amax(eigenvalues[0]))
