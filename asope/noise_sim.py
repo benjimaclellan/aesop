@@ -540,7 +540,6 @@ def multivariable_simulate(x, experiment, environment):
         i = 0
         y = experiment.node()[int(node)]['info'].at
         n_node = np.shape(y)[0]
-        print("n" + str(n_node))
         experiment.node()[int(node)]['info'].at = y*0
         experiment.node()[int(node)]['info'].at = y + x[j:n_node+j]
         j += n_node

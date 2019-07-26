@@ -236,27 +236,47 @@ if __name__ == '__main__':
     f = lambda x: multivariable_simulate(x, exp, env)
 
     print("Beginning Autodifferentiation")
-    df = grad(f)
 
+    # Compute the Hessian of the fitness function (as a function of x)
     Hf = autograd_hessian(f)
 
+    # Construct a vector of the mean value, and a vector of the standard deviations.
     muv = np.empty(16)
+    sigma_list = np.empty(16)
     j = 0
+    k = 0
     for item in at:
         for q in at[item]:
             muv[j] = q
             j += 1
 
+        for mu, sigma in exp.nodes()[item]['info'].at_pdfs:
+            sigma_list[k] = sigma
+            k += 1
+
+
     H0 = Hf(muv)
+    H0 = H0/2 # Taylor exp. factor of 1/2!
+    i = 0
+    for row in H0:
+        j = 0
+        for val in row:
+            sigma_i = sigma_list[i]
+            sigma_j = sigma_list[j]
+            H0[i, j] = val*sigma_i*sigma_j
+            j += 1
+        i += 1
 
     print(H0)
 
     print("Symmetry Check")
 
     sym_dif = H0 - H0.T
-    print(sym_dif)
     print("Max asymmetry " + str(np.amax(sym_dif)))
 
-    eigenvalues = np.linalg.eig(H0)
-    print("EVs " + str(eigenvalues[0]))
-    print(np.amax(eigenvalues[0]))
+    eigen_items = np.linalg.eig(H0)
+    eigenvalues = np.sort(eigen_items[0])
+    plt.plot(eigenvalues, 'o')
+    plt.ylabel("Value of Eigenvalue")
+    plt.title("Hessian Spectrum")
+    plt.show()
