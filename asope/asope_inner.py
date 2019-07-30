@@ -19,6 +19,7 @@ import multiprocess as mp
 import copy 
 import autograd.numpy as np
 import pandas as pd
+from autograd import elementwise_grad, jacobian
 from scipy import signal 
 
 #%% import custom modules
@@ -37,7 +38,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points
+from noise_sim import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points, multivariable_simulate
 from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
 
 plt.close("all")
@@ -77,6 +78,22 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
     return experiment, hof, hof_fine, log
 
+def autograd_hessian(fun, argnum = 0):
+    '''
+    Compute the hessian by computing the transpose of the jacobian of the gradient.
+
+    :param fun:
+    :param argnum:
+    :return:
+    '''
+
+    def sum_latter_dims(x):
+        return np.sum(x.reshape(x.shape[0], -1), 1)
+
+    def sum_grad_output(*args, **kwargs):
+        return sum_latter_dims(elementwise_grad(fun)(*args, **kwargs))
+
+    return jacobian(sum_grad_output, argnum)
 #%%
 if __name__ == '__main__': 
 
@@ -254,4 +271,53 @@ if __name__ == '__main__':
     plt.title("Output distribution")
     plt.show()
 
-raise TypeError
+    f = lambda x: multivariable_simulate(x, exp, env)
+    print("Beginning Autodifferentiation")
+
+    # Compute the Hessian of the fitness function (as a function of x)
+    start = time.time()
+    Hf = autograd_hessian(f)
+
+    # Construct a vector of the mean value, and a vector of the standard deviations.
+    muv = np.empty(16)
+    sigma_list = np.empty(16)
+    j = 0
+    k = 0
+    for item in at:
+        for q in at[item]:
+            muv[j] = q
+            j += 1
+
+        for mu, sigma in exp.nodes()[item]['info'].at_pdfs:
+            sigma_list[k] = sigma
+            k += 1
+
+    print(muv)
+    H0 = Hf(muv)
+    H0 = H0/2 # Taylor exp. factor of 1/2!
+    i = 0
+    for row in H0:
+        j = 0
+        for val in row:
+            sigma_i = sigma_list[i]
+            sigma_j = sigma_list[j]
+            H0[i, j] = val*sigma_i*sigma_j
+            j += 1
+        i += 1
+
+    print(H0)
+
+    print("Symmetry Check")
+
+    sym_dif = H0 - H0.T
+    print("Max asymmetry " + str(np.amax(sym_dif)))
+
+    eigen_items = np.linalg.eig(H0)
+    eigenvalues = np.sort(eigen_items[0])
+    stop = time.time()
+    print("T: " + str(stop-start))
+    plt.plot(eigenvalues, 'o')
+    plt.ylabel("Value of Eigenvalue")
+    plt.title("Hessian Spectrum")
+    plt.show()
+
