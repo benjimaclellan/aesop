@@ -570,7 +570,7 @@ def multivariable_simulate(x, experiment, environment):
     experiment.simulate(environment)
     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
 
-    fit = environment.waveform_temporal_overlap(At)
+    fit = environment.fitness(At)
 
     # reset to optimal value
     experiment.setattributes(at)

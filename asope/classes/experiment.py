@@ -27,7 +27,6 @@ class Experiment(nx.DiGraph):
                 
                 # if component (node) is a splitter, collect all incoming pulses
                 if self.nodes[node]['info'].splitter:
-                    print("There is a splitter")
                     # if this is an input node (no predeccessors), get the prescribed input
                     if len(self.pre(node)) == 0:
                         At = self.nodes[node]['input']#.reshape(env.n_samples,1)
@@ -390,11 +389,17 @@ class Experiment(nx.DiGraph):
                 with_labels = False
                 
 
-        nodePos = nx.nx_pydot.pydot_layout(self)
+#        nodePos = nx.nx_pydot.pydot_layout(self)
+        nodePos = nx.drawing.nx_pydot.graphviz_layout(self, prog='circo')
+        print(nodePos)
+        scale = 0.1
+        for node in nodePos:
+            nodePos[node] = (scale*nodePos[node][0], scale*nodePos[node][1])
         if ax == None:
             fig, ax = plt.subplots(1,1)
-        
-        nx.draw(self, ax= ax, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8')    
+        print(nodePos)
+
+        nx.draw(self, ax= ax, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8', font_size=7)
         return ax
         
         

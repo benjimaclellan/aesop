@@ -231,27 +231,9 @@ class OpticalField_Pulse(OpticalField):
         
         # one value to optimize is the peak power
         PAt = P(At)
-        X1 = np.max(PAt) - self.p/self.q
-        fitness2 = supergaussian(X1,1,2)
+        X1 = -np.abs(np.max(PAt) - self.p/self.q)
 
-        # find the harmonic frequencies in the RF domain
-        peakinds = peakutils.indexes(RFSpectrum(At, self.dt))
-        
-        # measure the distance between RF spectrum peaks
-        peakf_dist = np.mean( self.df * np.diff(peakinds) )
-        
-        # our target is increased/decreased rep-rate from the original pulse
-        peakf_distTarget = self.f_rep / (self.p/self.q)
-        
-        # sometimes no peaks are found (bad individual with no real structure), so set fitness to 0
-        if len(peakinds) <= 1:
-            fitness1 = 0 
-        
-        else: 
-            X = np.power( peakf_distTarget - peakf_dist, 2)
-            fitness1 = supergaussian(X,1,1)
-
-        return (fitness1, fitness2)
+        return X1, 
     
 
 

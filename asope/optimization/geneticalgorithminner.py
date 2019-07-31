@@ -80,9 +80,9 @@ def FIT_Inner(ind, env, experiment):
     measurement_node = experiment.measurement_nodes[0]
     At = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
     opt_fit = env.fitness(At)[0]
-    variance = UDR_moment_approximation(experiment, env, 2, 5)
+#    variance = UDR_moment_approximation(experiment, env, 2, 5)
 
-    return [opt_fit, variance]
+    return [opt_fit,]
 
 
 #%%

@@ -121,7 +121,7 @@ class Fiber(Component):
         self.ELOWER = [0]
 
         self.at_pdfs = np.array([
-            [self.pdf_length] # Length
+            (0, 0.15) # Length
         ])
 
     def simulate(self, env, At, visualize=False):
@@ -131,9 +131,13 @@ class Fiber(Component):
 
         # calculate the dispersion operator in the spectral domain
         D = np.zeros(env.f.shape).astype('complex')
+        factorial = 1
         for n in range(0, len(self.beta)):
-            D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
-
+#            D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / np.math.factorial(n+2)
+            D += self.beta[n] * np.power(2*np.pi*env.f, n+2) / factorial 
+            factorial *= n
+            
+            
         # apply dispersion
         Af = np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
         At = IFFT( Af, env.dt )
@@ -165,18 +169,18 @@ class PhaseModulator(Component):
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 2
-        self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
-        self.LOWER = [0, 6e9]
+        self.UPPER = [2*np.pi, 1e8]   # max shift, frequency
+        self.LOWER = [0, 1e7]
         self.DTYPE = ['float', 'float']
-        self.DSCRTVAL = [None, 6e9]
+        self.DSCRTVAL = [None, 1e7]
         self.FINETUNE_SKIP = None
         self.splitter = False
         self.EUPPER = [2*np.pi, 1]
         self.ELOWER = [0, 0]
 
         self.at_pdfs = np.array([
-            [0, 0.1], # max shift
-            [0, 1]  # frequency
+            [0, 0.5*np.pi], # max shift
+            [0, 1e6]  # frequency
         ])
 
         self.at_labels = [
@@ -322,6 +326,7 @@ class PowerSplitter(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = None
         self.splitter = True
+
 
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensure there is maximum 2 inputs/outputs (for now)
