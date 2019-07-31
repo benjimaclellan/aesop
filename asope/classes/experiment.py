@@ -329,7 +329,27 @@ class Experiment(nx.DiGraph):
         """
         return list( self.predecessors(node) )
         
-
+    def remove_component(self, node):
+        """
+        Removes given node, if possible, and stiches graph back together
+        """
+        if (len(self.pre(node)) > 1) or (len(self.suc(node)) > 1):
+            print('Cannot remove splitter node in this way')
+        
+        else:
+            pre = self.pre(node)
+            suc = self.suc(node)
+            
+            if len(pre) == 1:
+                self.remove_edge(pre[0], node)
+            if len(suc) == 1:
+                self.remove_edge(node, suc[0])
+            if len(pre) == 1 and len(suc) == 1:
+                self.add_edge(pre[0], suc[0])    
+            self.remove_node(node)
+        return
+        
+    
     def measure(self, env, measurement_node, check_power = False, fig = None):
         """
             Plots the pulse at a given measurement node
@@ -389,15 +409,10 @@ class Experiment(nx.DiGraph):
                 with_labels = False
                 
 
-#        nodePos = nx.nx_pydot.pydot_layout(self)
         nodePos = nx.drawing.nx_pydot.graphviz_layout(self, prog='circo')
-        print(nodePos)
-        scale = 0.1
-        for node in nodePos:
-            nodePos[node] = (scale*nodePos[node][0], scale*nodePos[node][1])
+
         if ax == None:
             fig, ax = plt.subplots(1,1)
-        print(nodePos)
 
         nx.draw(self, ax= ax, pos = nodePos, labels = labeldict, with_labels=with_labels, arrowstyle='fancy', edge_color='burlywood', node_color='powderblue', node_shape='8', font_size=7)
         return ax

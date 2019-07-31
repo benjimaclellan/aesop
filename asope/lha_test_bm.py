@@ -132,7 +132,7 @@ if __name__ == '__main__':
     components = {
                     0:PhaseModulator(),
                     1:Fiber(),
-                    2:Fiber()
+                    2:Fiber(),
                  }
     adj = [(0,1), (1,2)]
 
@@ -179,18 +179,20 @@ if __name__ == '__main__':
     Hf = autograd_hessian(f)
 
     # Construct a vector of the mean value, and a vector of the standard deviations.
-    muv, sigma_list = [], []
+    muv, sigma_list, basis, at_name = [], [], [], []
     j,k = (0, 0)
-    for item in at:
-        for q in at[item]:
+    for node in exp.nodes():
+        for name in exp.nodes[node]['info'].AT_VARS:
+            at_name.append('{}:{}'.format(node,name))
+        for q in at[node]:
             muv.append(q)
+            basis.append(node)
             j += 1
-        for mu, sigma in exp.nodes()[item]['info'].at_pdfs:
+        for mu, sigma in exp.nodes[node]['info'].at_pdfs:
             sigma_list.append(sigma)
             k += 1
     
-    muv = np.array(muv)
-    sigma_list = np.array(sigma_list)
+    muv, sigma_list, basis = np.array(muv), np.array(sigma_list), np.array(basis)
             
     print(muv)
     H0 = Hf(muv)
@@ -215,10 +217,12 @@ if __name__ == '__main__':
     eigen_items = np.linalg.eig(H0)
     eigensort_inds = np.argsort(eigen_items[0])
     eigenvalues = eigen_items[0][eigensort_inds]
-    eigenvectors = eigen_items[1][eigensort_inds]
+    eigenvectors = eigen_items[1][:,eigensort_inds]
     
     plt.figure()
-    seaborn.heatmap((H0))
+    g = seaborn.heatmap((H0))
+    g.set_xticklabels(at_name, rotation=0)
+    g.set_yticklabels(at_name, rotation=90)
     
     fig, ax = plt.subplots(eigenvectors.shape[1], 1, sharex=True, sharey=True)
     for k in range(0, eigenvectors.shape[1]): 
@@ -226,12 +230,14 @@ if __name__ == '__main__':
         ax[k].legend()
     plt.ylabel('Linear Coefficient')
     plt.xlabel('Component Basis') 
+    plt.xticks([j for j in range(0,eigenvectors.shape[0])], labels=at_name)
+    
     stop = time.time()
     print("T: " + str(stop-start))   
 
     plt.figure()
     xval = np.arange(0,eigenvalues.shape[0],1)
-    plt.stem(xval-0.05, (np.sort(np.diag(H0))),  linefmt='salmon', markerfmt= 'x', label='Hessian diagonal', use_line_collection=True)
+    plt.stem(xval-0.05, ((np.diag(H0))),  linefmt='salmon', markerfmt= 'x', label='Hessian diagonal', use_line_collection=True)
     plt.stem(xval+0.05, (eigenvalues), linefmt='teal', markerfmt='o', label='eigenvalues', use_line_collection=True)
     plt.xticks(xval)
     plt.xlabel('Component Basis')
@@ -240,5 +246,40 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    multipage('results/2019_07_30__interestingresults2.pdf')
+#    multipage('results/2019_07_30__interestingresults4.pdf')
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+#    #%%
+#    eps = 1e-3
+#    remove_list = []
+#    for node in exp.nodes():
+#        inds = np.where(basis == node)
+#        exp.nodes[node]['info'].hessian_sum = np.sum(np.diag(H0)[inds])
+#        if exp.nodes[node]['info'].hessian_sum < eps:
+#            print('node {} is below threshold'.format(node))
+#            remove_list.append(node)
+#    at_remove = {}
+#    for node in list(exp.nodes()):
+#        if node in remove_list:
+#            exp.remove_component(node)
+#        else:
+#            at_remove[node] = at[node]
+#    
+#    exp.draw()
+#    
