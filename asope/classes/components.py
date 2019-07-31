@@ -123,6 +123,7 @@ class Fiber(Component):
         self.at_pdfs = np.array([
             (0, 0.15) # Length
         ])
+        self.AT_VARS = ['fiber length']
 
     def simulate(self, env, At, visualize=False):
 
@@ -183,10 +184,7 @@ class PhaseModulator(Component):
             [0, 1e6]  # frequency
         ])
 
-        self.at_labels = [
-            'max shift',
-            'frequency'
-        ]
+        self.AT_VARS = ['mod depth', 'mod freq']
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
