@@ -459,9 +459,40 @@ class Experiment(nx.DiGraph):
         ax1.legend()
         ax2.legend()
         return
-           
-    
-    
+
+    def attributes_to_vector(self):
+        """
+        Get the attributes and return as a vector instead of a dictionary
+
+        :return:
+        """
+        at = self.getattributes()
+        x = np.empty(16)
+        j = 0
+        for component in at:
+            for val in at[component]:
+                x[j] = val
+                j += 1
+
+        return x
+
+    def attributes_from_vector(self, x):
+        """
+        Set the attribute dictionary from a vector
+
+        :param: x
+        :return:
+        """
+        at = self.getattributes()
+        j = 0
+        for component in at:
+            for i, val in enumerate(at[component]):
+                at[component][i] = x[j]
+                j += 1
+
+        self.setattributes(at)
+        return True
+
     def power_check_single(self, At, display=False):
         """
             Simple sanity check for total power, that input power >= output power, for one output node

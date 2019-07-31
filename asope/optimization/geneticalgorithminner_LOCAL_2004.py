@@ -72,20 +72,18 @@ def SEL_Inner(individuals, k):
 """
 Fitness function for Inner GA
 """
-def FIT_Inner(ind, env, experiment, UDR = False):
+def FIT_Inner(ind, env, experiment):
         
     experiment.setattributes(ind)
     experiment.simulate(env)
-
+    
     measurement_node = experiment.measurement_nodes[0]
     At = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
     opt_fit = env.fitness(At)[0]
-    if UDR == True:
-        variance = UDR_moment_approximation(experiment, env, 2, 5)
-        return [opt_fit, variance]
+#    variance = UDR_moment_approximation(experiment, env, 2, 5)
 
-    else:
-        return [opt_fit]
+    return [opt_fit,]
+
 
 #%%
  

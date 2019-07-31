@@ -100,12 +100,12 @@ if __name__ == '__main__':
     #%% store all our hyper-parameters for the genetic algorithm
     gap = GeneticAlgorithmParameters()
     gap.TYPE = "inner"
-    gap.NFITNESS = 2            # how many values to optimize
-    gap.WEIGHTS = (1.0, 1.0)    # weights to put on the multiple fitness values
+    gap.NFITNESS = 1            # how many values to optimize
+    gap.WEIGHTS = (1.0,)    # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 12       # number of individuals in a population (make this a multiple of NCORES!)
-    gap.N_GEN = 2               # number of generations
+    gap.N_POPULATION = 200       # number of individuals in a population (make this a multiple of NCORES!)
+    gap.N_GEN = 5               # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -249,8 +249,8 @@ if __name__ == '__main__':
     #plt.plot(np.abs(RFSpectrum(At_avg + At_std, env.dt)), label='upper std')
     #plt.show()
 
-    #exp.visualize(env)
-    #plt.show()
+    exp.visualize(env)
+    plt.show()
 
     ## Monte Carlo
     print("Beginning Monte Carlo Simulation")
@@ -321,3 +321,16 @@ if __name__ == '__main__':
     plt.title("Hessian Spectrum")
     plt.show()
 
+    print(eigen_items[1][0])
+    perturbed_vector = eigen_items[1][0]
+
+    exp.attributes_from_vector(perturbed_vector)
+    exp.simulate(env)
+
+    At = exp.nodes[exp.measurement_nodes[0]]['output']
+
+    fit = env.fitness(At)
+    print("Fitness: " + str(fit))
+
+    print(np.dot(H0, perturbed_vector))
+    # TODO: Figure out why this dot product isn't giving expected val
