@@ -112,7 +112,7 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0, 1.0)    # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 150       # number of individuals in a population (make this a multiple of NCORES!)
+    gap.N_POPULATION = 200       # number of individuals in a population (make this a multiple of NCORES!)
     gap.N_GEN = 50               # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5           # independent probability of cross-over
@@ -150,7 +150,7 @@ if __name__ == '__main__':
     exp.draw(node_label = 'disp_name')
     
     #%%
-#    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
 
     #%%
     at = hof[0]
@@ -226,7 +226,7 @@ if __name__ == '__main__':
     
     fig, ax = plt.subplots(eigenvectors.shape[1], 1, sharex=True, sharey=True)
     for k in range(0, eigenvectors.shape[1]): 
-        ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', use_line_collection=True, label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))
+        ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))
         ax[k].legend()
     plt.ylabel('Linear Coefficient')
     plt.xlabel('Component Basis') 
@@ -237,8 +237,8 @@ if __name__ == '__main__':
 
     plt.figure()
     xval = np.arange(0,eigenvalues.shape[0],1)
-    plt.stem(xval-0.05, ((np.diag(H0))),  linefmt='salmon', markerfmt= 'x', label='Hessian diagonal', use_line_collection=True)
-    plt.stem(xval+0.05, (eigenvalues), linefmt='teal', markerfmt='o', label='eigenvalues', use_line_collection=True)
+    plt.stem(xval-0.05, ((np.diag(H0))),  linefmt='salmon', markerfmt= 'x', label='Hessian diagonal')
+    plt.stem(xval+0.05, (eigenvalues), linefmt='teal', markerfmt='o', label='eigenvalues')
     plt.xticks(xval)
     plt.xlabel('Component Basis')
     plt.ylabel("Value")
@@ -282,4 +282,4 @@ if __name__ == '__main__':
 #            at_remove[node] = at[node]
 #    
 #    exp.draw()
-#    
+#

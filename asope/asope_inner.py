@@ -20,7 +20,8 @@ import copy
 import autograd.numpy as np
 import pandas as pd
 from autograd import elementwise_grad, jacobian
-from scipy import signal 
+from scipy import signal
+import seaborn
 
 #%% import custom modules
 from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 200       # number of individuals in a population (make this a multiple of NCORES!)
-    gap.N_GEN = 5               # number of generations
+    gap.N_GEN = 50               # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -192,6 +193,7 @@ if __name__ == '__main__':
         #At_std = At_std/maxval
 
     ## UDR
+    '''
     print("Beginning Univariate Dimension Reduction")
 
     print("Output standard deviation varying individual parameters:")
@@ -270,7 +272,7 @@ if __name__ == '__main__':
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")
     plt.show()
-
+    '''
     f = lambda x: multivariable_simulate(x, exp, env)
     print("Beginning Autodifferentiation")
 
@@ -279,18 +281,20 @@ if __name__ == '__main__':
     Hf = autograd_hessian(f)
 
     # Construct a vector of the mean value, and a vector of the standard deviations.
-    muv = np.empty(16)
-    sigma_list = np.empty(16)
-    j = 0
-    k = 0
-    for item in at:
-        for q in at[item]:
-            muv[j] = q
+    muv, sigma_list, basis, at_name = [], [], [], []
+    j,k = (0, 0)
+    for node in exp.nodes():
+        for name in exp.nodes[node]['info'].AT_VARS:
+            at_name.append('{}:{}'.format(node,name))
+        for q in at[node]:
+            muv.append(q)
+            basis.append(node)
             j += 1
-
-        for mu, sigma in exp.nodes()[item]['info'].at_pdfs:
-            sigma_list[k] = sigma
+        for mu, sigma in exp.nodes[node]['info'].at_pdfs:
+            sigma_list.append(sigma)
             k += 1
+
+    muv, sigma_list, basis = np.array(muv), np.array(sigma_list), np.array(basis)
 
     print(muv)
     H0 = Hf(muv)
@@ -313,17 +317,38 @@ if __name__ == '__main__':
     print("Max asymmetry " + str(np.amax(sym_dif)))
 
     eigen_items = np.linalg.eig(H0)
-    eigenvalues = np.sort(eigen_items[0])
+    eigensort_inds = np.argsort(eigen_items[0])
+    eigenvalues = eigen_items[0][eigensort_inds]
+    eigenvectors = eigen_items[1][:,eigensort_inds]
+
+    plt.figure()
+    g = seaborn.heatmap((H0))
+    g.set_xticklabels(at_name, rotation=0)
+    g.set_yticklabels(at_name, rotation=90)
+
+    fig, ax = plt.subplots(eigenvectors.shape[1], 1, sharex=True, sharey=True)
+    for k in range(0, eigenvectors.shape[1]):
+        ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))
+        ax[k].legend()
+    plt.ylabel('Linear Coefficient')
+    plt.xlabel('Component Basis')
+    plt.xticks([j for j in range(0,eigenvectors.shape[0])], labels=at_name)
+
     stop = time.time()
     print("T: " + str(stop-start))
-    plt.plot(eigenvalues, 'o')
-    plt.ylabel("Value of Eigenvalue")
+
+    plt.figure()
+    xval = np.arange(0,eigenvalues.shape[0],1)
+    plt.stem(xval-0.05, ((np.diag(H0))),  linefmt='salmon', markerfmt= 'x', label='Hessian diagonal')
+    plt.stem(xval+0.05, (eigenvalues), linefmt='teal', markerfmt='o', label='eigenvalues')
+    plt.xticks(xval)
+    plt.xlabel('Component Basis')
+    plt.ylabel("Value")
     plt.title("Hessian Spectrum")
+    plt.legend()
     plt.show()
 
-    print(eigen_items[1][0])
-    perturbed_vector = eigen_items[1][0]
-
+    perturbed_vector = eigenvectors[0]
     exp.attributes_from_vector(perturbed_vector)
     exp.simulate(env)
 

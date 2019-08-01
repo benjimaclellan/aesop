@@ -170,8 +170,8 @@ class PhaseModulator(Component):
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 2
-        self.UPPER = [2*np.pi, 1e8]   # max shift, frequency
-        self.LOWER = [0, 1e7]
+        self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
+        self.LOWER = [0, 1e8]
         self.DTYPE = ['float', 'float']
         self.DSCRTVAL = [None, 1e7]
         self.FINETUNE_SKIP = None
@@ -237,14 +237,15 @@ class WaveShaper(Component):
         self.splitter = False
 
         self.at_pdfs = np.zeros((2*self.n_windows, 2))
-        self.at_labels = []
+        self.AT_VARS = []
         for i in np.arange(2*self.n_windows):
             if i < self.n_windows:
                 self.at_pdfs[i] = [0, 0] #window amplitude
-                self.at_labels.append('window ampltiude ' + str(i))
+                self.AT_VARS.append('window ampltiude ' + str(i))
             else:
                 self.at_pdfs[i] = [0, 0.1] #window phase
-                self.at_labels.append('window phase ' + str(i-self.n_windows))
+                self.AT_VARS.append('window phase ' + str(i - self.n_windows))
+
 
     def temp_func(self, left, right, i, vals):
         if i >= left and i < right:
