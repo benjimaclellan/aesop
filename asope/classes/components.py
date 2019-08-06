@@ -166,12 +166,12 @@ class PhaseModulator(Component):
         self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
         self.LOWER = [0, 1e8]
         self.DTYPE = ['float', 'float']
-        self.DSCRTVAL = [None, 1e7]
-        self.FINETUNE_SKIP = None
+        self.DSCRTVAL = [None, 1e9]
+        self.FINETUNE_SKIP = []
         self.splitter = False
 
         self.at_pdfs = np.array([
-            [0, 0.5*np.pi], # max shift
+            [0, 0.1*np.pi], # max shift
             [0, 1e6]  # frequency
         ])
 
@@ -217,7 +217,7 @@ class WaveShaper(Component):
         self.disp_name = 'Programmable Filter'
         self.bitdepth = 8
         self.res = 12e9     # resolution of the waveshaper
-        self.n_windows = 7
+        self.n_windows = 5;
         self.N_PARAMETERS = 2*self.n_windows
         self.UPPER = self.n_windows*[1] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0] + self.n_windows*[0]
@@ -266,13 +266,13 @@ class WaveShaper(Component):
         padleft = np.zeros((left, 1))
         padright = np.zeros((N-right, 1))
 
-        if right - left > env.n_samples:
-            left = 0
-            right = env.n_samples
-#            raise Warning('Frequency window less than the resolution of waveshaper')
-            print('Frequency window less than the resolution of waveshaper')
-            phase1 = np.ones_like(env.f) * phasevalues[0]
-            amp1 = np.ones_like(env.f) * ampvalues[0]
+#        if right - left > env.n_samples:
+#            left = 0
+#            right = env.n_samples
+##            raise Warning('Frequency window less than the resolution of waveshaper')
+#            print('Frequency window less than the resolution of waveshaper')
+#            phase1 = np.ones_like(env.f) * phasevalues[0]
+#            amp1 = np.ones_like(env.f) * ampvalues[0]
 
         # Concatenate the arrays together
         # We cannot use array assignment as it is not supported by autograd

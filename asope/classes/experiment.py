@@ -431,7 +431,7 @@ class Experiment(nx.DiGraph):
         
         
         
-    def visualize(self, env, measurement_node=None, ax1=None, ax2=None):
+    def visualize(self, env, at=None, measurement_node=None, ax1=None, ax2=None):
         """
             Broken function - please ignore. It will potentially be fixed in future updates. Was meant for simple and clean visualization of the pulse as it progressed, but has not been updated since using a graph structure to represent the experiment(s)
         """
@@ -473,6 +473,21 @@ class Experiment(nx.DiGraph):
         
         ax1.legend()
         ax2.legend()
+        
+#        fig.tight_layout(rect=[0,0,.7,1])
+        at_str = ''
+        for node, node_ats in at.items():
+            at_str += '{}:\n'.format(node)
+            for at_i in node_ats:
+                at_str += '--{}\n'.format(at_i)
+        if at is not None:
+            ax1.text(1.2,1.2, at_str, size=8, ha="left", transform=ax2.transAxes)
+        
+        fig.tight_layout()
+        return 
+           
+    
+    
         return
 
     def attributes_to_vector(self):

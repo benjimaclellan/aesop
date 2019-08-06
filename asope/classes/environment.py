@@ -122,7 +122,11 @@ class OpticalField_CW(OpticalField):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
+#        return self.Sensor(At)
         return self.waveform_temporal_overlap(At)
+    
+    def Sensor(self, At):
+        return np.mean(P(At)),
     
     def waveform_temporal_overlap(self, At):
   
@@ -201,9 +205,11 @@ class OpticalField_Pulse(OpticalField):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
+#        return self.Sensor(At)
         return self.TalbotEffect(At)
     
-  
+    def Sensor(self, At):
+        return np.mean(P(At)),
   
     def TalbotEffect(self, At):
         """
@@ -212,9 +218,12 @@ class OpticalField_Pulse(OpticalField):
         
         # one value to optimize is the peak power
         PAt = P(At)
-        X1 = -np.abs(np.max(PAt) - self.p/self.q)
+        freq_target = int(round(self.f_rep / self.df)/(self.p / self.q))
+        X2 = np.abs(np.max(PAt) - self.p / self.q)
+#        X1 = np.sum(RFSpectrum(At, self.dt)[freq_target-1:freq_target+1])
+        X1 = (RFSpectrum(At, self.dt)[freq_target]) / X2
 
-        return X1, 
+        return X1
     
 
 
