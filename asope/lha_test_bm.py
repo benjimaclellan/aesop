@@ -204,15 +204,6 @@ if __name__ == '__main__':
     sigma_list = exp.get_sigma_vector()
     H0 = Hf(muv)
     H0 = H0/2 # Taylor exp. factor of 1/2!
-    #i = 0
-    #for row in H0:
-    #    j = 0
-    #    for val in row:
-    #        sigma_i = sigma_list[i]
-    #        sigma_j = sigma_list[j]
-    #        H0[i, j] = val*sigma_i*sigma_j
-    #        j += 1
-    #    i += 1
 
     print(H0)
 
@@ -285,6 +276,39 @@ if __name__ == '__main__':
         rows_cols2, = np.where(basis == perm[1])
         rows_cols = np.concatenate((rows_cols1, rows_cols2))
         print(rows_cols)
+    
+        H0_mask = H0[np.ix_(rows_cols, rows_cols)]
+        print(H0_mask)
+        sub_names = np.array(at_name)[rows_cols]
+        
+        eigen_items = np.linalg.eig(H0_mask)
+        eigensort_inds = np.argsort(np.abs(eigen_items[0]))
+        eigenvalues = eigen_items[0][eigensort_inds]
+        eigenvectors = eigen_items[1][:,eigensort_inds]
+        
+        
+        fig = plt.figure()
+        ax = seaborn.heatmap((H0_mask),linewidths=.5)
+        ax.set_aspect("equal")
+        ax.set_xticklabels(sub_names, rotation=60, ha='right')
+        ax.set_yticklabels(sub_names, rotation=-30, ha='right', va='bottom')
+        fig.tight_layout()
+        plt.title(basis)
+        plt.show()
+        
+        
+        xval = np.arange(0,eigenvalues.shape[0],1)
+        fig, ax = plt.subplots(np.ceil(eigenvectors.shape[1]/3).astype('int'),3, sharex=True, sharey=True, gridspec_kw = {'wspace':0.2, 'hspace':0})
+        ax = ax.flatten()
+        for k in range(0, eigenvectors.shape[1]): 
+            ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', use_line_collection=True, label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))
+            ax[k].set_ylabel('{:1.0e}'.format((eigenvalues[k])))
+        plt.xlabel('Component Basis') 
+        plt.title(perm)
+        plt.show()  
+        
+    multipage('results/2019_07_30__interestingresults102.pdf')
+
     df = elementwise_grad(f)
     print(df(muv))
     perturb_vec = (sigma_list)
@@ -315,78 +339,3 @@ if __name__ == '__main__':
 
     real_fit = f(muv)
     print("RV: " + str(real_fit))
-
-
-
-#    multipage('results/2019_07_30__interestingresults4.pdf')
-
-        H0_mask = H0[np.ix_(rows_cols, rows_cols)]
-        print(H0_mask)
-        sub_names = np.array(at_name)[rows_cols]
-        
-        eigen_items = np.linalg.eig(H0_mask)
-        eigensort_inds = np.argsort(np.abs(eigen_items[0]))
-        eigenvalues = eigen_items[0][eigensort_inds]
-        eigenvectors = eigen_items[1][:,eigensort_inds]
-        
-        
-        fig = plt.figure()
-        ax = seaborn.heatmap((H0_mask),linewidths=.5)
-        ax.set_aspect("equal")
-        ax.set_xticklabels(sub_names, rotation=60, ha='right')
-        ax.set_yticklabels(sub_names, rotation=-30, ha='right', va='bottom')
-        fig.tight_layout()
-        plt.title(basis)
-        plt.show()
-        
-        
-        xval = np.arange(0,eigenvalues.shape[0],1)
-        fig, ax = plt.subplots(np.ceil(eigenvectors.shape[1]/3).astype('int'),3, sharex=True, sharey=True, gridspec_kw = {'wspace':0.2, 'hspace':0})
-    #    fig = gridspec.GridSpec(4, 4)
-        ax = ax.flatten()
-        for k in range(0, eigenvectors.shape[1]): 
-            ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', use_line_collection=True, label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))
-            ax[k].set_ylabel('{:1.0e}'.format((eigenvalues[k])))
-        plt.xlabel('Component Basis') 
-        plt.title(perm)
-        plt.show()
-#        
-        
-    multipage('results/2019_07_30__interestingresults102.pdf')
-#    sensor = np.max(np.diag(H0)) * (1 + 1/np.trace(np.abs(H0)))
-#    print(sensor)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#
-#    #%%
-#    eps = 1e-3
-#    remove_list = []
-#    for node in exp.nodes():
-#        inds = np.where(basis == node)
-#        exp.nodes[node]['info'].hessian_sum = np.sum(np.diag(H0)[inds])
-#        if exp.nodes[node]['info'].hessian_sum < eps:
-#            print('node {} is below threshold'.format(node))
-#            remove_list.append(node)
-#    at_remove = {}
-#    for node in list(exp.nodes()):
-#        if node in remove_list:
-#            exp.remove_component(node)
-#        else:
-#            at_remove[node] = at[node]
-#    
-#    exp.draw()
-#

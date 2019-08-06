@@ -426,11 +426,7 @@ class Experiment(nx.DiGraph):
             c = self.nodes[node]['info']
             print('Name: {}, ID: {}, Type: {}'.format(c.name, c.id, c.type))
         
-        
-        
-        
-        
-        
+   
     def visualize(self, env, at=None, measurement_node=None, ax1=None, ax2=None):
         """
             Broken function - please ignore. It will potentially be fixed in future updates. Was meant for simple and clean visualization of the pulse as it progressed, but has not been updated since using a graph structure to represent the experiment(s)
