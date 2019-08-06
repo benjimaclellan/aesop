@@ -6,6 +6,9 @@ from scipy.special import binom
 from scipy.misc import factorial2
 from copy import deepcopy
 import sys
+from autograd import elementwise_grad, jacobian
+
+#%% Monte Carlo
 
 def perturb_experiment_parameters(experiment):
     '''
@@ -38,11 +41,12 @@ def perturb_experiment_parameters(experiment):
 
     return new_at
 
-def mc_error_propagation(experiment, environment, N):
+def mc_error_propagation(experiment, environment, N, verbose=False):
     fitnesses = np.zeros(N)
-    print("Monte Carlo simulation:")
+    if verbose: 
+        print("Monte Carlo simulation:")
+    
     bar_length = 20
-
     at_optimal = experiment.getattributes()
     for i in np.arange(N):
         progress = int(bar_length * (i+1)/N)
@@ -61,30 +65,20 @@ def mc_error_propagation(experiment, environment, N):
     print(" ")
     # Reset the experiment to optimal parameters
     experiment.setattributes(at_optimal)
-
     return fitnesses
 
-def drop_node(experiment, node):
-    """
-        Remove a specific single node
 
-    :param experiment:
-    :param node:
-    """
+def analysis_mc(exp, env, N=10**3, verbose=True):
+    if verbose:
+        print("Beginning Monte Carlo Simulation")
+    fitnesses = mc_error_propagation(exp, env, N, verbose)
+    mu = np.mean(fitnesses)
+    std = np.std(fitnesses)
+    return fitnesses, mu, std
 
-    pre = experiment.pre(node)
-    suc = experiment.suc(node)
 
-    if len(pre) == 1:
-        experiment.remove_edge(pre[0], node)
-    if len(suc) == 1:
-        experiment.remove_edge(node, suc[0])
-    if len(pre) == 1 and len(suc) == 1:
-        experiment.add_edge(pre[0], suc[0])
-    experiment.remove_node(node)
-    return experiment
-
-def remove_redundancies(experiment, env, verbose=False):
+#%% Redundancy checks
+def remove_redundancies(exp, env, verbose=False):
     """
     Check over an experiment for redundant nodes
 
@@ -93,38 +87,38 @@ def remove_redundancies(experiment, env, verbose=False):
     :param verbose:
     :return:
     """
-    exp = experiment
+    exp_redundancies = deepcopy(exp)
+    exp_backup = deepcopy(exp)
+    
     # Compute the fitness of the unmodified experiment, for comparison
-    At = exp.nodes[exp.measurement_nodes[0]]['output']
+    At = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
     fit = env.fitness(At)
-    valid_nodes = get_nonsplitters(exp)
-
-    for node in valid_nodes[:]:
-        if verbose:
-            print("Dropping node: " + str(node))
-        exp_bak = deepcopy(exp)
-        exp_mod = drop_node(exp_bak, node) # Drop a node from the experiment
-        exp_mod.measurement_nodes = exp_mod.find_measurement_nodes()
-        exp_mod.checkexperiment()
-        exp_mod.make_path()
-        exp_mod.check_path()
-        exp_mod.inject_optical_field(env.At)
+    valid_nodes = get_nonsplitters(exp_redundancies)
+    
+    for node in valid_nodes:        
+        exp_redundancies.remove_component(node) # Drop a node from the experiment
+        exp_redundancies.measurement_nodes = exp_redundancies.find_measurement_nodes()
+        exp_redundancies.checkexperiment()
+        exp_redundancies.make_path()
+        exp_redundancies.check_path()
+        exp_redundancies.inject_optical_field(env.At)
         # Simulate the optical table with dropped node
-        exp_mod.simulate(env)
-        At_mod = exp_mod.nodes[exp_mod.measurement_nodes[0]]['output']
+        exp_redundancies.simulate(env)
+        At_mod = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
         fit_mod = env.fitness(At_mod)
         if verbose:
-            print("Obtained fitness of " + str(fit_mod))
-            print("-_-_-_-")
+            print(fit_mod, fit)
+            print("Dropped node: {}. Fitness: {}".format(node, fit_mod))
+        
         # Compare the fitness to the original optical table
         if fit_mod[0] >= fit[0]: #and fit_mod[1] >= fit[1]:
             print("Dropping node")
             # If dropping the node didn't hurt the fitness, then drop it permanently
-            exp = exp_mod
             fit = fit_mod
-            At = At_mod
-
-    return exp
+        else:
+            exp_redundancies = deepcopy(exp_backup)
+            
+    return exp_redundancies
 
 def get_error_parameters(experiment):
     """
@@ -242,6 +236,9 @@ def normal_pdf(x, mu=0, sigma=1):
     scale = 1/(np.sqrt(2*np.pi*sigma**2))
     exp = np.exp(-1*(x-mu)**2/(2*sigma**2))
     return scale*exp
+
+#%% Univariate dimension reduction
+
 
 def evintegrand(val, node, key, fx, y, m):
     """
@@ -484,8 +481,8 @@ def UDR_moment_approximation(exp, env, l, n):
     x, r = compute_interpolation_points(matrix_moments)
 
     ## Make sure there wasn't any underflow errors etc
-    xim = np.imag(x)
-    xre = np.real(x)
+#    xim = np.imag(x)
+#    xre = np.real(x)
     if np.any(np.imag(x) != 0):
         raise np.linalg.LinAlgError("Complex values found in interpolation points")
     x = np.real(x)
@@ -496,7 +493,7 @@ def UDR_moment_approximation(exp, env, l, n):
 
     return moment
 
-def UDRAnalysis(exp, env):
+def analysis_udr(exp, env, verbose=True):
     """
     Function to fully do error analysis after the inner algorithm runs.
 
@@ -504,6 +501,10 @@ def UDRAnalysis(exp, env):
     :param env:
     :return:
     """
+    
+    if verbose:
+        print('Starting Univariate Dimension Reduction')
+    
     #Get parameters and compute interpolation points.
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
@@ -519,7 +520,7 @@ def UDRAnalysis(exp, env):
         matrix_moments = compute_moment_matrices([param], 5)
         x, r = compute_interpolation_points(matrix_moments)
 
-        xim = np.imag(x)
+#        xim = np.imag(x)
         xre = np.real(x)
         if np.any(np.imag(x) != 0):
             raise np.linalg.LinAlgError("Complex values found in interpolation points")
@@ -530,6 +531,11 @@ def UDRAnalysis(exp, env):
         variances.append(variance)
 
     return variances
+
+
+
+
+#%% Landscape Hessian Analaysis
 
 def multivariable_simulate(x, experiment, environment):
     """
@@ -554,7 +560,6 @@ def multivariable_simulate(x, experiment, environment):
     # Iterate through x and set the parameters of the experiment
     j = 0
     for node in experiment.node():
-        i = 0
         y = experiment.node()[int(node)]['info'].at
         n_node = np.shape(y)[0]
         experiment.node()[int(node)]['info'].at = y*0
@@ -571,3 +576,56 @@ def multivariable_simulate(x, experiment, environment):
     experiment.setattributes(at)
     return fit[0]
 
+def autograd_hessian(fun, argnum = 0):
+    '''
+    Compute the hessian by computing the transpose of the jacobian of the gradient.
+
+    :param fun:
+    :param argnum:
+    :return:
+    '''
+
+    def sum_latter_dims(x):
+        return np.sum(x.reshape(x.shape[0], -1), 1)
+
+    def sum_grad_output(*args, **kwargs):
+        return sum_latter_dims(elementwise_grad(fun)(*args, **kwargs))
+
+    return jacobian(sum_grad_output, argnum)
+
+
+def analysis_lha(at, exp, env, symmetry_tol=1e-5):
+    f = lambda x: multivariable_simulate(x, exp, env)
+    # Compute the Hessian of the fitness function (as a function of x)
+    Hf = autograd_hessian(f)
+
+    # Construct a vector of the mean value, and a vector of the standard deviations.
+    muv, sigma_list, basis, at_name = [], [], [], []
+    j,k = (0, 0)
+    for node in exp.nodes():
+        for name in exp.nodes[node]['info'].AT_VARS:
+            at_name.append('{}:{}'.format(node,name))
+        for q in at[node]:
+            muv.append(q)
+            basis.append(node)
+            j += 1
+        for mu, sigma in exp.nodes[node]['info'].at_pdfs:
+            sigma_list.append(sigma)
+            k += 1
+
+    muv, sigma_list, basis = np.array(muv), np.array(sigma_list), np.array(basis)
+    H0 = Hf(muv)/2
+
+    sym_dif = H0 - H0.T
+    if np.amax(sym_dif) > symmetry_tol:
+        raise ValueError("Max asymmetry is large " + str(np.amax(sym_dif)))
+
+    # Compute eigenstuff of the matrix, and sort them by eigenvalue magnitude
+    eigen_items = np.linalg.eig(H0)
+    eigensort_inds = np.argsort(eigen_items[0])
+    eigenvalues = eigen_items[0][eigensort_inds]
+    eigenvectors = eigen_items[1][:,eigensort_inds]
+
+    basis_names = (basis, at_name)
+
+    return H0, eigenvalues, eigenvectors, basis_names

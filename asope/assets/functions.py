@@ -39,7 +39,7 @@ def RFSpectrum( At, dt, ax=0):
 
 
 
-def save_experiment(filename, experiment):
+def save_class(filename, experiment):
     """
         Save an Experiment class instance as a pkl file - which save all of the information of the experiment including setting and outputs
     """
@@ -47,7 +47,7 @@ def save_experiment(filename, experiment):
         pickle.dump(experiment, output, pickle.HIGHEST_PROTOCOL)
 #        pickle.dump(env, output, pickle.HIGHEST_PROTOCOL)
         
-def load_experiment(filename):
+def load_class(filename):
     """
         Load an Experiment class instance from a pkl file 
     """
@@ -57,12 +57,12 @@ def load_experiment(filename):
     return experiment
 
             
-def reload_experiment(filename):
+def reload_experiment(experiment):
     """
         Reloads an experiment from filename
     """
-    E = rebuild_experiment( load_experiment(filename) )
-    return E
+    exp = rebuild_experiment( experiment )
+    return exp
     
 
 def rebuild_experiment(E):

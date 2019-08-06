@@ -6,7 +6,7 @@ import time
 import pickle
 
 #%% import custom modules
-from assets.functions import save_experiment
+from assets.functions import save_class
 from assets.graph_manipulation import remake_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
@@ -18,7 +18,7 @@ def save_experiment_and_plot(experiment, env, At, filepath=None, filename=None):
 #        filename = str(uuid.uuid4())
         filename = time.strftime("%Y%m%d-%H%M%S")
         
-    save_experiment(filepath+filename+'_experiment', experiment)
+    save_class(filepath+filename+'_experiment', experiment)
     
     fig, ax = plt.subplots(2,2)
     ax = ax.flatten()

@@ -4,7 +4,7 @@ import random
 import multiprocess as mp
 import copy
 from optimization.geneticalgorithm import eaSimple
-from fitness_analysis import UDR_moment_approximation
+
 #%% 
 """
 Function for creating a New Individual (NA) in the Inner GA
@@ -80,12 +80,7 @@ def FIT_Inner(ind, env, experiment, UDR = False):
     measurement_node = experiment.measurement_nodes[0]
     At = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
     opt_fit = env.fitness(At)[0]
-    if UDR == True:
-        variance = UDR_moment_approximation(experiment, env, 2, 5)
-        return [opt_fit, variance]
-
-    else:
-        return [opt_fit]
+    return [opt_fit]
 
 #%%
  

@@ -493,26 +493,31 @@ class Experiment(nx.DiGraph):
         :return:
         """
         at = self.getattributes()
-        x = []
-        for component in at:
-            for val in at[component]:
-                x.append(val)
+#        x = []
+#        for component in at:
+#            for val in at[component]:
+#                x.append(val)
+        at_vec = []
+        for node in self.nodes():
+            if not self.nodes[node]['info'].splitter:
+                for allele, i in enumerate(at[node]):
+                    if i not in self.nodes[node]['info'].FINETUNE_SKIP:
+                        at_vec.append(allele)        
+        return np.array(at_vec)
 
-        return np.array(x)
-
-    def attributes_from_vector(self, x):
-        """
-        Set the attribute dictionary from a vector
-
-        :param: x
-        :return:
-        """
-        at = self.getattributes()
-        j = 0
-        for component in at:
-            for i, val in enumerate(at[component]):
-                at[component][i] = x[j]
-                j += 1
+#    def attributes_from_vector(self, x):
+#        """
+#        Set the attribute dictionary from a vector
+#
+#        :param: x
+#        :return:
+#        """
+#        at = self.getattributes()
+#        j = 0
+#        for component in at:
+#            for i, val in enumerate(at[component]):
+#                at[component][i] = x[j]
+#                j += 1
 
         self.setattributes(at)
         return True

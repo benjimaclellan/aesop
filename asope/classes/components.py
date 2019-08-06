@@ -111,7 +111,7 @@ class Fiber(Component):
         self.LOWER = [0]
         self.DTYPE = ['float']
         self.DSCRTVAL = [None]
-        self.FINETUNE_SKIP = None
+        self.FINETUNE_SKIP = []
         self.splitter = False
         self.at_pdfs = np.array([
             (0, 0.15) # Length
@@ -224,7 +224,7 @@ class WaveShaper(Component):
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
         #self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
         self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
-        self.FINETUNE_SKIP = None
+        self.FINETUNE_SKIP = []
         self.splitter = False
 
         self.at_pdfs = np.zeros((2*self.n_windows, 2))
@@ -314,7 +314,7 @@ class PowerSplitter(Component):
         self.LOWER = []
         self.DTYPE = ['float']
         self.DSCRTVAL = [None]
-        self.FINETUNE_SKIP = None
+        self.FINETUNE_SKIP = []
         self.splitter = True
 
 
@@ -434,7 +434,7 @@ class AmplitudeModulator(Component):
         self.LOWER = [0, 6e9, 0]
         self.DTYPE = ['float', 'float', 'float']
         self.DSCRTVAL = [None, 6e9, None]
-        self.FINETUNE_SKIP = None
+        self.FINETUNE_SKIP = []
         self.splitter = False
 
     def simulate(self, env, At,  visualize=False):

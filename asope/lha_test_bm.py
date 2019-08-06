@@ -39,7 +39,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from fitness_analysis import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points, multivariable_simulate
+from fitness_analysis import remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points
 from fitness_analysis import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
 
 plt.close("all")
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     exp.draw(node_label = 'disp_name')
     
     #%%
-    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+#    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
 
     #%%
     at = hof[0]
@@ -307,7 +307,7 @@ if __name__ == '__main__':
         plt.title(perm)
         plt.show()  
         
-    multipage('results/2019_07_30__interestingresults102.pdf')
+#    multipage('results/2019_07_30__interestingresults102.pdf')
 
     df = elementwise_grad(f)
     print(df(muv))
