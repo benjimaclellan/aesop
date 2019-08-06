@@ -482,14 +482,12 @@ class Experiment(nx.DiGraph):
         :return:
         """
         at = self.getattributes()
-        x = np.empty(16)
-        j = 0
+        x = []
         for component in at:
             for val in at[component]:
-                x[j] = val
-                j += 1
+                x.append(val)
 
-        return x
+        return np.array(x)
 
     def attributes_from_vector(self, x):
         """
@@ -507,6 +505,18 @@ class Experiment(nx.DiGraph):
 
         self.setattributes(at)
         return True
+
+    def get_sigma_vector(self):
+        sigma_list = []
+        j,k = (0, 0)
+        for node in self.nodes():
+            for mu, sigma in self.nodes[node]['info'].at_pdfs:
+                sigma_list.append(sigma)
+                k += 1
+
+        sigma_list = np.array(sigma_list)
+
+        return sigma_list
 
     def power_check_single(self, At, display=False):
         """

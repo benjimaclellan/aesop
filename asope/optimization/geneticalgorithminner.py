@@ -4,7 +4,7 @@ import random
 import multiprocess as mp
 import copy
 from optimization.geneticalgorithm import eaSimple
-from noise_sim import UDR_moment_approximation
+from fitness_analysis import UDR_moment_approximation
 #%% 
 """
 Function for creating a New Individual (NA) in the Inner GA

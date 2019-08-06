@@ -38,8 +38,8 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points, multivariable_simulate
-from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
+from fitness_analysis import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points, multivariable_simulate
+from fitness_analysis import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
 
 plt.close("all")
 
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
     gap.N_POPULATION = 200       # number of individuals in a population (make this a multiple of NCORES!)
-    gap.N_GEN = 50               # number of generations
+    gap.N_GEN = 10               # number of generations
     gap.MUT_PRB = 0.5           # independent probability of mutation
     gap.CRX_PRB = 0.5           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
@@ -193,19 +193,20 @@ if __name__ == '__main__':
             k += 1
     
     muv, sigma_list, basis = np.array(muv), np.array(sigma_list), np.array(basis)
-            
-    print(muv)
+
+    muv = exp.attributes_to_vector()
+    sigma_list = exp.get_sigma_vector()
     H0 = Hf(muv)
     H0 = H0/2 # Taylor exp. factor of 1/2!
-    i = 0
-    for row in H0:
-        j = 0
-        for val in row:
-            sigma_i = sigma_list[i]
-            sigma_j = sigma_list[j]
-            H0[i, j] = val*sigma_i*sigma_j
-            j += 1
-        i += 1
+    #i = 0
+    #for row in H0:
+    #    j = 0
+    #    for val in row:
+    #        sigma_i = sigma_list[i]
+    #        sigma_j = sigma_list[j]
+    #        H0[i, j] = val*sigma_i*sigma_j
+    #        j += 1
+    #    i += 1
 
     print(H0)
 
@@ -245,6 +246,39 @@ if __name__ == '__main__':
     plt.title("Hessian Spectrum")
     plt.legend()
     plt.show()
+
+    df = elementwise_grad(f)
+    print(df(muv))
+    perturb_vec = (sigma_list)
+    predicted_fit = f(muv) + np.dot(df(muv), perturb_vec)
+    #predicted_fit += np.dot(perturb_vec, np.dot(H0, perturb_vec))
+    print("Prediction: " + str(predicted_fit))
+
+    lengths = sigma_list[-1]*np.linspace(-1.5,1.5,200)
+    fits = []
+    dfits = []
+    for item in lengths:
+        tmp = muv + [0,0,0,item]
+        fits.append(f(tmp))
+        dfits.append(df(tmp))
+
+    plt.plot(lengths/sigma_list[-1],fits)
+    plt.title("Fitness landscape slice (fiber L)")
+    plt.xlabel("Deviation from mean")
+    plt.axvline(0)
+    plt.ylabel("Fitness")
+    plt.show()
+
+    plt.plot(lengths/sigma_list[-1],dfits)
+    plt.title("Derivative slice of fit")
+    plt.xlabel("Deviation from mean")
+    plt.ylabel("Derivative of Fitness")
+    plt.show()
+
+    real_fit = f(muv)
+    print("RV: " + str(real_fit))
+
+
 
 #    multipage('results/2019_07_30__interestingresults4.pdf')
 

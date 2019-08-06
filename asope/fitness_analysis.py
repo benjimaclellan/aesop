@@ -532,9 +532,26 @@ def UDRAnalysis(exp, env):
     return variances
 
 def multivariable_simulate(x, experiment, environment):
+    """
+    Function which preforms an experiment with a given input parameter vector x, and then computes and returns the
+    fitness of the result. This allows you to run autograd on it.
+
+    :param x:
+    :param experiment:
+    :param environment:
+    :return float:
+    """
 
     at = experiment.getattributes()
+    # Get the optimal parameters mu
+    mu = experiment.attributes_to_vector()
+    # Get the deviation of the parameters
+    sigma_list = experiment.get_sigma_vector()
 
+    # Co-ordinate transform to unitless co-ordinates
+    x = (x - mu)/sigma_list
+
+    # Iterate through x and set the parameters of the experiment
     j = 0
     for node in experiment.node():
         i = 0
@@ -544,29 +561,7 @@ def multivariable_simulate(x, experiment, environment):
         experiment.node()[int(node)]['info'].at = y + x[j:n_node+j]
         j += n_node
 
-        '''
-        for optimal_val in y:
-            mu, sigma = experiment.node()[int(node)]['info'].at_pdfs[i]
-            upper = experiment.node()[int(node)]['info'].UPPER[i]
-            lower = experiment.node()[int(node)]['info'].LOWER[i]
-
-            val = x[j]
-            real_val = val
-            # Perturb is a triple with the error parameter key and the new value
-            # co-ordinate xform
-            #real_val = sigma*val + mu
-
-            #real_val += optimal_val
-
-            #if real_val > upper:
-            #    real_val = upper
-            #if real_val < lower:
-            #    real_val = lower
-            print(real_val)
-            experiment.nodes()[int(node)]['info'].at[i] = real_val
-
-            j += 1
-        '''
+    # Simulate and compute fitness
     experiment.simulate(environment)
     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
 
@@ -574,6 +569,5 @@ def multivariable_simulate(x, experiment, environment):
 
     # reset to optimal value
     experiment.setattributes(at)
-    print(fit)
     return fit[0]
 

@@ -39,8 +39,8 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from noise_sim import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points, multivariable_simulate
-from noise_sim import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
+from fitness_analysis import drop_node, remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points, multivariable_simulate
+from fitness_analysis import simulate_with_error, get_error_parameters, get_error_functions, UDR_moment_approximation, UDRAnalysis, UDR_moments
 
 plt.close("all")
 
@@ -119,9 +119,7 @@ if __name__ == '__main__':
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
-    #env.createnoise()
-    #env.addnoise()
-    
+
     env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
     
     #%%
@@ -187,13 +185,9 @@ if __name__ == '__main__':
     minval, maxval = np.min(At), np.max(At)
     print("Normalize? " + str(env.normalize))
     if env.normalize:
-        #TODO: Determine how to properly normalize STD
         At_norm = At / maxval
-        #At_avg = (At_avg-minval)/(maxval-minval)
-        #At_std = At_std/maxval
 
     ## UDR
-    '''
     print("Beginning Univariate Dimension Reduction")
 
     print("Output standard deviation varying individual parameters:")
@@ -205,7 +199,7 @@ if __name__ == '__main__':
         node, key = int(node), int(key)
         try:
             title = exp.nodes()[node]['title']
-            label = exp.nodes()[node]['info'].at_labels[key]
+            label = exp.nodes()[node]['info'].AT_VARS[key]
             comp_labels.append(title)
             at_labels.append(label)
         except AttributeError or TypeError:
@@ -215,11 +209,11 @@ if __name__ == '__main__':
     results = results.assign(Attribute = at_labels)
     results = results.assign(Output_Deviation = stds)
     print(results)
-    simulate_with_error.count = 0
 
     ## Compute the interpolation points
     error_params = get_error_parameters(exp)
     error_functions = get_error_functions(exp)
+    times = []
     f = lambda x: simulate_with_error(x, exp, env) - fit[0]
     matrix_moments = compute_moment_matrices(error_params, 5)
     x, r = compute_interpolation_points(matrix_moments)
@@ -241,9 +235,15 @@ if __name__ == '__main__':
     std = np.sqrt(UDR_moments(f, 2, error_params, error_functions, [x,r], matrix_moments))
     print("Standard Deviation: " + str(std))
     stop = time.time()
+    times.append(stop-start)
     print("Time elapsed: " + str(stop - start))
     #print("number of function calls : " + str(simulate_with_error.count))
     print("________________")
+
+    npts = np.arange(16) + np.ones(16)
+    time_array = np.concatenate((np.array([npts]), np.array([times])), axis=1)
+    np.save('udr_time', time_array)
+
 
     #plt.figure()
     #plt.plot(np.abs(RFSpectrum(env.target, env.dt)),label='target',ls=':')
@@ -256,11 +256,12 @@ if __name__ == '__main__':
 
     ## Monte Carlo
     print("Beginning Monte Carlo Simulation")
-    N = 1000
+    N = 10**3
     start = time.time()
     fitnesses = mc_error_propagation(exp, env, N)
     stop = time.time()
 
+    mct = stop-start
     mu = np.mean(fitnesses)
     std = np.std(fitnesses)
 
@@ -272,7 +273,7 @@ if __name__ == '__main__':
     n, bins, patches = plt.hist(fitnesses, num_bins)
     plt.title("Output distribution")
     plt.show()
-    '''
+
     f = lambda x: multivariable_simulate(x, exp, env)
     print("Beginning Autodifferentiation")
 
@@ -299,15 +300,6 @@ if __name__ == '__main__':
     print(muv)
     H0 = Hf(muv)
     H0 = H0/2 # Taylor exp. factor of 1/2!
-    i = 0
-    for row in H0:
-        j = 0
-        for val in row:
-            sigma_i = sigma_list[i]
-            sigma_j = sigma_list[j]
-            H0[i, j] = val*sigma_i*sigma_j
-            j += 1
-        i += 1
 
     print(H0)
 
@@ -316,11 +308,13 @@ if __name__ == '__main__':
     sym_dif = H0 - H0.T
     print("Max asymmetry " + str(np.amax(sym_dif)))
 
+    # Compute eigenstuff of the matrix, and sort them by eigenvalue magnitude
     eigen_items = np.linalg.eig(H0)
     eigensort_inds = np.argsort(eigen_items[0])
     eigenvalues = eigen_items[0][eigensort_inds]
     eigenvectors = eigen_items[1][:,eigensort_inds]
 
+    ## PLOTTING FROM HERE ON
     plt.figure()
     g = seaborn.heatmap((H0))
     g.set_xticklabels(at_name, rotation=0)
@@ -348,14 +342,3 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    perturbed_vector = eigenvectors[0]
-    exp.attributes_from_vector(perturbed_vector)
-    exp.simulate(env)
-
-    At = exp.nodes[exp.measurement_nodes[0]]['output']
-
-    fit = env.fitness(At)
-    print("Fitness: " + str(fit))
-
-    print(np.dot(H0, perturbed_vector))
-    # TODO: Figure out why this dot product isn't giving expected val

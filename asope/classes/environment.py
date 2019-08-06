@@ -84,25 +84,6 @@ class OpticalField(object):
     def compare(self, At):
         
         return
-    
-    def createnoise(self):
-        """
-            Noise model - not fully implemented
-        """
-        self.noise = np.random.normal(0, 0.05, np.shape(self.At0))
-        return True
-    
-    def addnoise(self):
-        """
-            Injects the noise model on the pulse - not fully implemented
-        """
-        self.At0 += self.noise
-        return True
-    
-
-
-
-
 
 #%%
 class OpticalField_CW(OpticalField):

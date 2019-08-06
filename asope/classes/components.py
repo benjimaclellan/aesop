@@ -3,8 +3,6 @@ import autograd.numpy as np
 from itertools import count
 #from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-from noise_sim import normal_pdf
-from scipy.constants import *
 """
 ASOPE
 |- components.py
@@ -115,11 +113,6 @@ class Fiber(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = None
         self.splitter = False
-        # Error Parameters
-        self.N_EPARAMETERS = 1
-        self.EUPPER = [1]
-        self.ELOWER = [0]
-
         self.at_pdfs = np.array([
             (0, 0.15) # Length
         ])
@@ -176,8 +169,6 @@ class PhaseModulator(Component):
         self.DSCRTVAL = [None, 1e7]
         self.FINETUNE_SKIP = None
         self.splitter = False
-        self.EUPPER = [2*np.pi, 1]
-        self.ELOWER = [0, 0]
 
         self.at_pdfs = np.array([
             [0, 0.5*np.pi], # max shift
@@ -240,7 +231,7 @@ class WaveShaper(Component):
         self.AT_VARS = []
         for i in np.arange(2*self.n_windows):
             if i < self.n_windows:
-                self.at_pdfs[i] = [0, 0] #window amplitude
+                self.at_pdfs[i] = [0, 0.01] #window amplitude
                 self.AT_VARS.append('window ampltiude ' + str(i))
             else:
                 self.at_pdfs[i] = [0, 0.1] #window phase
