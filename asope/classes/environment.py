@@ -1,5 +1,4 @@
 import autograd.numpy as np
-import peakutils
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from scipy.signal import square
 import matplotlib.pyplot as plt
@@ -221,7 +220,7 @@ class OpticalField_Pulse(OpticalField):
         freq_target = int(round(self.f_rep / self.df)/(self.p / self.q))
         X2 = np.abs(np.max(PAt) - self.p / self.q)
 #        X1 = np.sum(RFSpectrum(At, self.dt)[freq_target-1:freq_target+1])
-        X1 = (RFSpectrum(At, self.dt)[freq_target]) / X2
+        X1 = (RFSpectrum(At, self.dt)[freq_target])  #/ X2
 
         return X1
     

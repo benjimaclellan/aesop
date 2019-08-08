@@ -111,12 +111,14 @@ class Fiber(Component):
         self.LOWER = [0]
         self.DTYPE = ['float']
         self.DSCRTVAL = [None]
+        self.SIGMA = [0.15]
+        self.MU = [0.0]
         self.FINETUNE_SKIP = []
         self.splitter = False
-        self.at_pdfs = np.array([
-            (0, 0.15) # Length
-        ])
-        self.AT_VARS = ['fiber length']
+        # self.at_pdfs = np.array([
+        #     (0, 0.15) # Length
+        # ])
+        self.AT_NAME = ['fiber length']
 
     def simulate(self, env, At, visualize=False):
 
@@ -165,17 +167,19 @@ class PhaseModulator(Component):
         self.N_PARAMETERS = 2
         self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
         self.LOWER = [0, 1e8]
+        self.SIGMA = [0.05, 1e6]
+        self.MU = [0.0, 0.0]
         self.DTYPE = ['float', 'float']
         self.DSCRTVAL = [None, 1e9]
         self.FINETUNE_SKIP = []
         self.splitter = False
 
-        self.at_pdfs = np.array([
-            [0, 0.1*np.pi], # max shift
-            [0, 1e6]  # frequency
-        ])
+        # self.at_pdfs = np.array([
+        #     [0, 0.1*np.pi], # max shift
+        #     [0, 1e6]  # frequency
+        # ])
 
-        self.AT_VARS = ['mod depth', 'mod freq']
+        self.AT_NAME = ['mod depth', 'mod freq']
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
@@ -221,21 +225,24 @@ class WaveShaper(Component):
         self.N_PARAMETERS = 2*self.n_windows
         self.UPPER = self.n_windows*[1] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0] + self.n_windows*[0]
+        self.SIGMA = self.n_windows*[0.05] + self.n_windows*[0.5*np.pi]
+        self.MU = self.n_windows*[0] + self.n_windows*[0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
         #self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
         self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = []
         self.splitter = False
 
-        self.at_pdfs = np.zeros((2*self.n_windows, 2))
-        self.AT_VARS = []
-        for i in np.arange(2*self.n_windows):
-            if i < self.n_windows:
-                self.at_pdfs[i] = [0, 0.01] #window amplitude
-                self.AT_VARS.append('window ampltiude ' + str(i))
-            else:
-                self.at_pdfs[i] = [0, 0.1] #window phase
-                self.AT_VARS.append('window phase ' + str(i - self.n_windows))
+        # self.at_pdfs = np.zeros((2*self.n_windows, 2))
+        # self.AT_NAME = []
+        self.AT_NAME = ['window amplitude {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)] + ['window phase {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)]
+        # for i in np.arange(2*self.n_windows):
+        #     if i < self.n_windows:
+        #         # self.at_pdfs[i] = [0, 0.01] #window amplitude
+        #         self.AT_NAME.append('window ampltiude ' + str(i))
+        #     else:
+        #         # self.at_pdfs[i] = [0, 0.1] #window phase
+        #         self.AT_NAME.append('window phase ' + str(i - self.n_windows))
 
 
     def temp_func(self, left, right, i, vals):
@@ -312,6 +319,8 @@ class PowerSplitter(Component):
         self.N_PARAMETERS = 0
         self.UPPER = []
         self.LOWER = []
+        self.SIGMA = []
+        self.MU = []
         self.DTYPE = ['float']
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = []
@@ -361,6 +370,8 @@ class FrequencySplitter(Component):
         self.N_PARAMETERS = 1
         self.UPPER = [0.1]
         self.LOWER = [-0.1]
+        self.SIGMA = [0.01]
+        self.MU = [0.0]
         self.DTYPE = ['float']
         self.DSCRTVAL = [0.02]
         self.FINETUNE_SKIP = [0]
@@ -432,6 +443,8 @@ class AmplitudeModulator(Component):
         self.N_PARAMETERS = 3
         self.UPPER = [1, 24e9, 1]   # max shift, frequency, bias
         self.LOWER = [0, 6e9, 0]
+        self.SIGMA = [0.1, 1e6, 0.1]
+        self.MU = [0,0,0]
         self.DTYPE = ['float', 'float', 'float']
         self.DSCRTVAL = [None, 6e9, None]
         self.FINETUNE_SKIP = []

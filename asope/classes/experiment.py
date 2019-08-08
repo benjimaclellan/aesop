@@ -1,9 +1,10 @@
 import networkx as nx
+import pandas as pd
 import matplotlib.pyplot as plt
 import autograd.numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 import copy
-
+from assets.fitness_analysis import mc_analysis_wrapper, udr_analysis_wrapper, lha_analysis_wrapper
 
 """
 
@@ -29,7 +30,7 @@ class Experiment(nx.DiGraph):
                 if self.nodes[node]['info'].splitter:
                     # if this is an input node (no predeccessors), get the prescribed input
                     if len(self.pre(node)) == 0:
-                        At = self.nodes[node]['input']#.reshape(env.n_samples,1)
+                        At = self.nodes[node]['input']
                     
                     # if not an input node (somewhere in the middle of the setup)
                     else:
@@ -293,28 +294,7 @@ class Experiment(nx.DiGraph):
         for node in self.nodes():
             if self.nodes[node]['info'].N_PARAMETERS > 0:
                 self.nodes[node]['info'].at = attributes[node]
-
-    def getattributes(self):
-        """
-            Get a set of attributes from all the nodes
-        :return dictionary:
-        """
-        at = {node: self.nodes[node]['info'].at for node in self.nodes()}
-        return at
-
-    def seterrorattributes(self, error_attributes):
-        """
-        Saves a set of error attributes (parameters) to the nodes
-
-        :param error_attributes:
-        :return:
-        """
-
-        for node in self.nodes():
-            if self.nodes[node]['error'].N_EPARAMETERS > 0:
-                self.nodes[node]['error'].eat = error_attributes[node]
-
-        return 0
+        return
 
     def suc(self, node):
         """
@@ -348,7 +328,14 @@ class Experiment(nx.DiGraph):
                 self.add_edge(pre[0], suc[0])    
             self.remove_node(node)
         return
-        
+
+    def get_nonsplitters(self):
+        valid_nodes = []
+        for node in self.nodes():
+            if not self.nodes[node]['info'].splitter:
+                valid_nodes.append(node)
+        return valid_nodes
+
     
     def measure(self, env, measurement_node, check_power = False, fig = None):
         """
@@ -429,7 +416,6 @@ class Experiment(nx.DiGraph):
    
     def visualize(self, env, at=None, measurement_node=None, ax1=None, ax2=None):
         """
-            Broken function - please ignore. It will potentially be fixed in future updates. Was meant for simple and clean visualization of the pulse as it progressed, but has not been updated since using a graph structure to represent the experiment(s)
         """
         
         self.simulate(env, visualize=True)
@@ -443,14 +429,11 @@ class Experiment(nx.DiGraph):
             
         if measurement_node is not None:
             At = self.nodes[measurement_node]['output'].reshape(env.n_samples)
-#            Af = FFT(At, env.dt)
-            
             PAt = P(At)
             PAf = PSD(At, env.dt, env.df)
             
             ax1.plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
             ax2.plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
-            
             
         for node in self.nodes():
             if self.nodes[node]['info'].lines is not None:
@@ -482,57 +465,36 @@ class Experiment(nx.DiGraph):
         fig.tight_layout()
         return 
            
-    
-    
-        return
+    def attributes_from_list(self, x_opt, node_lst, idx_lst):
+        at_dict = {}
+        for node in set(node_lst):
+            indices = [i for i, x in enumerate(node_lst) if x == node]
+            node_ats = list(indices)
 
-    def attributes_to_vector(self):
-        """
-        Get the attributes and return as a vector instead of a dictionary
+            for index in indices:
+                node_ats[idx_lst[index]] = x_opt[index]
+            at_dict[node] = node_ats
+        return at_dict
 
-        :return:
+
+
+    def experiment_info_as_list(self, at):
         """
-        at = self.getattributes()
-#        x = []
-#        for component in at:
-#            for val in at[component]:
-#                x.append(val)
-        at_vec = []
+        Get the attributes and return as a list instead of a dictionary
+        """
+        at_lst, node_lst, idx_lst, sigma_lst, mu_lst, at_names = [], [], [], [], [], []
         for node in self.nodes():
-            if not self.nodes[node]['info'].splitter:
-                for allele, i in enumerate(at[node]):
+            if node in at.keys():
+                for i, allele in enumerate(at[node]):
                     if i not in self.nodes[node]['info'].FINETUNE_SKIP:
-                        at_vec.append(allele)        
-        return np.array(at_vec)
+                        at_lst.append(allele)
+                        node_lst.append(node)
+                        idx_lst.append(i)
+                        at_names.append(self.nodes[node]['info'].AT_NAME[i])
+                        sigma_lst.append(self.nodes[node]['info'].SIGMA[i])
+                        mu_lst.append(self.nodes[node]['info'].MU[i])
+        return at_lst, node_lst, idx_lst, sigma_lst, mu_lst, at_names
 
-#    def attributes_from_vector(self, x):
-#        """
-#        Set the attribute dictionary from a vector
-#
-#        :param: x
-#        :return:
-#        """
-#        at = self.getattributes()
-#        j = 0
-#        for component in at:
-#            for i, val in enumerate(at[component]):
-#                at[component][i] = x[j]
-#                j += 1
-
-        self.setattributes(at)
-        return True
-
-    def get_sigma_vector(self):
-        sigma_list = []
-        j,k = (0, 0)
-        for node in self.nodes():
-            for mu, sigma in self.nodes[node]['info'].at_pdfs:
-                sigma_list.append(sigma)
-                k += 1
-
-        sigma_list = np.array(sigma_list)
-
-        return sigma_list
 
     def power_check_single(self, At, display=False):
         """
@@ -552,16 +514,76 @@ class Experiment(nx.DiGraph):
             display = True
             check = False
             print('There seems to be an issue in energy conservation')
-            
         if display:
             print('Input power: {}\nOutput power: {}'.format(totalpower_in, totalpower_out))
-        
         return check
-        
 
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+    def init_fitness_analysis(self, at, env, method='LHA', verbose=False, **kwargs):
+        x_opt, node_lst, idx_lst, sigma_lst, mu_lst, at_names = self.experiment_info_as_list(at)
+
+        self.analysis_verbose = verbose
+        self.at_names = at_names
+        self.node_lst = node_lst
+        self.method = method
+
+        if method == 'LHA':
+            if verbose: print('LHA. Does need an initialize to get autograd function')
+            def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst, mu_lst=mu_lst, sigma_lst=sigma_lst):
+                x_opt = (np.array(x_opt) - np.array(mu_lst)) / np.array(sigma_lst) # for the LHA we need a coordinate transformation
+                exp.inject_optical_field(env.At)
+                at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
+                exp.setattributes(at)
+                exp.simulate(env)
+                At = exp.nodes[exp.measurement_nodes[0]]['output']
+                fit = env.fitness(At)
+                return fit[0]
+            self.analysis_function = lambda x_opt: lha_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
+                                                                        sigma_lst)
+
+        elif method == 'UDR' or method == 'MC':
+            def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst):
+                exp.inject_optical_field(env.At)
+                at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
+                exp.setattributes(at)
+                exp.simulate(env)
+                At = exp.nodes[exp.measurement_nodes[0]]['output']
+                fit = env.fitness(At)
+                return fit[0]
+
+            if method == 'UDR':
+                if verbose: print("UDR. Does need to initialize matrices as they can be computed once")
+                self.analysis_function = lambda x_opt: udr_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
+                                                                                   sigma_lst)
+
+
+            elif method == 'MC':
+                if verbose: print("MC - doesn't need an initialization, just run")
+                self.analysis_function = lambda x_opt: mc_analysis_wrapper(x_opt, analysis_wrapper, mu_lst, sigma_lst)
+
+        else:
+            print('Not a method')
+        return
+
+
+
+    def run_analysis(self, at, verbose=False):
+        x_opt, *_ = self.experiment_info_as_list(at)
+        parameter_stability, *tmp = self.analysis_function(x_opt)
+
+        if verbose:
+            comp_labels = []
+            for node in self.node_lst:
+                comp_labels.append(self.nodes[node]['title'])
+
+            results = pd.DataFrame(comp_labels, columns=["Component"])
+            results = results.assign(Attribute=self.at_names)
+            results = results.assign(Output_Deviation=parameter_stability)
+            print(results)
+            print('Analysis with {} method is completed.\n'.format(self.method))
+        return parameter_stability, tmp
+

@@ -11,6 +11,9 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1" 
 os.environ["OMP_NUM_THREADS"] = "1" 
 
+import warnings
+warnings.filterwarnings("ignore")
+
 #%% import public modules
 import time
 import matplotlib.pyplot as plt
@@ -28,7 +31,6 @@ from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
 from assets.waveforms import random_bit_pattern, bit_pattern, rf_chirp
 from assets.callbacks import save_experiment_and_plot
-from assets.graph_manipulation import get_nonsplitters
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
 from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
@@ -100,16 +102,19 @@ if __name__ == '__main__':
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
 
     #%% initialize our input pulse, with the fitness function too
-    env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
-    target_harmonic = 12e9
+#    env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
+#    target_harmonic = 12e9
+#    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
 
-    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
+    env = OpticalField_Pulse(n_samples=2**14, profile='gaussian', pulse_width=100e-12, f_rep=100e6, n_pulses=15, peak_power=1)
+    env.init_fitness(p=1, q=2)
+
     
     #%%
     components = {
-                    0:PhaseModulator(),
-                    1:WaveShaper(),
-                    2:PhaseModulator(),
+                    0:Fiber(),
+                    1:Fiber(),
+                    2:PhaseModulator()
                  }
     adj = [(0,1), (1,2)]
 
@@ -125,7 +130,7 @@ if __name__ == '__main__':
     exp.draw(node_label = 'disp_name')
     
     #%%
-#    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
     
     #%%
 #    fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
@@ -136,7 +141,7 @@ if __name__ == '__main__':
 #    ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
 #    
     #%%
-    at = hof_fine[0]
+    at = copy.deepcopy(hof_fine[0])
 
 #    print(at)
     
@@ -144,13 +149,12 @@ if __name__ == '__main__':
     exp.simulate(env)
     At = exp.nodes[exp.measurement_nodes[0]]['output']
     fit = env.fitness(At)
-    print("Fitness: " + str(fit))
+    print("Fitness: {}".format(fit))
 
-#    plt.show()
-#    plt.plot(env.t, env.target,label='target',ls=':')
-#    plt.plot(env.t, np.abs(At))
-#    plt.xlim([0,10/env.target_harmonic])
-#    plt.show()
+    plt.figure()
+    plt.plot(env.t, P(At))
+    plt.plot(env.t, P(env.At0))
+    plt.show()
 
     #%% Redundancy check
 #    print("Beginning Redundancy Check")
@@ -159,30 +163,39 @@ if __name__ == '__main__':
 #    plt.show()
 
     #%% UDR
-    std_udr = np.sqrt(analysis_udr(exp, env, verbose=True))
-    
-    ## Monte Carlo
-    fitnesses, mu_udr, std_mc = analysis_mc(exp, env, 10**3, verbose=True)
-#    n, bins, patches = plt.hist(fitnesses, 20)
-#    plt.title("Output distribution")
-#    plt.show()
-
+#    std_udr = analysis_udr(at, exp, env, verbose=True)
+#    
+#    ## Monte Carlo
+#    mu_mc, std_mc = analysis_mc(at, exp, env, 10**3, verbose=True)
+#
+#    # LHA
 #    H0, eigenvalues, eigenvectors, basis_names = analysis_lha(at, exp, env, verbose=True)
+#    
+    #%%
+#    plt.figure()
+#    plt.stem(np.diag(H0)/np.max(np.abs(np.diag(H0))),label='lha')
+#    plt.stem(std_udr/np.max(std_udr), label='udr', linefmt='-gx')
+#    plt.legend()
+#    plt.show()
+#    
+#    save_class('testing/experiment_example', exp)
+#    save_class('testing/environment_example', env)
     
     
     
-    
-    save_class('testing/experiment_example', exp)
-    save_class('testing/environment_example', env)
-    
-    
-    
-#    ## PLOTTING FROM HERE ON
+##    ## PLOTTING FROM HERE ON
 #    plt.figure()
 #    g = seaborn.heatmap((H0))
-#    g.set_xticklabels(at_name, rotation=0)
-#    g.set_yticklabels(at_name, rotation=90)
+#    g.set_xticklabels(basis_names[1], rotation=30)
+#    g.set_yticklabels(basis_names[1], rotation=60)
 #
+#
+#    plt.figure()
+#    plt.plot(env.t, P(At))
+#    plt.plot(env.t, P(env.At0))
+#    plt.show()
+
+
 #    fig, ax = plt.subplots(eigenvectors.shape[1], 1, sharex=True, sharey=True)
 #    for k in range(0, eigenvectors.shape[1]):
 #        ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))

@@ -31,13 +31,13 @@ def random_choice(options, num_choices, replace=False):
         choice.append(options[ind])
     return choice
 
-#%%
-def get_nonsplitters(experiment):
-    valid_nodes = []
-    for node in experiment.nodes():
-        if not experiment.nodes[node]['info'].splitter:
-            valid_nodes.append(node)
-    return valid_nodes
+# # #%%
+# def get_nonsplitters(experiment):
+#     valid_nodes = []
+#     for node in experiment.nodes():
+#         if not experiment.nodes[node]['info'].splitter:
+#             valid_nodes.append(node)
+#     return valid_nodes
 
 #%%
 def select_N_new_components(num_new_components, POTENTIAL_COMPS, comp_type, replace=False):
@@ -70,7 +70,7 @@ def mutate_experiment(experiment, POTENTIAL_COMPS):
         Switch the placements of some nodes, the structure remains the same    
     """
 #    print('mutate_experiment')
-    valid_nodes = get_nonsplitters(experiment)
+    valid_nodes = experiment.get_nonsplitters()
     if len(valid_nodes) <= 1: #list is empty
         return experiment, False
         
@@ -105,7 +105,7 @@ def mutate_new_components_experiment(experiment, POTENTIAL_COMPS):
         Changes a subset of components to brand new components (but not splitters)
     """
 #    print('mutate_new_components_experiment')
-    valid_nodes = get_nonsplitters(experiment)
+    valid_nodes = experiment.get_nonsplitters()
     if not valid_nodes: #list is empty
         return experiment, False
         
@@ -124,7 +124,7 @@ def one_component_to_two(experiment, POTENTIAL_COMPS):
         Adds in one new component where there is a component with one successor and predeccessor
     """
 #    print('one_component_to_two')
-    valid_nodes = get_nonsplitters(experiment)
+    valid_nodes = experiment.get_nonsplitters()
     if not valid_nodes: #list is empty
         return experiment, False
 
@@ -161,7 +161,7 @@ def remove_one_node(experiment, POTENTIAL_COMPS):
     
 #    print('remove_one_node')
     
-    valid_nodes = get_nonsplitters(experiment)
+    valid_nodes = experiment.get_nonsplitters()
     if len(valid_nodes) <= 1:
 #        raise ValueError('There will be nothing left of the graph if we delete this node')
         return experiment, False
@@ -188,7 +188,7 @@ def add_loop(experiment, POTENTIAL_COMPS):
     if not POTENTIAL_COMPS['splitters']:
         return experiment, True
     
-    valid_nodes = get_nonsplitters(experiment)
+    valid_nodes = experiment.get_nonsplitters()
     if not valid_nodes: #no valid nodes (list is empty)
         return experiment, False    
     
@@ -239,7 +239,7 @@ def remove_loop(experiment,POTENTIAL_COMPS):
     
     undirE = experiment.to_undirected()
     cycles = nx.cycle_basis(undirE)
-    valid_nodes = get_nonsplitters(experiment)
+    valid_nodes = experiment.get_nonsplitters()
     
     if len(cycles) == 0:
         # there are no cycles

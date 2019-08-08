@@ -67,3 +67,5 @@ asope/results/
 
 #pycharm
 .idea/*.xml
+
+asope/venv/bin/
