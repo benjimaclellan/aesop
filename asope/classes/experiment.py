@@ -585,6 +585,15 @@ class Experiment(nx.DiGraph):
             results = results.assign(Output_Deviation=parameter_stability)
             print(results)
             print('Analysis with {} method is completed.\n'.format(self.method))
+
+            if self.method == 'LHA':
+                print("Hessian at optimum: ")
+                print(tmp[0])
+                print("Eigenvalues: ")
+                print(tmp[1])
+                print("Eigenvectors: ")
+                print(tmp[2])
+
         return parameter_stability, tmp
 
 
