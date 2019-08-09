@@ -534,13 +534,13 @@ class Experiment(nx.DiGraph):
         if method == 'LHA':
             if verbose: print('LHA. Does need an initialize to get autograd function')
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst, mu_lst=mu_lst, sigma_lst=sigma_lst):
-                x_opt = (np.array(x_opt) - np.array(mu_lst)) / np.array(sigma_lst) # for the LHA we need a coordinate transformation
+                x_opt = np.array(x_opt)
                 exp.inject_optical_field(env.At)
                 at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
                 exp.setattributes(at)
                 exp.simulate(env)
-                At = exp.nodes[exp.measurement_nodes[0]]['output']
-                fit = env.fitness(At)
+                at = exp.nodes[exp.measurement_nodes[0]]['output']
+                fit = env.fitness(at)
                 return fit[0]
             self.analysis_function = lambda x_opt: lha_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
                                                                         sigma_lst)
@@ -587,3 +587,16 @@ class Experiment(nx.DiGraph):
             print('Analysis with {} method is completed.\n'.format(self.method))
         return parameter_stability, tmp
 
+
+    def run_sim(self, x_opt, node_lst, idx_lst, env):
+        """ testing func to be removed """
+        at = self.attributes_from_list(x_opt, node_lst, idx_lst)
+        x_old, node_lst, idx_lst, sigma_lst, mu_lst, at_names = self.experiment_info_as_list(at)
+        x_opt = (np.array(x_opt)*np.array(sigma_lst)) + np.array(x_old) # for the lha we need a coordinate transformation
+        self.inject_optical_field(env.At)
+        at = self.attributes_from_list(x_opt, node_lst, idx_lst)
+        self.setattributes(at)
+        self.simulate(env)
+        at = self.nodes[self.measurement_nodes[0]]['output']
+        fit = env.fitness(at)
+        return fit[0]
