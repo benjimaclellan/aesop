@@ -40,8 +40,6 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from assets.fitness_analysis import remove_redundancies, analysis_mc, analysis_udr, analysis_lha
-
 plt.close("all")
 
 #%%

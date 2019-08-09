@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import autograd.numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 import copy
-from assets.fitness_analysis import mc_analysis_wrapper, udr_analysis_wrapper, lha_analysis_wrapper, autograd_hessian
+
+from analysis.wrappers import mc_analysis_wrapper, udr_analysis_wrapper, lha_analysis_wrapper, autograd_hessian
 
 """
 
@@ -559,14 +560,7 @@ class Experiment(nx.DiGraph):
 
             if method == 'UDR':
                 if verbose: print("UDR. Does need to initialize matrices as they can be computed once")
-
-
-                """
-                Change this - it's just for now to test
-                """
-                # self.analysis_function = lambda x_opt: udr_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
-                #                                                                    sigma_lst)
-                self.analysis_function = lambda x_opt: analysis_wrapper(x_opt)
+                self.analysis_function = lambda x_opt: udr_analysis_wrapper(x_opt, analysis_wrapper, mu_lst, sigma_lst)
 
             elif method == 'MC':
                 if verbose: print("MC - doesn't need an initialization, just run")
@@ -608,3 +602,58 @@ class Experiment(nx.DiGraph):
         at = self.nodes[self.measurement_nodes[0]]['output']
         fit = env.fitness(at)
         return fit[0]
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # # %% Redundancy checks
+    # def remove_redundancies(exp, env, verbose=False):
+    #     """
+    #     Check over an experiment for redundant nodes
+    #
+    #     :param experiment:
+    #     :param env:
+    #     :param verbose:
+    #     :return:
+    #     """
+    #     exp_redundancies = deepcopy(exp)
+    #     exp_backup = deepcopy(exp)
+    #
+    #     # Compute the fitness of the unmodified experiment, for comparison
+    #     At = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
+    #     fit = env.fitness(At)
+    #     valid_nodes = exp_redundancies.get_nonsplitters()
+    #
+    #     for node in valid_nodes:
+    #         exp_redundancies.remove_component(node)  # Drop a node from the experiment
+    #         exp_redundancies.measurement_nodes = exp_redundancies.find_measurement_nodes()
+    #         exp_redundancies.checkexperiment()
+    #         exp_redundancies.make_path()
+    #         exp_redundancies.check_path()
+    #         exp_redundancies.inject_optical_field(env.At)
+    #         # Simulate the optical table with dropped node
+    #         exp_redundancies.simulate(env)
+    #         At_mod = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
+    #         fit_mod = env.fitness(At_mod)
+    #         if verbose:
+    #             print(fit_mod, fit)
+    #             print("Dropped node: {}. Fitness: {}".format(node, fit_mod))
+    #
+    #         # Compare the fitness to the original optical table
+    #         if fit_mod[0] >= fit[0]:  # and fit_mod[1] >= fit[1]:
+    #             print("Dropping node")
+    #             # If dropping the node didn't hurt the fitness, then drop it permanently
+    #             fit = fit_mod
+    #         else:
+    #             exp_redundancies = deepcopy(exp_backup)
+    #
+    #     return exp_redundancies

@@ -27,7 +27,6 @@ from classes.environment import OpticalField, OpticalField_CW, OpticalField_Puls
 from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter,  AmplitudeModulator
 from classes.experiment import Experiment
 
-from assets.fitness_analysis import UDRAnalysis_test
 
 plt.close("all")
 
@@ -73,25 +72,20 @@ print("Fitness: {}".format(fit))
 #plt.show()
 
 print('Starting analysis')
+plt.figure(figsize=[9,9])
 
 exp.init_fitness_analysis(at, env, method='MC', verbose=True)
 parameter_stability, others = exp.run_analysis(at, verbose=True)
-#print(parameter_stability, others)
+plt.stem(parameter_stability, label='MC', markerfmt = 'ro', linefmt = 'b--')
 
 exp.init_fitness_analysis(at, env, method='LHA', verbose=True)
 parameter_stability, others = exp.run_analysis(at, verbose=True)
-#print(parameter_stability)
+plt.stem(-parameter_stability, label='LHA', markerfmt = 'gx', linefmt = 'g--')
 
-x_opt, node_lst, idx_lst, sigma_lst, mu_lst, at_names = exp.experiment_info_as_list(at)
 
 exp.init_fitness_analysis(at, env, method='UDR', verbose=True)
-func = exp.analysis_function
+parameter_stability, others = exp.run_analysis(at, verbose=True)
+plt.stem(parameter_stability, label='UDR', markerfmt = 'bo', linefmt = 'r--')
 
-variances = UDRAnalysis_test(x_opt, func, mu_lst, sigma_lst, m_num_moments=5)
-
-print(variances)
-#UDRAnalysis_test(at, exp, env, verbose=True)
-
-
-
-
+plt.legend()
+plt.show()

@@ -7,7 +7,7 @@ import pandas as pd
 import seaborn
 from mpl_toolkits.mplot3d import Axes3D
 # %% import custom modules
-from assets.fitness_analysis import lha_analysis_wrapper, mc_analysis_wrapper
+from analysis.wrappers import lha_analysis_wrapper, mc_analysis_wrapper
 
 plt.close("all")
 
