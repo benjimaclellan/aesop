@@ -559,9 +559,14 @@ class Experiment(nx.DiGraph):
 
             if method == 'UDR':
                 if verbose: print("UDR. Does need to initialize matrices as they can be computed once")
-                self.analysis_function = lambda x_opt: udr_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
-                                                                                   sigma_lst)
 
+
+                """
+                Change this - it's just for now to test
+                """
+                # self.analysis_function = lambda x_opt: udr_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
+                #                                                                    sigma_lst)
+                self.analysis_function = lambda x_opt: analysis_wrapper(x_opt)
 
             elif method == 'MC':
                 if verbose: print("MC - doesn't need an initialization, just run")
@@ -587,14 +592,6 @@ class Experiment(nx.DiGraph):
             results = results.assign(Output_Deviation=parameter_stability)
             print(results)
             print('Analysis with {} method is completed.\n'.format(self.method))
-
-            if self.method == 'LHA':
-                print("Hessian at optimum: ")
-                print(tmp[0])
-                print("Eigenvalues: ")
-                print(tmp[1])
-                print("Eigenvectors: ")
-                print(tmp[2])
 
         return parameter_stability, tmp
 

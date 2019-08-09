@@ -115,9 +115,9 @@ class Fiber(Component):
         self.MU = [0.0]
         self.FINETUNE_SKIP = []
         self.splitter = False
-        # self.at_pdfs = np.array([
-        #     (0, 0.15) # Length
-        # ])
+        self.at_pdfs = np.array([
+            (0, 0.15) # Length
+        ])
         self.AT_NAME = ['fiber length']
 
     def simulate(self, env, At, visualize=False):
@@ -174,10 +174,10 @@ class PhaseModulator(Component):
         self.FINETUNE_SKIP = []
         self.splitter = False
 
-        # self.at_pdfs = np.array([
-        #     [0, 0.1*np.pi], # max shift
-        #     [0, 1e6]  # frequency
-        # ])
+        self.at_pdfs = np.array([
+            [0, 0.1*np.pi], # max shift
+            [0, 1e6]  # frequency
+        ])
 
         self.AT_NAME = ['mod depth', 'mod freq']
 
