@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import autograd.numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 import copy
-from assets.fitness_analysis import mc_analysis_wrapper, udr_analysis_wrapper, lha_analysis_wrapper
+from assets.fitness_analysis import mc_analysis_wrapper, udr_analysis_wrapper, lha_analysis_wrapper, autograd_hessian
 
 """
 
@@ -542,8 +542,10 @@ class Experiment(nx.DiGraph):
                 at = exp.nodes[exp.measurement_nodes[0]]['output']
                 fit = env.fitness(at)
                 return fit[0]
+
+            Hf = autograd_hessian(analysis_wrapper)
             self.analysis_function = lambda x_opt: lha_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
-                                                                        sigma_lst)
+                                                                        sigma_lst, Hf = Hf)
 
         elif method == 'UDR' or method == 'MC':
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst):

@@ -56,166 +56,6 @@ def remove_redundancies(exp, env, verbose=False):
 
 
 
-#
-# #%% Monte Carlo
-# def analysis_mc(at, exp, env, N=10**2, verbose=True):
-#     """
-#     """
-#     if verbose:
-#         print("Beginning Monte Carlo Simulation")
-#
-#     at_lst, node_lst, idx_lst, sigma_lst, mu_lst, at_names = exp.attributes_to_list(at)
-#
-#     at_mu, at_std = np.zeros_like(at_lst), np.zeros_like(at_lst)
-#
-#     sys.stdout.flush()
-#     pbar = tqdm(total=100)
-#     for k, (allele, node, idx, sigma, mu, name) in enumerate(zip(at_lst, node_lst, idx_lst, sigma_lst, mu_lst, at_names)):
-#         fitnesses = np.zeros(N)
-#         # print('\n\n')
-#         # print((allele, node, idx, sigma, mu, name))
-#
-#         for i in range(N):
-#             pbar.update(100 * (1 / N / len(at_lst)))
-#             at_perturb = dict(at)
-#             at_perturb[node][idx] += np.random.normal(mu, sigma)
-#             exp.setattributes(at_perturb)
-#             exp.simulate(env)
-#             At = exp.nodes[exp.measurement_nodes[0]]['output']
-#
-#             # Evaluate the fitness and store it in the array
-#             fitnesses[i] = env.fitness(At)[0]
-#
-#         at_mu[k] = np.mean(fitnesses)
-#         at_std[k] = np.std(fitnesses)
-#     pbar.close()
-#
-#     if verbose:
-#         comp_labels = []
-#         at_labels = []
-#         for node, key in get_error_parameters(exp):
-#             # Get the component labels and construct a string for the dataframe
-#             node, key = int(node), int(key)
-#             try:
-#                 title = exp.nodes()[node]['title']
-#                 label = exp.nodes()[node]['info'].AT_NAME[key]
-#                 comp_labels.append(title)
-#                 at_labels.append(label)
-#             except AttributeError or TypeError:
-#                 print("Error getting component and attribute labels")
-#
-#         results = pd.DataFrame(comp_labels, columns=["Component"])
-#         results = results.assign(Attribute=at_labels)
-#         results = results.assign(Output_Deviation=at_std)
-#         print(results)
-#         print("Monte Carlo finished\n\n")
-#
-#     # Reset the exp to optimal parameters
-#     exp.setattributes(at)
-#     return at_mu, at_std
-
-
-
-
-
-#
-# def get_error_parameters(experiment):
-#     """
-#     Iterate through the list of nodes in the experiment, and append their error keyvals into an array.
-#     The components of the array are tuples of the form [node, key] which has the dictionary key 'node'
-#     indicating which node and 'key' indicating which error parameter.
-#
-#     :param experiment:
-#     :return:
-#     """
-#     error_params = np.zeros((0, 2))
-#     for node in experiment.nodes():
-#         i = 0
-#         node_at = experiment.node()[node]['info'].at
-#         for val in node_at:
-#             tuple = np.array([[node, i]])
-#             i += 1
-#             error_params = np.append(error_params, tuple, axis=0)
-#
-#     return error_params
-#
-# def get_error_functions(experiment):
-#     """
-#     Iterature through the list of nodes in the experiment, and append their error pdf keyvals into an array.
-#
-#     :param experiment:
-#     :return:
-#     """
-#     error_functions = np.zeros(0)
-#
-#     for node in experiment.nodes():
-#         '''
-#         node_ep = experiment.nodes()[node]['info'].ERROR_PDFS
-#         for key in node_ep:
-#             fx = node_ep[key]
-#             error_functions = np.append(error_functions, fx)
-#         '''
-#
-#         node_pdfs = (experiment.node()[node]['info'].MU, experiment.node()[node]['info'].SIGMA)
-#         for fx in node_pdfs:
-#             error_functions = np.append(error_functions, fx)
-#
-#     return error_functions
-
-#
-# def simulate_with_error(perturb, experiment, environment):
-#     simulate_with_error.count += 1
-#     """
-#     Given an error perturbation, return the fitness.
-#
-#     Param should be a triple of the form [node, key, val] where node and key are dictionary keys identifying
-#     which error parameter is being perturbed, and val is the value of the perturbation.
-#
-#     Currently, this code will only work for one fitness parameter.
-#
-#     :param perturb:
-#     :param experiment:
-#     :param environment:
-#     :return float:
-#     """
-#     # Perturb is a triple with the error parameter key and the new value
-#     node, index, val = perturb
-#
-#     if index - int(index) != 0:
-#         raise ValueError("All attribute indices should be integers!")
-#     index = int(index)
-#
-#     mu, sigma = experiment.node()[int(node)]['info'].MU[index], experiment.node()[int(node)]['info'].SIGMA[index]
-#     upper = experiment.node()[int(node)]['info'].UPPER[index]
-#     lower = experiment.node()[int(node)]['info'].LOWER[index]
-#
-#     # get the current value
-#     optimal_val = experiment.nodes()[int(node)]['info'].at[index]
-#
-#     # Perturb is a triple with the error parameter key and the new value
-#     # co-ordinate xform
-#     real_val = sigma*val + mu
-#
-#     real_val += optimal_val
-#
-#     if real_val > upper:
-#         real_val = upper
-#     if real_val < lower:
-#         real_val = lower
-#
-#     experiment.nodes()[int(node)]['info'].at[index] = real_val
-#
-#     experiment.simulate(environment)
-#     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
-#     fit = environment.fitness(At)
-#
-#     # reset to optimal value
-#     experiment.node()[int(node)]['info'].at[index] = optimal_val
-#
-#     return fit[0]
-#
-# simulate_with_error.count = 0
-
 '''
 j indexes the random variable i.e. j in [1,N]
 i indexes the moment i.e. i in [1,l]
@@ -546,63 +386,29 @@ def analysis_udr(at, exp, env, verbose=True):
     
     stds = np.sqrt(UDRAnalysis(exp, env))
 
-    if verbose: 
-        comp_labels = []
-        at_labels = []
-        for node, key in get_error_parameters(exp):
-            # Get the component labels and construct a string for the dataframe
-            node, key = int(node), int(key)
-            # try:
-            title = exp.nodes()[node]['title']
-            label = exp.nodes()[node]['info'].AT_NAME[key]
-            comp_labels.append(title)
-            at_labels.append(label)
-            # except AttributeError or TypeError:
-            #     print("Error getting component and attribute labels")
-
-        results = pd.DataFrame(comp_labels, columns=["Component"])
-        results = results.assign(Attribute = at_labels)
-        results = results.assign(Output_Deviation = stds)
-        print(results)
-        print("Univariate dimension reduction finished\n\n")
+#    if verbose: 
+#        comp_labels = []
+#        at_labels = []
+#        for node, key in get_error_parameters(exp):
+#            # Get the component labels and construct a string for the dataframe
+#            node, key = int(node), int(key)
+#            # try:
+#            title = exp.nodes()[node]['title']
+#            label = exp.nodes()[node]['info'].AT_NAME[key]
+#            comp_labels.append(title)
+#            at_labels.append(label)
+#            # except AttributeError or TypeError:
+#            #     print("Error getting component and attribute labels")
+#
+#        results = pd.DataFrame(comp_labels, columns=["Component"])
+#        results = results.assign(Attribute = at_labels)
+#        results = results.assign(Output_Deviation = stds)
+#        print(results)
+#        print("Univariate dimension reduction finished\n\n")
     return stds
 
 
-# #%% Landscape Hessian Analaysis
-# def multivariable_simulate(x, experiment, environment):
-#     """
-#     Function which preforms an experiment with a given input parameter vector x, and then computes and returns the
-#     fitness of the result. This allows you to run autograd on it.
-#     """
-#
-#     # at = experiment.getattributes()
-#     # Get the optimal parameters mu
-#     # mu = experiment.attributes_to_list(at)
-#     mu, _, _, sigma_lst, _, _ = experiment.attributes_to_list(at)
-#     # Get the deviation of the parameters
-#     # sigma_list = experiment.get_sigma_list()
-#
-#     # Co-ordinate transform to unitless co-ordinates
-#     x = (x - np.array(mu))/np.array(sigma_lst)
-#
-#     # Iterate through x and set the parameters of the experiment
-#     j = 0
-#     for node in experiment.node():
-#         y = experiment.node()[int(node)]['info'].at
-#         n_node = np.shape(y)[0]
-#         experiment.node()[int(node)]['info'].at = y*0
-#         experiment.node()[int(node)]['info'].at = y + x[j:n_node+j]
-#         j += n_node
-#
-#     # Simulate and compute fitness
-#     experiment.simulate(environment)
-#     At = experiment.nodes[experiment.measurement_nodes[0]]['output']
-#
-#     fit = environment.fitness(At)
-#
-#     # reset to optimal value
-#     experiment.setattributes(at)
-#     return fit[0]
+
 
 def autograd_hessian(fun, argnum = 0):
     '''
@@ -622,52 +428,13 @@ def autograd_hessian(fun, argnum = 0):
     return jacobian(sum_grad_output, argnum)
 
 
-# def analysis_lha(at, exp, env, symmetry_tol=1e-5, verbose=True):
-#
-#     print('Beginning landscape hessian analysis')
-#
-#     f = lambda x: multivariable_simulate(x, exp, env)
-#     # Compute the Hessian of the fitness function (as a function of x)
-#     Hf = autograd_hessian(f)
-#
-#     # Construct a vector of the mean value, and a vector of the standard deviations.
-#     # muv, sigma_list, basis, at_name = [], [], [], []
-#     # j,k = (0, 0)
-#
-#     at_lst, node_lst, idx_lst, sigma_lst, mu_lst, at_names = exp.attributes_to_list(at)
-#
-#     # for node in exp.nodes():
-#     #     for name in exp.nodes[node]['info'].AT_NAME:
-#     #         at_name.append('{}:{}'.format(node,name))
-#     #     for q in at[node]:
-#     #         muv.append(q)
-#     #         basis.append(node)
-#     #         j += 1
-#     #     for mu, sigma in exp.nodes[node]['info'].at_pdfs:
-#     #         sigma_list.append(sigma)
-#     #         k += 1
-#
-#     # muv, sigma_list, basis = np.array(muv), np.array(sigma_list), np.array(basis)
-#     H0 = Hf(np.array(mu_lst))/2
-#
-#     sym_dif = H0 - H0.T
-# #    if np.amax(sym_dif) > symmetry_tol:
-# #        raise ValueError("Max asymmetry is large " + str(np.amax(sym_dif)))
-#
-#     # Compute eigenstuff of the matrix, and sort them by eigenvalue magnitude
-#     eigen_items = np.linalg.eig(H0)
-#     eigensort_inds = np.argsort(eigen_items[0])
-#     eigenvalues = eigen_items[0][eigensort_inds]
-#     eigenvectors = eigen_items[1][:,eigensort_inds]
-#
-#     basis_names = ([i for i in range(0, len(at_names))], at_names)
-#
-#     return H0, eigenvalues, eigenvectors, basis_names
 
 
-def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst):
-    # Compute the Hessian of the fitness function (as a function of x)
-    Hf = autograd_hessian(func)
+def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, Hf=None):
+    # Compute the Hessian of the fitness function (as a function of x), or pass in from initialization
+    if Hf == None:
+        Hf = autograd_hessian(func)
+
     H0 = Hf(0 * np.array(mu_lst)) / 2
 
     symmetry_tol = 1e-5
@@ -686,6 +453,30 @@ def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst):
 
 
 def udr_analysis_wrapper(x_opt, func, mu_lst, sigma_lst):
+
+    stds = np.sqrt(UDRAnalysis(exp, env))
+
+    if verbose:
+        comp_labels = []
+        at_labels = []
+        for node, key in get_error_parameters(exp):
+            # Get the component labels and construct a string for the dataframe
+            node, key = int(node), int(key)
+            # try:
+            title = exp.nodes()[node]['title']
+            label = exp.nodes()[node]['info'].AT_NAME[key]
+            comp_labels.append(title)
+            at_labels.append(label)
+            # except AttributeError or TypeError:
+            #     print("Error getting component and attribute labels")
+
+        results = pd.DataFrame(comp_labels, columns=["Component"])
+        results = results.assign(Attribute=at_labels)
+        results = results.assign(Output_Deviation=stds)
+        print(results)
+        print("Univariate dimension reduction finished\n\n")
+    return stds
+
     return
 
 
