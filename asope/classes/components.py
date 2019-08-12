@@ -170,14 +170,9 @@ class PhaseModulator(Component):
         self.SIGMA = [0.05, 1e6]
         self.MU = [0.0, 0.0]
         self.DTYPE = ['float', 'float']
-        self.DSCRTVAL = [None, 1e9]
+        self.DSCRTVAL = [None, None]
         self.FINETUNE_SKIP = []
         self.splitter = False
-
-        self.at_pdfs = np.array([
-            [0, 0.1*np.pi], # max shift
-            [0, 1e6]  # frequency
-        ])
 
         self.AT_NAME = ['mod depth', 'mod freq']
 
@@ -186,7 +181,7 @@ class PhaseModulator(Component):
         M = self.at[0]       # phase amplitude [V/Vpi]
         NU = self.at[1]      # frequency [Hz]
         BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)# + self.ERROR_PARAMETERS['phasenoise']
+        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)
 
         # apply phase shift temporally
         At = At * np.exp(1j * phase)
@@ -223,26 +218,17 @@ class WaveShaper(Component):
         self.res = 12e9     # resolution of the waveshaper
         self.n_windows = 5;
         self.N_PARAMETERS = 2*self.n_windows
-        self.UPPER = self.n_windows*[1] + self.n_windows*[2*np.pi]
-        self.LOWER = self.n_windows*[0] + self.n_windows*[0]
+        self.UPPER = self.n_windows*[1.0] + self.n_windows*[2*np.pi]
+        self.LOWER = self.n_windows*[0.0] + self.n_windows*[0.0]
         self.SIGMA = self.n_windows*[0.05] + self.n_windows*[0.5*np.pi]
-        self.MU = self.n_windows*[0] + self.n_windows*[0]
+        self.MU = self.n_windows*[0.0] + self.n_windows*[0.0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
-        #self.DSCRTVAL = self.n_windows * [None] + self.n_windows * [None]
+
         self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = []
         self.splitter = False
 
-        # self.at_pdfs = np.zeros((2*self.n_windows, 2))
-        # self.AT_NAME = []
         self.AT_NAME = ['window amplitude {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)] + ['window phase {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)]
-        # for i in np.arange(2*self.n_windows):
-        #     if i < self.n_windows:
-        #         # self.at_pdfs[i] = [0, 0.01] #window amplitude
-        #         self.AT_NAME.append('window ampltiude ' + str(i))
-        #     else:
-        #         # self.at_pdfs[i] = [0, 0.1] #window phase
-        #         self.AT_NAME.append('window phase ' + str(i - self.n_windows))
 
 
     def temp_func(self, left, right, i, vals):

@@ -38,8 +38,6 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 from optimization.geneticalgorithminner import inner_geneticalgorithm
 from optimization.gradientdescent import finetune_individual
 
-from fitness_analysis import remove_redundancies, mc_error_propagation, compute_moment_matrices, compute_interpolation_points
-
 plt.close("all")
 
 def multipage(filename, figs=None, dpi=200):
@@ -85,22 +83,6 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
     return experiment, hof, hof_fine, log
 
-def autograd_hessian(fun, argnum = 0):
-    '''
-    Compute the hessian by computing the transpose of the jacobian of the gradient.
-
-    :param fun:
-    :param argnum:
-    :return:
-    '''
-
-    def sum_latter_dims(x):
-        return np.sum(x.reshape(x.shape[0], -1), 1)
-
-    def sum_grad_output(*args, **kwargs):
-        return sum_latter_dims(elementwise_grad(fun)(*args, **kwargs))
-
-    return jacobian(sum_grad_output, argnum)
 #%%
 if __name__ == '__main__': 
 

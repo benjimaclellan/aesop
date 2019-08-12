@@ -535,13 +535,17 @@ class Experiment(nx.DiGraph):
         if method == 'LHA':
             if verbose: print('LHA. Does need an initialize to get autograd function')
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst, mu_lst=mu_lst, sigma_lst=sigma_lst):
+                print('yopppopopop')
+                print(x_opt)
+
                 x_opt = np.array(x_opt)
                 exp.inject_optical_field(env.At)
                 at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
                 exp.setattributes(at)
                 exp.simulate(env)
-                at = exp.nodes[exp.measurement_nodes[0]]['output']
-                fit = env.fitness(at)
+                At = exp.nodes[exp.measurement_nodes[0]]['output']
+                fit = env.fitness(At)
+
                 return fit[0]
 
             Hf = autograd_hessian(analysis_wrapper)
@@ -614,7 +618,7 @@ class Experiment(nx.DiGraph):
 
 
 
-
+    ##TODO: Add redundancy check as part of experiment
     # # %% Redundancy checks
     # def remove_redundancies(exp, env, verbose=False):
     #     """

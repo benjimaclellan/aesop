@@ -1,7 +1,5 @@
 import autograd.numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-from scipy.signal import square
-import matplotlib.pyplot as plt
 
 def sech(x):
     return 1/np.cosh(x, dtype='complex')
@@ -205,8 +203,9 @@ class OpticalField_Pulse(OpticalField):
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
 #        return self.Sensor(At)
-        return self.TalbotEffect(At)
-    
+#         return self.TalbotEffect(At)
+        return np.max(P(At)),
+
     def Sensor(self, At):
         return np.mean(P(At)),
   

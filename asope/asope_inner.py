@@ -100,21 +100,17 @@ if __name__ == '__main__':
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
 
     #%% initialize our input pulse, with the fitness function too
-#    env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
-#    target_harmonic = 12e9
-#    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
-
-    env = OpticalField_Pulse(n_samples=2**14, profile='gaussian', pulse_width=100e-12, f_rep=100e6, n_pulses=15, peak_power=1)
-    env.init_fitness(p=1, q=2)
+    env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
+    target_harmonic = 12e9
+    env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
 
     
     #%%
     components = {
-                    0:Fiber(),
-                    1:Fiber(),
-                    2:PhaseModulator()
+                    0:PhaseModulator(),
+                    1:WaveShaper(),
                  }
-    adj = [(0,1), (1,2)]
+    adj = [(0,1)]
 
     #%% initialize the experiment, and perform all the pre-processing steps
     exp = Experiment()
@@ -128,20 +124,23 @@ if __name__ == '__main__':
     exp.draw(node_label = 'disp_name')
     
     #%%
-    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+#    exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
+ 
+    #%%
+#    at = copy.deepcopy(hof_fine[0])
+    at = {   0: [0.8234132112176106, 12000000000.0],
+             1: [0.6060667463824007,
+              0.0,
+              0.721833819341576,
+              0.9503376429345127,
+              0.6234058812515285,
+              4.888443104871878,
+              0.4101923968206471,
+              1.9730094674171068,
+              0.5122717909947406,
+              2.191008207394641]}
+#             2: [2.7277570005647047, 12000000000.0]}
     
-    #%%
-#    fig_log, ax_log = plt.subplots(1,1, figsize=[8,6])
-#    ax_log.plot(log['gen'], log["Best [fitness, variance]"], label='Maximum', ls='-', color='salmon', alpha=1.0)
-#    ax_log.plot(log['gen'], log["Average [fitness, variance]"], label='Mean', ls='-.', color='blue', alpha=0.7)
-#    ax_log.legend()
-#    ax_log.set_xlabel('Generation')
-#    ax_log.set_ylabel(r'Fitness, $\mathcal{F}(\mathbf{x})$')
-#    
-    #%%
-    at = copy.deepcopy(hof_fine[0])
-
-#    print(at)
     
     exp.setattributes(at)
     exp.simulate(env)
@@ -154,65 +153,26 @@ if __name__ == '__main__':
     plt.plot(env.t, P(env.At0))
     plt.show()
 
-    #%% Redundancy check
-#    print("Beginning Redundancy Check")
-#    exp1 = remove_redundancies(exp, env, verbose=True)
-#    exp1.draw(node_label = 'disp_name')
-#    plt.show()
-
-    #%% UDR
-#    std_udr = analysis_udr(at, exp, env, verbose=True)
-#    
-#    ## Monte Carlo
-#    mu_mc, std_mc = analysis_mc(at, exp, env, 10**3, verbose=True)
-#
-#    # LHA
-#    H0, eigenvalues, eigenvectors, basis_names = analysis_lha(at, exp, env, verbose=True)
-#    
     #%%
-#    plt.figure()
-#    plt.stem(np.diag(H0)/np.max(np.abs(np.diag(H0))),label='lha')
-#    plt.stem(std_udr/np.max(std_udr), label='udr', linefmt='-gx')
-#    plt.legend()
-#    plt.show()
-#    
-#    save_class('testing/experiment_example', exp)
-#    save_class('testing/environment_example', env)
+    print('Starting analysis')
     
+    exp.init_fitness_analysis(at, env, method='LHA', verbose=True)
+    lha_stability, others = exp.run_analysis(at, verbose=True)
+#    plt.stem(-parameter_stability, label='LHA', markerfmt = 'gx', linefmt = 'g--')
     
+    exp.init_fitness_analysis(at, env, method='UDR', verbose=True)
+    udr_stability, others = exp.run_analysis(at, verbose=True)
     
-##    ## PLOTTING FROM HERE ON
-#    plt.figure()
-#    g = seaborn.heatmap((H0))
-#    g.set_xticklabels(basis_names[1], rotation=30)
-#    g.set_yticklabels(basis_names[1], rotation=60)
-#
-#
-#    plt.figure()
-#    plt.plot(env.t, P(At))
-#    plt.plot(env.t, P(env.At0))
-#    plt.show()
-
-
-#    fig, ax = plt.subplots(eigenvectors.shape[1], 1, sharex=True, sharey=True)
-#    for k in range(0, eigenvectors.shape[1]):
-#        ax[k].stem(eigenvectors[:,k], linefmt='teal', markerfmt='o', label = 'Eigenvalue {} = {:1.3e}'.format(k, (eigenvalues[k])))
-#        ax[k].legend()
-#    plt.ylabel('Linear Coefficient')
-#    plt.xlabel('Component Basis')
-#    plt.xticks([j for j in range(0,eigenvectors.shape[0])], labels=at_name)
-#
-#    stop = time.time()
-#    print("T: " + str(stop-start))
-#
-#    plt.figure()
-#    xval = np.arange(0,eigenvalues.shape[0],1)
-#    plt.stem(xval-0.05, ((np.diag(H0))),  linefmt='salmon', markerfmt= 'x', label='Hessian diagonal')
-#    plt.stem(xval+0.05, (eigenvalues), linefmt='teal', markerfmt='o', label='eigenvalues')
-#    plt.xticks(xval)
-#    plt.xlabel('Component Basis')
-#    plt.ylabel("Value")
-#    plt.title("Hessian Spectrum")
-#    plt.legend()
-#    plt.show()
+    exp.init_fitness_analysis(at, env, method='MC', verbose=True)
+    mc_stability, others = exp.run_analysis(at, verbose=True)
+    
+    xvals = np.arange(len(udr_stability))
+    
+    #%%
+    plt.figure(figsize=[9,9])
+    plt.stem(xvals, udr_stability/np.max(udr_stability), label='UDR', markerfmt = 'bo', linefmt = 'r--')
+    plt.stem(xvals+0.1, mc_stability/np.max(mc_stability), label='MC', markerfmt = 'ro', linefmt = 'b--')
+    
+    plt.legend()
+    plt.show()
 

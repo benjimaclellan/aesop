@@ -1,17 +1,18 @@
 import autograd.numpy as np
 from tqdm import tqdm
 import sys
+import warnings
 
-from analysis.lha import autograd_hessian
-from analysis.udr import compute_interpolation_points, compute_moment_matrices, udr_moments
-
+#from analysis.lha import autograd_hessian
+#from analysis.udr import compute_interpolation_points, compute_moment_matrices, udr_moments
+from lha import autograd_hessian
+from udr import compute_interpolation_points, compute_moment_matrices, udr_moments
 
 
 def udr_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, x_r_matrix_moments=None, m_num_moments=5):
     """
 
     """
-
     #Get parameters and compute interpolation points.
     fit_mean = func(x_opt)
     updated_func = lambda x: func(x) - fit_mean
@@ -50,7 +51,7 @@ def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, Hf=None):
     if Hf == None:
         Hf = autograd_hessian(func)
 
-    H0 = Hf(0 * np.array(mu_lst)) / 2
+    H0 = Hf(np.array(x_opt) - np.array(mu_lst)) / np.array(sigma_lst) / 2
 
     symmetry_tol = 1e-5
     sym_dif = H0 - H0.T
@@ -58,6 +59,7 @@ def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, Hf=None):
        warnings.warn("Max asymmetry is large {}".format(np.amax(sym_dif)))
 
     # Compute eigenstuff of the matrix, and sort them by eigenvalue magnitude
+
     eigen_items = np.linalg.eig(H0)
     eigensort_inds = np.argsort(eigen_items[0])
     eigenvalues, eigenvectors = eigen_items[0][eigensort_inds], eigen_items[1][:, eigensort_inds]
