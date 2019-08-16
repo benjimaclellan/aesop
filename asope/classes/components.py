@@ -1,8 +1,8 @@
 import autograd.numpy as np
-#import matplotlib.pyplot as plt
 from itertools import count
-#from copy import copy, deepcopy
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+
+
 """
 ASOPE
 |- components.py
@@ -62,13 +62,20 @@ class Component(object):
         """
             Creates a list of attributes (parameters) for the device
         """
-        raise ValueError('Not implemented yet') 
-    
+        at = []
+        for i in range(self.N_PARAMETERS):
+            at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
+        self.at = at
+        return at
+
     def mutate(self):
         """
             Mutates the list of attributes (parameters) for the device, used in the GA
         """
-        raise ValueError('Not implemented yet') 
+        mut_loc = np.random.randint(0, self.N_PARAMETERS)
+        self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc], self.DTYPE[mut_loc],
+                                                self.DSCRTVAL[mut_loc])
+        return self.at
         
         
     def randomattribute(self, low=0.0, high=1.0, dtypes='float', dscrtval=None):
@@ -96,6 +103,34 @@ class Component(object):
 # Here we now implement each component - and more can be added easily or adapted to a different purpose (ie quantum).
 # It is also trivial to change how the device is simulated without changing the rest of the code, provided the general format is followed
 # ----------------------------------------------------------
+#%%
+class Dummy(Component):
+    """
+    """
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = ''
+        self.disp_name = ''
+        self.N_PARAMETERS = []
+        self.UPPER = []
+        self.LOWER = []
+        self.SIGMA = []
+        self.MU = []
+        self.DTYPE = []
+        self.DSCRTVAL = []
+        self.FINETUNE_SKIP = []
+        self.splitter = False
+        self.AT_NAME = []
+    def simulate(self, env, At, visualize = False):
+        if visualize:
+            self.lines = (('t', None, 'DUMMY'),)
+            # self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
+        return At
+    def newattribute(self):
+        return []
+    def mutate(self):
+        return []
+
 
 class Fiber(Component):
     """
@@ -115,9 +150,6 @@ class Fiber(Component):
         self.MU = [0.0]
         self.FINETUNE_SKIP = []
         self.splitter = False
-        self.at_pdfs = np.array([
-            (0, 0.15) # Length
-        ])
         self.AT_NAME = ['fiber length']
 
     def simulate(self, env, At, visualize=False):
@@ -166,20 +198,19 @@ class PhaseModulator(Component):
         self.vpi = 1
         self.N_PARAMETERS = 2
         self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
-        self.LOWER = [0, 1e8]
+        self.LOWER = [0, 12e9]
         self.SIGMA = [0.05, 1e6]
         self.MU = [0.0, 0.0]
         self.DTYPE = ['float', 'float']
         self.DSCRTVAL = [None, None]
         self.FINETUNE_SKIP = []
         self.splitter = False
-
         self.AT_NAME = ['mod depth', 'mod freq']
 
     def simulate(self, env, At,  visualize=False):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # phase amplitude [V/Vpi]
-        NU = self.at[1]      # frequency [Hz]
+        NU = 12e9  #self.at[1]      # frequency [Hz]
         BIAS = 1
         phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)
 
@@ -216,7 +247,7 @@ class WaveShaper(Component):
         self.disp_name = 'Programmable Filter'
         self.bitdepth = 8
         self.res = 12e9     # resolution of the waveshaper
-        self.n_windows = 5;
+        self.n_windows = 5
         self.N_PARAMETERS = 2*self.n_windows
         self.UPPER = self.n_windows*[1.0] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0.0] + self.n_windows*[0.0]
@@ -224,7 +255,8 @@ class WaveShaper(Component):
         self.MU = self.n_windows*[0.0] + self.n_windows*[0.0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
 
-        self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
+        self.DSCRTVAL = self.N_PARAMETERS * [None]
+        # self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = []
         self.splitter = False
 
@@ -239,8 +271,8 @@ class WaveShaper(Component):
 
     def simulate(self, env, At, visualize = False):
         # Slice at into the first half (amp) and last half (phase)
-        ampvalues = self.at[0:self.N_PARAMETERS//2]
-        phasevalues = self.at[self.N_PARAMETERS//2:]
+        ampvalues = self.at[0:self.n_windows]
+        phasevalues = self.at[self.n_windows:]
 
         n = np.floor(env.n_samples/((1/env.dt)/self.res)).astype('int')
         N = np.shape(env.f)[0]
@@ -311,7 +343,7 @@ class PowerSplitter(Component):
         self.DSCRTVAL = [None]
         self.FINETUNE_SKIP = []
         self.splitter = True
-
+        self.AT_NAME = []
 
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensure there is maximum 2 inputs/outputs (for now)
@@ -327,7 +359,8 @@ class PowerSplitter(Component):
         S = (1/max([num_outputs,1])) * np.exp(np.abs(XX - YY) * 1j * np.pi  )
 
         # apply scattering matrix to inputs and return the outputs
-        At_out = At_in.dot(S)
+#        At_out = At_in.dot(S)
+        At_out = np.dot(At_in, S)
 
         if visualize:
             self.lines = None
@@ -362,7 +395,7 @@ class FrequencySplitter(Component):
         self.DSCRTVAL = [0.02]
         self.FINETUNE_SKIP = [0]
         self.splitter = True
-
+        self.AT_NAME = ['frequency split']
     def simulate(self, env, At_in, num_outputs, visualize=False):
         # ensuring that, for now, we only have maximum ONE input. Please use a powersplitter for coupling (easier to deal with)
 
@@ -374,7 +407,7 @@ class FrequencySplitter(Component):
         # collect the input (single input path)
         if num_inputs > 1:
             k = np.array([[np.exp(1j*0)], [np.exp(1j*np.pi)]])
-            Af_in = FFT(np.sum(At_in.dot(k), axis=1), env.dt).reshape(env.n_samples,1)
+            Af_in = FFT(np.sum(np.dot(At_in,k), axis=1), env.dt).reshape(env.n_samples,1)
         else:
             Af_in = FFT(At_in, env.dt)
 
@@ -414,136 +447,100 @@ class FrequencySplitter(Component):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
         self.at = at
         return at
+    
+#%%
+class PhaseShifter(Component):
+    """
+    """
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'phase shifter'
+        self.disp_name = 'Phase Shifter'
+        self.N_PARAMETERS = 1
+        self.UPPER = [2*np.pi] #[1e-7]
+        self.LOWER = [0]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [None]
+        self.SIGMA = [0.05*np.pi]
+        self.MU = [0.0]
+        self.FINETUNE_SKIP = []
+        self.splitter = False
+        self.AT_NAME = ['phase shift']
+
+    def simulate(self, env, At, visualize=False):
+        # attribute list is extracted
+        phase_shift = self.at[0]
+
+        # length_shift = self.at[0]
+        # phase_shift = 2 * np.pi * env.f * length_shift / 299792458
+
+        # apply phase_shift
+        Af = np.exp(phase_shift * -1j) * FFT(At, env.dt)
+        At = IFFT( Af, env.dt )
+        # this visualization functionality was broken, may be fixed later
+        if visualize:
+            self.lines = (('f',np.ones_like(env.t) * phase_shift, 'Phase Shift'),)
+        return At
+
+    def newattribute(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
+
+    def mutate(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
+
 
 
 #%%
-class AmplitudeModulator(Component):
+class DelayLine(Component):
     """
-        Electro-optic amplitude modulator, driven by a single sine tone (for now).
     """
     _num_instances = count(0)
     def datasheet(self):
-        self.type = 'amplitudemodulator'
-        self.disp_name = 'Electro-Optic Amplitude Modulator'
-        self.vpi = 1
+        self.type = 'delay line'
+        self.disp_name = 'Integrated Delay Line'
         self.N_PARAMETERS = 3
-        self.UPPER = [1, 24e9, 1]   # max shift, frequency, bias
-        self.LOWER = [0, 6e9, 0]
-        self.SIGMA = [0.1, 1e6, 0.1]
-        self.MU = [0,0,0]
-        self.DTYPE = ['float', 'float', 'float']
-        self.DSCRTVAL = [None, 6e9, None]
+        self.delays = [0] + [2**i * 1e-12 for i in range(0, self.N_PARAMETERS-1)]  # bit steps of 1ps
+        self.UPPER = self.N_PARAMETERS * [1]
+        self.LOWER = self.N_PARAMETERS * [0]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = self.N_PARAMETERS * [0.2]
+        self.SIGMA = self.N_PARAMETERS * [0.05]
+        self.MU = self.N_PARAMETERS * [0.0]
         self.FINETUNE_SKIP = []
         self.splitter = False
-
-    def simulate(self, env, At,  visualize=False):
-        # extract attributes (parameters) of driving signal
-        M = self.at[0]       # amplitude [V]
-        NU = self.at[1]      # frequency [Hz]
-        BIAS = self.at[2]     # voltage bias [V]
-#        phase = (M)*(np.cos(2*np.pi* NU * env.t)) + (BIAS)
-
-#        amp = np.power((M)*(np.cos(2*np.pi* NU * env.t)), 2)
-#        amp = np.exp(1j * np.pi / self.vpi * phase)
-
-        amp = (M/2)*(np.cos(2*np.pi* NU * env.t)+1)
-
-        # apply phase shift temporally
-        At = At/2 * (1 + amp)
-
-        if visualize:
-            self.lines = (('t',amp, 'Amplitude Modulation'),)
-
-        return At
-
-    def newattribute(self):
-
-        at = []
-        for i in range(self.N_PARAMETERS):
-            at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
-        self.at = at
-        return at
-
-    def mutate(self):
-        mut_loc = np.random.randint(0, self.N_PARAMETERS)
-        self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
-        return self.at
-
-# ----------------------------------------------------------
-class AWG(Component):
-    """
-        Simple AWG in the temporal domain to apply phase shifts on the pulses
-    """
-    _num_instances = count(0)
-    def datasheet(self):
-        self.type = 'awg'
-        self.disp_name = 'AWG Phase Modulator'
-        self.N_PARAMETERS = 2
-        self.UPPER = [8] + [np.pi]   # number of steps + 1, phase at each step
-        self.LOWER = [1] + [-np.pi]
-        self.DTYPE = ['int', 'float']
-        self.DSCRTVAL = [1, None]
-        self.FINETUNE_SKIP = [0] #index to skip when fine-tuning using gradient descent
-        self.splitter = False
+        self.AT_NAME = ['delay line {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
 
     def simulate(self, env, At, visualize=False):
-        # extract attributes, first index is the number of steps - which affects the other attributes
-        nlevels = self.at[0] + 1
+        # attribute list is extracted
 
-        # phase to put on each step
-        phasevalues = [0] + self.at[1:]
-
-        # create step pattern, with steps centered where the original pulses are
-        # (there are likely better ways to approach this, but how? without having many parameters)
-        timeblock = np.round(1/env.dt/env.f_rep).astype('int')
-        tmp = np.ones(timeblock)
-        oneperiod = np.array([]).astype('float')
-        for i in range(0,nlevels):
-            oneperiod = np.concatenate((oneperiod, tmp*phasevalues[i]))
-
-        # tile/repeat the step-waveform for the whole simulation window
-        phasetmp = np.tile(oneperiod, np.ceil(env.n_samples/len(oneperiod)).astype('int'))
-
-        shift1 = timeblock//2
-        phasetmp = phasetmp[shift1:]
-        phase = phasetmp[0:env.n_samples].reshape(env.n_samples, 1)
-
-        # apply phase profile in the temporal domain, and a type of loss can be added to reduce number of steps
-        At = At * np.exp(1j * phase)
-
-
+        ratios = self.at
+        
+        tmp = np.fft.fft(At, axis=0)
+        Af_delay = np.zeros_like(At)
+         
+        ratio = 1.0
+        for line_i, ratio_i in enumerate(ratios):
+            ratio = ratio * ratio_i
+            delayed_tmp = (1-ratio) * tmp * np.exp(1j * 2 * np.pi * self.delays[line_i] * env.f)
+            Af_delay += delayed_tmp
+            
+        At = np.fft.ifft(Af_delay, axis=0)
+        # this visualization functionality was broken, may be fixed later
         if visualize:
-            self.lines = (('t',phase, 'Arbitrary Phase Pattern'),)
+            def find_nearest(array, value):
+                array = np.asarray(array)
+                return (np.abs(array - value)).argmin()
 
+            shift_vis = np.zeros_like(env.t)
+            ratio = 1.0
+            for line_i, ratio_i in enumerate(ratios):
+                ratio = ratio * ratio_i
+                shift_vis[find_nearest(env.t, self.delays[line_i])] = 1 - ratio
+
+
+            self.lines = (('t', shift_vis, 'Delay Shifts'),)
         return At
-
-    def newattribute(self):
-        # carefully create new attributes, as you must consider the number of steps which changes the length of the attribute (parameter) list
-        n = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
-        vals = []
-        for i in range(n):
-            vals.append(self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1]))
-        at = [n] + vals
-        self.at = at
-        return at
-
-
-    def mutate(self):
-        # also must be careful to mutate a list of attributes
-        at = self.at
-        mut_loc = np.random.randint(0, len(at))
-        if mut_loc == 0: # mutates the number of steps
-            n_mut = self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])
-            if n_mut > at[0]: # mutated to have more steps than before
-                new_vals = []
-                for i in range(n_mut-at[0]):
-                    new_vals.append(self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1]))
-                vals = at[1:] + new_vals
-                at = [n_mut] + vals
-            else:
-                vals = at[1:n_mut+1]
-                at = [n_mut] + vals
-        else: # keep the same number of steps, but change the values at each step
-            at[mut_loc] = self.randomattribute(self.LOWER[1], self.UPPER[1], self.DTYPE[1], self.DSCRTVAL[1])
-        self.at = at
-        return at

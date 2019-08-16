@@ -33,7 +33,7 @@ from assets.waveforms import random_bit_pattern, bit_pattern, rf_chirp
 from assets.callbacks import save_experiment_and_plot
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
-from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
+from classes.components import Fiber, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from classes.experiment import Experiment
 from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 

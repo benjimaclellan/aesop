@@ -35,10 +35,14 @@ class Experiment(nx.DiGraph):
                     
                     # if not an input node (somewhere in the middle of the setup)
                     else:
-                        At = np.zeros([env.n_samples, len(self.pre(node))]).astype('complex')
+#                        At = np.zeros([env.n_samples, len(self.pre(node))]).astype('complex')
+                        At = []
                         for jj in range(len(self.pre(node))):
-                            At[:, [jj]] = self[self.pre(node)[jj]][node]['At']
-                                  
+#                            At[:, [jj]] = self[self.pre(node)[jj]][node]['At']
+                            tmp = self[self.pre(node)[jj]][node]['At']
+                            At.append(tmp[:,0])
+                        At = np.array(At).T
+                        
                     # simulate the effect of a splitter
                     At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))), visualize)
                     # store the split/coupled pulses to the successors
@@ -432,10 +436,12 @@ class Experiment(nx.DiGraph):
             At = self.nodes[measurement_node]['output'].reshape(env.n_samples)
             PAt = P(At)
             PAf = PSD(At, env.dt, env.df)
-            
-            ax1.plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
-            ax2.plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
-            
+            try:
+                ax1.plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
+                ax2.plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
+            except:
+                pass
+
         for node in self.nodes():
             if self.nodes[node]['info'].lines is not None:
                 for line in self.nodes[node]['info'].lines:
@@ -535,9 +541,6 @@ class Experiment(nx.DiGraph):
         if method == 'LHA':
             if verbose: print('LHA. Does need an initialize to get autograd function')
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst, mu_lst=mu_lst, sigma_lst=sigma_lst):
-                print('yopppopopop')
-                print(x_opt)
-
                 x_opt = np.array(x_opt)
                 exp.inject_optical_field(env.At)
                 at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
@@ -549,8 +552,7 @@ class Experiment(nx.DiGraph):
                 return fit[0]
 
             Hf = autograd_hessian(analysis_wrapper)
-            self.analysis_function = lambda x_opt: lha_analysis_wrapper(x_opt, analysis_wrapper, mu_lst,
-                                                                        sigma_lst, Hf = Hf)
+            self.analysis_function = lambda x_opt: lha_analysis_wrapper(x_opt, analysis_wrapper, mu_lst, sigma_lst, Hf = Hf)
 
         elif method == 'UDR' or method == 'MC':
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst):
@@ -568,7 +570,7 @@ class Experiment(nx.DiGraph):
 
             elif method == 'MC':
                 if verbose: print("MC - doesn't need an initialization, just run")
-                self.analysis_function = lambda x_opt: mc_analysis_wrapper(x_opt, analysis_wrapper, mu_lst, sigma_lst)
+                self.analysis_function = lambda x_opt: mc_analysis_wrapper(x_opt, analysis_wrapper, mu_lst, sigma_lst, N=10*4)
 
         else:
             print('Not a method')
@@ -576,7 +578,10 @@ class Experiment(nx.DiGraph):
 
 
 
-    def run_analysis(self, at, verbose=False):
+    def run_analysis(self, at, verbose=None):
+        if verbose == None:
+            verbose = self.analysis_verbose
+
         x_opt, *_ = self.experiment_info_as_list(at)
         parameter_stability, *tmp = self.analysis_function(x_opt)
 

@@ -16,6 +16,9 @@ def normal_pdf(x, mu=0, sigma=1):
     return scale * np.exp(-1*(x-mu)**2/(2*sigma**2))
 
 
+def sample_distribution(x, mu=0, sigma=1):
+    return normal_pdf(x, mu, sigma)
+
 def compute_interpolation_points(matrix_array):
     """
     Invert the moment matrix to get polynomial coefficients and find the roots, which are the interpolation points
@@ -143,7 +146,7 @@ def compute_moment_matrices(N_parameters, mu, sigma, n):
     moment_matrix = np.zeros([n, n+1])
 
     for j in np.arange(1, N_parameters + 1): # j=1,..,N
-        error_distribution = normal_pdf  #here we do a coordinate transform instead
+        error_distribution = sample_distribution
 
         # Here we construct an n x n+1 matrix, which we will split into a n dimensional column vector and a n x n dimensional matrix M (the moment matrix)
         for i in np.arange(1, n+2):  # i = 1,...,n+1

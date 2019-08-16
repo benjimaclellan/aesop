@@ -1,5 +1,6 @@
 import autograd.numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+import scipy as sp
 
 def sech(x):
     return 1/np.cosh(x, dtype='complex')
@@ -115,16 +116,13 @@ class OpticalField_CW(OpticalField):
         return 
     
     
-    def fitness(self, At):
+    def fitness(self, At, exp=None):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-#        return self.Sensor(At)
-        return self.waveform_temporal_overlap(At)
-    
-    def Sensor(self, At):
         return np.mean(P(At)),
-    
+        # return self.waveform_temporal_overlap(At),
+
     def waveform_temporal_overlap(self, At):
   
         generated = P(At)        
@@ -137,7 +135,7 @@ class OpticalField_CW(OpticalField):
         overlap_integral = -np.sum(np.abs(self.target-shifted))
         total_amplitude = maxval-minval
 
-        return overlap_integral, #total_amplitude        
+        return overlap_integral
 
     def shift_function(self, generated):
         rfft = np.fft.fft(generated, axis=0)
@@ -149,14 +147,7 @@ class OpticalField_CW(OpticalField):
         shifted = np.abs( np.fft.ifft(rfft, axis=0) )
         return shifted
 
-#    def compare(self, At):
-#        generated = self.shift_function( P(At) )
-#        fig, ax = plt.subplots(1, 1, figsize=(8, 10), dpi=80)
-#        ax.plot(self.t, self.target, label='Target')
-#        ax.plot(self.t, generated, label='Generated')    
-#        plt.legend()
-#        
-#        return
+
 #%%
 class OpticalField_Pulse(OpticalField):
     """   
@@ -202,9 +193,7 @@ class OpticalField_Pulse(OpticalField):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-#        return self.Sensor(At)
-#         return self.TalbotEffect(At)
-        return np.max(P(At)),
+        return np.mean(P(At)),
 
     def Sensor(self, At):
         return np.mean(P(At)),
@@ -222,6 +211,3 @@ class OpticalField_Pulse(OpticalField):
         X1 = (RFSpectrum(At, self.dt)[freq_target])  #/ X2
 
         return X1
-    
-
-

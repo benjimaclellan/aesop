@@ -85,7 +85,7 @@ def rastrigin_function():
     XY = [X, Y]
     Z = function(XY)
     
-    xP = [0, 0]
+    xP = [0.0, 0.0]
     zP = function(xP)
     return function, X, Y, Z, xP, zP
 
@@ -102,7 +102,7 @@ def sphere_function():
     XY = [X, Y]
     Z = function(XY)
     
-    xP = [0, 0]
+    xP = [0.1, 0.1]
     zP = function(xP)
     return function, X, Y, Z, xP, zP
 
@@ -191,6 +191,22 @@ def eggholder_function():
     XY = [X, Y]
     Z = function(XY)
     
-    xP = [512, 404.2319]
+    xP = [512.0, 404.2319]
+    zP = function(xP)
+    return function, X, Y, Z, xP, zP
+
+
+def gaussian_function():
+    def function(x):
+        return np.exp(-0.5 * (1*x[0]**2 + 50*x[1]**2))
+
+    N = 1000
+    x, y = np.linspace(-5, 5, N), np.linspace(-5, 5, N)
+
+    X, Y = np.meshgrid(x, y)
+    XY = [X, Y]
+    Z = function(XY)
+
+    xP = [0.0, 0.0]
     zP = function(xP)
     return function, X, Y, Z, xP, zP

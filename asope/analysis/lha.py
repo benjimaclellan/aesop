@@ -10,6 +10,7 @@ def autograd_hessian(fun, argnum = 0):
 
     def sum_latter_dims(x):
         return np.sum(x.reshape(x.shape[0], -1), 1)
+        # return x.T
 
     def sum_grad_output(*args, **kwargs):
         return sum_latter_dims(elementwise_grad(fun)(*args, **kwargs))

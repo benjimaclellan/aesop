@@ -3,10 +3,10 @@ from tqdm import tqdm
 import sys
 import warnings
 
-#from analysis.lha import autograd_hessian
-#from analysis.udr import compute_interpolation_points, compute_moment_matrices, udr_moments
-from lha import autograd_hessian
-from udr import compute_interpolation_points, compute_moment_matrices, udr_moments
+from analysis.lha import autograd_hessian
+from analysis.udr import compute_interpolation_points, compute_moment_matrices, udr_moments
+# from lha import autograd_hessian
+# from udr import compute_interpolation_points, compute_moment_matrices, udr_moments
 
 
 def udr_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, x_r_matrix_moments=None, m_num_moments=5):
@@ -40,7 +40,7 @@ def udr_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, x_r_matrix_moments=None
         variance = udr_moments(updated_func, 2, x_opt, parameter_i, N_parameters, mu, sigma, x, r, matrix_moments)
         stds.append(np.sqrt(variance))
 
-    return stds,
+    return np.array(stds)/2.0,
 
 
 def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, Hf=None):
@@ -50,8 +50,10 @@ def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, Hf=None):
     # Compute the Hessian of the fitness function (as a function of x), or pass in from initialization
     if Hf == None:
         Hf = autograd_hessian(func)
+    H0 = Hf(np.array(x_opt)) / 2.0
 
-    H0 = Hf(np.array(x_opt) - np.array(mu_lst)) / np.array(sigma_lst) / 2
+    scalemat = np.dot(np.array([sigma_lst]).T, np.array([sigma_lst]))
+    # H0 *= scalemat
 
     symmetry_tol = 1e-5
     sym_dif = H0 - H0.T
