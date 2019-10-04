@@ -27,8 +27,8 @@
 #
 #
 #    plt.figure()
-#    plt.plot(env.t, P(At))
-#    plt.plot(env.t, P(env.At0))
+#    plt.plot(env.t, P(field))
+#    plt.plot(env.t, P(env.field0))
 #    plt.show()
 
 

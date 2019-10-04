@@ -31,24 +31,24 @@ class Experiment(nx.DiGraph):
                 if self.nodes[node]['info'].splitter:
                     # if this is an input node (no predeccessors), get the prescribed input
                     if len(self.pre(node)) == 0:
-                        At = self.nodes[node]['input']
+                        field = self.nodes[node]['input']
                     
                     # if not an input node (somewhere in the middle of the setup)
                     else:
-#                        At = np.zeros([env.n_samples, len(self.pre(node))]).astype('complex')
-                        At = []
+#                        field = np.zeros([env.n_samples, len(self.pre(node))]).astype('complex')
+                        field = []
                         for jj in range(len(self.pre(node))):
-#                            At[:, [jj]] = self[self.pre(node)[jj]][node]['At']
-                            tmp = self[self.pre(node)[jj]][node]['At']
-                            At.append(tmp[:,0])
-                        At = np.array(At).T
+#                            field[:, [jj]] = self[self.pre(node)[jj]][node]['field']
+                            tmp = self[self.pre(node)[jj]][node]['field']
+                            field.append(tmp[:,0])
+                        field = np.array(field).T
                         
                     # simulate the effect of a splitter
-                    At = self.nodes[node]['info'].simulate(env, At, max(1,len(self.suc(node))), visualize)
+                    field = self.nodes[node]['info'].simulate(env, field, max(1,len(self.suc(node))), visualize)
                     # store the split/coupled pulses to the successors
 #                    if len(self.suc(node)) > 0:
                     for jj in range(len(self.suc(node))):
-                        self[node][self.suc(node)[jj]]['At'] = At[:,[jj]]
+                        self[node][self.suc(node)[jj]]['field'] = field[:,[jj]]
 
                 # if component is not a splitter
                 else:    
@@ -56,21 +56,21 @@ class Experiment(nx.DiGraph):
                     if ii == 0:
                         # if this is an input node (no predeccessors), get the prescribed input
                         if len(self.pre(node)) == 0:
-                            At = self.nodes[node]['input']
+                            field = self.nodes[node]['input']
                           
                         # if this in the middle, get the incoming pulses
                         else:
-                            At = self[self.pre(node)[ii]][node]['At']
+                            field = self[self.pre(node)[ii]][node]['field']
                     
                     # now the pulse is stored in memory properly
-                    At = self.nodes[node]['info'].simulate(env, At, visualize) 
+                    field = self.nodes[node]['info'].simulate(env, field, visualize) 
                     # if this is the last node in subpath, we save the pulse for future extraction
                     if ii == len(subpath)-1 and len(self.suc(node)) > 0: 
-                        self[node][self.suc(node)[0]]['At'] = At
+                        self[node][self.suc(node)[0]]['field'] = field
                 
                 # if we're at a measurement node, save the pulse for easy checking later
                 if node in self.measurement_nodes:
-                    self.nodes[node]['output'] = At
+                    self.nodes[node]['output'] = field
 
         return
     
@@ -171,13 +171,13 @@ class Experiment(nx.DiGraph):
         return measurement_nodes
     
     
-    def inject_optical_field(self, At):
+    def inject_optical_field(self, field):
         """
             inject light
         """
         for node in self.nodes():
             if not self.pre(node):
-                self.nodes[node]['input'] = At
+                self.nodes[node]['input'] = field
         return
     
     
@@ -298,7 +298,7 @@ class Experiment(nx.DiGraph):
         """
         for node in self.nodes():
             if self.nodes[node]['info'].N_PARAMETERS > 0:
-                self.nodes[node]['info'].at = attributes[node]
+                self.nodes[node]['info'].at = np.array(attributes[node])
         return
 
     def suc(self, node):
@@ -348,12 +348,12 @@ class Experiment(nx.DiGraph):
         """
         
         # collect the pulse as was simulated
-        At = self.nodes[measurement_node]['output'].reshape(env.n_samples)
+        field = self.nodes[measurement_node]['output'].reshape(env.n_samples)
         
-        PAt, PAt0 = P(At), P(env.At0)
-        PAf, PAf0 = PSD(At, env.dt, env.df), PSD(env.At0, env.dt, env.df)
+        PAt, PAt0 = P(field), P(env.field0)
+        PAf, PAf0 = PSD(field, env.dt, env.df), PSD(env.field0, env.dt, env.df)
         if check_power:
-            check = self.power_check_single(At, display=True)
+            check = self.power_check_single(field, display=True)
             
         # plot both temporal and frequency domains, of input and output
         if fig == None:
@@ -376,7 +376,7 @@ class Experiment(nx.DiGraph):
         ax[1].set_ylim([0,2*max([max(PAf), max(PAf0)])])
         ax[1].legend()
         
-        return At
+        return field
         
         
         
@@ -433,9 +433,9 @@ class Experiment(nx.DiGraph):
             measurement_node = self.measurement_nodes[0]
             
         if measurement_node is not None:
-            At = self.nodes[measurement_node]['output'].reshape(env.n_samples)
-            PAt = P(At)
-            PAf = PSD(At, env.dt, env.df)
+            field = self.nodes[measurement_node]['output'].reshape(env.n_samples)
+            PAt = P(field)
+            PAf = PSD(field, env.dt, env.df)
             try:
                 ax1.plot(env.t/1e-9, PAt/np.max(PAt), label='Power', alpha=0.7)
                 ax2.plot(env.f/1e9, PAf/np.max(PAf), label='PSD', alpha=0.7)
@@ -473,13 +473,16 @@ class Experiment(nx.DiGraph):
         return 
            
     def attributes_from_list(self, x_opt, node_lst, idx_lst):
+
         at_dict = {}
+        # at_dict = dict(at)
         for node in set(node_lst):
             indices = [i for i, x in enumerate(node_lst) if x == node]
             node_ats = list(indices)
 
             for index in indices:
                 node_ats[idx_lst[index]] = x_opt[index]
+                # at_dict[node][idx_lst[index]] = x_opt[index]
             at_dict[node] = node_ats
         return at_dict
 
@@ -503,7 +506,7 @@ class Experiment(nx.DiGraph):
         return at_lst, node_lst, idx_lst, sigma_lst, mu_lst, at_names
 
 
-    def power_check_single(self, At, display=False):
+    def power_check_single(self, field, display=False):
         """
             Simple sanity check for total power, that input power >= output power, for one output node
         """
@@ -514,7 +517,7 @@ class Experiment(nx.DiGraph):
         for node in self.nodes():
             if len(self.pre(node)) == 0:
                 totalpower_in += np.sum(P(self.nodes[node]['input']))
-        totalpower_out = np.sum(P(At))
+        totalpower_out = np.sum(P(field))
         
         ratio = (totalpower_out - totalpower_in)/totalpower_in
         if ratio > 0.05:
@@ -541,13 +544,13 @@ class Experiment(nx.DiGraph):
         if method == 'LHA':
             if verbose: print('LHA. Does need an initialize to get autograd function')
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst, mu_lst=mu_lst, sigma_lst=sigma_lst):
-                x_opt = np.array(x_opt)
-                exp.inject_optical_field(env.At)
+                # x_opt = np.array(x_opt)
+                exp.inject_optical_field(env.field)
                 at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
                 exp.setattributes(at)
                 exp.simulate(env)
-                At = exp.nodes[exp.measurement_nodes[0]]['output']
-                fit = env.fitness(At)
+                field = exp.nodes[exp.measurement_nodes[0]]['output']
+                fit = env.fitness(field)
 
                 return fit[0]
 
@@ -556,12 +559,12 @@ class Experiment(nx.DiGraph):
 
         elif method == 'UDR' or method == 'MC':
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst):
-                exp.inject_optical_field(env.At)
+                exp.inject_optical_field(env.field)
                 at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
                 exp.setattributes(at)
                 exp.simulate(env)
-                At = exp.nodes[exp.measurement_nodes[0]]['output']
-                fit = env.fitness(At)
+                field = exp.nodes[exp.measurement_nodes[0]]['output']
+                fit = env.fitness(field)
                 return fit[0]
 
             if method == 'UDR':
@@ -599,18 +602,18 @@ class Experiment(nx.DiGraph):
         return parameter_stability, tmp
 
 
-    def run_sim(self, x_opt, node_lst, idx_lst, env):
-        """ testing func to be removed """
-        at = self.attributes_from_list(x_opt, node_lst, idx_lst)
-        x_old, node_lst, idx_lst, sigma_lst, mu_lst, at_names = self.experiment_info_as_list(at)
-        x_opt = (np.array(x_opt)*np.array(sigma_lst)) + np.array(x_old) # for the lha we need a coordinate transformation
-        self.inject_optical_field(env.At)
-        at = self.attributes_from_list(x_opt, node_lst, idx_lst)
-        self.setattributes(at)
-        self.simulate(env)
-        at = self.nodes[self.measurement_nodes[0]]['output']
-        fit = env.fitness(at)
-        return fit[0]
+    # def run_sim(self, x_opt, node_lst, idx_lst, env):
+    #     """ testing func to be removed """
+    #     at = self.attributes_from_list(x_opt, node_lst, idx_lst)
+    #     x_old, node_lst, idx_lst, sigma_lst, mu_lst, at_names = self.experiment_info_as_list(at)
+    #     x_opt = (np.array(x_opt)*np.array(sigma_lst)) + np.array(x_old) # for the lha we need a coordinate transformation
+    #     self.inject_optical_field(env.field)
+    #     at = self.attributes_from_list(x_opt, node_lst, idx_lst)
+    #     self.setattributes(at)
+    #     self.simulate(env)
+    #     at = self.nodes[self.measurement_nodes[0]]['output']
+    #     fit = env.fitness(at)
+    #     return fit[0]
 
 
 
@@ -638,8 +641,8 @@ class Experiment(nx.DiGraph):
     #     exp_backup = deepcopy(exp)
     #
     #     # Compute the fitness of the unmodified experiment, for comparison
-    #     At = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
-    #     fit = env.fitness(At)
+    #     field = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
+    #     fit = env.fitness(field)
     #     valid_nodes = exp_redundancies.get_nonsplitters()
     #
     #     for node in valid_nodes:
@@ -648,7 +651,7 @@ class Experiment(nx.DiGraph):
     #         exp_redundancies.checkexperiment()
     #         exp_redundancies.make_path()
     #         exp_redundancies.check_path()
-    #         exp_redundancies.inject_optical_field(env.At)
+    #         exp_redundancies.inject_optical_field(env.field)
     #         # Simulate the optical table with dropped node
     #         exp_redundancies.simulate(env)
     #         At_mod = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']

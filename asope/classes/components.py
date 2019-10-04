@@ -1,7 +1,8 @@
 import autograd.numpy as np
 from itertools import count
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
-
+import matplotlib.pyplot as plt
+import matplotlib
 
 """
 ASOPE
@@ -121,11 +122,11 @@ class Dummy(Component):
         self.FINETUNE_SKIP = []
         self.splitter = False
         self.AT_NAME = []
-    def simulate(self, env, At, visualize = False):
+    def simulate(self, env, field, visualize = False):
         if visualize:
             self.lines = (('t', None, 'DUMMY'),)
             # self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
-        return At
+        return field
     def newattribute(self):
         return []
     def mutate(self):
@@ -152,7 +153,7 @@ class Fiber(Component):
         self.splitter = False
         self.AT_NAME = ['fiber length']
 
-    def simulate(self, env, At, visualize=False):
+    def simulate(self, env, field, visualize=False):
 
         # attribute list is extracted. For fiber, only one parameter which is length
         fiber_len = self.at[0]
@@ -167,14 +168,14 @@ class Fiber(Component):
             
             
         # apply dispersion
-        Af = np.exp(fiber_len * -1j * D) * FFT(At, env.dt)
-        At = IFFT( Af, env.dt )
+        Af = np.exp(fiber_len * -1j * D) * FFT(field, env.dt)
+        field = IFFT( Af, env.dt )
 
         # this visualization functionality was broken, may be fixed later
         if visualize:
             self.lines = (('f',D, 'Dispersion'),)
 
-        return At
+        return field
 
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -196,31 +197,66 @@ class PhaseModulator(Component):
         self.type = 'phasemodulator'
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
+        # self.N_PARAMETERS = 3
+        # self.UPPER = [2*np.pi, 1e9, 2*np.pi]   # max shift, frequency
+        # self.LOWER = [0, 1e9, 0]
+        # self.SIGMA = [0.1, 1e6, 0.05*np.pi]
+        # self.MU = [0.0, 0.0, 0.0]
+        # self.DTYPE = ['float', 'float', 'float']
+        # self.DSCRTVAL = [None, None, None]
         self.N_PARAMETERS = 2
-        self.UPPER = [2*np.pi, 36e9]   # max shift, frequency
+        self.UPPER = [2 * np.pi, 12e9]  # max shift, frequency
         self.LOWER = [0, 12e9]
-        self.SIGMA = [0.05, 1e6]
+        self.SIGMA = [0.1, 0.1e7]
         self.MU = [0.0, 0.0]
         self.DTYPE = ['float', 'float']
         self.DSCRTVAL = [None, None]
         self.FINETUNE_SKIP = []
         self.splitter = False
-        self.AT_NAME = ['mod depth', 'mod freq']
+        self.AT_NAME = ['EOM Modulation Depth', 'EOM{} Modulation Frequency']
 
-    def simulate(self, env, At,  visualize=False):
+    def simulate(self, env, field,  visualize=False):
+
+        # plt.figure(figsize=[2, 2.5])
+        # maskf = (env.f >= -4 * 12e9) & (env.f <= 4 * 12e9)
+        # psd = PSD(field, env.dt, env.df)
+        # plt.plot(env.f[maskf] / 1e9, psd[maskf] / np.max(psd), color='black', label='PSD')
+        # # plt.legend()
+        # plt.xticks([-50, 0, 50], [-50, 0, 50]), plt.yticks([0, 0.5, 1.0],[0, 0.5, 1.0])
+        # plt.xlabel('Frequency (GHz)')
+        # plt.ylabel('PSD')
+        # plt.savefig("/home/benjamin/Documents/Communication - Patents/ASOPE/Figures/awg_allsteps/cw_transfer.eps",
+        #             bbox="tight")
+        # plt.show()
+
+
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # phase amplitude [V/Vpi]
-        NU = 12e9  #self.at[1]      # frequency [Hz]
-        BIAS = 1
-        phase = (M)*(np.cos(2*np.pi* NU * env.t)+BIAS)
+        NU = self.at[1]      # frequency [Hz]
+        # OFFSET = self.at[2]
+        OFFSET = 0
+        BIAS = 0
+        phase = (M)*(np.cos(2*np.pi* NU * env.t + OFFSET)+BIAS)
 
         # apply phase shift temporally
-        At = At * np.exp(1j * phase)
+        field = field * np.exp(1j * phase)
+
+        # plt.figure(figsize=[2,2.5])
+        # maskf = (env.f >= -4*12e9) & (env.f <= 4*12e9)
+        # psd = PSD(field, env.dt, env.df)
+        # plt.plot(env.f[maskf]/1e9,  psd[maskf]/np.max(psd), color='black', label='PSD')
+        # plt.xticks([-50, 0, 50], [-50, 0, 50]), plt.yticks([0, 0.5, 1.0], [0, 0.5, 1.0])
+        # plt.xlabel('Frequency (GHz)')
+        # # plt.legend()
+        # plt.ylabel(" ")
+        # # plt.xticks([-50, 0, 50], 3 * [" "]), plt.yticks([0, 0.5, 1.0], 3 * [" "])
+        # plt.savefig("/home/benjamin/Documents/Communication - Patents/ASOPE/Figures/awg_allsteps/eom_transfer.eps", bbox="tight")
+        # plt.show()
 
         if visualize:
             self.lines = (('t',phase, 'Phase Modulation'),)
 
-        return At
+        return field
 
     def newattribute(self):
 
@@ -251,7 +287,7 @@ class WaveShaper(Component):
         self.N_PARAMETERS = 2*self.n_windows
         self.UPPER = self.n_windows*[1.0] + self.n_windows*[2*np.pi]
         self.LOWER = self.n_windows*[0.0] + self.n_windows*[0.0]
-        self.SIGMA = self.n_windows*[0.05] + self.n_windows*[0.5*np.pi]
+        self.SIGMA = self.n_windows*[0.05] + self.n_windows*[0.05*np.pi]
         self.MU = self.n_windows*[0.0] + self.n_windows*[0.0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
 
@@ -260,7 +296,7 @@ class WaveShaper(Component):
         self.FINETUNE_SKIP = []
         self.splitter = False
 
-        self.AT_NAME = ['window amplitude {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)] + ['window phase {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)]
+        self.AT_NAME = ['WS Amplitude Window {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)] + ['WS Phase Window {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)]
 
 
     def temp_func(self, left, right, i, vals):
@@ -269,10 +305,12 @@ class WaveShaper(Component):
         else:
             return 0
 
-    def simulate(self, env, At, visualize = False):
+    def simulate(self, env, field, visualize = False):
         # Slice at into the first half (amp) and last half (phase)
         ampvalues = self.at[0:self.n_windows]
+        # ampvalues = [self.at[0], 0, self.at[self.n_windows-1]]
         phasevalues = self.at[self.n_windows:]
+        # phasevalues = [0, 0, np.pi]
 
         n = np.floor(env.n_samples/((1/env.dt)/self.res)).astype('int')
         N = np.shape(env.f)[0]
@@ -304,12 +342,26 @@ class WaveShaper(Component):
         ampmask = np.concatenate((padleft, amp1, padright), axis=0)
         phasemask = np.concatenate((padleft, phase1, padright), axis=0)
 
-        Af = ampmask * np.exp(1j*(phasemask)) * FFT(At, env.dt)
-        At = IFFT( Af, env.dt )
+        Af = ampmask * np.exp(1j*(phasemask)) * FFT(field, env.dt)
+        field = IFFT( Af, env.dt )
+
+        # plt.figure(figsize=[2,2.5])
+        # maskf = (env.f >= -4*12e9) & (env.f <= 4*12e9)
+        # psd = PSD(field, env.dt, env.df)
+        # plt.plot(env.f[maskf]/1e9, psd[maskf]/np.max(psd), color='black')
+        # plt.plot(env.f[maskf]/1e9, ampmask[maskf], color='grey', ls='-', label="Amplitude")
+        # plt.plot(env.f[maskf]/1e9, phasemask[maskf]/np.pi/2, color='grey', ls=':', label="Phase Mask")
+        # # plt.legend()
+        # plt.xticks([-50, 0, 50], [-50, 0, 50]), plt.yticks([0, 0.5, 1.0], [0, 0.5, 1.0])
+        # plt.xlabel('Frequency (GHz)')
+        # plt.ylabel(" ")
+        # # plt.xticks([-50,0,50], 3*[" "]), plt.yticks([0,0.5,1.0], 3*[" "])
+        # plt.savefig("/home/benjamin/Documents/Communication - Patents/ASOPE/Figures/awg_allsteps/ws_transfer.eps", bbox="tight")
+        # plt.show()
 
         if visualize:
             self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
-        return At
+        return field
 
     def newattribute(self):
         at = []
@@ -467,7 +519,7 @@ class PhaseShifter(Component):
         self.splitter = False
         self.AT_NAME = ['phase shift']
 
-    def simulate(self, env, At, visualize=False):
+    def simulate(self, env, field, visualize=False):
         # attribute list is extracted
         phase_shift = self.at[0]
 
@@ -475,12 +527,12 @@ class PhaseShifter(Component):
         # phase_shift = 2 * np.pi * env.f * length_shift / 299792458
 
         # apply phase_shift
-        Af = np.exp(phase_shift * -1j) * FFT(At, env.dt)
-        At = IFFT( Af, env.dt )
+        Af = np.exp(phase_shift * -1j) * FFT(field, env.dt)
+        field = IFFT( Af, env.dt )
         # this visualization functionality was broken, may be fixed later
         if visualize:
             self.lines = (('f',np.ones_like(env.t) * phase_shift, 'Phase Shift'),)
-        return At
+        return field
 
     def newattribute(self):
         at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
@@ -514,13 +566,13 @@ class DelayLine(Component):
         self.splitter = False
         self.AT_NAME = ['delay line {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
 
-    def simulate(self, env, At, visualize=False):
+    def simulate(self, env, field, visualize=False):
         # attribute list is extracted
 
         ratios = self.at
         
-        tmp = np.fft.fft(At, axis=0)
-        Af_delay = np.zeros_like(At)
+        tmp = np.fft.fft(field, axis=0)
+        Af_delay = np.zeros_like(field)
          
         ratio = 1.0
         for line_i, ratio_i in enumerate(ratios):
@@ -528,7 +580,7 @@ class DelayLine(Component):
             delayed_tmp = (1-ratio) * tmp * np.exp(1j * 2 * np.pi * self.delays[line_i] * env.f)
             Af_delay += delayed_tmp
             
-        At = np.fft.ifft(Af_delay, axis=0)
+        field = np.fft.ifft(Af_delay, axis=0)
         # this visualization functionality was broken, may be fixed later
         if visualize:
             def find_nearest(array, value):
@@ -543,4 +595,94 @@ class DelayLine(Component):
 
 
             self.lines = (('t', shift_vis, 'Delay Shifts'),)
-        return At
+        return field
+
+
+# %%
+class GasSample(Component):
+    """
+    """
+    _num_instances = count(0)
+
+    def datasheet(self):
+        self.type = 'gas sample'
+        self.disp_name = 'Gas Cell'
+        self.N_PARAMETERS = 1
+        self.UPPER = [1e13]  #concentration (ppm),
+        self.LOWER = [-1e13]
+        self.DTYPE = ['float']
+        self.DSCRTVAL = [None]
+        self.SIGMA = [100e8] #[0.01 * (self.UPPER[0] - self.LOWER[0])]
+        self.MU = [0.0]
+        self.FINETUNE_SKIP = []
+        self.splitter = False
+        self.AT_NAME = ['CW Laser Detuning']
+
+        self.z0 = 1 # length of sample (m)
+        self.eps0 =  8.8541878128e-12 # permitivvity of free space
+        self.c0 = 299792458 # speed of light m/s
+        self.f0 = 2*np.pi*self.c0 / 1549.7302e-9  # resonance frequency
+        self.gamma0 = 3.5e9 # line width in Hz
+        self.e = 1.60217662e-19
+        self.me = 9.10938356e-31
+
+    def simulate(self, env, field, visualize=False):
+        # C = self.at[0]
+        # n = 1 + C * self.e ** 2.0 / self.me / (4 * self.eps0 * self.f0) * (env.f/(np.power(env.f, 2) + np.power(self.gamma0,2)))
+        # alpha = C * self.e ** 2.0 / self.me / (2 * self.eps0 * self.c0) * ((env.f- self.f0)/(self.f0)) * (np.power(self.gamma0, 2)/(np.power(env.f, 2) + np.power(self.gamma0,2)))
+        # print(max(n))
+
+        # N = self.at[0]
+        # fi = 1.0
+        N = 3e15
+        ni = 1.3
+        detune = self.at[0]
+
+        w0 = 2 * np.pi * self.f0
+        dw = 2 * np.pi * (env.f + detune)
+        w = dw + w0
+
+        eps_complex = np.sqrt(np.power(ni, 2) + (N * self.e * self.e / self.eps0 / self.me) * 4 * np.pi / (
+                        (np.power(w0, 2) - np.power(w, 2) - 1j * self.gamma0 * 2 * np.pi * (w))))
+
+
+        # eps_complex = (np.power(ni, 2) +
+        #                 (N*self.e*self.e/self.me) * 1/((4*np.pi*np.pi)*(-np.power(env.f, 2)
+        #                                                                               + 2*env.f*self.f0
+        #                                                                               - 1j*self.gamma0*(env.f+self.f0))))
+
+
+        n = np.real(eps_complex)
+        alpha = np.imag(eps_complex)
+
+        fieldFFT = FFT(field, env.dt)
+
+        # plt.figure()
+        # plt.plot(env.t, P(field), label='P Before')
+        # plt.legend()
+        # plt.show()
+        #
+        # plt.figure()
+        # plt.plot(env.f, PSD(field, env.dt, env.df), label='PSD Before')
+        # plt.legend()
+        # plt.show()
+
+        fieldFFT = fieldFFT * np.exp(-alpha * w / self.c0 * self.z0) * np.exp( -1j * n * w / self.c0 * self.z0)
+        field = IFFT(fieldFFT, env.dt)
+
+        # plt.figure()
+        # plt.plot(env.f, n, label='n')
+        # plt.legend()
+        # plt.show()
+        #
+        # plt.figure()
+        # plt.plot(env.f, alpha, label='alpha')
+        # plt.legend()
+        # plt.show()
+        #
+        # plt.figure()
+        # plt.plot(env.f, PSD(fieldFFT, env.dt, env.df), label='PSD')
+        # plt.legend()
+        # plt.show()
+
+        return field

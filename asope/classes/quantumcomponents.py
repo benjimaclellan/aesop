@@ -110,38 +110,63 @@ class QuantumPhaseModulator(Component):
 		self.type = 'phasemodulator'
 		self.disp_name = 'Electro-Optic Phase Modulator'
 		self.vpi = 1
-		self.N_PARAMETERS = 2
-		self.UPPER = [4, 2*np.pi]   # max shift, offset
-		self.LOWER = [0, 0]
-		self.SIGMA = [0.05, 0.01]
-		self.MU = [0.0, 0.0]
-		self.DTYPE = ['float', 'float']
-		self.DSCRTVAL = [None, None]
+		# self.N_PARAMETERS = 2
+		# self.UPPER = [4, 4, 2*np.pi]   # max shift, offset
+		# self.LOWER = [0, 1, 0]
+		# self.SIGMA = [0.05, 1, 0.01]
+		# self.MU = [0.0, 0, 0.0]
+		# self.DTYPE = ['float', 'int', 'float']
+		# self.DSCRTVAL = [None, 1, None]
+
+		self.N_PARAMETERS = 4
+		self.UPPER = [4, 4, 2*np.pi, 2*np.pi]   # max shift, offset
+		self.LOWER = [0, 0, 0, 0]
+		self.SIGMA = [0.15, 0.15, 0.01, 0.01]
+		self.MU = [0.0, 0.0, 0.0, 0.0]
+		self.DTYPE = ['float', 'float', 'float', 'float']
+		self.DSCRTVAL = [None, None, None, None]
+
 		self.FINETUNE_SKIP = []
 		self.splitter = False
-		self.AT_NAME = ['mod depth', 'mod offset']
+		# self.AT_NAME = ['mod depth', 'mod offset']
+		# self.AT_NAME = ['EOM{} Modulation Depth'.format(next(self._num_instances)),
+		#                 'EOM{} Modulation Frequency'.format(next(self._num_instances))]
+		self.AT_NAME = ['RF Amplitude 1', 'RF Amplitude 2',
+		                'RF Phase 1','RF Phase 2']
 
-
-		dim = 2
+		dim = 3 * 3
 		x, y = np.arange(0, dim) - dim//2 + 1, np.arange(0, dim) - dim//2 + 1
 		X, Y = np.meshgrid(x, y)
 		self.IJ = X-Y
 
+		self.order = 1
 
-	def simulate(self, env, mat,  visualize=False):
+	def simulate(self, env, field,  visualize=False):
 		# extract attributes (parameters) of driving signal
-		M = self.at[0]      # phase amplitude [V/Vpi]
-		NU = 12e9           # frequency [Hz]
-		SHIFT = self.at[1]  # phase offset
+		Ms = self.at[0:2]      # phase amplitude [V/Vpi]
+		# NU = 12e9           # frequency [Hz]
+		SHIFTs = self.at[2:]  # phase offset
+		#order = self.order #self.at[1]
+		"""
+			This is the problem: autograd for some reason doesn't support scipy.special.jv which is the standard Bessel, 1st kind
+			We could write our own (though as I'm not sure how to do so correctly) we use other supported functions
+			So we use the Modified Bessel function 1st kind and convert to unmodified 
+			(see http://mathworld.wolfram.com/ModifiedBesselFunctionoftheFirstKind.html for relation)
+		"""
+		# U = sp.special.jn(M, self.IJ) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ)  # doesn't work
+		U = np.zeros_like(field)
+		for i, order in enumerate([1,2]):
+			M = Ms[i]
+			SHIFT = SHIFTs[i]
+			mask = (self.IJ % order == 0).astype('complex')
 
-		U = sp.special.jn(self.IJ, M)
-		mat = np.matmul(U, mat)
-
+			U += mask * np.power(1j, self.IJ) * sp.special.iv(self.IJ * order, -1j*M) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ * order)
+		field = np.matmul(U, field)
 
 		if visualize:
 			self.lines = ((None, None, None),)
 
-		return mat
+		return field
 
 	def newattribute(self):
 		at = []
@@ -156,15 +181,75 @@ class QuantumPhaseModulator(Component):
 		return self.at
 
 
+
+
 #%%
-class PhotonicAWG(Component):
+class QuantumPhaseGate(Component):
+	"""
+	"""
+	_num_instances = count(0)
+	def datasheet(self):
+		self.type = 'waveshaper'
+		self.disp_name = 'Programmable Filter - Phase Gate'
+		self.bitdepth = 8
+		self.res = 12e9     # resolution of the waveshaper
+		self.n_windows = 3 * 3
+		self.N_PARAMETERS = self.n_windows
+		self.UPPER = self.n_windows * [2 * np.pi]
+		self.LOWER = self.n_windows * [0.0]
+		self.SIGMA = self.n_windows * [0.1 * np.pi]
+		self.MU = self.n_windows * [0.0]
+		self.DTYPE = self.n_windows * ['float']
+		# self.N_PARAMETERS = 2*self.n_windows
+		# self.UPPER = self.n_windows*[1.0] + self.n_windows*[2*np.pi]
+		# self.LOWER = self.n_windows*[0.0] + self.n_windows*[0.0]
+		# self.SIGMA = self.n_windows*[0.05] + self.n_windows*[0.5*np.pi]
+		# self.MU = self.n_windows*[0.0] + self.n_windows*[0.0]
+		# self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
+
+		self.DSCRTVAL = self.N_PARAMETERS * [None]
+		self.FINETUNE_SKIP = []
+		self.splitter = False
+		self.AT_NAME = ['WS Phase Window {}'.format(j - int(np.floor(self.n_windows / 2))) for j in
+			               range(0, self.n_windows, 1)]
+
+	def simulate(self, env, field, visualize=False):
+		phasevalues = self.at
+		U = np.diag(np.exp(1j * np.array(phasevalues)))
+
+		field = np.matmul(U, field)
+
+		if visualize:
+			self.lines = (None,)
+
+		return field
+
+	def newattribute(self):
+		at = []
+		for i in range(self.N_PARAMETERS):
+			at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
+		self.at = at
+		return at
+
+
+	def mutate(self):
+		mut_loc = np.random.randint(0, self.N_PARAMETERS)
+		self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
+		return self.at
+
+
+
+
+
+
+	# %%
+class QuantumPhotonicAWG(Component):
 	_num_instances = count(0)
 
 	def datasheet(self):
-		self.cw = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
+		self.cw = OpticalField_CW(n_samples=2 ** 14, window_t=10e-8, peak_power=1)
 		self.phasemodulator = PhaseModulator()
 		self.waveshaper = WaveShaper()
-
 
 		self.type = 'photonicawg'
 		self.disp_name = 'Photonic AWG'
@@ -179,7 +264,7 @@ class PhotonicAWG(Component):
 		self.splitter = False
 		self.AT_NAME = self.phasemodulator.AT_NAME + self.waveshaper.AT_NAME
 
-		self.dim = 2
+		self.dim = 3
 		self.fsr = 12e9
 		x, y = np.arange(0, self.dim) - self.dim // 2 + 1, np.arange(0, self.dim) - self.dim // 2 + 1
 		X, Y = np.meshgrid(x, y)
@@ -187,83 +272,52 @@ class PhotonicAWG(Component):
 
 		return
 
-	def simulate(self, env, mat, visualize=False):
+	def simulate(self, env, field, visualize=False):
 		at_phasemodulator = self.at[0:self.phasemodulator.N_PARAMETERS]
-		at_waveshaper = self.at[self.phasemodulator.N_PARAMETERS+1:]
+		at_waveshaper = self.at[self.phasemodulator.N_PARAMETERS:]
+		#at_multiply = self.at[-1]
 
-		At = self.cw.At
+		self.phasemodulator.at = at_phasemodulator
+		self.waveshaper.at = at_waveshaper
+
+		At = self.cw.field
 		At = self.phasemodulator.simulate(self.cw, At)
 		At = self.waveshaper.simulate(self.cw, At)
 
 		PAt = np.power(np.abs(At), 2)
 
-		freqs = np.arange(0, self.waveshaper.N_PARAMETERS-1) * self.fsr
-		coefficients = self.DFT(PAt, freq, self.cw.t)
+		freqs = np.expand_dims( np.arange(1, self.waveshaper.N_PARAMETERS) * self.fsr, axis=1)
+		coefficients = self.DFT(PAt, freqs, self.cw.t)
+		print(coefficients)
+		print(freqs)
+		totalM = np.sum(np.abs(coefficients))
+		U = np.zeros_like(field)
+		for order, (freq, coefficient) in enumerate(zip(freqs, coefficients), 1):
+			mask = (self.IJ%order == 0)
+			M = np.abs(coefficient)
+			SHIFT = np.angle(coefficient)
+			# print(freq, M, SHIFT, mask)
+			U += np.power(1j, self.IJ) * M / totalM * sp.special.iv(self.IJ * order, -1j * M) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ * order) * mask
+			# U = np.matmul(U, np.power(1j, self.IJ) * M / totalM * sp.special.iv(self.IJ * order, -1j * M) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ * order) * mask)
+
+		field = np.matmul(U, field)
 
 
 
 		if visualize:
 			self.lines = ((None, None, None),)
-		return mat
+
+		return field
 
 	def DFT(self, waveform, frequencies, time):
-	    N = len(waveform)
-	    coefficients = np.zeros_like(frequencies).astype('complex')
-	    for idx, frequency in enumerate(frequencies):
-		    coefficients[idx] = np.sum(waveform * np.exp(-1j * 2 * np.pi * frequency * time)) / N
-	    return coefficients
+		N = len(waveform)
+		# coefficients = np.zeros_like(frequencies).astype('complex')
 
+		tmp1 = (waveform)
+		tmp2 = np.exp(-1j * 2 * np.pi * np.matmul(time , frequencies.T) )
 
+		coefficients = np.matmul(tmp1.T , tmp2) / N
 
-#%%
-class QuantumPhaseGate(Component):
-	"""
-	"""
-	_num_instances = count(0)
-	def datasheet(self):
-		self.type = 'waveshaper'
-		self.disp_name = 'Programmable Filter - Phase Gate'
-		self.bitdepth = 8
-		self.res = 12e9     # resolution of the waveshaper
-		self.n_windows = 2
-		self.N_PARAMETERS = self.n_windows
-		self.UPPER = self.n_windows * [2 * np.pi]
-		self.LOWER = self.n_windows * [0.0]
-		self.SIGMA = self.n_windows * [0.5 * np.pi]
-		self.MU = self.n_windows * [0.0]
-		self.DTYPE = self.n_windows * ['float']
-		# self.N_PARAMETERS = 2*self.n_windows
-		# self.UPPER = self.n_windows*[1.0] + self.n_windows*[2*np.pi]
-		# self.LOWER = self.n_windows*[0.0] + self.n_windows*[0.0]
-		# self.SIGMA = self.n_windows*[0.05] + self.n_windows*[0.5*np.pi]
-		# self.MU = self.n_windows*[0.0] + self.n_windows*[0.0]
-		# self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
-
-		self.DSCRTVAL = self.N_PARAMETERS * [None]
-		self.FINETUNE_SKIP = []
-		self.splitter = False
-
-		self.AT_NAME = ['phase {}'.format(j - int(np.floor(self.n_windows/2))) for j in range(0, self.n_windows, 1)]
-
-	def simulate(self, env, mat, visualize=False):
-		phasevalues = self.at
-		U = np.diag(np.exp(1j * np.array(phasevalues)))
-
-		mat = np.matmul(U, mat)
-
-		if visualize:
-			self.lines = (None,)
-		return mat
-
-	def newattribute(self):
-		at = []
-		for i in range(self.N_PARAMETERS):
-			at.append(self.randomattribute(self.LOWER[i], self.UPPER[i], self.DTYPE[i], self.DSCRTVAL[i]))
-		self.at = at
-		return at
-
-
-	def mutate(self):
-		mut_loc = np.random.randint(0, self.N_PARAMETERS)
-		self.at[mut_loc] = self.randomattribute(self.LOWER[mut_loc], self.UPPER[mut_loc],        self.DTYPE[mut_loc], self.DSCRTVAL[mut_loc])
-		return self.at
+		# for idx, frequency in enumerate(frequencies):
+		# 	coefficients[idx] = np.sum(waveform * np.exp(-1j * 2 * np.pi * frequency * time)) / N
+		return np.squeeze(coefficients)

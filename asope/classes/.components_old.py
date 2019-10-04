@@ -19,7 +19,7 @@ class AmplitudeModulator(Component):
         self.FINETUNE_SKIP = []
         self.splitter = False
 
-    def simulate(self, env, At,  visualize=False):
+    def simulate(self, env, field,  visualize=False):
         # extract attributes (parameters) of driving signal
         M = self.at[0]       # amplitude [V]
         NU = self.at[1]      # frequency [Hz]
@@ -32,12 +32,12 @@ class AmplitudeModulator(Component):
         amp = (M/2)*(np.cos(2*np.pi* NU * env.t)+1)
 
         # apply phase shift temporally
-        At = At/2 * (1 + amp)
+        field = field/2 * (1 + amp)
 
         if visualize:
             self.lines = (('t',amp, 'Amplitude Modulation'),)
 
-        return At
+        return field
 
     def newattribute(self):
 
@@ -69,7 +69,7 @@ class AWG(Component):
         self.FINETUNE_SKIP = [0] #index to skip when fine-tuning using gradient descent
         self.splitter = False
 
-    def simulate(self, env, At, visualize=False):
+    def simulate(self, env, field, visualize=False):
         # extract attributes, first index is the number of steps - which affects the other attributes
         nlevels = self.at[0] + 1
 
@@ -92,13 +92,13 @@ class AWG(Component):
         phase = phasetmp[0:env.n_samples].reshape(env.n_samples, 1)
 
         # apply phase profile in the temporal domain, and a type of loss can be added to reduce number of steps
-        At = At * np.exp(1j * phase)
+        field = field * np.exp(1j * phase)
 
 
         if visualize:
             self.lines = (('t',phase, 'Arbitrary Phase Pattern'),)
 
-        return At
+        return field
 
     def newattribute(self):
         # carefully create new attributes, as you must consider the number of steps which changes the length of the attribute (parameter) list
@@ -265,7 +265,7 @@ class PhotonicAWG(Component):
 
 
 
-    def simulate(self, env, At, visualize=False):
+    def simulate(self, env, field, visualize=False):
         # attribute list is extracted
 
         # extract the attributes to the two building block components
@@ -278,21 +278,21 @@ class PhotonicAWG(Component):
         self.waveshaper.at = at_waveshaper
 
         # simulate these components
-        awg_optical = self.cw.At
+        awg_optical = self.cw.field
         awg_optical = self.phasemodulator.simulate(self.cw, awg_optical)
         awg_optical = self.waveshaper.simulate(self.cw, awg_optical)
         awg_electric = P(awg_optical)
 
-        def extract_matrix_from_continuous(env, At):
-            matrix_elements = FFT(At, env.dt)[env.inds].flatten()
+        def extract_matrix_from_continuous(env, field):
+            matrix_elements = FFT(field, env.dt)[env.inds].flatten()
             matrix = np.zeros([env.dim, env.dim]).astype('complex')
             for ii in range(0, env.dim, 1):
                 matrix[ii, :] = matrix_elements[env.dim - ii - 1: 2 * (env.dim - 1) + 1 - ii]
             return matrix / np.max(np.abs(matrix)) / np.sqrt(env.dim)
 
-        At = At * np.exp(1j * at_power * awg_electric)
+        field = field * np.exp(1j * at_power * awg_electric)
 
-        env.mat = np.matmul(extract_matrix_from_continuous(env, At), env.mat)
+        env.mat = np.matmul(extract_matrix_from_continuous(env, field), env.mat)
 
 
 
@@ -300,7 +300,7 @@ class PhotonicAWG(Component):
         if visualize:
             self.lines = (('t', awg_electric, 'Photonic AWG Modulation'),)
 
-        return At
+        return field
 
 #%%
 class QuantumPhaseGate(Component):
@@ -335,7 +335,7 @@ class QuantumPhaseGate(Component):
         else:
             return 0
 
-    def simulate(self, env, At, visualize = False):
+    def simulate(self, env, field, visualize = False):
         # Slice at into the first half (amp) and last half (phase)
         ampvalues = self.at[0:self.n_windows]
         phasevalues = self.at[self.n_windows:]
@@ -362,15 +362,15 @@ class QuantumPhaseGate(Component):
         ampmask = np.concatenate((padleft, amp1, padright), axis=0)
         phasemask = np.concatenate((padleft, phase1, padright), axis=0)
 
-        Af = ampmask * np.exp(1j*(phasemask)) * FFT(At, env.dt)
-        At = IFFT( Af, env.dt )
+        Af = ampmask * np.exp(1j*(phasemask)) * FFT(field, env.dt)
+        field = IFFT( Af, env.dt )
 
         env.mat = np.matmul( np.diag( np.array(ampvalues) * np.exp(1j * np.array(phasevalues))), env.mat )
         env.mat = env.mat / np.max(np.abs(env.mat))
 
         if visualize:
             self.lines = (('f',ampmask,'WaveShaper Amplitude Mask'),('f', phasemask,'WaveShaper Phase Mask'),)
-        return At
+        return field
 
     def newattribute(self):
         at = []

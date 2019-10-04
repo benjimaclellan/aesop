@@ -24,7 +24,13 @@ def Ygate(dim):
 
 
 def Hgate(dim):
-	return (Xgate(dim) + Zgate(dim)) / 2
+	x, y = np.arange(0,dim), np.arange(0, dim)
+	X, Y = np.meshgrid(x,y)
+	IJ = np.maximum(X, Y) * np.minimum(X, Y)
+
+	gate = np.exp(1j * 2 * np.pi * IJ / dim) /np.sqrt(dim)
+
+	return gate
 
 
 # %%
@@ -34,8 +40,15 @@ class QuantumGate():
 
 	def __init__(self, dim=2):
 		self.dim = dim
-		self.mat = np.identity(self.dim, dtype='complex')
+		# self.field = np.identity(self.dim, dtype='complex')
+		self.field = np.identity(dim * 3, dtype='complex')
+
 		return
+
+	def submatrix(self, field):
+		field_sub = field[self.dim*1: self.dim*2, self.dim*1: self.dim*2]
+		return field_sub
+
 
 	def init_fitness(self, gate):
 		if gate == 'X':
@@ -49,19 +62,22 @@ class QuantumGate():
 		else:
 			print('Not a defined gate')
 
-		print(self.target_gate)
 		self.target_gate_dagger = np.conjugate(self.target_gate.T)
-		# self.target_gate_sqrt = sp.linalg.sqrtm(self.target_gate)
 		return
 
-	def fitness(self, generated_gate):
+	def fitness(self, field):
 		"""
 		"""
-		return self.fidelity(generated_gate),
+		if field.shape[0] != self.dim:
+			field = self.submatrix(field)
+		fit = self.fidelity(field),
+		return fit
 
-	def probability(self, mat):
-		return np.trace(np.matmul(np.conjugate(mat.T), mat)) / self.dim
+	def probability(self, field):
+		return np.real(np.trace(np.matmul(np.conjugate(field.T), field)) / self.dim)
 
-	def fidelity(self, mat):
+	def fidelity(self, field):
 		# fid = np.power(np.trace(sp.linalg.sqrtm(np.matmul(np.matmul(self.target_gate_sqrt, generated_gate), self.target_gate_sqrt))), 2)
-		return np.power(np.abs(np.trace( np.matmul(self.target_gate_dagger, mat)))/self.dim, 2) / self.probability(mat)
+		# return np.power(np.abs(np.trace( np.matmul(self.target_gate_dagger, field)))/self.dim, 2) / self.probability(field)
+
+		return np.power(np.abs(np.trace(np.matmul(np.conjugate(field.T), self.target_gate))), 2) / self.probability(field) /self.dim /self.dim

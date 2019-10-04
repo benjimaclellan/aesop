@@ -1,7 +1,7 @@
 import autograd.numpy as np
-from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+from assets.functions import FFT, IFFT, P, PSD, RFSpectrum, LowPassRF
 import scipy as sp
-
+import matplotlib.pyplot as plt
 def sech(x):
     return 1/np.cosh(x, dtype='complex')
 
@@ -28,7 +28,7 @@ class OpticalField(object):
         self.__dict__.update(kwargs)
         
         self.custom_initialize()
-        self.At = self.At0
+        self.field = self.field0
         return
     
     
@@ -62,7 +62,7 @@ class OpticalField(object):
         """
             Resets the optical field to the initial
         """
-        self.At = self.At0
+        self.field = self.field0
         return
     
          
@@ -73,13 +73,13 @@ class OpticalField(object):
         return 
     
     
-    def fitness(self, At):
+    def fitness(self, field):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
         return 
     
-    def compare(self, At):
+    def compare(self, field):
         
         return
 
@@ -96,7 +96,7 @@ class OpticalField_CW(OpticalField):
         
     def custom_initialize(self):    
         self.generate_time_frequency_arrays()             
-        self.At0 = self.peak_power * np.ones([self.n_samples, 1], dtype='complex')               
+        self.field0 = self.peak_power * np.ones([self.n_samples, 1], dtype='complex')
         self.add_noise = False
         return 
          
@@ -116,16 +116,22 @@ class OpticalField_CW(OpticalField):
         return 
     
     
-    def fitness(self, At, exp=None):
+    def fitness(self, field, exp=None):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-        return np.mean(P(At)),
-        # return self.waveform_temporal_overlap(At),
+        return self.average_lowfreq_rf(field),
+        # return self.waveform_temporal_overlap(field),
 
-    def waveform_temporal_overlap(self, At):
+
+    def average_lowfreq_rf(self, field):
+        # filtered = LowPassRF(field, self, 1e9, self.dt)
+        # return (np.mean(np.abs(filtered)))
+        return (np.mean(np.abs(field)))
+
+    def waveform_temporal_overlap(self, field):
   
-        generated = P(At)        
+        generated = P(field)
         minval, maxval = np.min(generated), np.max(generated)
         if self.normalize:
             generated = (generated)/(maxval)
@@ -163,21 +169,21 @@ class OpticalField_Pulse(OpticalField):
         
         # create initial train of Gaussian pulses
         if self.profile == 'gaussian':
-            self.At0 = np.zeros([self.n_samples, 1], dtype='complex')
+            self.field0 = np.zeros([self.n_samples, 1], dtype='complex')
             for i_pulse in range(0,self.n_pulses+1):
-                self.At0 += np.exp(-0.5 * (np.power((self.t+(self.t[0] + self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width, 2)))
+                self.field0 += np.exp(-0.5 * (np.power((self.t+(self.t[0] + self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width, 2)))
         
         # create initial train of sech2 pulses
         elif self.profile == 'sech':
-            self.At0 = np.zeros([self.n_samples, 1], dtype='complex')
+            self.field0 = np.zeros([self.n_samples, 1], dtype='complex')
             for i_pulse in range(0,self.n_pulses+1):
-                self.At0 += sech((self.t+(self.t[0] + self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width)
+                self.field0 += sech((self.t+(self.t[0] + self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width)
 
         else:
             raise ValueError
             
         # scale by peak_power power
-        self.At0 *= np.sqrt(self.peak_power)
+        self.field0 *= np.sqrt(self.peak_power)
         return     
 
     
@@ -189,25 +195,25 @@ class OpticalField_Pulse(OpticalField):
         return 
     
     
-    def fitness(self, At):
+    def fitness(self, field):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-        return np.mean(P(At)),
+        return np.mean(P(field)),
 
-    def Sensor(self, At):
-        return np.mean(P(At)),
+    def Sensor(self, field):
+        return np.mean(P(field)),
   
-    def TalbotEffect(self, At):
+    def TalbotEffect(self, field):
         """
             One possible fitness function, looking to increase or decrease the repetition rate of the pulse train. We use the harmonic frequencies in the RF spectrum to measure this
         """
         
         # one value to optimize is the peak power
-        PAt = P(At)
+        PAt = P(field)
         freq_target = int(round(self.f_rep / self.df)/(self.p / self.q))
         X2 = np.abs(np.max(PAt) - self.p / self.q)
-#        X1 = np.sum(RFSpectrum(At, self.dt)[freq_target-1:freq_target+1])
-        X1 = (RFSpectrum(At, self.dt)[freq_target])  #/ X2
+#        X1 = np.sum(RFSpectrum(field, self.dt)[freq_target-1:freq_target+1])
+        X1 = (RFSpectrum(field, self.dt)[freq_target])  #/ X2
 
         return X1

@@ -11,7 +11,7 @@ from assets.graph_manipulation import remake_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 
 #%%
-def save_experiment_and_plot(experiment, env, At, filepath=None, filename=None):
+def save_experiment_and_plot(experiment, env, field, filepath=None, filename=None):
     if filepath == None:
         filepath = 'results/'
     if filename == None:
@@ -25,7 +25,7 @@ def save_experiment_and_plot(experiment, env, At, filepath=None, filename=None):
     
     experiment.draw(node_label='both', ax=ax[0])
     
-    ax[1].plot(env.t, P(At), label='Generated')
+    ax[1].plot(env.t, P(field), label='Generated')
     ax[1].plot(env.t, env.target, label='Target')
     ax[1].set_xlim([0, (10/env.target_harmonic)])
     plt.legend()

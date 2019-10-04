@@ -83,7 +83,7 @@ def weights(j, i, r, x, matrix_array):
 def evintegrand(val, error_distribution, m):
     """
         Returns the integrand for the expected value function. Meant to be called by expectationValueM.
-        At the moment, we only use a normal distribution for all error parameters. Changing this will require some significant re-engingeering of the code flow
+        field the moment, we only use a normal distribution for all error parameters. Changing this will require some significant re-engingeering of the code flow
     """
     return val**m * error_distribution(val)
 

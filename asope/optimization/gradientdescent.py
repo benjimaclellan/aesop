@@ -1,6 +1,38 @@
 import scipy.optimize as opt
+import autograd.numpy as np
+from autograd import elementwise_grad
 from copy import copy
-import numpy as np
+
+def gradient_descent(at, env, exp, alpha=0.05, max_steps=2000):
+    def analysis_wrapper(x_opt, at, env, exp, node_lst, idx_lst):
+        exp.inject_optical_field(env.field)
+        at = exp.attributes_from_list(x_opt, at, node_lst, idx_lst)
+        exp.setattributes(at)
+        exp.simulate(env)
+        field = exp.nodes[exp.measurement_nodes[0]]['output']
+        fit = env.fitness(field)
+        return fit[0]
+
+    x_opt, node_lst, idx_lst, sigma_lst, mu_lst, at_names = exp.experiment_info_as_list(at)
+    func = lambda x: analysis_wrapper(x, at=at, env=env, exp=exp, node_lst=node_lst, idx_lst=idx_lst)
+
+    grad = elementwise_grad(func)
+
+    x = np.array(x_opt)
+    for i_step in range(max_steps):
+        fit = func(x)
+        step = alpha * grad(x) / i_step
+        x = x + step
+        print('i_step: {}, L1_step: {}, fit: {}'.format(i_step, np.sum(np.power(step, 2)), fit))
+        if np.sum(np.power(step, 2)) < 1e-8:
+            break
+
+    at = exp.attributes_from_list(x, at, node_lst, idx_lst)
+    return at
+
+"""
+    Below is all old code with used numerical packages for gradient descent. Now uses autograd
+"""
 
 
 """
@@ -8,7 +40,7 @@ Wrapping function for final fine-tuning of the GA HOF individuals
 """
 def finetune_individual(ind, env, experiment):
     (optlist, idx, nodelist) = pack_opt(ind, experiment)
-    
+
     # extract the bounds into the correct data format
     lower_bounds, upper_bounds = {}, {}
     for node in experiment.nodes():
@@ -17,13 +49,13 @@ def finetune_individual(ind, env, experiment):
     (lower, idx, nodelist) = pack_opt(lower_bounds, experiment)
     (upper, idx, nodelist) = pack_opt(upper_bounds, experiment)
     bounds = list(zip(lower, upper))
-    
+
     # the Nelder-Mead method seems to be faster, but does not allow bounded
-#    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':1000}, adaptive=True) 
-    
+#    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='Nelder-Mead', options={'maxiter':1000}, adaptive=True)
+
     # we use the L-BFGS-B algorithm as it allows bounded optimization
-    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='L-BFGS-B', bounds=bounds, options={'maxiter':100})  
-    
+    optres = opt.minimize(final_opt, optlist, args=(ind, idx, nodelist, env, experiment), method='L-BFGS-B', bounds=bounds, options={'maxiter':100})
+
     # now unpack all fine-tuned values
     ind = unpack_opt(ind, experiment, optres.x.tolist(), idx, nodelist)
     return ind
@@ -31,17 +63,17 @@ def finetune_individual(ind, env, experiment):
 """
 Using standard packages to slightly tweak the best of HOF to optimal individual
 """
-def final_opt(optlist, ind, idx, keylist, env, experiment):    
+def final_opt(optlist, ind, idx, keylist, env, experiment):
     ind = unpack_opt(ind, experiment, optlist, idx, keylist)
-    
+
     measurement_node = experiment.measurement_nodes[0]
-    
+
     experiment.setattributes(ind)
     experiment.simulate(env)
-    
-    At = experiment.nodes[measurement_node]['output']#.reshape(env.N)
-    fitness = env.fitness(At)
-    
+
+    field = experiment.nodes[measurement_node]['output']#.reshape(env.N)
+    fitness = env.fitness(field)
+
     return -fitness[0]
 
 """
@@ -57,7 +89,7 @@ def pack_opt(ind, experiment):
             if (experiment.nodes[node]['info'].FINETUNE_SKIP != None) and i in (experiment.nodes[node]['info'].FINETUNE_SKIP):
                 continue
             optlist.append(at_i)
-        
+
             cnt += 1
         nodelist.append(node)
         a[1] = cnt
@@ -79,5 +111,5 @@ def unpack_opt(ind, experiment, optlist, idx, nodelist):
                 ind[node][j] = optlist[cnt]
                 cnt += 1
     return ind
-        
+
 

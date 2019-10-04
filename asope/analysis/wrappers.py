@@ -53,7 +53,7 @@ def lha_analysis_wrapper(x_opt, func, mu_lst, sigma_lst, Hf=None):
     H0 = Hf(np.array(x_opt)) / 2.0
 
     scalemat = np.dot(np.array([sigma_lst]).T, np.array([sigma_lst]))
-    # H0 *= scalemat
+    H0 *= scalemat
 
     symmetry_tol = 1e-5
     sym_dif = H0 - H0.T

@@ -7,11 +7,12 @@ import autograd.numpy as np
 import matplotlib as mpl
 import matplotlib.colors as colors
 from mpl_toolkits.mplot3d import Axes3D
+
 # %% import custom modules
-from wrappers import lha_analysis_wrapper, mc_analysis_wrapper, udr_analysis_wrapper
-from test_functions import booth_function, matyas_function, easom_function, ackley_function
-from test_functions import rastrigin_function, sphere_function, rosenbrock_function, beale_function
-from test_functions import goldstein_price_function, levi13_function, eggholder_function,gaussian_function
+from analysis.wrappers import lha_analysis_wrapper, mc_analysis_wrapper, udr_analysis_wrapper
+from analysis.test_functions import booth_function, matyas_function, easom_function, ackley_function
+from analysis.test_functions import rastrigin_function, sphere_function, rosenbrock_function, beale_function
+from analysis.test_functions import goldstein_price_function, levi13_function, eggholder_function,gaussian_function
 
 plt.close("all")
 
@@ -20,12 +21,9 @@ All functions defined from:
 https://en.wikipedia.org/wiki/Test_functions_for_optimization
 """
 if __name__ == '__main__':
-    # from os.path import dirname, abspath
-    # d = dirname(dirname(abspath(__file__)))
-    # print(d)
 
-    plot_type = '3d'
-    function_type = 'gaussian_function'
+    plot_type = '2d'
+    function_type = 'booth_function'
 
     function, X, Y, Z, xP, zP = eval('{}()'.format(function_type))
 
@@ -43,7 +41,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.stem(xvals-0.1, udr_stability, label='UDR', markerfmt='ro', linefmt ='r--')
     plt.stem(xvals-0.0, mc_stability, label='MC', linefmt='g--', markerfmt='go')
-    # plt.stem(xvals+0.1, lha_stability, label='LHA', linefmt='b--', markerfmt='bo')
+    plt.stem(xvals+0.1, lha_stability, label='LHA', linefmt='b--', markerfmt='bo')
     plt.legend()
     plt.title('{}'.format(function_type))
     plt.show()
@@ -82,4 +80,5 @@ if __name__ == '__main__':
             ax.quiver(tipX, tipY, tailX, tailY, scale=length)
 
     plt.title('{}'.format(function_type))
+    ax.set(xlabel=r'$x_1$', ylabel=r'$x_2$')
     plt.show()

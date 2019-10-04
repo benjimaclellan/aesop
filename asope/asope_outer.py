@@ -12,14 +12,14 @@ import numpy as np
 import copy 
 
 #%% import custom modules
-from assets.functions import extractlogbook, save_experiment, load_experiment, splitindices, reload_experiment
+from assets.functions import extractlogbook, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 from assets.waveforms import random_bit_pattern
 from assets.graph_manipulation import change_experiment_wrapper, brand_new_experiment, remake_experiment
 from assets.callbacks import save_experiment_and_plot
 
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse
-from classes.components import Fiber, AWG, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, AmplitudeModulator
+from classes.components import Fiber, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from classes.experiment import Experiment
 from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 
@@ -62,13 +62,13 @@ if __name__ == '__main__':
     gapI.NFITNESS = 1           # how many values to optimize
     gapI.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
     gapI.MULTIPROC = True        # multiprocess or not
-    gapI.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
+    gapI.NCORES = mp.cpu_count()  # number of cores to run multiprocessing with
     gapI.N_POPULATION = 20      # number of individuals in a population
     gapI.N_GEN = 20              # number of generations
     gapI.MUT_PRB = 0.5           # independent probability of mutation
     gapI.CRX_PRB = 0.5          # independent probability of cross-over
     gapI.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
-    gapI.VERBOSE = 0             # verbose print statement for GA statistics
+    gapI.VERBOSE = 1             # verbose print statement for GA statistics
     gapI.INIT = None
     gapI.FINE_TUNE = False
     gapI.NUM_ELITE = 1
@@ -91,19 +91,19 @@ if __name__ == '__main__':
         exp = remake_experiment(copy.deepcopy(hof[k]))
         exp.setattributes(hof[k].inner_attributes)
         exp.draw(node_label = 'both')
-        exp.inject_optical_field(env.At)
+        exp.inject_optical_field(env.field)
             
         print(hof[k].inner_attributes)
         
         exp.simulate(env)
         
-        At = exp.measure(env, exp.measurement_nodes[0], check_power=True)
+        field = exp.measure(env, exp.measurement_nodes[0], check_power=True)
 #        plt.show()
-        if At.ndim == 1:
-            At = At.reshape(env.n_samples, 1)
+        if field.ndim == 1:
+            field = field.reshape(env.n_samples, 1)
         
         plt.figure()
-        generated = env.shift_function(P(At))
+        generated = env.shift_function(P(field))
         minval, maxval = np.min(generated), np.max(generated)
         if env.normalize:
             generated = (generated-minval)/(maxval-minval)
@@ -115,5 +115,5 @@ if __name__ == '__main__':
         plt.show()
 
         #%%
-        save_experiment_and_plot(exp, env, At)
+        save_experiment_and_plot(exp, env, field)
     

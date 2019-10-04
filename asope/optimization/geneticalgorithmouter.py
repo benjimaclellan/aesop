@@ -77,15 +77,15 @@ def FIT_Outer(ind, env, gapO, gapI):
     #this is an ugly, hacky fix. but for now it works.
     # here we are just making an Experiment class from the Individual class, as there is some issues with pickling Individual class.
     exp = remake_experiment(copy.deepcopy(ind))            
-    exp.inject_optical_field(env.At)
+    exp.inject_optical_field(env.field)
     
     exp, hof, hof_fine, log = optimize_experiment(exp, env, gapI, verbose=False) 
     at = hof_fine[0]
     exp.setattributes(at)
     exp.simulate(env)
     
-    At = exp.nodes[exp.measurement_nodes[0]]['output']
-    fitness = env.fitness(At)
+    field = exp.nodes[exp.measurement_nodes[0]]['output']
+    fitness = env.fitness(field)
     ind.inner_attributes = hof_fine[0]
     
     return (fitness[0], -exp.number_of_nodes())

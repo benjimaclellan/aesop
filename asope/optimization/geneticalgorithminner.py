@@ -78,8 +78,8 @@ def FIT_Inner(ind, env, experiment, UDR = False):
     experiment.simulate(env)
 
     measurement_node = experiment.measurement_nodes[0]
-    At = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
-    opt_fit = env.fitness(At)[0]
+    field = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
+    opt_fit = env.fitness(field)[0]
     return [opt_fit]
 
 #%%
