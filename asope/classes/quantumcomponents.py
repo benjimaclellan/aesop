@@ -153,7 +153,7 @@ class QuantumPhaseModulator(Component):
 			So we use the Modified Bessel function 1st kind and convert to unmodified 
 			(see http://mathworld.wolfram.com/ModifiedBesselFunctionoftheFirstKind.html for relation)
 		"""
-		# U = sp.special.jn(M, self.IJ) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ)  # doesn't work
+		# U = sp.special.jn(M, self.IJ) * np.experiment(1j * 2 * np.pi * SHIFT * self.IJ)  # doesn't work
 		U = np.zeros_like(field)
 		for i, order in enumerate([1,2]):
 			M = Ms[i]
@@ -298,7 +298,7 @@ class QuantumPhotonicAWG(Component):
 			SHIFT = np.angle(coefficient)
 			# print(freq, M, SHIFT, mask)
 			U += np.power(1j, self.IJ) * M / totalM * sp.special.iv(self.IJ * order, -1j * M) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ * order) * mask
-			# U = np.matmul(U, np.power(1j, self.IJ) * M / totalM * sp.special.iv(self.IJ * order, -1j * M) * np.exp(1j * 2 * np.pi * SHIFT * self.IJ * order) * mask)
+			# U = np.matmul(U, np.power(1j, self.IJ) * M / totalM * sp.special.iv(self.IJ * order, -1j * M) * np.experiment(1j * 2 * np.pi * SHIFT * self.IJ * order) * mask)
 
 		field = np.matmul(U, field)
 
@@ -319,5 +319,5 @@ class QuantumPhotonicAWG(Component):
 		coefficients = np.matmul(tmp1.T , tmp2) / N
 
 		# for idx, frequency in enumerate(frequencies):
-		# 	coefficients[idx] = np.sum(waveform * np.exp(-1j * 2 * np.pi * frequency * time)) / N
+		# 	coefficients[idx] = np.sum(waveform * np.experiment(-1j * 2 * np.pi * frequency * time)) / N
 		return np.squeeze(coefficients)

@@ -125,11 +125,11 @@ if __name__ == '__main__':
     exp.init_fitness_analysis(at, env, method='LHA', verbose=True)
     lha_stability, others = exp.run_analysis(at, verbose=True)
 
-    # exp.init_fitness_analysis(at, env, method='UDR', verbose=True)
-    # udr_stability, others = exp.run_analysis(at, verbose=True)
+    # experiment.init_fitness_analysis(at, env, method='UDR', verbose=True)
+    # udr_stability, others = experiment.run_analysis(at, verbose=True)
     #
-    # exp.init_fitness_analysis(at, env, method='MC', verbose=True)
-    # mc_stability, others = exp.run_analysis(at, verbose=True)
+    # experiment.init_fitness_analysis(at, env, method='MC', verbose=True)
+    # mc_stability, others = experiment.run_analysis(at, verbose=True)
 
     xvals = np.arange(len(lha_stability))
 

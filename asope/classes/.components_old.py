@@ -27,7 +27,7 @@ class AmplitudeModulator(Component):
 #        phase = (M)*(np.cos(2*np.pi* NU * env.t)) + (BIAS)
 
 #        amp = np.power((M)*(np.cos(2*np.pi* NU * env.t)), 2)
-#        amp = np.exp(1j * np.pi / self.vpi * phase)
+#        amp = np.experiment(1j * np.pi / self.vpi * phase)
 
         amp = (M/2)*(np.cos(2*np.pi* NU * env.t)+1)
 

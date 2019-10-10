@@ -1,11 +1,11 @@
  #%% UDR
-#    std_udr = analysis_udr(at, exp, env, verbose=True)
+#    std_udr = analysis_udr(at, experiment, env, verbose=True)
 #    
 #    ## Monte Carlo
-#    mu_mc, std_mc = analysis_mc(at, exp, env, 10**3, verbose=True)
+#    mu_mc, std_mc = analysis_mc(at, experiment, env, 10**3, verbose=True)
 #
 #    # LHA
-#    H0, eigenvalues, eigenvectors, basis_names = analysis_lha(at, exp, env, verbose=True)
+#    H0, eigenvalues, eigenvectors, basis_names = analysis_lha(at, experiment, env, verbose=True)
 #    
     #%%
 #    plt.figure()
@@ -14,7 +14,7 @@
 #    plt.legend()
 #    plt.show()
 #    
-#    save_class('testing/experiment_example', exp)
+#    save_class('testing/experiment_example', experiment)
 #    save_class('testing/environment_example', env)
     
     

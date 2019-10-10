@@ -101,6 +101,59 @@ class Component(object):
         return at
 
 # ----------------------------------------------------------
+class Input(Component):
+    """
+    """
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'input'
+        self.disp_name = 'Input'
+        self.N_PARAMETERS = 0
+        self.UPPER = []
+        self.LOWER = []
+        self.SIGMA = []
+        self.MU = []
+        self.DTYPE = []
+        self.DSCRTVAL = []
+        self.FINETUNE_SKIP = []
+        self.splitter = False
+        self.AT_NAME = []
+
+    def simulate(self, env, field,  visualize=False):
+        field = env.field
+        if visualize:
+            self.lines = ()
+        return field
+
+
+class Output(Component):
+    """
+    """
+    _num_instances = count(0)
+    def datasheet(self):
+        self.type = 'output'
+        self.disp_name = 'Output'
+        self.N_PARAMETERS = 0
+        self.UPPER = []
+        self.LOWER = []
+        self.SIGMA = []
+        self.MU = []
+        self.DTYPE = []
+        self.DSCRTVAL = []
+        self.FINETUNE_SKIP = []
+        self.splitter = False
+        self.AT_NAME = []
+
+    def simulate(self, env, field,  visualize=False):
+        field = env.field
+        if visualize:
+            self.lines = ()
+        return field
+
+
+
+
+# ----------------------------------------------------------
 # Here we now implement each component - and more can be added easily or adapted to a different purpose (ie quantum).
 # It is also trivial to change how the device is simulated without changing the rest of the code, provided the general format is followed
 # ----------------------------------------------------------

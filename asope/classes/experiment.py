@@ -628,7 +628,7 @@ class Experiment(nx.DiGraph):
 
     ##TODO: Add redundancy check as part of experiment
     # # %% Redundancy checks
-    # def remove_redundancies(exp, env, verbose=False):
+    # def remove_redundancies(experiment, env, verbose=False):
     #     """
     #     Check over an experiment for redundant nodes
     #
@@ -637,8 +637,8 @@ class Experiment(nx.DiGraph):
     #     :param verbose:
     #     :return:
     #     """
-    #     exp_redundancies = deepcopy(exp)
-    #     exp_backup = deepcopy(exp)
+    #     exp_redundancies = deepcopy(experiment)
+    #     exp_backup = deepcopy(experiment)
     #
     #     # Compute the fitness of the unmodified experiment, for comparison
     #     field = exp_redundancies.nodes[exp_redundancies.measurement_nodes[0]]['output']
