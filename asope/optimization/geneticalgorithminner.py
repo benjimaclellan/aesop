@@ -1,11 +1,22 @@
 import numpy as np
-from deap import tools, base, creator
+
+from deap import tools, base, creator, algorithms
 import random
-import multiprocess as mp
+# import multiprocess as mp
+import multiprocessing
 import copy
 from optimization.geneticalgorithm import eaSimple
 
-#%% 
+# Workaround for multiprocessing with Windows (solution from https://github.com/DEAP/deap/issues/268)
+from loky import get_reusable_executor
+def prepare_creator():
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    # creator.create("Individual", list, typecode='b', fitness=creator.FitnessMax)
+    # creator.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
+    creator.create("Individual", dict, fitness=creator.FitnessMax)
+prepare_creator()
+
+#%%
 """
 Function for creating a New Individual (NA) in the Inner GA
 """
@@ -64,7 +75,8 @@ def ELITE_Inner(individuals, NUM_ELITE, NUM_OFFSPRING):
 Selection criteria for population in Inner GA
 """
 def SEL_Inner(individuals, k):
-    return tools.selBest(individuals, len(individuals))
+    return tools.selNSGA2(individuals, k)
+    # return tools.selBest(individuals, len(individuals))
 
 
 
@@ -83,67 +95,66 @@ def FIT_Inner(ind, env, experiment, UDR = False):
     return [opt_fit]
 
 #%%
- 
 def inner_geneticalgorithm(gapI, env, experiment):
     """
     Here, we set up our inner genetic algorithm. This will eventually be moved to a different function/file to reduce clutter
-    """    
-    try: 
-        del(creator.Individual) 
-        del(creator.FitnessMax)
-    except AttributeError:
-        pass
+    """
 
-    creator.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
-    creator.create("Individual", dict, fitness=creator.FitnessMax)
+
+    # try:
+    #     del(creator.Individual)
+    #     del(creator.FitnessMax)
+    # except AttributeError:
+    #     pass
 
     toolbox = base.Toolbox()
-    toolbox.register("attribute", CREATE_Inner, experiment)
 
+    if gapI.MULTIPROC:
+        # The following code was altered to use LOKY's reusable processes, using workaround mentioned above
+        pool = get_reusable_executor(gapI.NCORES, reuse=True)
+        # After initiating the pool, we define a "supermap" function that guarantees that every process will execute the creator preparation procedure and then run the mapped function
+        def supermap(*args, **kwargs):
+            prepare_creator()
+            return pool.map(*args, **kwargs)
+        # We then register our "supermap" function as the parallel directive for DEAP
+        toolbox.register("map", supermap)
+    else:
+        pool = None
+        prepare_creator()
+
+    # creator_test.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
+    # creator_test.create("Individual", dict, fitness=creator_test.FitnessMax)
+
+    toolbox.register("attribute", CREATE_Inner, experiment)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.attribute)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
     toolbox.register("mate", CX_Inner)
     toolbox.register("mutate", MUT_Inner, experiment)
-    toolbox.register("select", SEL_Inner)  
-    toolbox.register("elite", ELITE_Inner)  
-
+    toolbox.register("select", SEL_Inner)
+    toolbox.register("elite", ELITE_Inner)
     toolbox.register("evaluate", FIT_Inner, env=env, experiment=experiment)
-    
+
     pop = toolbox.population(n = gapI.N_POPULATION)
-        
+
     if not gapI.INIT:
         pass
     else:
         for i, init in enumerate(gapI.INIT):
             pop[i].update(init)
-    
+
     hof = tools.HallOfFame(gapI.N_HOF, similar=np.array_equal)
-    
+
     stats = tools.Statistics(lambda ind: ind.fitness.values)
-    
+
     stats.register("Average [fitness, variance]", np.mean, axis = 0)
-#    stats.register("std", np.std)
-#    stats.register("min", np.min)
     stats.register("Best [fitness, variance]", np.max, axis = 0)
 
     # setup variables early, in case of an early termination
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
-    if gapI.MULTIPROC:
-        pool = mp.Pool(gapI.NCORES)
-    else: 
-        pool = None
-    
-    # catch exceptions to terminate the optimization early
-#    try:
-    population, logbook = eaSimple(gapI, pop, toolbox, pool, logbook, cxpb=gapI.CRX_PRB, mutpb=gapI.MUT_PRB, ngen=gapI.N_GEN, stats=stats, halloffame=hof, verbose=gapI.VERBOSE)
 
-#    except KeyboardInterrupt:
-#        population, logbook = None, None
-#        if gapI.MULTIPROC:
-#            pool.terminate()
-#        print('\n\n>>> Optimization terminated.\n  > Displaying results so far.   \n\n')
-#        print(hof[0])
+    population, logbook = algorithms.eaSimple(pop, toolbox, cxpb=gapI.CRX_PRB, mutpb=gapI.MUT_PRB, ngen=gapI.N_GEN, stats=stats, halloffame=hof, verbose=gapI.VERBOSE)
+#     population, logbook = eaSimple(gapI, pop, toolbox, pool, logbook, cxpb=gapI.CRX_PRB, mutpb=gapI.MUT_PRB, ngen=gapI.N_GEN, stats=stats, halloffame=hof, verbose=gapI.VERBOSE)
+
     return hof, population, logbook
 

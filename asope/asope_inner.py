@@ -19,6 +19,7 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import multiprocess as mp
+
 import copy 
 import autograd.numpy as np
 from scipy import signal
@@ -50,45 +51,31 @@ if __name__ == '__main__':
     gap.WEIGHTS = (1.0,)    # weights to put on the multiple fitness values
     gap.MULTIPROC = True        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 100       # number of individuals in a population (make this a multiple of NCORES!)
-    gap.N_GEN = 50               # number of generations
-    gap.MUT_PRB = 0.5           # independent probability of mutation
-    gap.CRX_PRB = 0.5           # independent probability of cross-over
+    gap.N_POPULATION = 200       # number of individuals in a population (make this a multiple of NCORES!)
+    gap.N_GEN = 20               # number of generations
+    gap.MUT_PRB = 0.01           # independent probability of mutation
+    gap.CRX_PRB = 0.6           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = True          # verbose print statement for GA statistics
     gap.INIT = None
     gap.GRADIENT_DESCENT = 'analytical'
-    gap.FINE_TUNE = False
+    gap.FINE_TUNE = True
     gap.ALPHA = 0.00005
     gap.MAX_STEPS = 2000
     gap.NUM_ELITE = 1
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
+    # gap.pool = multiprocessing.Pool()
 
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)
     target_harmonic = 12e9
     env.init_fitness(0.5*(signal.sawtooth(2*np.pi*target_harmonic*env.t, 0.5)+1), target_harmonic, normalize=False)
 
-
-    #%%
-    # components = {
-    #                 0:PhaseModulator(),
-    #                 1:PowerSplitter(),
-    #                 2:Fiber(),
-    #                 4:PowerSplitter()
-    #              }
-    # adj = [(0,1), (1,2), (2,4), (1,4)]
-
     components = {
-        'p1': PowerSplitter(),
-        'p2': PowerSplitter(),
-        'p3': PowerSplitter(),
-        'p4': PowerSplitter(),
-        'p5': PowerSplitter(),
-        'p6': PowerSplitter(),
-        0: Fiber()
+        0: PhaseModulator(),
+        1: WaveShaper()
     }
-    adj = [('p1', 0), (0,'p2'), ('p1', 'p3'), ('p2', 'p4'), ('p2', 'p5'), ('p3', 'p4'), ('p3', 'p5'), ('p4', 'p6'), ('p5', 'p6')]
+    adj = [(0,1)]
 
 
     #%% initialize the experiment, and perform all the pre-processing steps
@@ -102,6 +89,7 @@ if __name__ == '__main__':
 
     exp.draw(node_label = 'disp_name')
     plt.show()
+
     #%%
     exp, hof, hof_fine, log = optimize_experiment(exp, env, gap, verbose=True)
     at = copy.deepcopy(hof_fine[0])
@@ -115,8 +103,8 @@ if __name__ == '__main__':
 
     #%%
     plt.figure()
-    plt.plot(env.t, P(field))
-    plt.plot(env.t, P(env.field0))
+    plt.plot(env.t[0:1000], P(field[0:1000]))
+    plt.plot(env.t[0:1000], P(env.field0[0:1000]))
     plt.show()
 
     #%%

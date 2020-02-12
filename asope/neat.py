@@ -55,16 +55,17 @@ plt.show()
 def newgene(history, edge):
 	return {'HISTORY': history, 'FROM': edge[0], 'TO': edge[1], 'EDGE': edge, 'STATUS': 'ENABLED'}
 
-
 exp.history = [newgene(0, (0, 1))]
-options = [Fiber, PhaseModulator, WaveShaper, PowerSplitter]
+# options = [Fiber, PhaseModulator, WaveShaper, PowerSplitter]
+options = [Fiber, PowerSplitter]
 
 def changegraph(experiment):
+	print('\n')
 	choice = random.choice(options)
 	number = experiment.number_of_nodes()
 
 	edge = random.choice(list(filter(lambda d: d['STATUS'] == "ENABLED", exp.history)))["EDGE"]
-
+	i = next(i for i, item in enumerate(experiment.history) if item['EDGE'] == edge)
 	if choice == PowerSplitter:
 		print('Add a interferometer')
 		experiment.add_node(number, info=choice())
@@ -75,13 +76,11 @@ def changegraph(experiment):
 		experiment.add_edge(number, number+1)
 		experiment.add_edge(number+1, edge[1])
 
-		new_gene_in = newgene(len(experiment.history), (edge[0], number))
-		new_gene_ps1 = newgene(len(experiment.history), (number, number+1))
-		new_gene_ps2 = newgene(len(experiment.history), (number, number+1))
-		new_gene_out = newgene(len(experiment.history), (number+1, edge[1]))
+		experiment.history.append(newgene(len(experiment.history), (edge[0], number)))
+		experiment.history.append(newgene(len(experiment.history), (number, number+1)))
+		experiment.history.append(newgene(len(experiment.history), (number, number+1)))
+		experiment.history.append(newgene(len(experiment.history), (number+1, edge[1])))
 
-
-		experiment.history.extend([new_gene_in, new_gene_ps1, new_gene_ps2, new_gene_out])
 
 	else:
 		experiment.add_node(number, info=choice())
@@ -89,18 +88,18 @@ def changegraph(experiment):
 		experiment.add_edge(edge[0], number)
 		experiment.add_edge(number, edge[1])
 
-		new_gene_in = newgene(len(experiment.history), (edge[0], number))
-		new_gene_out = newgene(len(experiment.history), (number, edge[1]))
-		experiment.history.extend([new_gene_in, new_gene_out])
+		experiment.history.append(newgene(len(experiment.history), (edge[0], number)))
+		experiment.history.append( newgene(len(experiment.history), (number, edge[1])))
 
-	i = next(i for i, item in enumerate(experiment.history) if item['EDGE'] == edge)
+
+	print(i)
 	experiment.history[i]['STATUS'] = 'DISABLED'
 	experiment.remove_edge(edge[0], edge[1])
 
 
 	return
 
-for j in range(0,5):
+for j in range(0,10):
 	changegraph(exp)
 
 for item in exp.history:
@@ -111,16 +110,16 @@ plt.show()
 
 exp.make_path()
 exp.check_path()
-exp.inject_optical_field(env.field)
-
-at = exp.newattributes()
-exp.setattributes(at)
-exp.simulate(env)
-field = exp.nodes[exp.measurement_nodes[0]]['output']
-fit = env.fitness(field)
-print("Fitness: {}".format(fit))
-
-plt.figure()
-plt.plot(env.t, P(field))
-plt.plot(env.t, P(env.field0))
-plt.show()
+# exp.inject_optical_field(env.field)
+#
+# at = exp.newattributes()
+# exp.setattributes(at)
+# exp.simulate(env)
+# field = exp.nodes[exp.measurement_nodes[0]]['output']
+# fit = env.fitness(field)
+# print("Fitness: {}".format(fit))
+#
+# plt.figure()
+# plt.plot(env.t, P(field))
+# plt.plot(env.t, P(env.field0))
+# plt.show()

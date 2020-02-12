@@ -22,7 +22,7 @@ https://en.wikipedia.org/wiki/Test_functions_for_optimization
 """
 if __name__ == '__main__':
 
-    plot_type = '2d'
+    plot_type = '3d'
     function_type = 'booth_function'
 
     function, X, Y, Z, xP, zP = eval('{}()'.format(function_type))

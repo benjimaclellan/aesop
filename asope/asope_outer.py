@@ -25,7 +25,7 @@ from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 
 from optimization.geneticalgorithmouter import outer_geneticalgorithm
 
-from asope_inner import optimize_experiment
+from optimization.wrappers import optimize_experiment
 
 #import warnings
 #warnings.filterwarnings("ignore")
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     gapI.TYPE = "inner"
     gapI.NFITNESS = 1           # how many values to optimize
     gapI.WEIGHTS = (1.0),     # weights to put on the multiple fitness values
-    gapI.MULTIPROC = True        # multiprocess or not
+    gapI.MULTIPROC = False        # multiprocess or not
     gapI.NCORES = mp.cpu_count()  # number of cores to run multiprocessing with
     gapI.N_POPULATION = 20      # number of individuals in a population
     gapI.N_GEN = 20              # number of generations

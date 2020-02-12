@@ -6,7 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/asope/classes" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/asope/optimization" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.7" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.7 (asope)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

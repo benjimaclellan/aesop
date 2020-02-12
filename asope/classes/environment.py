@@ -120,8 +120,8 @@ class OpticalField_CW(OpticalField):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-        return self.average_lowfreq_rf(field),
-        # return self.waveform_temporal_overlap(field),
+        # return self.average_lowfreq_rf(field),
+        return self.waveform_temporal_overlap(field),
 
 
     def average_lowfreq_rf(self, field):

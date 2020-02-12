@@ -52,21 +52,23 @@ def eaSimple(gap, population, toolbox, pool, logbook, cxpb, mutpb, ngen, stats=N
 #        offspring = tools.selWorst(population, NUM_OFFSPRING)
         
         if gap.MULTIPROC:
-            splt_indx = splitindices(len(offspring), gap.NCORES)                        
+            splt_indx = splitindices(len(offspring), gap.NCORES)
             mp_input = []
 
             for i in range(0,gap.NCORES):
                 args = [offspring[splt_indx[i]:splt_indx[i+1]], toolbox, cxpb, mutpb]
                 mp_input.append(args)
-                                    
+
             results = pool.map(varychildren, mp_input)
-            
+
+
+            ## apply to
             offspring = []
             for i in range(0,gap.NCORES):
                 offspring += results[i][:]
                 
             ### now create new individuals
-            splt_indx = splitindices(len(new), gap.NCORES)                        
+            splt_indx = splitindices(len(new), gap.NCORES)
             mp_input = []
 
             for i in range(0,gap.NCORES):

@@ -14,8 +14,9 @@ Experiment() defines an experiment as a directed graph (based on a DirectedGraph
 """
 
 #%%
+# class Experiment(nx.MultiDiGraph):
 class Experiment(nx.DiGraph):
-    
+
     def simulate(self, env, visualize=False):
         """
             Simulates an experiment once everything is setup, by traversing through the path to each component and applying the transformation(s)
