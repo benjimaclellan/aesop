@@ -41,7 +41,6 @@ class OpticalField(object):
         f, df = np.linspace(-self.n_samples/self.window_t/2, self.n_samples/self.window_t/2, self.n_samples, retstep=True)    # frequency in Hz
         f = f.reshape((self.n_samples, 1))
 
-        
         self.t = t
         self.dt = dt
         self.f = f
@@ -217,3 +216,31 @@ class OpticalField_Pulse(OpticalField):
         X1 = (RFSpectrum(field, self.dt)[freq_target])  #/ X2
 
         return X1
+
+
+# %%
+class OpticalField_PPLN(OpticalField):
+    """
+        Custom class for the continuous wave (CW) optical field environment
+
+        Example:
+            env = OpticalField_CW(n_samples=2**13+1, window_t=10e-9, peak_power=1)
+            target_harmonic = 12e9
+            env.init_fitness(lambda t: 0.5*(signal.square(2*np.pi*target_harmonic*t)+1), target_harmonic)
+    """
+
+    def custom_initialize(self):
+        self.generate_time_frequency_arrays()
+        self.field0 = self.peak_power * np.ones([self.n_samples, 1], dtype='complex')
+        self.add_noise = False
+        return
+
+    def init_fitness(self):
+        return
+
+    def fitness(self, field, exp=None):
+        return self.fsr(field),
+
+    def fsr(self, field):
+        return 0
+

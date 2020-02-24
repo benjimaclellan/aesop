@@ -49,22 +49,21 @@ if __name__ == '__main__':
     gap.TYPE = "inner"
     gap.NFITNESS = 1            # how many values to optimize
     gap.WEIGHTS = (1.0,)    # weights to put on the multiple fitness values
-    gap.MULTIPROC = True        # multiprocess or not
+    gap.MULTIPROC = False        # multiprocess or not
     gap.NCORES = mp.cpu_count() # number of cores to run multiprocessing with
-    gap.N_POPULATION = 200       # number of individuals in a population (make this a multiple of NCORES!)
-    gap.N_GEN = 20               # number of generations
+    gap.N_POPULATION = 80       # number of individuals in a population (make this a multiple of NCORES!)
+    gap.N_GEN = 50               # number of generations
     gap.MUT_PRB = 0.01           # independent probability of mutation
     gap.CRX_PRB = 0.6           # independent probability of cross-over
     gap.N_HOF = 1               # number of inds in Hall of Fame (num to keep)
     gap.VERBOSE = True          # verbose print statement for GA statistics
     gap.INIT = None
-    gap.GRADIENT_DESCENT = 'analytical'
+    gap.GRADIENT_DESCENT = 'numerical'
     gap.FINE_TUNE = True
     gap.ALPHA = 0.00005
     gap.MAX_STEPS = 2000
     gap.NUM_ELITE = 1
     gap.NUM_MATE_POOL = gap.N_POPULATION//2 - gap.NUM_ELITE
-    # gap.pool = multiprocessing.Pool()
 
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1)

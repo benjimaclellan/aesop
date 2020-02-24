@@ -6,7 +6,7 @@ from copy import copy
 def gradient_descent(at, env, exp, alpha=0.05, max_steps=2000):
     def analysis_wrapper(x_opt, at, env, exp, node_lst, idx_lst):
         exp.inject_optical_field(env.field)
-        at = exp.attributes_from_list(x_opt, at, node_lst, idx_lst)
+        at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
         exp.setattributes(at)
         exp.simulate(env)
         field = exp.nodes[exp.measurement_nodes[0]]['output']

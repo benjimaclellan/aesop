@@ -599,56 +599,56 @@ class PhaseShifter(Component):
 
 
 
-#%%
-class DelayLine(Component):
-    """
-    """
-    _num_instances = count(0)
-    def datasheet(self):
-        self.type = 'delay line'
-        self.disp_name = 'Integrated Delay Line'
-        self.N_PARAMETERS = 3
-        self.delays = [0] + [2**i * 1e-12 for i in range(0, self.N_PARAMETERS-1)]  # bit steps of 1ps
-        self.UPPER = self.N_PARAMETERS * [1]
-        self.LOWER = self.N_PARAMETERS * [0]
-        self.DTYPE = ['float']
-        self.DSCRTVAL = self.N_PARAMETERS * [0.2]
-        self.SIGMA = self.N_PARAMETERS * [0.05]
-        self.MU = self.N_PARAMETERS * [0.0]
-        self.FINETUNE_SKIP = []
-        self.splitter = False
-        self.AT_NAME = ['delay line {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
-
-    def simulate(self, env, field, visualize=False):
-        # attribute list is extracted
-
-        ratios = self.at
-        
-        tmp = np.fft.fft(field, axis=0)
-        Af_delay = np.zeros_like(field)
-         
-        ratio = 1.0
-        for line_i, ratio_i in enumerate(ratios):
-            ratio = ratio * ratio_i
-            delayed_tmp = (1-ratio) * tmp * np.exp(1j * 2 * np.pi * self.delays[line_i] * env.f)
-            Af_delay += delayed_tmp
-            
-        field = np.fft.ifft(Af_delay, axis=0)
-        # this visualization functionality was broken, may be fixed later
-        if visualize:
-            def find_nearest(array, value):
-                array = np.asarray(array)
-                return (np.abs(array - value)).argmin()
-
-            shift_vis = np.zeros_like(env.t)
-            ratio = 1.0
-            for line_i, ratio_i in enumerate(ratios):
-                ratio = ratio * ratio_i
-                shift_vis[find_nearest(env.t, self.delays[line_i])] = 1 - ratio
-
-
-            self.lines = (('t', shift_vis, 'Delay Shifts'),)
-        return field
+# #%%
+# class DelayLine(Component):
+#     """
+#     """
+#     _num_instances = count(0)
+#     def datasheet(self):
+#         self.type = 'delay line'
+#         self.disp_name = 'Integrated Delay Line'
+#         self.N_PARAMETERS = 3
+#         self.delays = [0] + [2**i * 1e-12 for i in range(0, self.N_PARAMETERS-1)]  # bit steps of 1ps
+#         self.UPPER = self.N_PARAMETERS * [1]
+#         self.LOWER = self.N_PARAMETERS * [0]
+#         self.DTYPE = ['float']
+#         self.DSCRTVAL = self.N_PARAMETERS * [0.2]
+#         self.SIGMA = self.N_PARAMETERS * [0.05]
+#         self.MU = self.N_PARAMETERS * [0.0]
+#         self.FINETUNE_SKIP = []
+#         self.splitter = False
+#         self.AT_NAME = ['delay line {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
+#
+#     def simulate(self, env, field, visualize=False):
+#         # attribute list is extracted
+#
+#         ratios = self.at
+#
+#         tmp = np.fft.fft(field, axis=0)
+#         Af_delay = np.zeros_like(field)
+#
+#         ratio = 1.0
+#         for line_i, ratio_i in enumerate(ratios):
+#             ratio = ratio * ratio_i
+#             delayed_tmp = (1-ratio) * tmp * np.exp(1j * 2 * np.pi * self.delays[line_i] * env.f)
+#             Af_delay += delayed_tmp
+#
+#         field = np.fft.ifft(Af_delay, axis=0)
+#         # this visualization functionality was broken, may be fixed later
+#         if visualize:
+#             def find_nearest(array, value):
+#                 array = np.asarray(array)
+#                 return (np.abs(array - value)).argmin()
+#
+#             shift_vis = np.zeros_like(env.t)
+#             ratio = 1.0
+#             for line_i, ratio_i in enumerate(ratios):
+#                 ratio = ratio * ratio_i
+#                 shift_vis[find_nearest(env.t, self.delays[line_i])] = 1 - ratio
+#
+#
+#             self.lines = (('t', shift_vis, 'Delay Shifts'),)
+#         return field
 
 
 # %%
@@ -738,4 +738,34 @@ class GasSample(Component):
         # plt.legend()
         # plt.show()
 
+        return field
+
+
+
+
+
+
+##%
+# %%
+class DelayLine(Component):
+    """
+    """
+    _num_instances = count(0)
+
+    def datasheet(self):
+        self.type = 'delay line'
+        self.disp_name = 'Split-and-Delay Line'
+        self.N_PARAMETERS = 4
+        self.UPPER = self.N_PARAMETERS * [1]
+        self.LOWER = self.N_PARAMETERS * [0]
+        self.DTYPE = self.N_PARAMETERS * ['float']
+        self.DSCRTVAL = self.N_PARAMETERS * [0.1]
+        self.SIGMA = self.N_PARAMETERS * [0.05]
+        self.MU = [0.0]
+        self.FINETUNE_SKIP = []
+        self.splitter = False
+        self.AT_NAME = ['Delay {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
+        return
+
+    def simulate(self, env, field, visualize=False):
         return field
