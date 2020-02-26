@@ -221,18 +221,22 @@ class OpticalField_Pulse(OpticalField):
 # %%
 class OpticalField_PPLN(OpticalField):
     """
-        Custom class for the continuous wave (CW) optical field environment
-
-        Example:
-            env = OpticalField_CW(n_samples=2**13+1, window_t=10e-9, peak_power=1)
-            target_harmonic = 12e9
-            env.init_fitness(lambda t: 0.5*(signal.square(2*np.pi*target_harmonic*t)+1), target_harmonic)
+        Custom class for the PPLN optical field environment
     """
 
     def custom_initialize(self):
         self.generate_time_frequency_arrays()
-        self.field0 = self.peak_power * np.ones([self.n_samples, 1], dtype='complex')
-        self.add_noise = False
+
+        self.h_plank = 1.054571726e-34
+        self.c0 = 299792458
+        self.f0 = self.c0 / self.lambda0
+
+        bandwidth_f = self.c0 / np.array(self.bandwidth)
+        idx = (self.f > (min(bandwidth_f) - self.f0)) & (self.f < (max(bandwidth_f) - self.f0))
+        field_f = np.zeros_like(self.f)
+        field_f[idx] = np.sqrt(self.h_plank * (2 * np.pi * (self.f[idx] + self.f0)) * self.n_samples / self.dt)
+        self.field0 = IFFT(field_f, self.dt)
+        self.field = self.field0
         return
 
     def init_fitness(self):

@@ -598,59 +598,6 @@ class PhaseShifter(Component):
         return at
 
 
-
-# #%%
-# class DelayLine(Component):
-#     """
-#     """
-#     _num_instances = count(0)
-#     def datasheet(self):
-#         self.type = 'delay line'
-#         self.disp_name = 'Integrated Delay Line'
-#         self.N_PARAMETERS = 3
-#         self.delays = [0] + [2**i * 1e-12 for i in range(0, self.N_PARAMETERS-1)]  # bit steps of 1ps
-#         self.UPPER = self.N_PARAMETERS * [1]
-#         self.LOWER = self.N_PARAMETERS * [0]
-#         self.DTYPE = ['float']
-#         self.DSCRTVAL = self.N_PARAMETERS * [0.2]
-#         self.SIGMA = self.N_PARAMETERS * [0.05]
-#         self.MU = self.N_PARAMETERS * [0.0]
-#         self.FINETUNE_SKIP = []
-#         self.splitter = False
-#         self.AT_NAME = ['delay line {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
-#
-#     def simulate(self, env, field, visualize=False):
-#         # attribute list is extracted
-#
-#         ratios = self.at
-#
-#         tmp = np.fft.fft(field, axis=0)
-#         Af_delay = np.zeros_like(field)
-#
-#         ratio = 1.0
-#         for line_i, ratio_i in enumerate(ratios):
-#             ratio = ratio * ratio_i
-#             delayed_tmp = (1-ratio) * tmp * np.exp(1j * 2 * np.pi * self.delays[line_i] * env.f)
-#             Af_delay += delayed_tmp
-#
-#         field = np.fft.ifft(Af_delay, axis=0)
-#         # this visualization functionality was broken, may be fixed later
-#         if visualize:
-#             def find_nearest(array, value):
-#                 array = np.asarray(array)
-#                 return (np.abs(array - value)).argmin()
-#
-#             shift_vis = np.zeros_like(env.t)
-#             ratio = 1.0
-#             for line_i, ratio_i in enumerate(ratios):
-#                 ratio = ratio * ratio_i
-#                 shift_vis[find_nearest(env.t, self.delays[line_i])] = 1 - ratio
-#
-#
-#             self.lines = (('t', shift_vis, 'Delay Shifts'),)
-#         return field
-
-
 # %%
 class GasSample(Component):
     """
@@ -755,7 +702,7 @@ class DelayLine(Component):
     def datasheet(self):
         self.type = 'delay line'
         self.disp_name = 'Split-and-Delay Line'
-        self.N_PARAMETERS = 4
+        self.N_PARAMETERS = 8
         self.UPPER = self.N_PARAMETERS * [1]
         self.LOWER = self.N_PARAMETERS * [0]
         self.DTYPE = self.N_PARAMETERS * ['float']
@@ -765,7 +712,41 @@ class DelayLine(Component):
         self.FINETUNE_SKIP = []
         self.splitter = False
         self.AT_NAME = ['Delay {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
+        self.n = 1.44
+        self.beta2 = -2.87 * (1e-12**2) * (1/1e3)    # ps^2/km converted to s^2/m
+        self.beta3 = -0.0224 * (1e-12**3) * (1/1e3) # ps3/km converted to s^3/m
         return
 
     def simulate(self, env, field, visualize=False):
+        def propagate_delay(env, field_f, length):
+            beta = self.n * (2 * np.pi * (env.f)) / env.c0
+            field_f = field_f * np.exp(1j * (beta) * length )
+            return field_f
+
+        c0 = env.c0
+        coupling_ratios = self.at
+
+        # field is in the spectral domain here now
+        field_short = FFT(field, env.dt)
+        field_long = np.zeros_like(field_short)
+        field_buffer = np.zeros_like(field_short)
+
+        for i, coupling_ratio in enumerate(coupling_ratios):
+            field_buffer = field_short
+            field_short = field_short * np.sqrt(1-coupling_ratio) + field_long * np.sqrt(coupling_ratio)
+            field_long = field_buffer * np.sqrt(coupling_ratio) + field_long * np.sqrt(1 - coupling_ratio)
+
+            field_long = propagate_delay( env, field_long, (c0 / 1.444 ) * 1e-12 * 2**(i) )
+
+        field = IFFT(field_short, env.dt)
         return field
+
+    def newattribute(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at
+
+    def mutate(self):
+        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
+        self.at = at
+        return at

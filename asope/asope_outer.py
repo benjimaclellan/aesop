@@ -52,7 +52,7 @@ if __name__ == '__main__':
     gapO.INIT = None
     gapO.NUM_ELITE = 1
     gapO.NUM_MATE_POOL = gapO.N_POPULATION - gapO.NUM_ELITE
-    gapO.POTENTIAL_COMPS = {'splitters':[PowerSplitter, FrequencySplitter], 'nonsplitters':[Fiber, PhaseModulator, WaveShaper]}
+    gapO.library = {'splitters':[PowerSplitter, FrequencySplitter], 'nonsplitters':[Fiber, PhaseModulator, WaveShaper]}
 #    gapO.POTENTIAL_COMPS = {'splitters':[], 'nonsplitters':[PhaseModulator, WaveShaper]}
     gapO.CALLBACK = save_experiment_and_plot
     

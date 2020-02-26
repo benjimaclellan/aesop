@@ -37,13 +37,8 @@ def RFSpectrum( field, dt, ax=0):
 
 
 def LowPassRF( field, env, cutoff, dt, ax=0):
-    field_f = FFT(P(field), dt)
+    #field_f = FFT(P(field), dt)
     filter = 1.0/np.sqrt(1+np.power(np.abs(env.f)/cutoff, 12))
-    #
-    # plt.figure()
-    # plt.plot(env.f, filter)
-    # plt.title('Filter')
-    # plt.show()
     field = IFFT(FFT(P(field), dt) * filter, env.dt)
 
     return field

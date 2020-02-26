@@ -40,16 +40,16 @@ def random_choice(options, num_choices, replace=False):
 #     return valid_nodes
 
 #%%
-def select_N_new_components(num_new_components, POTENTIAL_COMPS, comp_type, replace=False):
+def select_N_new_components(num_new_components, library, comp_type, replace=False):
     """
         Selects N new components (power or freq), making a new instance of each 
     """
     assert num_new_components > 0
         
-    inds = np.random.choice(range(len(POTENTIAL_COMPS[comp_type])), num_new_components, replace=replace)
+    inds = np.random.choice(range(len(library[comp_type])), num_new_components, replace=replace)
     new_comps = []
     for ind in inds:
-        new_comps.append(POTENTIAL_COMPS[comp_type][ind]())
+        new_comps.append(library[comp_type][ind]())
     
     if num_new_components == 1:
         return new_comps[0]
@@ -58,14 +58,14 @@ def select_N_new_components(num_new_components, POTENTIAL_COMPS, comp_type, repl
     
     
 #%%
-def reset_all_instances(POTENTIAL_COMPS):    
-    for key, item in POTENTIAL_COMPS.items():
-        for class_i in POTENTIAL_COMPS[key]:
+def reset_all_instances(library):    
+    for key, item in library.items():
+        for class_i in library[key]:
             class_i.resetinstances(class_i)
     return
 
 #%%  
-def mutate_experiment(experiment, POTENTIAL_COMPS):
+def mutate_experiment(experiment, library):
     """
         Switch the placements of some nodes, the structure remains the same    
     """
@@ -100,7 +100,7 @@ def mutate_experiment(experiment, POTENTIAL_COMPS):
     return experiment, True
     
 #%%   
-def mutate_new_components_experiment(experiment, POTENTIAL_COMPS):
+def mutate_new_components_experiment(experiment, library):
     """
         Changes a subset of components to brand new components (but not splitters)
     """
@@ -112,14 +112,14 @@ def mutate_new_components_experiment(experiment, POTENTIAL_COMPS):
     replace_list = random_choice(valid_nodes, 1, replace=False)
     
     for i, node in enumerate(replace_list):     
-        experiment.nodes[node]['info'] = select_N_new_components(1, POTENTIAL_COMPS, 'nonsplitters')
+        experiment.nodes[node]['info'] = select_N_new_components(1, library, 'nonsplitters')
         experiment.nodes[node]['title'] = experiment.nodes[node]['info'].name
         nx.relabel_nodes(experiment, {node:max_int_in_list(experiment.nodes)+1}, copy=True)
         
     return experiment, True
     
 #%%
-def one_component_to_two(experiment, POTENTIAL_COMPS):
+def one_component_to_two(experiment, library):
     """
         Adds in one new component where there is a component with one successor and predeccessor
     """
@@ -131,7 +131,7 @@ def one_component_to_two(experiment, POTENTIAL_COMPS):
     replace_list = random_choice(valid_nodes, 1, replace=False)
     
     for i, node in enumerate(replace_list):
-        new_comp = select_N_new_components(1, POTENTIAL_COMPS, 'nonsplitters')
+        new_comp = select_N_new_components(1, library, 'nonsplitters')
         node_name = max_int_in_list(experiment.nodes) + 1
         experiment.add_node(node_name)
         experiment.nodes[node_name]['title'] = new_comp.name
@@ -154,7 +154,7 @@ def one_component_to_two(experiment, POTENTIAL_COMPS):
     return experiment, True
 
 #%%
-def remove_one_node(experiment, POTENTIAL_COMPS):
+def remove_one_node(experiment, library):
     """
         Remove a single non-splitter node
     """    
@@ -180,12 +180,12 @@ def remove_one_node(experiment, POTENTIAL_COMPS):
     return experiment, True
   
 #%%      
-def add_loop(experiment, POTENTIAL_COMPS):
+def add_loop(experiment, library):
     """
     Adds a interferometer(like) loop, replacing a single node 2 splitters/2 components
     """
 #    print('***************add_loop')
-    if not POTENTIAL_COMPS['splitters']:
+    if not library['splitters']:
         return experiment, True
     
     valid_nodes = experiment.get_nonsplitters()
@@ -196,10 +196,10 @@ def add_loop(experiment, POTENTIAL_COMPS):
     
     tmp = max_int_in_list(experiment.nodes)+1
     
-    new_comps = select_N_new_components(2, POTENTIAL_COMPS, 'nonsplitters', replace = True)
+    new_comps = select_N_new_components(2, library, 'nonsplitters', replace = True)
     new_comps_names = [tmp+1, tmp+2]
     
-    new_splitters = select_N_new_components(2, POTENTIAL_COMPS, 'splitters', replace = True)
+    new_splitters = select_N_new_components(2, library, 'splitters', replace = True)
     new_splitters_names = [tmp+3, tmp+4]
     
     
@@ -234,7 +234,7 @@ def add_loop(experiment, POTENTIAL_COMPS):
     return experiment, True
 
 #%%
-def remove_loop(experiment,POTENTIAL_COMPS):
+def remove_loop(experiment,library):
 #    print('remove_loop')
     
     undirE = experiment.to_undirected()
@@ -277,12 +277,12 @@ def remove_loop(experiment,POTENTIAL_COMPS):
     return experiment, True
  
 #%%
-def brand_new_experiment(experiment, POTENTIAL_COMPS):
+def brand_new_experiment(experiment, library):
 #    print('brand_new_experiment')
     
-    reset_all_instances(POTENTIAL_COMPS)
+    reset_all_instances(library)
     
-    start_comp = select_N_new_components(1, POTENTIAL_COMPS,  'nonsplitters')
+    start_comp = select_N_new_components(1, library,  'nonsplitters')
     components = {0:start_comp}
     adj = []
     measurement_nodes = [0]
@@ -292,7 +292,7 @@ def brand_new_experiment(experiment, POTENTIAL_COMPS):
     return experiment, True
 
 #%%
-def change_experiment_wrapper(experiment, POTENTIAL_COMPS):
+def change_experiment_wrapper(experiment, library):
     rates_base = {
                     mutate_experiment:0.4,
                     mutate_new_components_experiment:0.4,
@@ -349,7 +349,7 @@ def change_experiment_wrapper(experiment, POTENTIAL_COMPS):
         mut_function = np.random.choice(funcs, 1, replace=False, p=probs)[0]
         flag = False
         
-        experiment, check = mut_function(experiment, POTENTIAL_COMPS)
+        experiment, check = mut_function(experiment, library)
         if check:
             flag = False
         else:

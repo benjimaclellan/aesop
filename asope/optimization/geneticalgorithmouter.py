@@ -20,9 +20,9 @@ Function for creating a New Individual (NA) in the Inner GA
 """
 def CREATE_Outer(gapO):
     ind = Experiment()
-    ind, _ = brand_new_experiment(ind, gapO.POTENTIAL_COMPS)
+    ind, _ = brand_new_experiment(ind, gapO.library)
     for i in range(5):
-        ind, _ = change_experiment_wrapper(ind, gapO.POTENTIAL_COMPS)
+        ind, _ = change_experiment_wrapper(ind, gapO.library)
     
     return ind
 
@@ -43,7 +43,7 @@ Mutates a single individual in Inner GA
 def MUT_Outer(ind, gapO):  
     fitness = ind.fitness
     for i in range(5):
-        ind, _ = change_experiment_wrapper(ind, gapO.POTENTIAL_COMPS)
+        ind, _ = change_experiment_wrapper(ind, gapO.library)
         
     ind.fitness = fitness
     return ind,
