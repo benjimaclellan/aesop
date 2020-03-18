@@ -3,6 +3,7 @@ from itertools import count
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
 import matplotlib.pyplot as plt
 import matplotlib
+import copy
 
 """
 ASOPE
@@ -702,51 +703,59 @@ class DelayLine(Component):
     def datasheet(self):
         self.type = 'delay line'
         self.disp_name = 'Split-and-Delay Line'
-        self.N_PARAMETERS = 8
-        self.UPPER = self.N_PARAMETERS * [1]
+        self.N_PARAMETERS = 4
+        self.UPPER = self.N_PARAMETERS  * [1]
         self.LOWER = self.N_PARAMETERS * [0]
         self.DTYPE = self.N_PARAMETERS * ['float']
-        self.DSCRTVAL = self.N_PARAMETERS * [0.1]
+        self.DSCRTVAL = self.N_PARAMETERS * [0.05]
         self.SIGMA = self.N_PARAMETERS * [0.05]
         self.MU = [0.0]
         self.FINETUNE_SKIP = []
         self.splitter = False
         self.AT_NAME = ['Delay {}'.format(j) for j in range(0, self.N_PARAMETERS, 1)]
-        self.n = 1.44
-        self.beta2 = -2.87 * (1e-12**2) * (1/1e3)    # ps^2/km converted to s^2/m
-        self.beta3 = -0.0224 * (1e-12**3) * (1/1e3) # ps3/km converted to s^3/m
+        self.n = 1.444
         return
 
     def simulate(self, env, field, visualize=False):
-        def propagate_delay(env, field_f, length):
-            beta = self.n * (2 * np.pi * (env.f)) / env.c0
-            field_f = field_f * np.exp(1j * (beta) * length )
-            return field_f
-
-        c0 = env.c0
-        coupling_ratios = self.at
+        coupling_ratios = copy.deepcopy(self.at)
 
         # field is in the spectral domain here now
         field_short = FFT(field, env.dt)
         field_long = np.zeros_like(field_short)
-        field_buffer = np.zeros_like(field_short)
+
+        field_short_tmp = np.zeros_like(field_short)
+        field_long_tmp = np.zeros_like(field_long)
 
         for i, coupling_ratio in enumerate(coupling_ratios):
-            field_buffer = field_short
-            field_short = field_short * np.sqrt(1-coupling_ratio) + field_long * np.sqrt(coupling_ratio)
-            field_long = field_buffer * np.sqrt(coupling_ratio) + field_long * np.sqrt(1 - coupling_ratio)
+            length = (env.c0 / self.n) * 1e-12 * (2 ** (i))
+            beta = self.n * (2 * np.pi * env.f) / env.c0
 
-            field_long = propagate_delay( env, field_long, (c0 / 1.444 ) * 1e-12 * 2**(i) )
+            field_short_tmp = field_short
+            field_long_tmp = field_long
 
-        field = IFFT(field_short, env.dt)
+            field_short = (np.sqrt(1-coupling_ratio) * field_short_tmp + 1j * np.sqrt(coupling_ratio) * field_long_tmp)
+            field_long = np.exp(1j * beta * length ) * (1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long_tmp)
+
+        field_out = IFFT(field_short, env.dt)
+
+        return field_out
+
+
+# %%
+class Test(Component):
+    """
+    """
+    _num_instances = count(0)
+
+    def datasheet(self):
+        self.type = 'Test'
+        self.disp_name = 'Test'
+        self.N_PARAMETERS = 10
+        self.UPPER = self.N_PARAMETERS * [4]
+        self.LOWER = self.N_PARAMETERS * [-4]
+        self.DTYPE = self.N_PARAMETERS * ['float']
+        self.DSCRTVAL = self.N_PARAMETERS * [None]
+        return
+
+    def simulate(self, env, field, visualize=False):
         return field
-
-    def newattribute(self):
-        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
-        self.at = at
-        return at
-
-    def mutate(self):
-        at = [self.randomattribute(self.LOWER[0], self.UPPER[0], self.DTYPE[0], self.DSCRTVAL[0])]
-        self.at = at
-        return at

@@ -93,7 +93,10 @@ class OpticalField_CW(OpticalField):
             env.init_fitness(lambda t: 0.5*(signal.square(2*np.pi*target_harmonic*t)+1), target_harmonic)
     """
         
-    def custom_initialize(self):    
+    def custom_initialize(self):
+        self.c0 = 299792458
+        self.f0 = self.c0 / self.lambda0
+        
         self.generate_time_frequency_arrays()             
         self.field0 = self.peak_power * np.ones([self.n_samples, 1], dtype='complex')
         self.add_noise = False
@@ -158,42 +161,48 @@ class OpticalField_Pulse(OpticalField):
     """   
         Custom class for the pulse train optical field environment
         Example:
-            env = OpticalField_Pulse(n_samples=2**12, profile='gaussian', pulse_width=50e-12, f_rep=100e6, n_pulses=30, peak_power=1)
+            env = OpticalField_Pulse(n_samples=2**15, profile='sech', pulse_width=1.0e-12, train=True, t_rep=100e-12, window_t=2.0e-9, peak_power=1, lambda0=1.55e-6)
             env.init_fitness(p=2, q=1)
     """
        
-    def custom_initialize(self): 
-        self.window_t = 1/self.f_rep * self.n_pulses        
+    def custom_initialize(self):
+        self.c0 = 299792458
+        self.f0 = self.c0 / self.lambda0
+
+        # self.window_t = 1/self.f_rep * self.n_pulses
         self.generate_time_frequency_arrays()
-        
+
+        self.n_pulses = int(np.ceil(self.window_t / self.t_rep))
+
+        self.field0 = np.zeros(self.t.shape, dtype='complex')
         # create initial train of Gaussian pulses
         if self.profile == 'gaussian':
-            self.field0 = np.zeros([self.n_samples, 1], dtype='complex')
-            for i_pulse in range(0,self.n_pulses+1):
-                self.field0 += np.exp(-0.5 * (np.power((self.t+(self.t[0] + self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width, 2)))
-        
+            self.field0 = np.exp(-0.5 * (np.power(self.t/self.pulse_width, 2)))
+            if self.train:
+                for i_pulse in list(range(-1,-self.n_pulses//2+1, -1)) + list(range(1,self.n_pulses//2-1, +1)): # fill in all pulses except central one
+                    self.field0 += np.exp(-0.5 * (np.power((self.t+(self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width, 2)))
+
         # create initial train of sech2 pulses
         elif self.profile == 'sech':
-            self.field0 = np.zeros([self.n_samples, 1], dtype='complex')
-            for i_pulse in range(0,self.n_pulses+1):
-                self.field0 += sech((self.t+(self.t[0] + self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width)
+            self.field0 = sech(self.t/self.pulse_width)
+            if self.train:
+                for i_pulse in list(range(-1,-self.n_pulses//2+1, -1)) + list(range(1,self.n_pulses//2-1, +1)): # fill in all pulses except central one
+                    sech((self.t + (self.window_t * (i_pulse / (self.n_pulses)))) / self.pulse_width)
 
         else:
             raise ValueError
             
         # scale by peak_power power
         self.field0 *= np.sqrt(self.peak_power)
-        return     
+        return
 
-    
-         
+
     def init_fitness(self, p, q):
         self.p = p
         self.q = q
-        
-        return 
-    
-    
+        return
+
+
     def fitness(self, field):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
