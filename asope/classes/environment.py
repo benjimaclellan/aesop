@@ -1,6 +1,6 @@
 import autograd.numpy as np
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum, LowPassRF
-import scipy as sp
+
 import matplotlib.pyplot as plt
 def sech(x):
     return 1/np.cosh(x, dtype='complex')
@@ -96,7 +96,7 @@ class OpticalField_CW(OpticalField):
     def custom_initialize(self):
         self.c0 = 299792458
         self.f0 = self.c0 / self.lambda0
-        
+
         self.generate_time_frequency_arrays()             
         self.field0 = self.peak_power * np.ones([self.n_samples, 1], dtype='complex')
         self.add_noise = False
@@ -122,7 +122,6 @@ class OpticalField_CW(OpticalField):
         """
             Wrapper function for the fitness function used. Here, the function to optimize can be changed without affecting the rest of the code
         """
-        # return self.average_lowfreq_rf(field),
         return self.waveform_temporal_overlap(field),
 
 
@@ -139,10 +138,8 @@ class OpticalField_CW(OpticalField):
             generated = (generated)/(maxval)
         
         shifted = self.shift_function(generated)
-        
-        overlap_integral = -np.sum(np.abs(self.target-shifted))
-        total_amplitude = maxval-minval
 
+        overlap_integral = -np.sum(np.abs(self.target-shifted))
         return overlap_integral
 
     def shift_function(self, generated):
@@ -179,7 +176,7 @@ class OpticalField_Pulse(OpticalField):
         if self.profile == 'gaussian':
             self.field0 = np.exp(-0.5 * (np.power(self.t/self.pulse_width, 2)))
             if self.train:
-                for i_pulse in list(range(-1,-self.n_pulses//2+1, -1)) + list(range(1,self.n_pulses//2-1, +1)): # fill in all pulses except central one
+                for i_pulse in list(range(-1,-(self.n_pulses//2+1), -1)) + list(range(1,self.n_pulses//2+1, +1)): # fill in all pulses except central one
                     self.field0 += np.exp(-0.5 * (np.power((self.t+(self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width, 2)))
 
         # create initial train of sech2 pulses
@@ -187,7 +184,7 @@ class OpticalField_Pulse(OpticalField):
             self.field0 = sech(self.t/self.pulse_width)
             if self.train:
                 for i_pulse in list(range(-1,-self.n_pulses//2+1, -1)) + list(range(1,self.n_pulses//2-1, +1)): # fill in all pulses except central one
-                    sech((self.t + (self.window_t * (i_pulse / (self.n_pulses)))) / self.pulse_width)
+                    self.field0 += sech((self.t+(self.window_t*(i_pulse/(self.n_pulses))))/self.pulse_width)
 
         else:
             raise ValueError

@@ -7,28 +7,28 @@ import multiprocessing
 import copy
 from optimization.geneticalgorithm import eaSimple
 
-# Workaround for multiprocessing with Windows (solution from https://github.com/DEAP/deap/issues/268)
+# %% Workaround for multiprocessing with Windows (solution from https://github.com/DEAP/deap/issues/268)
 from loky import get_reusable_executor
 def prepare_creator():
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     # creator.create("Individual", list, typecode='b', fitness=creator.FitnessMax)
-    # creator.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
+    # creator.create("FitnessMax", base.Fitness, weights=CONFIG.WEIGHTS)
     creator.create("Individual", dict, fitness=creator.FitnessMax)
 prepare_creator()
 
 #%%
 """
-Function for creating a New Individual (NA) in the Inner GA
+Creates new set of control parameters
 """
-def CREATE_Inner(experiment):
+def create_parameters(experiment):
     ind = experiment.newattributes()
     return ind
 
 #%%
 """
-Crosses two individuals in Inner GA
+Cross-over between two control parameter sets
 """
-def CX_Inner(ind1, ind2):
+def crossover_parameters(ind1, ind2):
     
     keys = list(ind1.keys())
         
@@ -51,10 +51,9 @@ def CX_Inner(ind1, ind2):
 
 #%%
 """
-Mutates a single individual in Inner GA
+Mutation of control parameter set 
 """
-
-def MUT_Inner(experiment, ind):  
+def mutation_parameters(experiment, ind):
     mut_node = random.choice(list(ind))  
     ind[mut_node] = experiment.nodes[mut_node]['info'].mutate()
     return ind,
@@ -62,9 +61,9 @@ def MUT_Inner(experiment, ind):
 
 #%%
 """
-Selection criteria for population in Inner GA
+Elite selection for control parameters
 """
-def ELITE_Inner(individuals, NUM_ELITE, NUM_OFFSPRING):
+def elite_parameters(individuals, NUM_ELITE, NUM_OFFSPRING):
     elite = tools.selBest(individuals, NUM_ELITE)
     offspring = tools.selWorst(individuals, NUM_OFFSPRING)
     return elite, offspring
@@ -72,9 +71,9 @@ def ELITE_Inner(individuals, NUM_ELITE, NUM_OFFSPRING):
 
 #%%
 """
-Selection criteria for population in Inner GA
+Selection for control parameters
 """
-def SEL_Inner(individuals, k):
+def selection_parameters(individuals, k):
     return tools.selNSGA2(individuals, k)
     # return tools.selBest(individuals, len(individuals))
 
@@ -82,36 +81,36 @@ def SEL_Inner(individuals, k):
 
 #%%
 """
-Fitness function for Inner GA
+Objective function evaluation for parameter optimization 
 """
-def FIT_Inner(ind, env, experiment, UDR = False):
+def objective_parameters(ind, env, experiment):
         
     experiment.setattributes(ind)
     experiment.simulate(env)
 
     measurement_node = experiment.measurement_nodes[0]
-    field = experiment.nodes[measurement_node]['output']  #.reshape(env.N)
+    field = experiment.nodes[measurement_node]['output']
     opt_fit = env.fitness(field)[0]
     return [opt_fit]
 
 #%%
-def inner_geneticalgorithm(gapI, env, experiment):
+def geneticalgorithm_parameters(CONFIG, env, experiment):
     """
     Here, we set up our inner genetic algorithm. This will eventually be moved to a different function/file to reduce clutter
     """
 
-
-    # try:
-    #     del(creator.Individual)
-    #     del(creator.FitnessMax)
-    # except AttributeError:
-    #     pass
+    # some hacky, shitty fix
+    try:
+        del(creator.Individual)
+        del(creator.FitnessMax)
+    except AttributeError:
+        pass
 
     toolbox = base.Toolbox()
 
-    if gapI.MULTIPROC:
+    if CONFIG.MULTIPROC:
         # The following code was altered to use LOKY's reusable processes, using workaround mentioned above
-        pool = get_reusable_executor(gapI.NCORES, reuse=True)
+        pool = get_reusable_executor(CONFIG.NCORES, reuse=True)
         # After initiating the pool, we define a "supermap" function that guarantees that every process will execute the creator preparation procedure and then run the mapped function
         def supermap(*args, **kwargs):
             prepare_creator()
@@ -122,27 +121,27 @@ def inner_geneticalgorithm(gapI, env, experiment):
         pool = None
         prepare_creator()
 
-    # creator_test.create("FitnessMax", base.Fitness, weights=gapI.WEIGHTS)
+    # creator_test.create("FitnessMax", base.Fitness, weights=CONFIG.WEIGHTS)
     # creator_test.create("Individual", dict, fitness=creator_test.FitnessMax)
 
-    toolbox.register("attribute", CREATE_Inner, experiment)
+    toolbox.register("attribute", create_parameters, experiment)
     toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.attribute)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    toolbox.register("mate", CX_Inner)
-    toolbox.register("mutate", MUT_Inner, experiment)
-    toolbox.register("select", SEL_Inner)
-    toolbox.register("elite", ELITE_Inner)
-    toolbox.register("evaluate", FIT_Inner, env=env, experiment=experiment)
+    toolbox.register("mate", crossover_parameters)
+    toolbox.register("mutate", mutation_parameters, experiment)
+    toolbox.register("select", selection_parameters)
+    toolbox.register("elite", elite_parameters)
+    toolbox.register("evaluate", objective_parameters, env=env, experiment=experiment)
 
-    pop = toolbox.population(n = gapI.N_POPULATION)
+    pop = toolbox.population(n = CONFIG.N_POPULATION)
 
-    if not gapI.INIT:
+    if not CONFIG.INIT:
         pass
     else:
-        for i, init in enumerate(gapI.INIT):
+        for i, init in enumerate(CONFIG.INIT):
             pop[i].update(init)
 
-    hof = tools.HallOfFame(gapI.N_HOF, similar=np.array_equal)
+    hof = tools.HallOfFame(CONFIG.N_HOF, similar=np.array_equal)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
 
@@ -153,8 +152,9 @@ def inner_geneticalgorithm(gapI, env, experiment):
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    population, logbook = algorithms.eaSimple(pop, toolbox, cxpb=gapI.CRX_PRB, mutpb=gapI.MUT_PRB, ngen=gapI.N_GEN, stats=stats, halloffame=hof, verbose=gapI.VERBOSE)
-#     population, logbook = eaSimple(gapI, pop, toolbox, pool, logbook, cxpb=gapI.CRX_PRB, mutpb=gapI.MUT_PRB, ngen=gapI.N_GEN, stats=stats, halloffame=hof, verbose=gapI.VERBOSE)
+    population, logbook = algorithms.eaSimple(pop, toolbox, cxpb=CONFIG.CRX_PRB, mutpb=CONFIG.MUT_PRB, ngen=CONFIG.N_GEN, stats=stats, halloffame=hof, verbose=CONFIG.VERBOSE)
 
+
+#     population, logbook = eaSimple(CONFIG, pop, toolbox, pool, logbook, cxpb=CONFIG.CRX_PRB, mutpb=CONFIG.MUT_PRB, ngen=CONFIG.N_GEN, stats=stats, halloffame=hof, verbose=CONFIG.VERBOSE)
     return hof, population, logbook
 

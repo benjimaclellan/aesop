@@ -100,11 +100,52 @@ def run_ea(toolbox, stats=None, verbose=False):
                                      verbose=verbose)
 
 #%% initialize our input pulse, with the fitness function too
-env = OpticalField_PPLN(n_samples=2**16, window_t=1e-9, lambda0=1.55e-6, bandwidth=[1.54e-6, 1.56e-6])
-delayline = Test() #DelayLine()
-# at = delayline.newattribute()
-# delayline.at = at
-# field = delayline.simulate(env, env.field0)
+env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandwidth=[1.53e-6, 1.57e-6])
+
+delayline = DelayLine()
+nodes = {0: DelayLine()}
+adj = []
+
+# %% initialize the experiment, and perform all the pre-processing steps
+exp = Experiment()
+exp.buildexperiment(nodes, adj)
+exp.make_path()
+
+at = {0: [0.0, 0.5, 0.0, 0.5, 0.0, 0.1, 0.05]}
+fig, ax = plt.subplots(2, 1, figsize=[10,10])
+for i in range(1):
+    for axi in ax:
+        axi.cla()
+
+    # at = exp.newattributes()
+    exp.setattributes(at)
+    exp.inject_optical_field(env.field0)
+    exp.simulate(env)
+    field = exp.nodes[exp.measurement_nodes[0]]['output']
+
+    p0 = P(env.field0)
+    p = P(field) /max(p0)
+    p0 *= 1 / max(p0)
+
+    psd0 = PSD(env.field0, env.dt, env.df)
+    psd = PSD(field, env.dt, env.df) /max(psd0)
+    psd0 *= 1 / max(psd0)
+
+    ax[0].plot(env.t/1e-12, p, label='Field Out', alpha=0.5)
+    ax[0].plot(env.t/1e-12, p0, label='Field In', alpha=0.5)
+    ax[0].set(xlabel='Time (ps)', ylabel='AU')
+    # ax[0].set(xlim=[-200, 200])
+
+    ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd, label='Field Out', alpha=0.5)
+    ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd0, label='Field In', alpha=0.5)
+
+    ax[1].set(xlabel=r'Wavelength ($\mu$m)', ylabel='AU')
+    # ax[1].set(xlim=[1.52, 1.58])
+    for axi in ax:
+        axi.legend()
+
+    print(at)
+
 
 ##
 creator.create("FitnessMax", base.Fitness, weights=(-1.0, -1.0))

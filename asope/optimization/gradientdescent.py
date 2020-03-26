@@ -30,6 +30,7 @@ def gradient_descent(at, env, exp, alpha=0.05, max_steps=2000):
     at = exp.attributes_from_list(x, at, node_lst, idx_lst)
     return at
 
+#TODO: improve autodiff gradient descent
 """
     Below is all old code with used numerical packages for gradient descent. Now uses autograd
 """
@@ -43,7 +44,7 @@ def finetune_individual(ind, env, experiment):
 
     # extract the bounds into the correct data format
     lower_bounds, upper_bounds = {}, {}
-    for node in experiment.nodes():
+    for node in ind.keys():
         lower_bounds[node] = experiment.nodes[node]['info'].LOWER
         upper_bounds[node] = experiment.nodes[node]['info'].UPPER
     (lower, idx, nodelist) = pack_opt(lower_bounds, experiment)
@@ -82,15 +83,16 @@ Unpacks the list of parameters from the structure used in the GA to the GD
 def pack_opt(ind, experiment):
     (optlist, idx, nodelist) = ([],[],[])
     cnt = 0
-    a = [0,0]
+    a = [0,0] # range
     for node, item in ind.items():
         a[0] = cnt
         for i, at_i in enumerate(item, 0):
-            if (experiment.nodes[node]['info'].FINETUNE_SKIP != None) and i in (experiment.nodes[node]['info'].FINETUNE_SKIP):
-                continue
-            optlist.append(at_i)
-
+            if (experiment.nodes[node]['info'].FINETUNE_SKIP is not None) and (i in experiment.nodes[node]['info'].FINETUNE_SKIP): # paramter that should be skipped in finetuning
+                pass
+            else:
+                optlist.append(at_i)
             cnt += 1
+
         nodelist.append(node)
         a[1] = cnt
         idx.append(copy(a))
@@ -102,14 +104,14 @@ Unpacks the list of parameters from the structure used in GD to the GA and simul
 """
 def unpack_opt(ind, experiment, optlist, idx, nodelist):
     cnt = 0
-    for i, ind_pair in enumerate(idx, 0):
-        node = nodelist[i]
+    for node_i, ind_pair in enumerate(idx, 0):
+        node = nodelist[node_i]
         for j in range(0, len(ind[node])):
-            if (experiment.nodes[node]['info'].FINETUNE_SKIP != None) and (j) in (experiment.nodes[node]['info'].FINETUNE_SKIP):
+            if (experiment.nodes[node]['info'].FINETUNE_SKIP is not None) and (j in (experiment.nodes[node]['info'].FINETUNE_SKIP)):
                 pass
             else:
                 ind[node][j] = optlist[cnt]
-                cnt += 1
+            cnt += 1
     return ind
 
 

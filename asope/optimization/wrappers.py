@@ -1,10 +1,12 @@
+# %% import public modules
 import time
 import copy
 
 from assets.functions import extractlogbook
-from optimization.geneticalgorithminner import inner_geneticalgorithm
+from optimization.ga_parameters import geneticalgorithm_parameters
 from optimization.gradientdescent import gradient_descent, finetune_individual
 
+# %% single function which optimizes the control parameters for a single topology
 def optimize_experiment(experiment, env, gap, verbose=False):
 	if verbose:
 		print('Number of cores: {}, number of generations: {}, size of population: {}'.format(gap.NCORES, gap.N_GEN,
@@ -12,7 +14,7 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 
 	# run (and time) the genetic algorithm
 	tstart = time.time()
-	hof, population, logbook = inner_geneticalgorithm(gap, env, experiment)
+	hof, population, logbook = geneticalgorithm_parameters(gap, env, experiment)
 	tstop = time.time()
 
 	if verbose:
@@ -25,7 +27,6 @@ def optimize_experiment(experiment, env, gap, verbose=False):
 	hof_fine = []
 	for j in range(gap.N_HOF):
 		individual = copy.deepcopy(hof[j])
-		# hof_fine.append(individual)
 
 		# % Now fine tune the best individual using gradient descent
 		if gap.FINE_TUNE:

@@ -1,8 +1,8 @@
 """
-Copyright Benjamin MacLellan
+simulation.py
+Benjamin MacLellan 2020
 
-The inner optimization process for the Automated Search for Optical Processing Experiments (ASOPE). This uses a genetic algorithm (GA) to optimize the parameters (attributes) on the components (nodes) in the experiment (graph).
-
+Script to test new components, or simply to simulate a topology + parameter set of interest
 """
 
 #%% this allows proper multiprocessing (overrides internal multiprocessing settings)
@@ -17,7 +17,6 @@ warnings.filterwarnings("ignore")
 #%% import public modules
 import time
 import matplotlib.pyplot as plt
-#import multiprocess as mp
 
 import copy
 import autograd.numpy as np
@@ -34,84 +33,87 @@ from assets.callbacks import save_experiment_and_plot
 from classes.environment import OpticalField, OpticalField_CW, OpticalField_Pulse, OpticalField_PPLN
 from classes.components import Fiber, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, DelayLine
 from classes.experiment import Experiment
-#from classes.geneticalgorithmparameters import GeneticAlgorithmParameters
 
-from config.config import config
-
-from optimization.wrappers import optimize_experiment
+from optimization.gradientdescent import pack_opt, unpack_opt
 
 plt.close("all")
-
-
-def fsr_value(psd, peak_inds, peak_widths):
-    fitness = np.mean(np.diff(peak_inds)) / (np.std(np.diff(peak_inds) + 1)) #* np.mean(psd)
-    return fitness
-
-def q_factor(psd, peak_inds, peak_widths):
-    fitness = 1/np.mean(peak_widths)
-    return fitness
-
-def get_peaks(psd):
-    # psd = PSD(field, env.dt, env.df)
-    peak_array = np.squeeze(psd / max(psd))
-    peak_inds, prop = sig.find_peaks(peak_array,
-                                     height=None, threshold=None, distance=None, prominence=0.5, width=None,
-                                     wlen=None,
-                                     rel_height=None, plateau_size=None)
-    (peak_widths, width_heights, *_) = sig.peak_widths(peak_array, peak_inds, rel_height=0.5,
-                                                       prominence_data=None,
-                                                       wlen=None)
-    return peak_inds, peak_widths
-
 
 #%%
 if __name__ == '__main__':
 
-    #%% initialize our input pulse, with the fitness function too
+    #%% initialize our input optical field, with the objective function of interest
     # env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandwidth=[1.53e-6, 1.57e-6])
-    env = OpticalField_Pulse(n_samples=2**15, profile='sech', pulse_width=1.0e-12, train=True, t_rep=100e-12, window_t=2.0e-9, peak_power=1, lambda0=1.55e-6)
+    env = OpticalField_Pulse(n_samples=2**16, window_t=500e-12, profile='gaussian', pulse_width=5e-12, train=True, t_rep=100e-12, peak_power=1, lambda0=1.55e-6)
+    # env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1, lambda0=1.55e-6, normalize=False)
 
-    nodes = {0: DelayLine()}
-    adj = []
+    #%% set-up the system
+    nodes = {0: PowerSplitter(),
+             1: PhaseModulator(),
+             3: WaveShaper(),
+             2: PowerSplitter()}
+    adj = [(0,1), (1,3), (3,2), (0,2)]
+
+    # nodes = {0: PhaseModulator(),
+    #          1: WaveShaper(),
+    #          2: DelayLine()}
+    #
+    # adj = [(0, 1), (1, 2)]
+
+    #%% define the attributes (control parameters)
+    # at = {0: [0.8803560071014186, 12000000000.0],
+    #       1: [0.5836586658242137, 0.012468467546672125, 0.7434319090744873, 0.9145491617839991, 0.613612253547473, 3.18939300721919, 3.594870205634577, 6.049822716284641, 4.301952095238983, 5.7956586127730105],
+    #       2: 5 * [0.0]}
+
 
     # %% initialize the experiment, and perform all the pre-processing steps
     exp = Experiment()
     exp.buildexperiment(nodes, adj)
     exp.make_path()
 
-    # at = {0: [0.5, 0.5, 0.5, 0.5]}
-    fig, ax = plt.subplots(2, 1, figsize=[10,10])
-    for i in range(1):
-        for axi in ax:
-            axi.cla()
+    ind = exp.newattributes()
 
-        at = exp.newattributes()
-        exp.setattributes(at)
-        exp.inject_optical_field(env.field0)
-        exp.simulate(env)
-        field = exp.nodes[exp.measurement_nodes[0]]['output']
+    (optlist, idx, nodelist) = pack_opt(ind, exp)
+    print(ind)
 
-        p0 = P(env.field0)
-        p = P(field) /max(p0)
-        p0 *= 1 / max(p0)
+    print(optlist)
+    print(idx)
+    print(nodelist)
 
-        psd0 = PSD(env.field0, env.dt, env.df)
-        psd = PSD(field, env.dt, env.df) /max(psd0)
-        psd0 *= 1 / max(psd0)
-
-        ax[0].plot(env.t/1e-12, p, label='Field Out', alpha=0.5)
-        ax[0].plot(env.t/1e-12, p0, label='Field In', alpha=0.5)
-        ax[0].set(xlabel='Time (ps)', ylabel='AU')
-        # ax[0].set(xlim=[-200, 200])
-
-        ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd, label='Field Out', alpha=0.5)
-        ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd0, label='Field In', alpha=0.5)
-
-        ax[1].set(xlabel=r'Wavelength ($\mu$m)', ylabel='AU')
-        # ax[1].set(xlim=[1.52, 1.58])
-        for axi in ax:
-            axi.legend()
-
-        print(at)
-        # plt.pause(0.05)
-        # plt.waitforbuttonpress()
+    ind1 = unpack_opt(ind, exp, optlist, idx, nodelist)
+    print(ind1)
+    # # setup figure for visualizing
+    # fig, ax = plt.subplots(2, 1, figsize=[10,10])
+    # for i in range(1):
+    #     for axi in ax:
+    #         axi.cla()
+    #
+    #     at = exp.newattributes()
+    #     # inject optical field, simulate system, and retrieve results
+    #     exp.setattributes(at)
+    #     exp.inject_optical_field(env.field0)
+    #     exp.simulate(env)
+    #     field = exp.nodes[exp.measurement_nodes[0]]['output']
+    #
+    #     # calculate power in temporal & spectral domains & plots (normalized)
+    #     p0 = P(env.field0)
+    #     p = P(field) /max(p0)
+    #     p0 *= 1 / max(p0)
+    #
+    #     psd0 = PSD(env.field0, env.dt, env.df)
+    #     psd = PSD(field, env.dt, env.df) /max(psd0)
+    #     psd0 *= 1 / max(psd0)
+    #
+    #     ax[0].plot(env.t/1e-12, p, label='Field Out', alpha=0.5)
+    #     ax[0].plot(env.t/1e-12, p0, label='Field In', alpha=0.5)
+    #     ax[0].set(xlabel='Time (ps)', ylabel='AU')
+    #     # ax[0].set(xlim=[-200, 200])
+    #
+    #     ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd, label='Field Out', alpha=0.5)
+    #     ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd0, label='Field In', alpha=0.5)
+    #
+    #     ax[1].set(xlabel=r'Wavelength ($\mu$m)', ylabel='AU')
+    #     # ax[1].set(xlim=[1.52, 1.58])
+    #     for axi in ax:
+    #         axi.legend()
+    #
+    #     print(at)

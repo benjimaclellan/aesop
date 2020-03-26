@@ -91,7 +91,8 @@ class Experiment(nx.DiGraph):
 
         # save the info of each component to the corresponding graph node
         for comp_key, comp in components.items():
-            #self.nodes[comp_key]['title'] = comp.name
+            # TODO: THIS FUNCTIONALITY HAS BEEN Re-added, PLEASE re-add EVERYWHERE
+            self.nodes[comp_key]['title'] = comp.name
             self.nodes[comp_key]['info'] = comp  # this save most of the information
         return
 
@@ -440,7 +441,6 @@ class Experiment(nx.DiGraph):
         ax1.legend()
         ax2.legend()
 
-        #        fig.tight_layout(rect=[0,0,.7,1])
         at_str = ''
         for node, node_ats in at.items():
             at_str += '{}:\n'.format(node)
@@ -565,7 +565,7 @@ class Experiment(nx.DiGraph):
         if verbose:
             comp_labels = []
             for node in self.node_lst:
-                comp_labels.append(self.nodes[node]['title'])
+                comp_labels.append(self.nodes[node]['info'].disp_name)
 
             results = pd.DataFrame(comp_labels, columns=["Component"])
             results = results.assign(Attribute=self.at_names)
