@@ -1,3 +1,7 @@
+"""
+main_asope.py
+"""
+
 #%% import libraries
 import os
 os.environ["MKL_NUM_THREADS"] = "1" 
@@ -22,7 +26,7 @@ from classes.environment import OpticalField, OpticalField_CW, OpticalField_Puls
 from classes.components import Fiber, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter
 from classes.experiment import Experiment
 
-from config.config import import_config
+from config.import_config import import_config
 
 from optimization.ga_topology import geneticalgorithm_topology
 
@@ -34,8 +38,8 @@ plt.close("all")
 if __name__ == '__main__': 
 
     # %% import all our configuration/hyperparameters for the optimization run
-    CONFIG_TOPOLOGY = import_config('config.config_topology_2020')
-    CONFIG_PARAMETERS = import_config('config.config_parameters_2020')
+    CONFIG_TOPOLOGY = import_config('./config/config_topology_2020')
+    CONFIG_PARAMETERS = import_config('./config/config_parameters_2020')
     
     # %%
     env = OpticalField_CW(n_samples=2 ** 14, window_t=10e-9, peak_power=1, lambda0=1.55e-6)

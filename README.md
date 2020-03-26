@@ -1,13 +1,12 @@
-# ASOPE: Automated Search of Optical Processing Experiments
-ASOPE, or Automated Search of Optical Processing Experiments, simulates and optimizes optical processing experiments. 
+# Automated Search of Optical Processing Experiments
+ASOPE, short for _Automated Search of Optical Processing Experiments_, is a Python package for the inverse design of optical systems. 
 
 ## Getting Started
 
-This software will simulate a photonic experiment setup, and can optimize the parameters on each component for a desired output. A brief outline of how it works:
+This package aims to design an optical system which accomplishes an user-defined goal. 
+A system is described by a set of components, connected in a specific way and with specific control variables.
 
-An experiment is described by a directed graph (implemented with `networkx`). For now, you define the setup by listing the components as graph nodes, and the connections between them as directed edges. Each component has a set type of transformation in either in the temporal or frequency domain, with a certain number of paramters. These can be changed, if need be, but it is important to ensure that how the parameters are unpacked is consistent. Both the experiment and each component are defined as custom classes.
 
-The pulse information is also represented as a custom class, and also stored the fitness function that will be opimized for in the genetic algorithm. 
 
 
 ### Prerequisites
@@ -26,60 +25,48 @@ All packages needed for this software are open-source, standard Python packages.
 
 `matplotlib` - Plotting and visualization
 
+See [`requirements.txt`](../requirments.txt) for full list of all dependencies.
+
 ### Installing
 
 Using Anaconda, a scientific computing environment for Python, is recommended. First, install the Anaconda environment for your system, [https://www.anaconda.com/distribution/](https://www.anaconda.com/distribution/). Spyder is a useful Python IDE, but the command-line interface for installing Python packages is the main use.
 
 To install the ASOPE package, clone the repository from [Github](https://github.com/) at [https://github.com/benjimaclellan/ASOPE.git](https://github.com/benjimaclellan/ASOPE.git). 
 
-All the prerequisite packages can be install from the `setup.py` file. First install the `setuptools` package using the command
+All the prerequisite packages can be install from the `requirements.txt` file. 
 
-```
-conda install setuptools
-```
-
-Once the installation is successful, navigate to the ASOPE directory and install the dependencies with
-
-```
-python setup.py install
-```
-
-If no error messages are thrown, you should be good to go.
-
+You can install all packages via pip.
 
 ## Running the tests
 
-First, to check that the basics of simulating an experiment work, run [`single_test.py`](../asope/single_test.py). You should see a graph structure outlining the experimental setup, and a plot of the pulse output. Next, you can run [`asope_main.py`](../asope/asope_main.py) to have the Genetic Algorithm optimize the parameters for a single setup.
+There are four main scripts which use different levels of the package.
+
+* [`asope/simulation.py`](../asope/simulation.py) 
+Simulates a defined optical source through a defined optical system. 
+Control parameters can be defined or randomly chosen within bounds. 
+No optimization occurs.
+Sensitivity analysis can be applied at the output.
+
+* [`asope/testing.py`](../asope/testing.py) 
+Scratch document for testing various things (constantly changing)
+
+* [`asope/main_paramopt.py`](../asope/main_paramopt.py) 
+Optimizes the control parameters for a defined topology, objective function, and optical source.
+
+* [`asope/main_asope.py`](../asope/main_asope.py) 
+Full ASOPE algorithm, optimizing both topology and control parameters for a given optical source and objective function.
+
+## Configuration
+
+For each optimization run, a corresponding configuration file must be used to specify various hyperparameters.
 
 
-## Directory Structure
-```
-asope/
-    README.md
-    LICENSE.md
-    setup.py
-    asope/
-        various_experiments.py
-        single_test.py 
-        asope_main.py
-        results/
-        assets/
-            __init__.py
-            functions.py
-            environment.py
-            components.py
-            classes.py
-        optimization/
-            __init__.py
-            geneticalgorithminner.py
-            gradientdescent.py
-```
-
-
+## Known Bugs
+* Gradient descent via autograd does not currently work due to choice of step size.
+Consider a more sophisticated gradient method such as ADAM. 
 
 ## Contributing
 Submit a push request to the Github repository.
-
 
 ## Authors
 * **Benjamin MacLellan** - [Email](benjamin.maclellan@emt.inrs.ca)
@@ -88,6 +75,5 @@ Submit a push request to the Github repository.
 Please see [LICENSE.md](../LICENSE.md)
 
 ## Acknowledgments
-Thank you to all the members of the Nonlinear Photonics Group at INRS-EMT, as well as all the authors of the packages on which this project is founded
 
  
