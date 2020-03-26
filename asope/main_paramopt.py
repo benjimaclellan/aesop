@@ -31,9 +31,9 @@ from classes.environment import OpticalField, OpticalField_CW, OpticalField_Puls
 from classes.components import Fiber, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, DelayLine
 from classes.experiment import Experiment
 
-from config.config import config_parameters
-
 from optimization.wrappers import optimize_experiment
+
+from config.config import import_config
 
 plt.close("all")
 
@@ -41,7 +41,7 @@ plt.close("all")
 if __name__ == '__main__':
 
     #%% import the config settings for this optimization run
-    CONFIG_PARAMETERS = config_parameters()
+    CONFIG_PARAMETERS = import_config('config.config_parameters_2020')
 
     #%% initialize our input pulse, with the fitness function too
     env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1, lambda0=1.55e-6)
