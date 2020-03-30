@@ -8,14 +8,17 @@ import copy
 from analysis.wrappers import mc_analysis_wrapper, udr_analysis_wrapper, lha_analysis_wrapper, autograd_hessian
 
 """
-
-Experiment() defines an experiment as a directed graph (based on a DirectedGraph() from the networkx package), and stores all the class functions/variables to simulate a pulse through the setup. 
-
+Benjamin Maclellan, 2020
+The 'Experiment' class defines an experiment as a directed graph (based on a DirectedGraph() from the networkx package)
+It simulates an input (OpticalField classes) through the setup. 
+This is likely the most important class in the whole package.  
 """
 
 
 # %%
-# class Experiment(nx.MultiDiGraph):
+# class Experiment(nx.MultiDiGraph): # this was an attempt to use loops, but there are clashes and all hell broke loose
+
+
 class Experiment(nx.DiGraph):
 
     def simulate(self, env, visualize=False):
@@ -365,7 +368,7 @@ class Experiment(nx.DiGraph):
 
     def draw(self, node_label='both', title=None, ax=None):
         """
-            Plot the graph structure of the experiment, with either the nases of node key, or both
+            Plot the graph structure of the experiment
         """
 
         with_labels = True
@@ -402,11 +405,13 @@ class Experiment(nx.DiGraph):
 
     def visualize(self, env, at=None, measurement_node=None, ax1=None, ax2=None):
         """
+        TODO: Not working at the moment
+        Visualizes the temporal/spectral transfer function applied by each component
         """
 
         self.simulate(env, visualize=True)
 
-        if ax1 == None or ax2 == None:
+        if ax1 is None or ax2 is None:
             fig, ax = plt.subplots(2, 1, figsize=(8, 10), dpi=80)
             ax1, ax2 = ax[0], ax[1]
 
@@ -453,7 +458,14 @@ class Experiment(nx.DiGraph):
         return
 
     def attributes_from_list(self, x_opt, node_lst, idx_lst):
-
+        """
+        I'm not even sure this is still being used
+        TODO: check if this is outdated
+        :param x_opt:
+        :param node_lst:
+        :param idx_lst:
+        :return:
+        """
         at_dict = {}
         # at_dict = dict(at)
         for node in set(node_lst):
@@ -485,6 +497,7 @@ class Experiment(nx.DiGraph):
 
     def power_check_single(self, field, display=False):
         """
+            Not used very often, very trivial
             Simple sanity check for total power, that input power >= output power, for one output node
         """
 
@@ -506,6 +519,15 @@ class Experiment(nx.DiGraph):
         return check
 
     def init_fitness_analysis(self, at, env, method='LHA', verbose=False, **kwargs):
+        """
+        Initializes the required variables/functions for landscape stability analysis
+        :param at:
+        :param env:
+        :param method:
+        :param verbose:
+        :param kwargs:
+        :return:
+        """
         x_opt, node_lst, idx_lst, sigma_lst, mu_lst, at_names = self.experiment_info_as_list(at)
 
         self.analysis_verbose = verbose
@@ -518,7 +540,7 @@ class Experiment(nx.DiGraph):
 
             def analysis_wrapper(x_opt, env=env, exp=self, node_lst=node_lst, idx_lst=idx_lst, mu_lst=mu_lst,
                                  sigma_lst=sigma_lst):
-                # x_opt = np.array(x_opt)
+
                 exp.inject_optical_field(env.field)
                 at = exp.attributes_from_list(x_opt, node_lst, idx_lst)
                 exp.setattributes(at)
@@ -575,18 +597,6 @@ class Experiment(nx.DiGraph):
 
         return parameter_stability, tmp
 
-    # def run_sim(self, x_opt, node_lst, idx_lst, env):
-    #     """ testing func to be removed """
-    #     at = self.attributes_from_list(x_opt, node_lst, idx_lst)
-    #     x_old, node_lst, idx_lst, sigma_lst, mu_lst, at_names = self.experiment_info_as_list(at)
-    #     x_opt = (np.array(x_opt)*np.array(sigma_lst)) + np.array(x_old) # for the lha we need a coordinate transformation
-    #     self.inject_optical_field(env.field)
-    #     at = self.attributes_from_list(x_opt, node_lst, idx_lst)
-    #     self.setattributes(at)
-    #     self.simulate(env)
-    #     at = self.nodes[self.measurement_nodes[0]]['output']
-    #     fit = env.fitness(at)
-    #     return fit[0]
 
     ##TODO: Add redundancy check as part of experiment
     # # %% Redundancy checks

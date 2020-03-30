@@ -1,5 +1,5 @@
 """
-Benjamin MacLellan, 2020
+example config class - to create a new config, copy the same structure
 """
 
 import multiprocess as mp

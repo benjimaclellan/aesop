@@ -7,7 +7,7 @@ import multiprocess as mp
 # ensure all components are imported here, as we will build the 'library' with them
 from classes.components import Fiber, PhaseModulator, WaveShaper, PowerSplitter, FrequencySplitter, DelayLine
 
-class config_topology(object):
+class Config(object):
     def __init__(self):
         self.TYPE = "topology optimization hyperparameters"
         self.NFITNESS = 1  # how many values to optimize

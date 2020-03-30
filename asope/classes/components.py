@@ -251,12 +251,12 @@ class PhaseModulator(Component):
         self.disp_name = 'Electro-Optic Phase Modulator'
         self.vpi = 1
         self.N_PARAMETERS = 2
-        self.UPPER = [2 * np.pi, 12e9]  # max shift, frequency
-        self.LOWER = [0, 12e9]
+        self.UPPER = [2 * np.pi, 24e9]  # max shift, frequency
+        self.LOWER = [0, 1e9]
         self.SIGMA = [0.1, 0.1e7]
         self.MU = [0.0, 0.0]
         self.DTYPE = ['float', 'float']
-        self.DSCRTVAL = [None, None]
+        self.DSCRTVAL = [0.1, 2e9]
         self.FINETUNE_SKIP = []
         self.splitter = False
         self.AT_NAME = ['EOM Modulation Depth', 'EOM{} Modulation Frequency']
@@ -312,7 +312,7 @@ class WaveShaper(Component):
         self.MU = self.n_windows*[0.0] + self.n_windows*[0.0]
         self.DTYPE = self.n_windows * ['float'] + self.n_windows * ['float']
 
-        self.DSCRTVAL = self.N_PARAMETERS * [None]
+        self.DSCRTVAL = self.N_PARAMETERS * [0.1]
         # self.DSCRTVAL = self.n_windows * [1/(2**self.bitdepth-1)] + self.n_windows * [2*np.pi/(2**self.bitdepth-1) ]
         self.FINETUNE_SKIP = []
         self.splitter = False

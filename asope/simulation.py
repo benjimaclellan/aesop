@@ -26,6 +26,7 @@ import scipy.signal as sig
 #%% import custom modules
 from assets.functions import extractlogbook, save_class, load_class, splitindices, reload_experiment
 from assets.functions import FFT, IFFT, P, PSD, RFSpectrum
+from assets.functions import scale_units
 
 from assets.waveforms import random_bit_pattern, bit_pattern, rf_chirp
 from assets.callbacks import save_experiment_and_plot
@@ -44,25 +45,20 @@ plt.close("all")
 if __name__ == '__main__':
 
     #%% initialize our input optical field, with the objective function of interest
-    # env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandwidth=[1.53e-6, 1.57e-6])
-    env = OpticalField_Pulse(n_samples=2**16, window_t=500e-12, profile='gaussian', pulse_width=5e-12, train=True, t_rep=100e-12, peak_power=1, lambda0=1.55e-6)
+    env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandwidth=[1.53e-6, 1.57e-6])
+    # env = OpticalField_Pulse(n_samples=2**16, window_t=500e-12, profile='gaussian', pulse_width=5e-12, train=True, t_rep=100e-12, peak_power=1, lambda0=1.55e-6)
     # env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1, lambda0=1.55e-6, normalize=False)
 
-    config = import_config('./testingconfig/config_parameters_2020')
+    config = import_config('./config/config_topology_2020')
 
     # %% set-up the system
 
-    nodes = {0: PhaseModulator(),
-             1: WaveShaper(),
-             2: DelayLine()}
+    nodes = {0: DelayLine()}
 
-    adj = [(0, 1), (1, 2)]
+    adj = []
 
     #%% define the attributes (control parameters)
-    at = {0: [0.8803560071014186, 12000000000.0],
-          1: [0.5836586658242137, 0.012468467546672125, 0.7434319090744873, 0.9145491617839991, 0.613612253547473, 3.18939300721919, 3.594870205634577, 6.049822716284641, 4.301952095238983, 5.7956586127730105],
-          2: 5 * [0.0]}
-
+    at = {0: [0.5, 0.0, 0.9, 0.3, 0.0]}
 
     # %% initialize the experiment, and perform all the pre-processing steps
     exp = Experiment()
@@ -91,16 +87,17 @@ if __name__ == '__main__':
         psd = PSD(field, env.dt, env.df) /max(psd0)
         psd0 *= 1 / max(psd0)
 
-        ax[0].plot(env.t/1e-12, p, label='Field Out', alpha=0.5)
-        ax[0].plot(env.t/1e-12, p0, label='Field In', alpha=0.5)
-        ax[0].set(xlabel='Time (ps)', ylabel='AU')
-        # ax[0].set(xlim=[-200, 200])
+        ax[0].plot(env.t, p, label='Field Out', alpha=0.5)
+        ax[0].plot(env.t, p0, label='Field In', alpha=0.5)
+        ax[0].set(xlabel='Time', ylabel='AU')
+        scale_units(ax[0], unit='s', axes=['x'])
 
-        ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd, label='Field Out', alpha=0.5)
-        ax[1].plot(env.c0/(env.f + env.f0)/1e-6, psd0, label='Field In', alpha=0.5)
+        ax[1].plot(env.c0/(env.f + env.f0), psd, label='Field Out', alpha=0.5)
+        ax[1].plot(env.c0/(env.f + env.f0), psd0, label='Field In', alpha=0.5)
 
-        ax[1].set(xlabel=r'Wavelength ($\mu$m)', ylabel='AU')
-        # ax[1].set(xlim=[1.52, 1.58])
+        ax[1].set(xlabel=r'Wavelength', ylabel='AU')
+        scale_units(ax[1], unit='m', axes=['x'])
+
         for axi in ax:
             axi.legend()
 
