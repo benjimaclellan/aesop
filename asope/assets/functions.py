@@ -132,6 +132,28 @@ def hessian(x):
 
 #%% scaling units in plots
 def scale_units(ax, unit='', axes=['x']):
+    def scale(data):
+        prefixes = {18: r"E",
+                    15: r"P",
+                    12: r"T",
+                    9: r"G",
+                    6: r"M",
+                    3: r"k",
+                    0: r"",
+                    -3: r"m",
+                    -6: r"$\mu$",
+                    -9: r"n",
+                    -12: r"p",
+                    -15: r"f",
+                    -18: r"a",
+                    -21: r"z"}
+
+        order = np.log10(max(abs(data)))
+        multiplier = 3 * int(np.floor(order / 3))
+
+        prefix = prefixes[multiplier]
+        return multiplier, prefix
+
     def pass_function_handles(ax, line, axis):
         if axis == 'x':
             get_data, set_data, get_label, set_label = [line.get_xdata, line.set_xdata, ax.get_xlabel, ax.set_xlabel]
@@ -159,30 +181,4 @@ def scale_units(ax, unit='', axes=['x']):
         ax.relim()
         ax.autoscale_view()
 
-    return multiplier, prefix
-
-
-def scale(data):
-    """
-        Power spectral density of a spectrum
-    """
-    prefixes = {18: r"E",
-                15: r"P",
-                12: r"T",
-                9: r"G",
-                6: r"M",
-                3: r"k",
-                0: r"",
-                -3: r"m",
-                -6: r"$\mu$",
-                -9: r"n",
-                -12: r"p",
-                -15: r"f",
-                -18: r"a",
-                -21: r"z"}
-
-    order = np.log10(max(abs(data)))
-    multiplier = 3 * int(np.floor(order / 3))
-
-    prefix = prefixes[multiplier]
     return multiplier, prefix

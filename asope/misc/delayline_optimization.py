@@ -1,8 +1,7 @@
 """
-Copyright Benjamin MacLellan
+Benjamin MacLellan, 2020
 
-The inner optimization process for the Automated Search for Optical Processing Experiments (ASOPE). This uses a genetic algorithm (GA) to optimize the parameters (attributes) on the components (nodes) in the experiment (graph).
-
+Optimization of delay-line coupling ratios for spectral shaping
 """
 
 #%% this allows proper multiprocessing (overrides internal multiprocessing settings)
@@ -57,7 +56,6 @@ def q_factor(psd, peak_inds, peak_widths):
 
 
 def get_peaks(psd):
-    # psd = PSD(field, env.dt, env.df)
     peak_array = np.squeeze(psd / max(psd))
     peak_inds, prop = sig.find_peaks(peak_array,
                                      height=None, threshold=None, distance=None, prominence=0.5, width=None,
@@ -67,6 +65,22 @@ def get_peaks(psd):
                                                        prominence_data=None,
                                                        wlen=None)
     return peak_inds, peak_widths
+
+
+def plot_delayline_result(field, env, title=None):
+    fig, ax = plt.subplots(2, 1, figsize=[6, 6])
+
+    ax[0].set_title(title)
+
+    ax[0].plot(env.t, P(field), label='Output')
+    ax[0].plot(env.t, P(env.field0), label='Input')
+    scale_units(ax[0], unit='s', axes=['x'])
+
+    ax[1].plot(env.f, PSD(field, env.dt, env.df), label='Output')
+    ax[1].plot(env.f, PSD(env.field0, env.dt, env.df), label='Input')
+    scale_units(ax[1], unit='Hz', axes=['x'])
+    return
+
 
 #%% setup our definitions for the genetic algorithm optimization (using DEAP)
 def create_individual(delayline):
@@ -84,6 +98,8 @@ def fitness(at, env, delayline):
         delayline.at = at
         field = delayline.simulate(env, env.field0)
         psd = PSD(field, env.dt, env.df)
+
+        print('Getting peaks')
         peak_inds, peak_widths = get_peaks(psd)
 
         f1 = fsr_value(psd, peak_inds, peak_widths)
@@ -112,7 +128,7 @@ env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandw
 delayline = DelayLine()
 
 # %% setup up hyper-parameters for genetic algorithm
-weights = (-1.0,)
+weights = (-1.0, -1.0)
 pop_size = 100
 max_gen = 25
 mut_prob = 0.2
@@ -158,16 +174,8 @@ if __name__ == '__main__':
 
     if len(weights) == 1: # single objective optimization
         delayline.at = hof[0]
-        field = delayline.simulate(env, env.field)
-        fig, ax = plt.subplots(2, 1, figsize=[6,6])
-
-        ax[0].plot(env.t, P(field), label='Output')
-        ax[0].plot(env.t, P(env.field0), label='Input')
-        scale_units(ax[0], unit='s', axes=['x'])
-
-        ax[1].plot(env.f, PSD(field, env.dt, env.df), label='Output')
-        ax[1].plot(env.f, PSD(env.field0, env.dt, env.df), label='Input')
-        scale_units(ax[1], unit='Hz', axes=['x'])
+        field = delayline.simulate(env, env.field0)
+        plot_delayline_result(field, env)
 
     elif len(weights) > 1: # if running multi-objective optimization
         fronts = tools.emo.sortLogNondominated(res, len(res), first_front_only=False)
@@ -184,7 +192,15 @@ if __name__ == '__main__':
         df = pd.DataFrame([toolbox.evaluate(ind) for ind in inds])
         df.sort_values(by=[0], inplace=True)
         ax.plot(df[0], df[1], color='black')
-
-        plt.xlabel('$f_1(\mathbf{x})$')
-        plt.ylabel('$f_2(\mathbf{x})$')
+        plt.xlabel(r'$f_1(\mathbf{x})$')
+        plt.ylabel(r'$f_2(\mathbf{x})$')
         plt.show()
+
+        idx_to_plot = [0, -1]
+        for idx in idx_to_plot:
+            delayline.at = fronts[0][idx]
+            print(delayline.at)
+            field = delayline.simulate(env, env.field0)
+            plot_delayline_result(field,
+                                  env,
+                                  title='{}'.format(idx))
