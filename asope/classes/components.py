@@ -554,8 +554,9 @@ class DelayLine(Component):
     def datasheet(self):
         self.type = 'delay line'
         self.disp_name = 'Split-and-Delay Line'
-        self.N_PARAMETERS = 9
-        self.UPPER = self.N_PARAMETERS  * [1]
+        self.LENGTHS = [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12,  128e-12, 64e-12]
+        self.N_PARAMETERS = 8
+        self.UPPER = self.N_PARAMETERS * [1]
         self.LOWER = self.N_PARAMETERS * [0]
         self.DTYPE = self.N_PARAMETERS * ['float']
         self.DSCRTVAL = self.N_PARAMETERS * [0.05]
@@ -577,7 +578,7 @@ class DelayLine(Component):
         field_short_tmp = np.zeros_like(field_short)
 
         for i, coupling_ratio in enumerate(coupling_ratios):
-            length = (env.c0 / self.n) * 1e-12 * (2 ** (i))
+            length = (env.c0 / self.n) * self.LENGTHS[i]
             beta = self.n * (2 * np.pi * (env.f + env.f0)) / env.c0
 
             field_short_tmp = field_short

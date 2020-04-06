@@ -45,8 +45,8 @@ plt.close("all")
 if __name__ == '__main__':
 
     #%% initialize our input optical field, with the objective function of interest
-    env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandwidth=[1.53e-6, 1.57e-6])
-    # env = OpticalField_Pulse(n_samples=2**16, window_t=500e-12, profile='gaussian', pulse_width=5e-12, train=True, t_rep=100e-12, peak_power=1, lambda0=1.55e-6)
+    # env = OpticalField_PPLN(n_samples=2**16, window_t=2.0e-9, lambda0=1.55e-6, bandwidth=[1.53e-6, 1.57e-6])
+    env = OpticalField_Pulse(n_samples=2**16, window_t=500e-12, profile='gaussian', pulse_width=100e-15, train=True, t_rep=100e-12, peak_power=1, lambda0=1.55e-6)
     # env = OpticalField_CW(n_samples=2**14, window_t=10e-9, peak_power=1, lambda0=1.55e-6, normalize=False)
 
     config = import_config('./config/config_topology_2020')
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     adj = []
 
     #%% define the attributes (control parameters)
-    at = {0: [0.5, 0.0, 0.9, 0.3, 0.0]}
+    at = {0: 5*[0.5]}
 
     # %% initialize the experiment, and perform all the pre-processing steps
     exp = Experiment()
