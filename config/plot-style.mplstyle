@@ -1,0 +1,61 @@
+# see all https://github.com/matplotlib/matplotlib/blob/v3.1.3/matplotlibrc.template
+
+# default seaborn aesthetic
+# darkgrid + deep palette + notebook context
+
+axes.axisbelow: True
+axes.edgecolor: black
+axes.facecolor: F5F5F5 # colour of axes, behind the grid lines
+axes.grid: True
+axes.labelcolor: 282828
+axes.labelsize: 11
+axes.linewidth: 1
+axes.prop_cycle: cycler('color', ['3498DB', 'E74C3C', '34495E', '2ECC71', '9B59B6', '95A5A6'])
+#axes.prop_cycle: cycler('color', ['4C72B0', '55A868', 'C44E52', '8172B2', 'CCB974', '64B5CD'])
+axes.titlesize: 12
+
+figure.facecolor: white # this is what surrounds all the axes
+figure.figsize: 8.0, 5.5 # we set this for every figure anyway
+
+font.family: Arial
+font.sans-serif: Arial, Liberation Sans, DejaVu Sans, Bitstream Vera Sans, sans-serif
+
+grid.color: A9A9A9
+grid.linestyle: --
+grid.linewidth: 1
+
+image.cmap: Greys
+
+legend.fontsize: 10
+legend.frameon: False
+legend.numpoints: 1
+legend.scatterpoints: 1
+
+lines.linewidth: 1.75
+lines.markeredgewidth: 0
+lines.markersize: 7
+lines.solid_capstyle: round
+
+patch.facecolor: 4C72B0
+patch.linewidth: .3
+
+text.color: black
+
+xtick.color: 484848
+xtick.direction: in
+xtick.labelsize: 10
+xtick.major.pad: 7
+xtick.major.size: 2
+xtick.major.width: 1
+xtick.minor.size: 1
+xtick.minor.width: .5
+
+
+ytick.color: 484848
+ytick.direction: in
+ytick.labelsize: 10
+ytick.major.pad: 7
+ytick.major.size: 2
+ytick.major.width: 1
+ytick.minor.size: 0
+ytick.minor.width: .5
