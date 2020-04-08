@@ -5,18 +5,19 @@
 
 """
 
-# import autograd.numpy as np
 from config.config import np
 
 from problems.example.node_types import Output
 
+from ..assets.decorators import register_node_types_all
 
+
+@register_node_types_all
 class MeasurementDevice(Output):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.number_of_parameters = 0
-        self.parameters = []
         self.upper_bounds = []
         self.lower_bounds = []
         self.data_types = []
@@ -27,9 +28,7 @@ class MeasurementDevice(Output):
 
         return
 
-    def propagate(self, propagators):  # node propagate functions always take a list of propagators
-        propagator = propagators[0]
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):  # node propagate functions always take a list of propagators
         parameters = self.parameters
-        propagator.state = propagator.state
-        return [propagator]
-
+        state = states[0] * 10
+        return [state]

@@ -55,17 +55,17 @@ class Graph(GraphParent):
         propagation_order = self.propagation_order
         for node in propagation_order:  # loop through nodes in the prescribed, physical order
             if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-                tmp_propagator = [propagator]  # nodes take a list of propagators as default, to account for multipath
+                tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
             else:  # if we have incoming nodes to get the propagator from
-                tmp_propagator = []  # initialize list to add all incoming propagators to
+                tmp_states = []  # initialize list to add all incoming propagators to
                 for pre in self.pre(node):  # loop through incoming edges
                     if self._propagate_on_edges and hasattr(self.edges[pre, node], 'model'):  # this also simulates components stored on the edges, if there is a model on that edge
-                        tmp_propagator += self.edges[pre, node]['model'].propagate(self.nodes[pre]['propagator'])
+                        tmp_states += self.edges[pre, node]['model'].propagate(self.nodes[pre]['state'], propagator)  # TODO: we could add num_inputs, num_outputs here as args (and 6 lines below)
                     else:
-                        tmp_propagator += self.nodes[pre]['propagator']
+                        tmp_states += self.nodes[pre]['state']
 
             # save the list of propagators at that node locations
-            self.nodes[node]['propagator'] = self.nodes[node]['model'].propagate(tmp_propagator)
+            self.nodes[node]['state'] = self.nodes[node]['model'].propagate(tmp_states, propagator)
 
         return
 

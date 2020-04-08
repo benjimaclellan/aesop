@@ -6,21 +6,22 @@
 """
 
 from config.config import np
-# import autograd.numpy as np
 
 from problems.example.node_types import SinglePath
 
+from ..assets.decorators import register_node_types_all
 
+
+@register_node_types_all
 class CorningFiber(SinglePath):
     """
 
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.number_of_parameters = 1
-        self.parameters = [10]
         self.upper_bounds = [10]
         self.lower_bounds = [0]
         self.data_types = ['float']
@@ -31,12 +32,8 @@ class CorningFiber(SinglePath):
 
         return
 
-    def propagate(self, propagators):  # node propagate functions always take a list of propagators
-        # if len(propagators) > 1:
-        #     raise TypeError("Too many incoming propagators for this model")
-
-        propagator = propagators[0]
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):  # node propagate functions always take a list of propagators
         parameters = self.parameters
-        propagator.state = propagator.state
-        return [propagator]
+        state = states[0]
+        return [state]
 

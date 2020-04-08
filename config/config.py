@@ -17,3 +17,4 @@ import numpy as np
 # plug-in dictionaries to collect available functions/classes
 EVOLUTION_OPERATORS = dict()
 NODE_TYPES = dict()
+NODE_TYPES_ALL = dict()

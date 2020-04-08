@@ -1,5 +1,10 @@
-# Automated Search of Optical Processing Experiments
-ASOPE, short for _Automated Search of Optical Processing Experiments_, is a Python package for the inverse design of optical systems. 
+# Kirby, v3.0
+Originally named ASOPE (short for _Automated Search of Optical Processing Experiments_), the updated version has the name changed to Kirby.
+Kirby is a Python package for the inverse design of optical systems, and includes custom simulation software.
+
+## New in v.3.0
+Complete overhaul of the simulation library - which has added layers of abstraction and new extensibility, so that new simulators for other optical degrees-of-freedom
+can be added later. The following parts of the README have not been updated for v3.0.
 
 ## Getting Started
 

@@ -13,10 +13,23 @@ class NodeType(object):
 
     __internal_var = 4
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
-        self._parameters = [] # TODO: should this be here?
 
+        # TODO: should this be here? or is this bad practice
+        if 'parameters' in kwargs:
+            self._parameters = kwargs['parameters']
+        else:
+            self._parameters = []
+
+        # TODO: this also feels a little hacky, but makes the front-end potentially easier to work with
+        if 'parameters_from_name' in kwargs:
+            if self.parameter_names:
+                self._parameters = [None] * len(self.parameter_names)
+                for (parameter_name, parameter_value) in kwargs['parameters_from_name'].items():
+                    ind = self.parameter_names.index(parameter_name)
+                    assert type(ind) == int
+                    self._parameters[ind] = parameter_value
         return
 
     @property

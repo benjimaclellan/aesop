@@ -7,19 +7,32 @@
 
 import autograd.numpy as np
 
+from ..assets.decorators import register_node_types_all
 from problems.example.node_types import Input
+
 
 def sech(x):
     return 1/np.cosh(x, dtype='complex')
 
 
+@register_node_types_all
 class PulsedLaser(Input):
     """
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
 
-        super().__init__()
+        super().__init__(**kwargs)
+
+        self.number_of_parameters = 0
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_size = []
+        self.parameter_imprecision = []
+        self.parameter_units = []
+        self.parameter_locked = []
+
 
         # if propagator is None: raise ValueError("Pulse class requires a Propagator class as an input")
 
@@ -33,8 +46,10 @@ class PulsedLaser(Input):
 
     #TODO: How do we want to design this nodetype?
 
-    def propagate(self, propagators):
-        propagator = propagators[0]
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):
+
+        state = states[0]
+
         # propagator.state = np.zeros_like(propagator.state)
         #
         # # create initial train of Gaussian pulses
@@ -60,4 +75,4 @@ class PulsedLaser(Input):
         # # scale by peak_power power
         # propagator.state *= np.sqrt(self._peak_power)
 
-        return [propagator]
+        return [state]

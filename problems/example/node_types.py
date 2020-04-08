@@ -16,12 +16,12 @@ class Input(NodeTypeParent):
 
     __internal_var = 4
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._node_type = "input node"
 
         self._range_input_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
-        self._range_output_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+        self._range_output_edges = (1, 4)  # minimum, maximum number of input edges, may be changed in children
 
         return
 
@@ -34,8 +34,8 @@ class Output(NodeTypeParent):
 
     __internal_var = 4
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._node_type = "output node"
 
         self._range_input_edges = (1, 3)  # minimum, maximum number of input edges, may be changed in children
@@ -52,8 +52,8 @@ class MultiPath(NodeTypeParent):
 
     __internal_var = 4
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._node_type = "multi-path node"
 
         self._range_input_edges = (1, 2)  # minimum, maximum number of input edges, may be changed in children
@@ -72,8 +72,8 @@ class SinglePath(NodeTypeParent):
 
     __internal_var = 4
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._node_type = "single-path node"
 
         self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
