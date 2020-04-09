@@ -1,12 +1,10 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """
 
 """
 
 from utils.parents import NodeType as NodeTypeParent
 from utils.decorators import register_node_types
+
 
 @register_node_types
 class Input(NodeTypeParent):
@@ -18,6 +16,7 @@ class Input(NodeTypeParent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         self._node_type = "input node"
 
         self._range_input_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children

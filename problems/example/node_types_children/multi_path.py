@@ -1,9 +1,9 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """
 
 """
+
+from pint import UnitRegistry
+unit = UnitRegistry()
 
 from config.config import np
 
@@ -13,22 +13,24 @@ from ..assets.decorators import register_node_types_all
 
 
 @register_node_types_all
-class PhaseModulator(MultiPath):
+class VariablePowerSplitter(MultiPath):
     def __init__(self, **kwargs):
-        self.number_of_parameters = 2
-        self.upper_bounds = [10, 10]
-        self.lower_bounds = [0, 0]
-        self.data_types = ['float', 'float']
-        self.step_size = [None, None]
-        self.parameter_imprecision = [1, 1]
-        self.parameter_units = ['', '']
-        self.parameter_locked = [False, False]
-        self.parameter_names = ['mod_depth', 'mod_freq']
+        self.number_of_parameters = 1
+        self.upper_bounds = [1]
+        self.lower_bounds = [0]
+        self.data_types = ['float']
+        self.step_size = [None]
+        self.parameter_imprecision = [1]
+        self.parameter_units = [None]
+        self.parameter_locked = [False]
+        self.parameter_names = ['coupling_ratio']
+        self._default_parameters = [0.5]
 
         super().__init__(**kwargs)
         return
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):
-        parameters = self.parameters
-        state = states[0]
+        self.set_parameters_as_attr()
+        print(self._mod_depth)
+        state = sum(states)
         return [state]

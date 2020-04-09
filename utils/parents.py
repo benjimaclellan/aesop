@@ -1,11 +1,7 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""Parent class for all node-types
+"""Parent classes
 """
 
 import networkx
-
 
 class NodeType(object):
     """Parent class for node-type
@@ -16,20 +12,22 @@ class NodeType(object):
     def __init__(self, **kwargs):
         super().__init__()
 
-        # TODO: should this be here? or is this bad practice
-        if 'parameters' in kwargs:
-            self._parameters = kwargs['parameters']
-        else:
-            self._parameters = []
 
         # TODO: this also feels a little hacky, but makes the front-end potentially easier to work with
-        if 'parameters_from_name' in kwargs:
-            if self.parameter_names:
-                self._parameters = [None] * len(self.parameter_names)
-                for (parameter_name, parameter_value) in kwargs['parameters_from_name'].items():
-                    ind = self.parameter_names.index(parameter_name)
-                    assert type(ind) == int
-                    self._parameters[ind] = parameter_value
+        # TODO: should this be here? or is this bad practice
+        if 'parameters' in kwargs:  # sets parameters based only on the order they are given in the list
+            self._parameters = kwargs['parameters']
+
+        elif 'parameters_from_name' in kwargs:  # sets parameters based on a dictionary of name/value pairs
+            assert len(self.parameter_names) == self.number_of_parameters
+            self._parameters = [None] * self.number_of_parameters
+            for (parameter_name, parameter_value) in kwargs['parameters_from_name'].items():
+                self.set_parameter_from_name(parameter_name, parameter_value)
+
+        else:
+            self._parameters = self._default_parameters
+
+
         return
 
     @property
@@ -45,11 +43,45 @@ class NodeType(object):
 
 
     def assert_number_of_edges(self, number_input_edges, number_output_edges):
+        """  """
         if not (min(self._range_input_edges) <= number_input_edges <= max(self._range_input_edges)):
             raise TypeError("Current node, {}, has an unphysical number of inputs".format(self.__class__))
         if not (min(self._range_output_edges) <= number_output_edges <= max(self._range_output_edges)):
             raise TypeError("Current node, {}, has an unphysical number of outputs".format(self.__class__))
         return
+
+    def get_parameter_from_name(self, parameter_name):
+        """ Returns the parameter value from a given parameter name """
+        return self._parameters[self.parameter_names.index(parameter_name)]
+
+
+    def set_parameter_from_name(self, parameter_name, parameter_value):
+        """  """
+        ind = self.parameter_names.index(parameter_name)
+        assert type(ind) == int
+        self._parameters[ind] = parameter_value
+        return
+
+    def set_parameters_as_attr(self):
+        """  """
+        for name, parameter in zip(self.parameter_names, self.parameters):
+            setattr(self, '_' + name, parameter)
+        return
+
+    def inspect_parameters(self):
+        """  """
+        for ind in range(self.number_of_parameters):
+            try:
+                print('Parameter name: {}, parameter value: {}\n\tupper bound: {}, lower bound: {}\n\tdata type: {}, step size: {}\n\tunit {}'.format(
+                    self.parameter_names[ind], self.parameter[ind],
+                    self.upper_bounds[ind], self.lower_bounds[ind],
+                    self.data_types[ind], self.step_size[ind],
+                    self.parameter_units[ind]
+                ))
+            except:
+                raise Warning('Settings for this parameter are not all added to the class. Could cause errors.')
+        return
+
 
 
 class Evaluator(object):

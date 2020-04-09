@@ -22,11 +22,15 @@ from problems.example.node_types_children.single_path import CorningFiber
 from problems.example.node_types_children.multi_path import PhaseModulator
 
 
-class Test_Graph(unittest.TestCase):
+class Test(unittest.TestCase):
     def test_all_available_nodes(self):
         propagator = Propagator(window_t=100e-12, n_samples=2 ** 14)
-        node = CorningFiber()
-        tmp = node.propagate([propagator])
+        for node_type, nodes in configuration.NODE_TYPES_ALL.items():
+            print('Testing {} node-types'.format(node_type))
+            for node_name, node in nodes.items():
+                tmp = node().propagate([propagator.state], propagator)
+                print('\tTesting {} node'.format(node_name))
+            print('\n')
         return
 
 

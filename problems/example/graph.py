@@ -1,13 +1,13 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """
 
 """
 
 import networkx as nx
+import copy
+import matplotlib.pyplot as plt
 
 from utils.parents import Graph as GraphParent
+from .assets.functions import power_, psd_
 
 
 class Graph(GraphParent):
@@ -24,12 +24,14 @@ class Graph(GraphParent):
         for node, model in nodes.items():
             self.add_node(node, **{'model': model, 'name': 'FEATURE NOT IMPLEMENTED', 'lock': False})
 
+        # add the models to the edges if propagating on edges (fibers, paths etc)
         #TODO: this maybe could be improved - its a little hacky (but it works for now, so leave for now)
+
         for edge in edges:
             if len(edge) == 2:
                 self.add_edge(edge[0], edge[1])
             elif len(edge) > 2:
-                self.add_edge(edge[0], edge[1], **{'model': edge[2], 'name': "FUNCTIONALITY NOT IMPLEMENTED", 'lock': False})
+                self.add_edge(edge[0], edge[1], **{'model': edge[2], 'name': "FUNCTIONALITY NOT IMPLEMENTED", 'lock': False, 'states':None})
             else:
                 raise TypeError("Incorrect number of arguments in the {} edge connection tuple".format(edge))
         self._propagate_on_edges = propagate_on_edges
@@ -55,26 +57,28 @@ class Graph(GraphParent):
         propagation_order = self.propagation_order
         for node in propagation_order:  # loop through nodes in the prescribed, physical order
             if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-                tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
+                print('only the input should be here', node)
+                tmp_states = [copy.deepcopy(propagator.state)]  # nodes take a list of propagators as default, to account for multipath
             else:  # if we have incoming nodes to get the propagator from
                 tmp_states = []  # initialize list to add all incoming propagators to
                 for pre in self.pre(node):  # loop through incoming edges
+                    print('pre', pre)
                     if self._propagate_on_edges and hasattr(self.edges[pre, node], 'model'):  # this also simulates components stored on the edges, if there is a model on that edge
-                        tmp_states += self.edges[pre, node]['model'].propagate(self.nodes[pre]['state'], propagator)  # TODO: we could add num_inputs, num_outputs here as args (and 6 lines below)
+                        tmp_states += copy.deepcopy(self.edges[pre, node]['model'].propagate(self.nodes[pre]['states'], propagator, 1, 1))  # TODO: Check that models on edge are single spatial mode maybe
                     else:
-                        tmp_states += self.nodes[pre]['state']
+                        tmp_states += copy.deepcopy(self.nodes[pre]['states'])
 
-            # save the list of propagators at that node locations
-            self.nodes[node]['state'] = self.nodes[node]['model'].propagate(tmp_states, propagator)
+            # save the list of propagators at that node locations (deepcopy required throughout)
+            self.nodes[node]['states'] = self.nodes[node]['model'].propagate(tmp_states, propagator, len(self.pre(node)), len(self.suc(node)))
 
-        return
+        return self
 
     @property
     def propagation_order(self):
         """Returns the sorted order of nodes (based on which reverse walking the graph)
         """
         if nx.algorithms.recursive_simple_cycles(self):  # do not proceed if there is a cycle in the graph
-            raise ValueError("There is a loop in the graph")
+            raise ValueError("There is a loop in the graph - current versions cannot simulate loops")
 
         _propagation_order = []  # initialize the list which defines the order nodes are visited
         node_set = set(self.nodes)  # use set type to compare which nodes have already been added
