@@ -4,56 +4,66 @@ plt.style.use(r"config/plot-style.mplstyle")
 
 import networkx as nx
 import itertools
+import random
 
 import config.config as configuration
 from config.config import np
 
-from problems.example.node_types import Input
 from problems.example.evaluator import Evaluator
 from problems.example.graph import Graph
 from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_
+from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
-from problems.example.node_types_children.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_children.outputs import MeasurementDevice
-from problems.example.node_types_children.single_path import CorningFiber, PhaseModulator
-from problems.example.node_types_children.multi_path import VariablePowerSplitter
+from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
+from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+
+from algorithms.builtin_parameter_optimization import minimize_parameters
+
+# np.random.seed(0)
 
 if __name__ == "__main__":
-
-    propagator = Propagator(window_t = 1e-7, n_samples = 2**14)
+    # CorningFiber(parameters=[0])
+    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
 
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             1:PhaseModulator(parameters_from_name={'depth':1, 'frequency':2e9}),
-             2:PhaseModulator(parameters_from_name={'depth':15, 'frequency':5e9}),
+             1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
+             2:WaveShaper(),
              3:MeasurementDevice()}
-    edges = [(0,1, CorningFiber(parameters=[10])),
-             (1,2, CorningFiber(parameters=[50])),
-             (2,3, CorningFiber(parameters=[5]))]
+    edges = [(0,1),
+             (1,2),
+             (2,3)]
 
-    graph = Graph(nodes, edges, propagate_on_edges = True)
+    graph = Graph(nodes, edges, propagate_on_edges = False)
+    graph.assert_number_of_edges()
+
+    # graph.sample_parameters(probability_dist='uniform', **{'interval_width':0.9})
+    # graph.inspect_parameters()
 
     plt.close('all')
     # nx.draw(graph, labels = dict(zip(graph.nodes, graph.nodes)))
     # plt.show()
 
     #%%
-    graph.propagate(propagator)
-    # graph.assert_number_of_edges()
-
     # print(configuration.EVOLUTION_OPERATORS)
     # print(configuration.NODE_TYPES)
     # print(configuration.NODE_TYPES_ALL)
 
 #%%
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    score = evaluator.evaluate_graph(graph, propagator)
+    print('\n || this graph has a score of {}'.format(score))
 
-    fig, ax = plt.subplots(2, 1)
-    for node in reversed(graph.propagation_order):
-        state = graph.nodes[node]['states'][0]
-        ax[0].plot(propagator.t, power_(state), label=node)
-        ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df))
+#%%
+    parameters = minimize_parameters(graph, evaluator, propagator)
+    graph.inspect_parameters()
 
-    ax[0].legend()
-    plt.show()
+#%%
+    graph.propagate(propagator)
+    graph.inspect_state(propagator)
+
+    evaluator.compare(graph, propagator)

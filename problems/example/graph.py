@@ -5,8 +5,9 @@
 import networkx as nx
 import copy
 import matplotlib.pyplot as plt
+from itertools import cycle
 
-from utils.parents import Graph as GraphParent
+from utils.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
 
 
@@ -57,12 +58,10 @@ class Graph(GraphParent):
         propagation_order = self.propagation_order
         for node in propagation_order:  # loop through nodes in the prescribed, physical order
             if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-                print('only the input should be here', node)
                 tmp_states = [copy.deepcopy(propagator.state)]  # nodes take a list of propagators as default, to account for multipath
             else:  # if we have incoming nodes to get the propagator from
                 tmp_states = []  # initialize list to add all incoming propagators to
                 for pre in self.pre(node):  # loop through incoming edges
-                    print('pre', pre)
                     if self._propagate_on_edges and hasattr(self.edges[pre, node], 'model'):  # this also simulates components stored on the edges, if there is a model on that edge
                         tmp_states += copy.deepcopy(self.edges[pre, node]['model'].propagate(self.nodes[pre]['states'], propagator, 1, 1))  # TODO: Check that models on edge are single spatial mode maybe
                     else:
@@ -106,3 +105,33 @@ class Graph(GraphParent):
                 if hasattr(self.edges[edge[0], edge[1]], 'model'):
                     self.edges[edge[0], edge[1]]['model'].assert_number_of_edges(1, 1)  # by definition, edges have 1 in, 1 out
         return
+
+    def sample_parameters(self, probability_dist='uniform', **kwargs):
+        """ Samples new parameters for each node-type """
+        for node in self.nodes:
+            self.nodes[node]['model'].sample_parameters(probability_dist=probability_dist, **kwargs)
+
+        if self._propagate_on_edges:
+            for edge in self.edges:
+                self.edges[edge[0], edge[1]]['model'].sample_parameters(probability_dist=probability_dist, **kwargs)
+        return
+
+
+    def inspect_parameters(self):
+        for node in self.nodes:
+            self.nodes[node]['model'].inspect_parameters()
+        if self._propagate_on_edges:
+            for edge in self.edges:
+                self.edges[edge[0], edge[1]]['model'].inspect_parameters()
+
+    def inspect_state(self, propagator):
+        fig, ax = plt.subplots(2, 1)
+        linestyles = cycle(['-', '--', '-.', ':'])
+        for node in reversed(self.propagation_order):
+            state = self.nodes[node]['states'][0]
+            line = {'ls':next(linestyles), 'lw':3}
+            ax[0].plot(propagator.t, power_(state), label=node, **line)
+            ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df), **line)
+
+        ax[0].legend()
+        plt.show()

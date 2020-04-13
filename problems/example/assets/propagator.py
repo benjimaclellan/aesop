@@ -11,12 +11,12 @@ class Propagator(object):
     """Class for the state of an optical field within a system
     """
 
-    __speed_of_light = 299792458
-
     def __init__(self, n_samples = None, window_t = None, central_wl = None):
         self._n_samples = n_samples
         self._window_t = window_t
         self._central_wl = central_wl
+
+        self._central_frequency = self.speed_of_light / central_wl
 
         self._generate_time_frequency_arrays()
 
@@ -55,6 +55,18 @@ class Propagator(object):
         self._window_t = window_t
         self._generate_time_frequency_arrays()
         return
+
+    @property
+    def central_wl(self):
+        return self._central_wl
+
+    @property
+    def central_frequency(self):
+        return self._central_frequency
+
+    @property
+    def speed_of_light(self):
+        return 299792458
 
     @property
     def t(self):

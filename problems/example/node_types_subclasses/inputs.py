@@ -12,7 +12,7 @@ unit = UnitRegistry()
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import power_, psd_
 
-from problems.example.node_types import Input
+from ..node_types import Input
 
 
 def sech(t, offset, width):
@@ -27,16 +27,20 @@ class PulsedLaser(Input):
     """
 
     def __init__(self, **kwargs):
+        self.node_lock = True
+
         self.number_of_parameters = 5
-        self.default_parameters = ['gaussian', 10e-9, 1, 1e-8, 1.55e-6]
-        self.upper_bounds = []
-        self.lower_bounds = []
-        self.data_types = []
-        self.step_size = []
-        self.parameter_imprecision = []
+
+        self.upper_bounds = [None] * self.number_of_parameters
+        self.lower_bounds = [None] * self.number_of_parameters
+        self.data_types = [None] * self.number_of_parameters
+        self.step_sizes = [None] * self.number_of_parameters
+        self.parameter_imprecisions = [None] * self.number_of_parameters
         self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m]
         self.parameter_locked = [True, True, True, True, True]
         self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl']
+
+        self.default_parameters = ['gaussian', 10e-9, 1, 1e-8, 1.55e-6]
 
         self.parameters = self.default_parameters
 
@@ -77,15 +81,18 @@ class ContinuousWaveLaser(Input):
     """
 
     def __init__(self, **kwargs):
+        self.node_lock = False
+
         self.number_of_parameters = 2
         self.default_parameters = [1, 1.55e-6]
-        self.upper_bounds = []
-        self.lower_bounds = []
-        self.data_types = []
-        self.step_size = []
-        self.parameter_imprecision = []
+
+        self.upper_bounds = [2, 1.54e-6]
+        self.lower_bounds = [0, 1.56e-6]
+        self.data_types = ['float', 'float']
+        self.step_sizes = [None, None]
+        self.parameter_imprecisions = [0.1, 0.01e-6]
         self.parameter_units = [unit.W, unit.m]
-        self.parameter_locked = [True, True]
+        self.parameter_locks = [False, True]
         self.parameter_names = ['peak_power', 'central_wl']
 
         self.parameters = self.default_parameters

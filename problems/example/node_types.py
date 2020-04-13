@@ -2,7 +2,7 @@
 
 """
 
-from utils.parents import NodeType as NodeTypeParent
+from utils.base_classes import NodeType as NodeTypeParent
 from utils.decorators import register_node_types
 
 

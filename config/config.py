@@ -4,6 +4,8 @@
 
 # this sets which numpy library to use throughout - either numpy or autograd.numpy
 import numpy as np
+import scipy as sp
+
 
 # TODO: dynamically choose which simulation library to use
 

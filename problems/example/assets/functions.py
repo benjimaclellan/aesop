@@ -8,32 +8,37 @@ import pickle
 import autograd.numpy as np
 
 
-def power_(field):
+def power_(state):
     """Power of a signal, as the square of the absolute value
     """
-    return np.power(np.abs(field), 2)
+    return np.power(np.abs(state), 2)
 
 
-def psd_(field, dt, df, ax=0):
+def psd_(state, dt, df, ax=0):
     """Power spectral density of a spectrum
     """
-    return np.power(np.abs(fft_(field, dt, ax)), 2) / df
+    return np.power(np.abs(fft_(state, dt, ax)), 2) / df
 
 
-def fft_(field, dt, ax=0):
+def fft_(state, dt, ax=0):
     """Proper Fast Fourier Transform for zero-centered vectors
     """
-    return np.fft.fftshift(np.fft.fft(np.fft.fftshift(field, axes=ax), axis=ax), axes=ax) * dt
+    return np.fft.fftshift(np.fft.fft(np.fft.fftshift(state, axes=ax), axis=ax), axes=ax) * dt
 
 
-def ifft_(Af, dt, ax=0):
+def ifft_(state_f, dt, ax=0):
     """Proper Inverse Fast Fourier Transform for zero-centered vectors
     """
-    return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(Af, axes=ax), axis=ax), axes=ax) / dt
+    return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(state_f, axes=ax), axis=ax), axes=ax) / dt
 
 
-def rfspectrum_(field, dt, ax=0):
+def rfspectrum_(state, dt, ax=0):
     """Radio Frequency spectrum (ie spectrum off of a photodiode). Note that we use the real FFT
     """
-    return np.abs(np.fft.rfft(np.power(np.abs(field), 2), axis=ax))
+    return np.abs(np.fft.rfft(np.power(np.abs(state), 2), axis=ax))
 
+
+def rf_(power_trace, dt, ax=0):
+    """Radio Frequency spectrum (ie spectrum off of a photodiode). Note that we use the real FFT
+    """
+    return np.abs(np.fft.rfft(power_trace, axis=ax))

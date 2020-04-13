@@ -16,10 +16,10 @@ from problems.example.graph import Graph
 from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
 
-from problems.example.node_types_children.inputs import PulsedLaser
-from problems.example.node_types_children.outputs import MeasurementDevice
-from problems.example.node_types_children.single_path import CorningFiber
-from problems.example.node_types_children.multi_path import PhaseModulator
+from problems.example.node_types_subclasses.inputs import PulsedLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import CorningFiber
+from problems.example.node_types_subclasses.multi_path import PhaseModulator
 
 
 class Test(unittest.TestCase):
