@@ -39,10 +39,11 @@ class CorningFiber(SinglePath):
         super().__init__(**kwargs)
         return
 
+    # TODO : check this, and every other model for correctness (so far its been about logic flow)
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
-        state = ifft_( np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f) ) * fft_(state, propagator.dt), propagator.dt)
+        state = ifft_( np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f, 2) ) * fft_(state, propagator.dt), propagator.dt)
         return [state]
 
 
@@ -59,13 +60,13 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 2
         self.default_parameters = [1, 12e9]
 
-        self.upper_bounds = [10, 12e9]
+        self.upper_bounds = [20, 12e9]
         self.lower_bounds = [0, 1e9]
         self.data_types = ['float', 'float']
         self.step_sizes = [None, 1e9]
         self.parameter_imprecisions = [1, 1]
         self.parameter_units = [unit.rad, unit.Hz]
-        self.parameter_locks = [False, False]
+        self.parameter_locks = [False, True]
         self.parameter_names = ['depth', 'frequency']
 
         super().__init__(**kwargs)

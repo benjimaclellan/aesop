@@ -92,7 +92,7 @@ class ContinuousWaveLaser(Input):
         self.step_sizes = [None, None]
         self.parameter_imprecisions = [0.1, 0.01e-6]
         self.parameter_units = [unit.W, unit.m]
-        self.parameter_locks = [False, True]
+        self.parameter_locks = [True, True]
         self.parameter_names = ['peak_power', 'central_wl']
 
         self.parameters = self.default_parameters

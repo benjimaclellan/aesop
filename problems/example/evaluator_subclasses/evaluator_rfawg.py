@@ -42,7 +42,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
         shifted = self.shift_function(generated, propagator)
 
-        overlap_integral = np.sum(np.abs(self.target - shifted))
+        overlap_integral = np.sum(np.abs(self.target - shifted)) / propagator.n_samples
         return overlap_integral
 
 

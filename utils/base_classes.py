@@ -73,7 +73,8 @@ class NodeType(object):
         return
 
     def inspect_parameters(self):
-        """  """
+        """ Prints out information about the parameters for this model """
+        print('Current node {}, parameters {}'.format(self, self.parameters))
         for ind in range(self.number_of_parameters):
             try:
                 print('Parameter name: {}, parameter value: {}\n\tupper bound: {}, lower bound: {}\n\tdata type: {}, step size: {}\n\tunit {}'.format(
@@ -88,31 +89,31 @@ class NodeType(object):
         return
 
 
-    def sample_parameters(self, probability_dist = 'uniform', **kwargs):
-        """ Samples the new parameters from a given distribution and parameter bounds """
-
-        if self.node_lock:
-            return
-
-        parameter_details = zip(self.parameters, self.lower_bounds, self.upper_bounds,
-                                self.data_types, self.step_sizes, self.parameter_locks)
-        parameters = []
-        for ind, (parameter_old, low, up, data_type, step, lock) in enumerate(parameter_details):
-            if lock:
-                parameters.append(parameter_old)
-                continue
-            if probability_dist == 'uniform':
-                parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
-            elif probability_dist == 'triangle':
-                interval_width = kwargs['interval_width'] if hasattr(kwargs, 'interval_width') else 0.05
-                parameter = triangle_sample(parameter=parameter_old, low=low, up=up,
-                                            step=step, data_type=data_type, interval_width=interval_width)
-            else:
-                warnings.warn("This is not a valid sampling function, reverting to uniform")
-                parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
-            parameters.append(parameter)
-        self.parameters = parameters
-        return
+    # def sample_parameters(self, probability_dist = 'uniform', **kwargs):
+    #     """ Samples the new parameters from a given distribution and parameter bounds """
+    #
+    #     if self.node_lock:
+    #         return
+    #
+    #     parameter_details = zip(self.parameters, self.lower_bounds, self.upper_bounds,
+    #                             self.data_types, self.step_sizes, self.parameter_locks)
+    #     parameters = []
+    #     for ind, (parameter_old, low, up, data_type, step, lock) in enumerate(parameter_details):
+    #         if lock:
+    #             parameters.append(parameter_old)
+    #             continue
+    #         if probability_dist == 'uniform':
+    #             parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
+    #         elif probability_dist == 'triangle':
+    #             interval_width = kwargs['triangle_width'] if hasattr(kwargs, 'triangle_width') else 0.05
+    #             parameter = triangle_sample(parameter=parameter_old, low=low, up=up,
+    #                                         step=step, data_type=data_type, interval_width=interval_width)
+    #         else:
+    #             warnings.warn("This is not a valid sampling function, reverting to uniform")
+    #             parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
+    #         parameters.append(parameter)
+    #     self.parameters = parameters
+    #     return
 
 class Evaluator(object):
     """Parent class
@@ -165,7 +166,7 @@ def uniform_sample(low=0.0, up=1.0, step=None, data_type='int'):
         raise ValueError('Unknown datatype in the current parameter')
     return parameter
 
-def triangle_sample(parameter=None, low=0.0, up=1.0, step=None, data_type='int', interval_width = 0.05):
+def triangle_sample(parameter=None, low=0.0, up=1.0, step=None, data_type='int', triangle_width=0.05):
     """
     Experimental mutation operator, using triangular probability distribution
     This is od-hoc - one foreseeable issue is that the probability of drawing up | low is always 0
@@ -174,7 +175,7 @@ def triangle_sample(parameter=None, low=0.0, up=1.0, step=None, data_type='int',
     if parameter is None:
         raise RuntimeError("Current parameter must be passed to apply a Gaussian mutation")
 
-    radius = interval_width * (up - low) / 2
+    radius = triangle_width * (up - low) / 2
     left = parameter - radius if parameter - radius > low else low
     right = parameter + radius if parameter + radius < up else up
     parameter_old = float(parameter)
