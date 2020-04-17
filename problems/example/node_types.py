@@ -2,8 +2,8 @@
 
 """
 
-from utils.base_classes import NodeType as NodeTypeParent
-from utils.decorators import register_node_types
+from lib.base_classes import NodeType as NodeTypeParent
+from lib.decorators import register_node_types
 
 
 @register_node_types

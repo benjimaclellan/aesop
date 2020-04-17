@@ -1,5 +1,5 @@
-from utils.decorators import register_evolution_operators
-from utils.base_classes import EvolutionOperators as EvolutionOperatorsParent
+from lib.decorators import register_evolution_operators
+from lib.base_classes import EvolutionOperators as EvolutionOperatorsParent
 
 
 

@@ -11,12 +11,12 @@ from config.config import np
 from pint import UnitRegistry
 unit = UnitRegistry()
 
-from config.config import np
+import autograd.numpy as np
 
 from .assets.decorators import register_node_types_all
 from .assets.functions import fft_, ifft_, psd_, power_
 
-from utils.base_classes import Evaluator as EvaluatorParent
+from lib.base_classes import Evaluator as EvaluatorParent
 
 class Evaluator(EvaluatorParent):
     """  Evaluator class, which provides the evaluation of a graph to an objective function.

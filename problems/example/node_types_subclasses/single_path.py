@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 
 from pint import UnitRegistry
 unit = UnitRegistry()
-
-from config.config import np
+import autograd.numpy as np
 
 from ..node_types import SinglePath
 
@@ -20,7 +19,7 @@ class CorningFiber(SinglePath):
     """
 
     def __init__(self, **kwargs):
-        self.node_lock = False
+        self.node_lock = True
 
         self.number_of_parameters = 1
         self.default_parameters = [1]
@@ -78,8 +77,8 @@ class PhaseModulator(SinglePath):
         depth = self.parameters[0]
         frequency = self.parameters[1]
 
-        state *= np.exp(1j * depth * (np.cos(2 * np.pi * frequency * propagator.t, dtype='complex')))
-        return [state]
+        state1 = state * np.exp(1j * depth * (np.cos(2 * np.pi * frequency * propagator.t, dtype='complex')))
+        return [state1]
 
 
 
@@ -169,7 +168,7 @@ class DelayLine(SinglePath):
         self.parameter_locks = [False] * self.number_of_parameters
         self.parameter_names = ['coupling_ratio{}'.format(ind) for ind in range(self.number_of_parameters)]
 
-        self._default_parameters = [0] * self.number_of_parameters
+        self.default_parameters = [0] * self.number_of_parameters
 
         super().__init__(**kwargs)
         return

@@ -2,12 +2,14 @@
 
 """
 
+import autograd.numpy as np
 import networkx as nx
 import copy
 import matplotlib.pyplot as plt
 from itertools import cycle
+import warnings
 
-from utils.base_classes import Graph as GraphParent
+from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
 
 
@@ -108,37 +110,51 @@ class Graph(GraphParent):
 
     def sample_parameters(self, probability_dist='uniform', **kwargs):
         """ Samples new parameters for each node-type """
-        for node in self.nodes:
-            self.nodes[node]['model'].sample_parameters(probability_dist=probability_dist, **kwargs)
+        attributes = ['parameters', 'lower_bounds', 'upper_bounds', 'data_types', 'step_sizes']
+        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=True)
+        parameters = self.sample_parameters_callable(model_attributes['parameters'], model_attributes['lower_bounds'],
+                                                     model_attributes['upper_bounds'], model_attributes['data_types'],
+                                                     model_attributes['step_sizes'], probability_dist=probability_dist, **kwargs)
 
-        if self._propagate_on_edges:
-            for edge in self.edges:
-                if 'model' in self.edges[edge]:
-                    self.edges[tuple(edge)]['model'].sample_parameters(probability_dist=probability_dist, **kwargs)
+        self.distribute_parameters_from_list(parameters,
+                                             model_attributes['node_edge_index'],
+                                             model_attributes['parameter_index'])
         return
+
 
     def sample_parameters_to_list(self, probability_dist='uniform', **kwargs):
         """ Samples new parameters for each node-type """
-        self.sample_parameters(probability_dist=probability_dist, **kwargs)
-        parameters, node_edge_index, parameter_index, *_ = self.extract_parameters_to_list()
-        return parameters, node_edge_index, parameter_index
+
+        # TODO Change this as well
+        attributes = ['parameters', 'lower_bounds', 'upper_bounds', 'data_types', 'step_sizes']
+        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=False)
+        parameters = self.sample_parameters_callable(model_attributes['parameters'], model_attributes['lower_bounds'],
+                                                     model_attributes['upper_bounds'], model_attributes['data_types'],
+                                                     model_attributes['step_sizes'], probability_dist=probability_dist, **kwargs)
+
+        return parameters
 
     @staticmethod
-    def extract_parameters(_node_edge, _model, _attribute, _model_attributes, *args):
+    def extract_attributes(_node_edge, _model, _attributes, _model_attributes, exclude_locked=True, *args):
         """ appends into _lst all unlocked attributes (from string _attribute) in _model
         args is always args[0] = node_edge_indices, and args[1] = parameter_indices
         """
+        for i in range(_model.number_of_parameters):
 
-        for i, attr in enumerate(getattr(_model, _attribute)):
-            if not _model.parameter_locks[i]:
-                _model_attributes[_attribute].append(attr)
-                if args is not None:
-                    args[0].append(_node_edge)
-                    args[1].append(i)
+            if _model.parameter_locks[i] and exclude_locked:
+                continue
+
+            for _attribute in _attributes:
+                _model_attributes[_attribute].append(getattr(_model, _attribute)[i])
+
+            if args:
+                args[0].append(_node_edge)
+                args[1].append(i)
+
         return
 
 
-    def extract_attributes_to_list_experimental(self, attributes, get_location_indices=True):
+    def extract_attributes_to_list_experimental(self, attributes, get_location_indices=True, exclude_locked=True):
         """ experimental: to extract model variables to a list, based on a list of variables names """
 
         # first generate multiple empty lists for each attribute of attributes
@@ -153,15 +169,14 @@ class Graph(GraphParent):
         # we loop through all nodes and add the relevant info (bounds, etc.)
         for node in self.nodes:
             model = self.nodes[node]['model']
-            if model.node_lock:
+            if model.node_lock and exclude_locked:
                 continue
-            for attribute in attributes:
-                if get_location_indices:
-                    self.extract_parameters(node, model, attribute, model_attributes,
-                                            model_attributes['node_edge_index'],
-                                            model_attributes['parameter_index'])
-                else:
-                    self.extract_parameters(node, model, attribute, model_attributes)
+            if get_location_indices:
+                self.extract_attributes(node, model, attributes, model_attributes, exclude_locked,
+                                        model_attributes['node_edge_index'],
+                                        model_attributes['parameter_index'])
+            else:
+                self.extract_attributes(node, model, attributes, model_attributes)
 
 
         # here, if considering edges too, we loop through and add them to each list (instead of a node hash, it is the edge tuple)
@@ -169,58 +184,31 @@ class Graph(GraphParent):
             for edge in self.edges:
                 if 'model' in self.edges[edge]:
                     model = self.edges[edge]['model']
-                    if model.node_lock:
+                    if model.node_lock and exclude_locked:
                         continue
-                    for attribute in attributes:
-                        if get_location_indices:
-                            self.extract_parameters(edge, model, attribute, model_attributes,
-                                                    model_attributes['node_edge_index'],
-                                                    model_attributes['parameter_index'])
-                        else:
-                            self.extract_parameters(edge, model, attribute, model_attributes)
+                    if get_location_indices:
+                        self.extract_attributes(edge, model, attributes, model_attributes, exclude_locked,
+                                                model_attributes['node_edge_index'],
+                                                model_attributes['parameter_index'])
+                    else:
+                        self.extract_attributes(edge, model, attributes, model_attributes)
         return model_attributes
 
     # TODO: we need to have this extract a dynamic selection (or always all) of the model characteristics (bounds, names, type, ...)
-    def extract_parameters_to_list(self):
+    def extract_parameters_to_list(self, exclude_locked=True):
         """ Extracts the current parameters, bounds and information for re-distributing from the graph structure """
-        # def extract_parameters(_node_edge, _model, _node_edge_index, _parameters_current, _parameter_index, _lower_bounds, _upper_bounds):
-        #     parameter_details = zip(_model.parameters, _model.lower_bounds, _model.upper_bounds, _model.parameter_locks)
-        #     for i, (parameter, low, up, lock) in enumerate(parameter_details):
-        #         if not lock:
-        #             _parameters_current.append(parameter)
-        #             _node_edge_index.append(_node_edge)
-        #             _parameter_index.append(i)
-        #             _lower_bounds.append(low)
-        #             _upper_bounds.append(up)
-        #     return
-
-        # parameters_current = []
-        # node_edge_index, parameter_index = [], []  # these will help translate from a list of parameters to a graph structure
-        # lower_bounds, upper_bounds = [], []
-        #
-        # # we loop through all nodes and add the relevant info (bounds, etc.)
-        # for node in self.nodes:
-        #     model = self.nodes[node]['model']
-        #     if model.node_lock:
-        #         continue
-        #     extract_parameters(node, model, node_edge_index, parameters_current, parameter_index, lower_bounds, upper_bounds)
-        #
-        # # here, if considering edges too, we loop through and add them to each list (instead of a node hash, it is the edge tuple)
-        # if self._propagate_on_edges:
-        #     for edge in self.edges:
-        #         if 'model' in self.edges[edge]:
-        #             model = self.edges[edge]['model']
-        #             if model.node_lock:
-        #                 continue
-        #             extract_parameters(edge, model, node_edge_index, parameters_current, parameter_index, lower_bounds, upper_bounds)
 
         attributes = ['parameters', 'lower_bounds', 'upper_bounds']
-        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=True)
+
+        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=True,
+                                                                        exclude_locked=exclude_locked)
+
         parameters = model_attributes['parameters']
         node_edge_index = model_attributes['node_edge_index']
         parameter_index = model_attributes['parameter_index']
         lower_bounds = model_attributes['lower_bounds']
         upper_bounds = model_attributes['upper_bounds']
+
         return parameters, node_edge_index, parameter_index, lower_bounds, upper_bounds
 
     def distribute_parameters_from_list(self, parameters, node_edge_index, parameter_index):
@@ -255,3 +243,66 @@ class Graph(GraphParent):
 
         ax[0].legend()
         plt.show()
+
+
+    @staticmethod
+    def sample_parameters_callable(parameters_current, lower_bounds, upper_bounds, data_types, step_sizes, probability_dist = 'uniform', **kwargs):
+        """ Samples the new parameters from a given distribution and parameter bounds """
+        parameter_details = zip(parameters_current, lower_bounds, upper_bounds, data_types, step_sizes)
+        parameters = []
+        for ind, (parameter_current, low, up, data_type, step) in enumerate(parameter_details):
+            if probability_dist == 'uniform':
+                parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
+            elif probability_dist == 'triangle':
+                interval_width = kwargs['triangle_width'] if hasattr(kwargs, 'triangle_width') else 0.05
+                parameter = triangle_sample(parameter=parameter_current, low=low, up=up,
+                                            step=step, data_type=data_type, interval_width=interval_width)
+            else:
+                warnings.warn("This is not a valid sampling function, reverting to uniform")
+                parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
+            parameters.append(parameter)
+        return parameters
+
+
+#%% Sampling functions for mutation operations on parameters
+def uniform_sample(low=0.0, up=1.0, step=None, data_type='int'):
+    if data_type == 'float':
+        if step is None:
+            parameter = np.random.uniform(low, up)
+        else:
+            parameter = round(np.random.uniform(low, up) / step) * step
+    elif data_type == 'int':
+        if step is None:
+            parameter = np.random.randint(low, up)
+        else:
+            parameter = np.round(np.random.randint(low / step, up / step)) * step
+    else:
+        raise ValueError('Unknown datatype in the current parameter')
+    return parameter
+
+def triangle_sample(parameter=None, low=0.0, up=1.0, step=None, data_type='int', triangle_width=0.05):
+    """
+    Experimental mutation operator, using triangular probability distribution
+    This is od-hoc - one foreseeable issue is that the probability of drawing up | low is always 0
+    """
+
+    if parameter is None:
+        raise RuntimeError("Current parameter must be passed to apply a Gaussian mutation")
+
+    radius = triangle_width * (up - low) / 2
+    left = parameter - radius if parameter - radius > low else low
+    right = parameter + radius if parameter + radius < up else up
+    parameter_old = float(parameter)
+    if data_type == 'float':
+        if step is None:
+            parameter = np.random.triangular(left, parameter, right)
+        else:
+            parameter = round(np.random.triangular(left, parameter, right) / step) * step
+    elif data_type == 'int':
+        parameter = int(np.random.triangular(left, parameter, right))
+    else:
+        raise ValueError('Unknown datatype for this parameter')
+
+    print('parameter_old {} | parameter {} | radius {} | left {} | right {}'.format(parameter_old, parameter, radius, left, right))
+
+    return parameter

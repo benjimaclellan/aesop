@@ -1,26 +1,31 @@
 
 """
-
-
+Genetic algorithm implementation for parameter optimization on a fixed graph topology
 """
 
 import random
 import copy
+import numpy as np
+import multiprocess as mp
 
-from config.config import np
 from .assets.functions import logbook_update, logbook_initialize
 
 def parameters_genetic_algorithm(graph, propagator, evaluator):
     # hyper-parameters, will later be added as function arguments to change dynamically
-    n_generations = 75
-    n_population = 100
-    rate_mut = 0.5
-    rate_crx = 0.3
+    n_generations = 10
+    n_population = 50
+    rate_mut = 0.9
+    rate_crx = 0.9
     crossover = crossover_singlepoint
     mutation_operator = 'uniform'
     mut_kwargs = {}
     log, log_metrics = logbook_initialize()
     verbose = True
+    n_cores = 6
+    parallel = True
+
+    if parallel:
+        pool = mp.Pool(n_cores)
 
     # first we grab the information we will need about the parameters before running
     _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
@@ -28,7 +33,7 @@ def parameters_genetic_algorithm(graph, propagator, evaluator):
     # create initial population
     population = []
     for individual in range(n_population):
-        parameters, *_ = graph.sample_parameters_to_list(probability_dist=mutation_operator, **mut_kwargs)
+        parameters = graph.sample_parameters_to_list(probability_dist=mutation_operator, **mut_kwargs)
         graph.distribute_parameters_from_list(parameters, node_edge_index, parameter_index)  # this probably isn't necessary, but if API changes it  may be
         graph.propagate(propagator)
         score = evaluator.evaluate_graph(graph, propagator)
@@ -48,9 +53,17 @@ def parameters_genetic_algorithm(graph, propagator, evaluator):
             parent1, parent2 = [parent for (score, parent) in tuple(random.sample(population, 2))]
             children = crossover(parent1, parent2)
             for child in children:
-                if np.random.rand() < rate_mut:
-                    mutation(child)
+            #     if np.random.rand() < rate_mut:
+            #         mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use
+            #         child = mutation(child, mutant)
                 population.append((None, child))
+        # TODO: multiprocessing done here
+        for child_i in range(np.floor(rate_mut * n_population).astype('int')):
+            parent = [parent for (score, parent) in tuple(random.sample(population, 1))][0]
+            mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use
+            child = mutation(parent, mutant)
+            population.append((None, child))
+
 
         # loop through population and update scores for evolved individuals
         for i, (score, individual) in enumerate(population):
@@ -89,8 +102,22 @@ def crossover_doublepoint(parent1, parent2, **kwargs):
     return child1, child2
 
 
-def mutation(parent):
-    # TODO: add this
-    mut_point = np.random.randint(1, len(parent))
-    parent[mut_point] += np.random.normal(parent[mut_point], 10)
-    return parent
+def mutation(parent, mutant):
+    """ mutation evolution operator """
+
+    num = random.randint(1, len(mutant))
+    inds = set(np.random.choice(list(range(0,len(mutant))), num, replace=False))
+
+
+    # mut_point = np.random.randint(1, len(parent))
+    # parent[mut_point] = copy.deepcopy(mutant[mut_point])
+
+    child = [mut if i in inds else par for i, (par, mut) in enumerate(zip(parent, mutant))]
+
+    return child
+
+
+def score_population_parallel(subpopulation, pool):
+
+
+     return

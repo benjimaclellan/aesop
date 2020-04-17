@@ -4,8 +4,7 @@
 """
 """
 
-# import autograd.numpy as np
-from config.config import np
+import autograd.numpy as np
 
 class Propagator(object):
     """Class for the state of an optical field within a system

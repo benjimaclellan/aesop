@@ -3,7 +3,6 @@ Random search for parameters for benchmarking
 """
 
 import numpy as np
-from config.config import np
 from .assets.functions import logbook_update, logbook_initialize
 
 def parameters_random_search(graph, propagator, evaluator):
@@ -17,7 +16,7 @@ def parameters_random_search(graph, propagator, evaluator):
     for generation in range(n_generations+1):
         population = []
         for individual in range(n_population):
-            parameters, *_ = graph.sample_parameters_to_list(probability_dist='uniform', **{'triangle_width': 0.05})
+            parameters = graph.sample_parameters_to_list(probability_dist='uniform', **{'triangle_width': 0.05})
 
             graph.distribute_parameters_from_list(parameters, node_edge_index,
                                                   parameter_index)

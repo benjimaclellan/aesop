@@ -6,9 +6,9 @@ plt.style.use(r"config/plot-style.mplstyle")
 
 import networkx as nx
 import itertools
+import autograd.numpy as np
 
 import config.config as configuration
-from config.config import np
 
 from problems.example.node_types import Input
 from problems.example.evaluator import Evaluator

@@ -3,8 +3,7 @@
 """
 
 import matplotlib.pyplot as plt
-
-from config.config import np
+import autograd.numpy as np
 
 from ..node_types import Output
 

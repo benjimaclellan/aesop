@@ -5,7 +5,7 @@ import warnings
 
 from analysis.lha import autograd_hessian
 from analysis.udr import compute_interpolation_points, compute_moment_matrices, udr_moments
-# from lha import autograd_hessian
+# from lha import hessian
 # from udr import compute_interpolation_points, compute_moment_matrices, udr_moments
 
 

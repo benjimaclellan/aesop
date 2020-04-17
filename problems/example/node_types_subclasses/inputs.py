@@ -3,9 +3,7 @@
 """
 
 import matplotlib.pyplot as plt
-
-from config.config import np
-
+import autograd.numpy as np
 from pint import UnitRegistry
 unit = UnitRegistry()
 
@@ -53,7 +51,7 @@ class PulsedLaser(Input):
         self.set_parameters_as_attr()
 
         n_pulses = int(np.ceil(propagator.window_t / self._t_rep))
-        train = True
+        train = False
 
         # create initial train of Gaussian pulses
         if self._pulse_shape == 'gaussian':

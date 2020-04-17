@@ -2,13 +2,16 @@
 
 import warnings
 
-from config.config import np
-from config.config import sp
+import autograd.numpy as np
+import autograd.numpy as sp
+
 import scipy.signal as signal
+
 import matplotlib.pyplot as plt
 
 from ..evaluator import Evaluator
 from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_
+from lib.functions import scale_units
 
 class RadioFrequencyWaveformGeneration(Evaluator):
     """  """
@@ -61,8 +64,63 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         state = graph.nodes[self.evaluation_node]['states'][0]
         ax.plot(propagator.t, power_(state), label='Measured State')
         ax.plot(propagator.t, self.target, label='Target State')
-        ax.set(xlabel='Time (s)', ylabel='Power a.u.')
+        ax.set(xlabel='Time', ylabel='Power a.u.')
         ax.legend()
+        scale_units(ax, units=['s'], axes=['x'])
+        plt.show()
+        return
+
+
+
+
+
+
+
+class PulseShaping(Evaluator):
+    """  """
+    def __init__(self, propagator, **kwargs):
+        super().__init__(**kwargs)
+        self.evaluation_node = 3  # TODO this is just a placeholder for testing, need dynamic setting
+
+        train = False
+        t_rep = 500e-12 # 100 MHz
+        self.pulse_width = 25e-12  # pulse width target in s
+
+        if train:
+            duty_cycle = self.pulse_width/t_rep
+            self.target = (signal.square(2*np.pi * propagator.t/t_rep, duty_cycle) + 1)/2
+        else:
+            self.target = np.zeros_like(propagator.t)
+            self.target[abs(propagator.t) < self.pulse_width/2 ] = 1
+
+        self.normalize = True
+        return
+
+    def evaluate_graph(self, graph, propagator):
+        graph.propagate(propagator)
+        state = graph.nodes[self.evaluation_node]['states'][0]
+        score = self.waveform_temporal_overlap(state, propagator)
+        return score
+
+    def waveform_temporal_overlap(self, state, propagator):
+        generated = power_(state)
+        return -np.sum(generated * self.target) / np.sum(generated * np.logical_not(self.target).astype('float'))
+        # if self.normalize:
+        #     generated = generated / np.max(generated)
+        # overlap_integral = np.sum(np.abs(self.target - generated)) / propagator.n_samples
+        # return overlap_integral
+
+    def compare(self, graph, propagator):
+        fig, ax = plt.subplots(1, 1)
+        state = graph.nodes[self.evaluation_node]['states'][0]
+        generated = power_(state)
+        if self.normalize:
+            generated = generated / np.max(generated)
+        ax.plot(propagator.t, generated, label='Measured State')
+        ax.plot(propagator.t, self.target, label='Target State')
+        ax.set(xlabel='Time', ylabel='Power a.u.')
+        ax.legend()
+        scale_units(ax, unit='s', axes=['x'])
         plt.show()
         return
 

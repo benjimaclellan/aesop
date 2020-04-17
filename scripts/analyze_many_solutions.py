@@ -10,6 +10,7 @@ import time
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pickle
 import autograd.numpy as np
 
 import config.config as configuration
@@ -52,57 +53,47 @@ if __name__ == "__main__":
     evaluator = RadioFrequencyWaveformGeneration(propagator)
 
     #%%
-    n_runs = 10
-    logs_ga, logs_rs = [], []
-    params_ga, params_rs = [], []
-    scores_ga, scores_rs = [], []
-
-    t_start = time.time()
-    for run in range(n_runs):
-        print('\nStarting random search number {}'.format(run))
-        parameters_rs, score_rs, log_rs = parameters_random_search(graph, propagator, evaluator)
-        logs_rs.append(log_rs)
-        params_rs.append(parameters_rs)
-        scores_rs.append(score_rs)
-    t_rs = time.time() - t_start
-    print('Time for {} random search is {} s | {} s average per run'.format(n_runs, t_rs, t_rs/n_runs))
+    n_runs = 200
+    logs, params, scores = [], [], []
 
     t_start = time.time()
     for run in range(n_runs):
         print('\nStarting genetic algorithm number {}'.format(run))
         parameters_ga, score_ga, log_ga = parameters_genetic_algorithm(graph, propagator, evaluator)
-        logs_ga.append(log_ga)
-        params_ga.append(parameters_ga)
-        scores_ga.append(score_ga)
+        logs.append(log_ga)
+        params.append(parameters_ga)
+        scores.append(score_ga)
     t_ga = time.time() - t_start
     print('Time for {} genetic algorithm is {} s | {} s average per run'.format(n_runs, t_ga, t_ga / n_runs))
 
-    #%% we'll add HoF as a column
-    for log in logs_rs + logs_ga:
-        log['hof'] = log['min']
-        for loc in range(len(log)):
-            log.loc[loc, 'hof'] = min(log.loc[:loc, 'min'])
+    #%%
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 
+    x_ticks = [i for i in range(len(params[0]))]
+    model_attributes = graph.extract_attributes_to_list_experimental(['lower_bounds', 'upper_bounds', 'parameter_names'], get_location_indices=True)
+
+    scores = [1-(s-min(scores))/max(scores) for s in scores]
+    color = plt.get_cmap('Blues')
+
+    for parameters, score in zip(params, scores):
+        scale_info = zip(parameters, model_attributes['lower_bounds'], model_attributes['upper_bounds'])
+        parameters_scaled = [(p - l)/u for (p, l, u) in scale_info]
+
+        ax.plot(x_ticks, parameters_scaled, ls='', marker='o', color=color(score))
+
+    # add colorbar
+    ax.set(xlabel='Parameter', ylabel='Scaled Parameter (1 = upper bound, 0 = lower bound)',
+           xticks=x_ticks, xticklabels=model_attributes['parameter_names'], xlim=[-1, len(x_ticks)+1])
+    plt.show()
+    plt.savefig(os.path.join(configuration.LOG_DIRECTORY, '2020_04_14__rf_awg_parameter_spread.pdf'))
 
     #%%
-    styles = {  'min':{'ls':'-', 'alpha':1},
-                'avg':{'ls':'--', 'alpha':1},
-                'hof':{'ls':':', 'alpha':1} }
+    batch_data = {}
+    for i in ('graph', 'propagator', 'evaluator', 'scores', 'params', 'logs'):
+        batch_data[i] = locals()[i]
 
-    fig, ax = plt.subplots(1,1)
-    for log in logs_rs:
-        line_min_rs, = ax.plot(log['gen'], log['min'], color=sns.color_palette('Blues_r')[0], **styles['min'])
-        line_avg_rs, = ax.plot(log['gen'], log['avg'], color=sns.color_palette('Blues_r')[1], **styles['avg'])
-        line_hof_rs, = ax.plot(log['gen'], log['hof'], color=sns.color_palette('Blues_r')[2], **styles['hof'])
+    #%%
+    with open(os.path.join(configuration.LOG_DIRECTORY,'2020_04_14__rf_awg.pickle'), 'wb') as handle:
+        pickle.dump(batch_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    for log in logs_ga:
-        line_min_ga, = ax.plot(log['gen'], log['min'], color=sns.color_palette('Greens_r')[0], **styles['min'])
-        line_avg_ga, = ax.plot(log['gen'], log['avg'], color=sns.color_palette('Greens_r')[1], **styles['avg'])
-        line_hof_ga, = ax.plot(log['gen'], log['hof'], color=sns.color_palette('Greens_r')[2], **styles['hof'])
 
-    ax.legend([line_min_ga, line_avg_ga, line_hof_ga, line_min_rs, line_avg_rs, line_hof_rs],
-              ['GA Min', 'GA Avg', 'GA HoF', 'RS Min', 'RS Avg', 'RS HoF'])
-
-    ax.set(xlabel='Generation', ylabel='Evaluation Score')
-    plt.show()
-    plt.savefig(os.path.join(configuration.LOG_DIRECTORY, '2020_04_14__randomsearch_vs_geneticalgorithm_parametersonly.pdf'))

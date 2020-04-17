@@ -4,8 +4,7 @@
 
 from pint import UnitRegistry
 unit = UnitRegistry()
-
-from config.config import np
+import autograd.numpy as np
 
 from ..node_types import MultiPath
 
