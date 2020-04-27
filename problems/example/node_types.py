@@ -62,7 +62,6 @@ class MultiPath(NodeTypeParent):
 
 
 
-
 @register_node_types
 class SinglePath(NodeTypeParent):
     """Parent class for SinglePath node types. These nodes have one incoming edge and one outgoing edge,

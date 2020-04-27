@@ -43,6 +43,19 @@ class Graph(GraphParent):
 
         return
 
+    def get_in_degree(self, node):
+        return len(self.get_in_edges(node))
+
+    def get_out_degree(self, node):
+        return len(self.get_out_edges(node))
+
+    def get_in_edges(self, node):
+        """ """
+        return [(u, v, k) for (u, v, k) in self.edges if v == node]
+
+    def get_out_edges(self, node):
+        """ """
+        return [(u, v, k) for (u, v, k) in self.edges if u == node]
 
     def suc(self, node):
         """Return the successors of a node (nodes which follow the current one) as a list
@@ -54,6 +67,16 @@ class Graph(GraphParent):
         """
         return list(self.predecessors(node))
 
+    def clear_propagation(self):
+        for node in self.nodes:
+            if 'states' in self.nodes[node]:
+                self.nodes[node].pop('states')
+
+        for edge in self.edges:
+            if 'states' in self.edges[edge]:
+                self.edges[edge].pop('states')
+        return
+
     def propagate(self, propagator):
         """
         """
@@ -63,15 +86,17 @@ class Graph(GraphParent):
                 tmp_states = [copy.deepcopy(propagator.state)]  # nodes take a list of propagators as default, to account for multipath
             else:  # if we have incoming nodes to get the propagator from
                 tmp_states = []  # initialize list to add all incoming propagators to
-                for pre in self.pre(node):  # loop through incoming edges
-                    if self._propagate_on_edges and 'model' in self.edges[(pre, node)]:  # this also simulates components stored on the edges, if there is a model on that edge
-                        tmp_states += copy.deepcopy(self.edges[pre, node]['model'].propagate(self.nodes[pre]['states'], propagator, 1, 1))  # TODO: Check that models on edge are single spatial mode maybe
+                for edge in self.get_in_edges(node):  # loop through incoming edges
+                    if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
+                        tmp_states += copy.deepcopy(self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1))  # TODO: Check that models on edge are single spatial mode maybe
                     else:
-                        tmp_states += copy.deepcopy(self.nodes[pre]['states'])
+                        tmp_states += copy.deepcopy(self.edges[edge]['states'])
 
             # save the list of propagators at that node locations (deepcopy required throughout)
-            self.nodes[node]['states'] = self.nodes[node]['model'].propagate(tmp_states, propagator, len(self.pre(node)), len(self.suc(node)))
-
+            states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node))
+            for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
+                self.edges[edge]['states'] = copy.deepcopy([state])
+            self.nodes[node]['states'] = copy.deepcopy(states)
         return self
 
     @property

@@ -66,7 +66,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         ax.plot(propagator.t, self.target, label='Target State')
         ax.set(xlabel='Time', ylabel='Power a.u.')
         ax.legend()
-        scale_units(ax, units=['s'], axes=['x'])
+        scale_units(ax, unit='s', axes=['x'])
         plt.show()
         return
 

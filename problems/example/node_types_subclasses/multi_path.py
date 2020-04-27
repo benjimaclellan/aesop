@@ -25,13 +25,12 @@ class VariablePowerSplitter(MultiPath):
         self.parameter_units = [None]
         self.parameter_locks = [False]
         self.parameter_names = ['coupling_ratio']
-        self._default_parameters = [0.5]
+        self.default_parameters = [0.5]
 
         super().__init__(**kwargs)
         return
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):
         self.set_parameters_as_attr()
-        print(self._mod_depth)
-        state = sum(states)
-        return [state]
+        state = sum(states)  # TODO NEED TO FIX THIS CAUSE THIS IS DEFINITELY NOT LEGIT
+        return [state] * num_outputs
