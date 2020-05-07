@@ -37,7 +37,7 @@ class AddNode(EvolutionOperators):
         graph.add_edge(node_label, edge[1])
         graph.remove_edge(edge[0], edge[1])
 
-        print('inside add_node() now. adding node {} with model {}'.format(node_label, model))
+        # print('inside add_node() now. adding node {} with model {}'.format(node_label, model))
         return graph
 
     def verify_evolution(self, graph):
@@ -69,8 +69,8 @@ class RemoveNode(EvolutionOperators):
                 potential_nodes.append(node)
         node_to_remove = random.sample(potential_nodes, 1)[0]
 
-        print('inside remove_node() now. removing node {} of model {}'.format(node_to_remove,
-                                                                              graph.nodes[node_to_remove]['model']))
+        # print('inside remove_node() now. removing node {} of model {}'.format(node_to_remove,
+        #                                                                       graph.nodes[node_to_remove]['model']))
 
         graph.add_edge(graph.pre(node_to_remove)[0], graph.suc(node_to_remove)[0])
         graph.remove_edge(graph.pre(node_to_remove)[0], node_to_remove)
@@ -124,7 +124,7 @@ class SwapNode(EvolutionOperators):
         new_model = random.sample(potential_new_nodes, 1)[0]()
         graph.nodes[node_to_swap]['model'] = new_model
 
-        print('inside swap_node() now. swapping node {} with model {}'.format(node_to_swap, new_model))
+        # print('inside swap_node() now. swapping node {} with model {}'.format(node_to_swap, new_model))
 
         return graph
 
@@ -144,7 +144,7 @@ class SwapNode(EvolutionOperators):
             return False
 
 
-@register_evolution_operators
+# @register_evolution_operators
 class AddInterferometer(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -175,7 +175,7 @@ class AddInterferometer(EvolutionOperators):
         graph.add_edge(label1, label2)
         graph.add_edge(label1, label2)
 
-        print('inside add_interferometer() on edge'.format(edge))
+        # print('inside add_interferometer() on edge'.format(edge))
 
         return graph
 
@@ -197,7 +197,7 @@ class AddInterferometer(EvolutionOperators):
 
 
 
-@register_evolution_operators
+# @register_evolution_operators
 class RemoveOneInterferometerPath(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -239,11 +239,11 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             # connect remaining nodes to rest of graph, assume splitter has one input
             for pre in graph.pre(source_node):
                 graph.add_edge(pre, path_to_keep[0])
-                print('connecting {} and  {}'.format(pre, path_to_keep[0]))
+                # print('connecting {} and  {}'.format(pre, path_to_keep[0]))
 
             for suc in graph.suc(sink_node):
                 graph.add_edge(path_to_keep[-1], suc)
-                print('connecting {} and  {}'.format(path_to_keep[-1], suc))
+                # print('connecting {} and  {}'.format(path_to_keep[-1], suc))
 
         # remove edges in the path
         for ind in range(len(path_to_remove) - 1):

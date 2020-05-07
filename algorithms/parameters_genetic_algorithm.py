@@ -12,17 +12,17 @@ from .assets.functions import logbook_update, logbook_initialize
 
 def parameters_genetic_algorithm(graph, propagator, evaluator):
     # hyper-parameters, will later be added as function arguments to change dynamically
-    n_generations = 10
-    n_population = 50
+    n_generations = 25
+    n_population = 25
     rate_mut = 0.9
     rate_crx = 0.9
     crossover = crossover_singlepoint
     mutation_operator = 'uniform'
     mut_kwargs = {}
     log, log_metrics = logbook_initialize()
-    verbose = True
+    verbose = False
     n_cores = 6
-    parallel = True
+    parallel = False
 
     if parallel:
         pool = mp.Pool(n_cores)
@@ -89,10 +89,14 @@ def parameters_genetic_algorithm(graph, propagator, evaluator):
 
 
 def crossover_singlepoint(parent1, parent2, **kwargs):
-    crx_point = np.random.randint(1, len(parent1))
-    child1 = copy.deepcopy(parent1[:crx_point] + parent2[crx_point:])
-    child2 = copy.deepcopy(parent2[:crx_point] + parent1[crx_point:])
-    return child1, child2
+    try:
+        crx_point = np.random.randint(1, len(parent1))
+        child1 = copy.deepcopy(parent1[:crx_point] + parent2[crx_point:])
+        child2 = copy.deepcopy(parent2[:crx_point] + parent1[crx_point:])
+        return child1, child2
+    except:
+        return parent1, parent2
+
 
 def crossover_doublepoint(parent1, parent2, **kwargs):
     crx_points = tuple(np.random.randint(2, len(parent1), 2))

@@ -28,6 +28,10 @@ class Evolver(object):
         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
         # score = evaluator.evaluate_graph(graph)
 
-
         return graph
 
+    def random_graph(self, graph, evaluator):
+        N_EVOLUTIONS = 10
+        for n in range(N_EVOLUTIONS):
+            graph = self.evolve_graph(graph, evaluator)
+        return graph
