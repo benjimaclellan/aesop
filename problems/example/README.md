@@ -8,7 +8,3 @@ The main things to change are the Propagator. This is the fundamental properties
 This information is stored in the propagator.state variable.
 
 Each node then alters the Propagator.state variable through the .propagate() function.
-
-
-
- 
