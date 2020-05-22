@@ -76,7 +76,7 @@ class CaseEvaluatorBinary(Evaluator):
                              'BER with mask': None,
                              'BER scaled': None,
                              'max eye': None,
-                             'solo eye': None
+                             'BER with penalty': None
                             }
 
     def evaluate_graph(self, graph, fitness_type, eval_node=None):
@@ -91,10 +91,10 @@ class CaseEvaluatorBinary(Evaluator):
                              score = sum of score_per_bit / number_of_bits
                              Basically an eye mask technique
             5. eye {scaled}: score is proportional to the size of the largest mask which fits
-            6. solo eye: Score is computed like in BER scaled, but incorrect bits have a negative contribution
+            6.BER {with penalty}: Score is computed like in BER scaled, but incorrect bits have a negative contribution
         
         :param graph : the graph to evaluate
-        :param fitness_type : 'l1', 'l2', 'BER pure', 'BER with mask', 'BER scaled', 'max eye', 'solo eye'
+        :param fitness_type : 'l1', 'l2', 'BER pure', 'BER with mask', 'BER scaled', 'max eye', 'BER with penalty'
         :raises ValueError if fitness_type is not one of the strings above
         """
         if (eval_node is None):
@@ -140,9 +140,19 @@ class CaseEvaluatorBinary(Evaluator):
             else:
                 score = self._BER_scaled(generated)
         elif (fitness_type == 'max eye'):
-            pass
-        elif (fitness_type == 'solo eye'):
-            pass
+            if (self.save_runtimes):
+                start = timeit.default_timer
+                score = self._max_eye(generated)
+                self.runtimes['max eye'] = timeit.default_timer() - start
+            else:
+                score = self._max_eye(generated)
+        elif (fitness_type == 'BER with penalty'):
+            if (self.save_runtimes):
+                start = timeit.default_timer
+                score = self._BER_scaled(generated, with_penalty=True)
+                self.runtimes['BER with penalty'] = timeit.default_timer() - start
+            else:
+                score = self._BER_scaled(generated, with_penalty=True)
         else:
             raise ValueError("invalid input argument for fitness function type")
         
@@ -222,7 +232,7 @@ class CaseEvaluatorBinary(Evaluator):
             if (self._bit_value_matches_threshold(bit, avg)):
                 # if bit is 1, and central datapoint is high
                 score += 1
-        return score / self._bit_width
+        return score / self.target_bit_sequence.shape[0]
     
     def _BER_with_mask(self, generated):
         """
@@ -239,9 +249,9 @@ class CaseEvaluatorBinary(Evaluator):
                 (self._num_points_in_mask(bit.index, generated) == 0)): # central value is correct
                 score += 1
 
-        return score / self._bit_width
+        return score / self.target_bit_sequence.shape[0]
 
-    def _BER_scaled(self, generated):
+    def _BER_scaled(self, generated, with_penalty=False):
         """
         Returns sum over all bits of <correctness score> / <total bits>,
         where <correctness score> for a bit is:
@@ -258,9 +268,13 @@ class CaseEvaluatorBinary(Evaluator):
         for bit in np.nditer(self.target_bit_sequence, order='C'):
             middle = generated[int((bit.index + 0.5) * self._bit_width)]
             if (self._bit_value_matches_threshold(bit, middle)): # central value is correct
-                score += 1 - (self._num_points_in_mask / self._bit_width)
+                score += 1 - (self._num_points_in_mask(bit.index, generated) / self._bit_width)
+            elif (with_penalty):
+                # with penalty penalises wrong result with fewer penalties inside the mask than on the
+                # wrong side of the mask
+                score -= 1 - (self._num_points_in_mask(bit.index, generated) / self._bit_width)
 
-        return score / self._bit_width
+        return score / self.target_bit_sequence.shape[0]
     
     def _max_eye(self, generated, return_for_testing=False):
         """
