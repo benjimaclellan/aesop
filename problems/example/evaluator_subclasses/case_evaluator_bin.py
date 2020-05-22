@@ -1,7 +1,5 @@
 import autograd.numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.path import Path
-import matplotlib.patches as patches
 import timeit
 
 from ..evaluator import Evaluator
@@ -377,27 +375,6 @@ class CaseEvaluatorBinary(Evaluator):
         return 0.5 * height * (1 + width * self._mask['centre_to_sides_ratio'])
 
 # ----------------------------- Test functions ------------------------------------
-
-def test_poly():
-    mask = CaseEvaluatorBinary.get_eye_diagram_mask(1)['path']
-    fig, ax = plt.subplots()
-    patch = patches.PathPatch(mask, facecolor='orange', alpha=0.3, lw=2)
-    ax.add_patch(patch)
-    x_coords = np.array([0, 0.2, 0.7, 0.5, 0.37, 0.8, 0.25])
-    y_coords = np.array([0, 0.3, 0.6, 0.5, 0.45, 0.3, 0.40])
-    points = np.stack((x_coords, y_coords), axis=-1)
-    print(points)
-    ax.scatter(x_coords, y_coords, color='r')
-    plt.show()
-    contains = mask.contains_points(points)
-    print(contains)
-    assert contains[0] == False
-    assert contains[1] == False
-    assert contains[2] == False
-    assert contains[3] == True
-    assert contains[4] == True
-    assert contains[5] == False
-    assert contains[6] == False
 
 if __name__ == "__main__":
     test_poly()
