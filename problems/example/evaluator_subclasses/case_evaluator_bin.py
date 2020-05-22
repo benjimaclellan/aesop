@@ -34,6 +34,7 @@ class CaseEvaluatorBinary(Evaluator):
     add score from <B> evaluation if <A> exceeded a certain threshold). Thus <B> can be used as the real differentiator
     """
 
+# ----------------------------- Public API ------------------------------------
     def __init__(self, propagator, bit_sequence, bit_width, eye_mask=None, thresh_high=0.6, thresh_low=0.4, save_runtimes=True):
         """
         Initialises object with an values needed for evaluation
@@ -127,12 +128,17 @@ class CaseEvaluatorBinary(Evaluator):
         elif (fitness_type == 'BER with mask'):
             if (self.save_runtimes):
                 start = timeit.default_timer
-                score = self._BER_pure(generated)
+                score = self._BER_with_mask(generated)
                 self.runtimes['BER with mask'] = timeit.default_timer() - start
             else:
-                score = self._BER_pure(generated)
+                score = self._BER_with_mask(generated)
         elif (fitness_type == 'BER scaled'):
-            pass
+            if (self.save_runtimes):
+                start = timeit.default_timer
+                score = self._BER_scaled(generated)
+                self.runtimes['BER scaled'] = timeit.default_timer() - start
+            else:
+                score = self._BER_scaled(generated)
         elif (fitness_type == 'max eye'):
             pass
         elif (fitness_type == 'solo eye'):
@@ -143,23 +149,30 @@ class CaseEvaluatorBinary(Evaluator):
         return score
 
     @staticmethod
-    def get_eye_diagram_mask(bit_time_interval, width=0.5, height=0.3, centre_ratio=0.4):
+    def get_eye_diagram_mask(bit_time_interval, width_ratio=0.5, height_ratio=0.3, centre_to_sides_ratio=0.4):
         """
-        Returns a path representing the eye_diagram mask. Mask is a hexagon with flat top and bottom
+        Returns a dictionary representing the eye_diagram mask. Mask is a hexagon with flat top and bottom
+        The dictionary contains (key, val) pairs:
+            1. ('path', path_object)
+            2. ('width_ratio', hexagon width / bit width)
+            3. ('height', hexagon height) (height normalised to 1)
+            4. ('centre_ratio', flat top length / total hexagon width)
 
         :param width : the total width of the eye diagram
         :param height : the total height of the eye diagram
         :param centre_ratio : the ratio of the centre potion (flat top width) to total width
         """
+        width = width_ratio * bit_time_interval
+
         centre_x = bit_time_interval / 2
         centre_y = 0.5  # since heights are normalised to 1
         vertices = [
             (centre_x - width / 2, centre_y), 
-            (centre_x - width * centre_ratio / 2, centre_y + height / 2),
-            (centre_x + width * centre_ratio / 2, centre_y + height / 2),
+            (centre_x - width * centre_to_sides_ratio / 2, centre_y + height_ratio / 2),
+            (centre_x + width * centre_to_sides_ratio / 2, centre_y + height_ratio / 2),
             (centre_x + width / 2, centre_y),
-            (centre_x + width * centre_ratio / 2, centre_y - height / 2),
-            (centre_x - width * centre_ratio / 2, centre_y - height / 2),
+            (centre_x + width * centre_to_sides_ratio / 2, centre_y - height_ratio / 2),
+            (centre_x - width * centre_to_sides_ratio / 2, centre_y - height_ratio / 2),
             (centre_x - width / 2, centre_y), # return to start
         ]
 
@@ -173,22 +186,13 @@ class CaseEvaluatorBinary(Evaluator):
             Path.CLOSEPOLY,
         ]
 
-        return Path(vertices, codes)
+        return {'path': Path(vertices, codes),
+                'width_ratio': width_ratio,
+                'height_ratio': height_ratio,
+                'centre_to_sides_ratio': centre_to_sides_ratio
+                }
 
-    
-    def _get_target_result(self, bit_sequence):
-        """
-        Initialises ndarray of target results
-
-        :param bit_sequence : targeted bit sequence
-        :param bit_wdidth : width of a single bit
-        """
-        target_result = np.zeros(bit_sequence.shape[0] * self._bit_width, dtype=int)
-        for bit in np.nditer(bit_sequence, order='C'):
-            if bit: # if the bit should be one, set the corresponding parts of the target signal to 1
-                target_result[bit.index * self._bit_width:(bit.index + 1) * self._bit_width] = 1
-
-        return target_result
+# ----------------------------- Fitness functions ------------------------------------
 
     def _l_norm_inverse(self, generated, norm):
         """
@@ -237,8 +241,93 @@ class CaseEvaluatorBinary(Evaluator):
 
         return score / self._bit_width
 
-    def _num_points_in_mask(self, bit_index, generated):
+    def _BER_scaled(self, generated):
+        """
+        Returns sum over all bits of <correctness score> / <total bits>,
+        where <correctness score> for a bit is:
+            0 if the central bit is incorrect (as per _BER_pure definition)
+            1 - <datapoints in mask> / <datapoints in bit> otherwise
+        
+        The more a given bit infringes on the mask, the less it contributes to the score
+
+        :param generated : output generated from the computational graph
+        """
+        # TODO: verify that using only the centreal bit works well.
+        # Taking the average of the centre 30% of bits or something is also an option
+        score = 0
+        for bit in np.nditer(self.target_bit_sequence, order='C'):
+            middle = generated[int((bit.index + 0.5) * self._bit_width)]
+            if (self._bit_value_matches_threshold(bit, middle)): # central value is correct
+                score += 1 - (self._num_points_in_mask / self._bit_width)
+
+        return score / self._bit_width
+    
+    def _max_eye(self, generated, return_for_testing=False):
+        """
+        Returns <area of the largest mask which fits inside the eye diagram> / <largest mask area for ideal eye diagram>
+
+        Note that the shape of the mask is fixed to self._mask's shape
+        :param generated : output generated from the computational graph
+
+        """
+        # get datapoints, shifted so that our mask is centred at (0, 0)
+        generated = generated - 0.5 # shift from [0, 1] to [-0.5, 0.5]
+        # normalise time to [-0.5, 0.5).
+        time_tile = np.linspace(-0.5, 0.5, self._bit_width)
+        time = np.tile(time_tile, (self.target_bit_sequence.shape[0])) 
+        
+        # all points with angles in [theta, pi - theta] or [- pi + theta, -theta] from the horizontal restrict the 
+        # mask height vertically (that is, h_max < y_max in the range)
+        theta = np.tan((self._mask['height_ratio']) / (self._mask['width_ratio'] * self._mask['centre_to_sides_ratio']))   
+        
+        #generate filter for all points which touch the top or bottom of the hexagon
+        filter = ((theta < np.tan(generated / time) < (np.pi - theta)) or
+                  (-np.pi + theta < np.tan(generated / time) < -theta))
+        
+        candidate_max_height = 2 * abs(generated[filter]).min()
+
+        # find max height allowed due to "side" points. Absolute values used to reduce math to first quadrant math, from symmetry
+        side_y = abs(generated[not filter])
+        side_x = abs(time[not filter])
+        h = self._mask['height_ratio']
+        w = self._mask['width_ratio']
+        m = - h / (w * (1 - self._mask['centre_to_sides_ratio'])) # hexagon side slope
+        candidate_max_height_2 = ((2 / m) * (h / w) * (side_y + m * side_x)).min()
+
+        hex_height = min(candidate_max_height, candidate_max_height_2)
+        hex_area = self._get_mask_area_from_height(hex_height)
+        if (return_for_testing):
+            mask = CaseEvaluatorBinary.get_eye_diagram_mask(self._bit_time,
+                                                            width_ratio=hex_height * w / h,
+                                                            height_ratio='h',
+                                                            centre_to_sides_ratio=self._mask['centre_to_sides_ratio'])
+            return hex_area, mask, np.stack((generated, time), axis=-1)
+        
+        return hex_area
+    
+
+# ----------------------------- Additional helpers ------------------------------------
+
+    def _get_target_result(self, bit_sequence):
+        """
+        Initialises ndarray of target results
+
+        :param bit_sequence : targeted bit sequence
+        :param bit_wdidth : width of a single bit
+        
+        :param generated : output generated from the computational graph
+        """
+        target_result = np.zeros(bit_sequence.shape[0] * self._bit_width, dtype=int)
+        for bit in np.nditer(bit_sequence, order='C'):
+            if bit: # if the bit should be one, set the corresponding parts of the target signal to 1
+                target_result[bit.index * self._bit_width:(bit.index + 1) * self._bit_width] = 1
+
+        return target_result
+
+    def _num_points_in_mask(self, bit_index, generated, mask=None):
         # grab relevant time slice, but shift all so that first value is 0
+        if (mask is None):
+            mask = self._mask['path']
         # TODO: remove all these prints which take relatively FOREVER
         print()
         print("confirming _num_points_in_mask algorithm")
@@ -251,7 +340,7 @@ class CaseEvaluatorBinary(Evaluator):
         datapoints = np.stack((time, new_generated), axis=-1)
         print(datapoints)
         print('\n\n')
-        return np.count_nonzero(self._mask.contains_points(datapoints))
+        return np.count_nonzero(mask.contains_points(datapoints))
 
     def _bit_value_matches_threshold(self, bit, val):
         """
@@ -262,10 +351,21 @@ class CaseEvaluatorBinary(Evaluator):
         :param val : the value
         """
         return (bit and (val > self.thresh_high)) or ((not bit) and (val < self.thresh_low))
+    
+    def _get_mask_area_from_height(self, height):
+        """
+        Returns area of the mask shaped like self._mask with height as given
 
+        :param height : the height of the mask
+        :return : area
+        """
+        width = height * self._mask['width_ratio'] / self._mask['height_ratio']
+        return 0.5 * height * (1 + width * self._mask['centre_to_sides_ratio'])
+
+# ----------------------------- Test functions ------------------------------------
 
 def test_poly():
-    mask = CaseEvaluatorBinary.get_eye_diagram_mask(1)
+    mask = CaseEvaluatorBinary.get_eye_diagram_mask(1)['path']
     fig, ax = plt.subplots()
     patch = patches.PathPatch(mask, facecolor='orange', alpha=0.3, lw=2)
     ax.add_patch(patch)
