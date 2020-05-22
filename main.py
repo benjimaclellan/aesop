@@ -31,10 +31,12 @@ from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 
 from lib.analysis.hessian import get_hessian, get_scaled_hessian
 
+from problems.example.evaluator_subclasses.case_evaluator_bin import test_poly
+
 if False:
     np.random.seed(0)
 
-if __name__ == "__main__":
+def principle_main():
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
 
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
@@ -105,3 +107,9 @@ if __name__ == "__main__":
     ax.set_xticklabels(info['parameter_names'], rotation=45, ha='center')
     ax.set_yticklabels(info['parameter_names'], rotation=45, ha='right')
     plt.show()
+
+def test_case_evaluator():
+    test_poly()
+
+if __name__ == "__main__":
+    test_case_evaluator()
