@@ -1,6 +1,9 @@
 import autograd.numpy as np
 from matplotlib.path import Path
 import timeit
+import numpy.polynomial.polynomial as poly
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 
 from ..evaluator import Evaluator
 from ..assets.functions import power_
@@ -33,7 +36,8 @@ class CaseEvaluatorBinary(Evaluator):
     """
 
 # ----------------------------- Public API ------------------------------------
-    def __init__(self, propagator, bit_sequence, bit_width, eye_mask=None, thresh_high=0.6, thresh_low=0.4, save_runtimes=True):
+    def __init__(self, propagator, bit_sequence, bit_width, eye_mask=None, thresh_high=0.6, thresh_low=0.4, save_runtimes=True,
+                       graphical_testing=False):
         """
         Initialises object with an values needed for evaluation
 
@@ -49,7 +53,7 @@ class CaseEvaluatorBinary(Evaluator):
         :raises ValueError : if the number of bits given * the bit_width do not match the propagator length
         """
         # check if bit_sequence * bit_width = propagator length
-        if (bit_sequence.shape[0] * bit_width != propagator.shape[0]):
+        if (bit_sequence.shape[0] * bit_width != propagator.t.shape[0]):
             raise ValueError("the expected result array length does not match propagator")
 
         self.propagator = propagator
@@ -76,8 +80,9 @@ class CaseEvaluatorBinary(Evaluator):
                              'max eye': None,
                              'BER with penalty': None
                             }
+        self._graphical_testing = graphical_testing
 
-    def evaluate_graph(self, graph, fitness_type, eval_node=None):
+    def evaluate_graph(self, graph, fitness_type, eval_node=None, mocking_graph=False):
         """
         Returns fitness according to one of the following schemes:
             1. l1-norm
@@ -93,60 +98,65 @@ class CaseEvaluatorBinary(Evaluator):
         
         :param graph : the graph to evaluate
         :param fitness_type : 'l1', 'l2', 'BER pure', 'BER with mask', 'BER scaled', 'max eye', 'BER with penalty'
+        :param mocking_graph : if False, evaluate graph and take the power as output (as expected)
+                               if True, the graph object itself is a (forged) output we're comparing to
         :raises ValueError if fitness_type is not one of the strings above
         """
-        if (eval_node is None):
-            eval_node = len(graph.nodes) - 1
-
-        graph.propagate(self.propagator)
-        generated = power_(graph.nodes[eval_node]['states'][0])
+        if (mocking_graph):
+            generated = graph
+        else:
+            if (eval_node is None):
+                eval_node = len(graph.nodes) - 1
+            graph.propagate(self.propagator)
+            generated = power_(graph.nodes[eval_node]['states'][0])
+        
         generated = generated / np.max(generated)  # normalise, because that is extremely necessary
         
         if (fitness_type == 'l1'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._l_norm_inverse(generated, 1)
                 self.runtimes['l1'] = timeit.default_timer() - start
             else:
                 score = self._l_norm_inverse(generated, 1)
         elif (fitness_type == 'l2'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._l_norm_inverse(generated, 2)
                 self.runtimes['l2'] = timeit.default_timer() - start
             else:
                 score = self._l_norm_inverse(generated, 2)
         elif (fitness_type == 'BER pure'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._BER_pure(generated)
                 self.runtimes['BER pure'] = timeit.default_timer() - start
             else:
                 score = self._BER_pure(generated)
         elif (fitness_type == 'BER with mask'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._BER_with_mask(generated)
                 self.runtimes['BER with mask'] = timeit.default_timer() - start
             else:
                 score = self._BER_with_mask(generated)
         elif (fitness_type == 'BER scaled'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._BER_scaled(generated)
                 self.runtimes['BER scaled'] = timeit.default_timer() - start
             else:
                 score = self._BER_scaled(generated)
         elif (fitness_type == 'max eye'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._max_eye(generated)
                 self.runtimes['max eye'] = timeit.default_timer() - start
             else:
                 score = self._max_eye(generated)
         elif (fitness_type == 'BER with penalty'):
             if (self.save_runtimes):
-                start = timeit.default_timer
+                start = timeit.default_timer()
                 score = self._BER_scaled(generated, with_penalty=True)
                 self.runtimes['BER with penalty'] = timeit.default_timer() - start
             else:
@@ -214,6 +224,10 @@ class CaseEvaluatorBinary(Evaluator):
         :param norm : integer norm value
         """
         norm_val = np.sum(np.abs(self.target - generated)**norm)**(float(1)/norm)
+        if (norm_val < 0.00001): # avoid division by 0
+            norm_val = 0.00001
+        print("norm val: {}".format(norm_val))
+        print("n samples: {}".format(self.propagator.n_samples))
         return (float(1) / norm_val) / self.propagator.n_samples
     
     def _BER_pure(self, generated):
@@ -225,11 +239,13 @@ class CaseEvaluatorBinary(Evaluator):
         :param generated : output generated from the computational graph
         """
         score = 0
+        index = 0
         for bit in np.nditer(self.target_bit_sequence, order='C'):
-            avg = np.sum(generated[bit.index * self._bit_width:(bit.index + 1) * self._bit_width]) / self._bit_width
+            avg = np.sum(generated[index * self._bit_width:(index + 1) * self._bit_width]) / self._bit_width
             if (self._bit_value_matches_threshold(bit, avg)):
                 # if bit is 1, and central datapoint is high
                 score += 1
+            index += 1
         return score / self.target_bit_sequence.shape[0]
     
     def _BER_with_mask(self, generated):
@@ -241,11 +257,13 @@ class CaseEvaluatorBinary(Evaluator):
         :param generated : output generated from the computational graph
         """
         score = 0
+        index = 0
         for bit in np.nditer(self.target_bit_sequence, order='C'):
-            middle = generated[int((bit.index + 0.5) * self._bit_width)]
+            middle = generated[int((index + 0.5) * self._bit_width)]
             if (self._bit_value_matches_threshold(bit, middle) and
-                (self._num_points_in_mask(bit.index, generated) == 0)): # central value is correct
+                (self._num_violations(bit, index, generated) == 0)): # central value is correct
                 score += 1
+            index += 1
 
         return score / self.target_bit_sequence.shape[0]
 
@@ -254,27 +272,32 @@ class CaseEvaluatorBinary(Evaluator):
         Returns sum over all bits of <correctness score> / <total bits>,
         where <correctness score> for a bit is:
             0 if the central bit is incorrect (as per _BER_pure definition)
-            1 - <datapoints in mask> / <datapoints in bit> otherwise
+            1 - <datapoints inside mask> / <datapoints in bit> otherwise
         
         The more a given bit infringes on the mask, the less it contributes to the score
 
         :param generated : output generated from the computational graph
         """
-        # TODO: verify that using only the centreal bit works well.
+        # TODO: verify that using only the central bit works well.
+        # TODO: consider whether we want the wrong bits to include those on the wrong side
+        # (I think not though...? With more points I hope it'll work itself out)
         # Taking the average of the centre 30% of bits or something is also an option
         score = 0
+        index = 0
         for bit in np.nditer(self.target_bit_sequence, order='C'):
-            middle = generated[int((bit.index + 0.5) * self._bit_width)]
+            middle = generated[int((index + 0.5) * self._bit_width)]
             if (self._bit_value_matches_threshold(bit, middle)): # central value is correct
-                score += 1 - (self._num_points_in_mask(bit.index, generated) / self._bit_width)
+                score += 1 - (self._num_violations(bit, index, generated) / self._bit_width)
             elif (with_penalty):
                 # with penalty penalises wrong result with fewer penalties inside the mask than on the
                 # wrong side of the mask
-                score -= 1 - (self._num_points_in_mask(bit.index, generated) / self._bit_width)
+                score -= self._num_violations(bit, index, generated) / self._bit_width
+            print(score)
+            index += 1
 
         return score / self.target_bit_sequence.shape[0]
     
-    def _max_eye(self, generated, return_for_testing=False):
+    def _max_eye(self, generated):
         """
         Returns <area of the largest mask which fits inside the eye diagram> / <largest mask area for ideal eye diagram>
 
@@ -308,7 +331,7 @@ class CaseEvaluatorBinary(Evaluator):
 
         hex_height = min(candidate_max_height, candidate_max_height_2)
         hex_area = self._get_mask_area_from_height(hex_height)
-        if (return_for_testing):
+        if (self._graphical_testing):
             mask = CaseEvaluatorBinary.get_eye_diagram_mask(self._bit_time,
                                                             width_ratio=hex_height * w / h,
                                                             height_ratio='h',
@@ -330,29 +353,39 @@ class CaseEvaluatorBinary(Evaluator):
         :param generated : output generated from the computational graph
         """
         target_result = np.zeros(bit_sequence.shape[0] * self._bit_width, dtype=int)
+        index = 0
         for bit in np.nditer(bit_sequence, order='C'):
+            print('bit is: {}'.format(bit))
             if bit: # if the bit should be one, set the corresponding parts of the target signal to 1
-                target_result[bit.index * self._bit_width:(bit.index + 1) * self._bit_width] = 1
-
+                target_result[index * self._bit_width:(index + 1) * self._bit_width] = 1
+            index += 1
+    
         return target_result
 
-    def _num_points_in_mask(self, bit_index, generated, mask=None):
+    def _num_violations(self, bit, bit_index, generated, mask=None):
         # grab relevant time slice, but shift all so that first value is 0
         if (mask is None):
             mask = self._mask['path']
-        # TODO: remove all these prints which take relatively FOREVER
-        print()
-        print("confirming _num_points_in_mask algorithm")
-        print("I think this should be correct:")
-        time = self.propagator.t[bit_index * self._bit_width: (bit_index + 1) * self._bit_width] - \
-               self.propagator.t[bit_index * self._bit_width]
-        print(time)
-        print('\n\n')
+        time = (self.propagator.t[bit_index * self._bit_width: (bit_index + 1) * self._bit_width] - \
+               self.propagator.t[bit_index * self._bit_width]).flatten()
         new_generated = generated[bit_index * self._bit_width: (bit_index + 1) * self._bit_width]
+        
         datapoints = np.stack((time, new_generated), axis=-1)
-        print(datapoints)
-        print('\n\n')
-        return np.count_nonzero(mask.contains_points(datapoints))
+
+        inside_mask_filter = mask.contains_points(datapoints)
+        num_in_mask = np.count_nonzero(inside_mask_filter)
+
+        wrong_side_filter = new_generated < 0.5 if bit else new_generated > 0.5
+        mask_time_filter = np.bitwise_or(self._bit_time * (0.5 - self._mask['width_ratio']/2) < time, time < self._bit_time * (0.5 + self._mask['width_ratio']/2))
+
+        incorrect_filter  = np.bitwise_and(np.invert(inside_mask_filter), np.bitwise_and(wrong_side_filter, mask_time_filter))
+                            
+        num_in_mask += np.count_nonzero(incorrect_filter)
+
+        if (self._graphical_testing):
+            self._plot_mask_points(num_in_mask, time, new_generated)
+
+        return num_in_mask
 
     def _bit_value_matches_threshold(self, bit, val):
         """
@@ -373,8 +406,16 @@ class CaseEvaluatorBinary(Evaluator):
         """
         width = height * self._mask['width_ratio'] / self._mask['height_ratio']
         return 0.5 * height * (1 + width * self._mask['centre_to_sides_ratio'])
+    
+    def _plot_mask_points(self, num_in_mask, time, power):
+        mask = self._mask['path']
+        fig, ax = plt.subplots()
+        patch = patches.PathPatch(mask, facecolor='orange', alpha=0.3, lw=2)
+        ax.add_patch(patch)
+        ax.scatter(time, power, color='r')
+        plt.title("Number of invalid datapoints (in mask or wrong side): {}".format(num_in_mask))
+        plt.show()
 
 # ----------------------------- Test functions ------------------------------------
 
-if __name__ == "__main__":
-    test_poly()
+# transferred to test_case_evaluator_bin.py
