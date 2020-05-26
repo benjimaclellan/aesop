@@ -17,7 +17,7 @@ from problems.example.assets.propagator import Propagator
 #          1 polyomial approximation with another pseudo-random sequence (should be about 50% wrong)
 #          1 fourier approximation with noise thrown in (maybe a few bit flips) ?
 
-TESTING_WITH_PLOT = True
+TESTING_WITH_PLOT = False
 
 @pytest.fixture(scope='module')
 def rand_bit_seq():
@@ -80,17 +80,21 @@ def graph_mockup_bitflip():
                      0.35, 0.1, 0.6,
                      0.8, 0.9, 1])
 
+@pytest.fixture(scope='module')
+def propagator():
+    return Propagator(n_samples=24, window_t=24, central_wl=1)
+
 
 @pytest.fixture(scope='module')
-def time_arr():
-    return np.arange(0, 24, 1)
+def time_arr(propagator):
+    return propagator.t.flatten()
 
 
 @pytest.fixture(scope='module')
-def basic_evaluator(rand_bit_seq):
+def basic_evaluator(rand_bit_seq, propagator):
     #TODO: add default value to central_wl so that the code doesn't fail when it's not specified
-    propagator = Propagator(n_samples=24, window_t=25, central_wl=1)
     return CaseEvaluatorBinary(propagator, rand_bit_seq, 3, graphical_testing=TESTING_WITH_PLOT)
+
 
 def test_mask_creation():
     """
@@ -169,11 +173,11 @@ def test_BER_pure_bitflip(graph_mockup_bitflip, basic_evaluator):
 
 
 def test_BER_mask_approx(graph_mockup_approx, basic_evaluator):
-    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_approx, 'BER with mask', mocking_graph=True), 7 / 8)
+    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_approx, 'BER with mask', mocking_graph=True), 5 / 8)
     
 
 def test_BER_mask_bitflip(graph_mockup_bitflip, basic_evaluator):
-    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_bitflip, 'BER with mask', mocking_graph=True), 6 / 8)
+    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_bitflip, 'BER with mask', mocking_graph=True), 4 / 8)
 
 
 def test_BER_scaled_approx(graph_mockup_approx, basic_evaluator):
@@ -192,5 +196,13 @@ def test_BER_scaled_with_penalty_bitflip(graph_mockup_bitflip, basic_evaluator):
      assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_bitflip, 'BER with penalty', mocking_graph=True), 5 / 8)
 
 
-def test_max_eye():
-    pass
+def test_max_eye_approx(graph_mockup_approx, basic_evaluator):
+    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_approx, 'max eye', mocking_graph=True), 19 / 75)
+
+
+def test_max_eye_exact(graph_mockup_exact_square, basic_evaluator):
+    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_exact_square, 'max eye', mocking_graph=True), 5 / 6)
+
+
+def test_max_eye_poly(graph_mockup_exact_poly, basic_evaluator):
+    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_exact_poly, 'max eye', mocking_graph=True), 0.2527846806323944)

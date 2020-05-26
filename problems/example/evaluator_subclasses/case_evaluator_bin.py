@@ -4,6 +4,7 @@ import timeit
 import numpy.polynomial.polynomial as poly
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import matplotlib.transforms as transforms
 
 from ..evaluator import Evaluator
 from ..assets.functions import power_
@@ -167,7 +168,7 @@ class CaseEvaluatorBinary(Evaluator):
         return score
 
     @staticmethod
-    def get_eye_diagram_mask(bit_time_interval, width_ratio=0.5, height_ratio=0.3, centre_to_sides_ratio=0.4):
+    def get_eye_diagram_mask(bit_time_interval, width_ratio=0.5, height_ratio=0.3, centre_to_sides_ratio=0.4, centered=False):
         """
         Returns a dictionary representing the eye_diagram mask. Mask is a hexagon with flat top and bottom
         The dictionary contains (key, val) pairs:
@@ -181,9 +182,12 @@ class CaseEvaluatorBinary(Evaluator):
         :param centre_ratio : the ratio of the centre potion (flat top width) to total width
         """
         width = width_ratio * bit_time_interval
-
-        centre_x = bit_time_interval / 2
-        centre_y = 0.5  # since heights are normalised to 1
+        if (centered):
+            centre_x = 0
+            centre_y = 0
+        else:
+            centre_x = bit_time_interval / 2 # note that this gives a bit of an offset for low bit_widths but won't be a problem in practice
+            centre_y = 0.5  # since heights are normalised to 1
         vertices = [
             (centre_x - width / 2, centre_y), 
             (centre_x - width * centre_to_sides_ratio / 2, centre_y + height_ratio / 2),
@@ -292,7 +296,6 @@ class CaseEvaluatorBinary(Evaluator):
                 # with penalty penalises wrong result with fewer penalties inside the mask than on the
                 # wrong side of the mask
                 score -= self._num_violations(bit, index, generated) / self._bit_width
-            print(score)
             index += 1
 
         return score / self.target_bit_sequence.shape[0]
@@ -313,31 +316,39 @@ class CaseEvaluatorBinary(Evaluator):
         
         # all points with angles in [theta, pi - theta] or [- pi + theta, -theta] from the horizontal restrict the 
         # mask height vertically (that is, h_max < y_max in the range)
-        theta = np.tan((self._mask['height_ratio']) / (self._mask['width_ratio'] * self._mask['centre_to_sides_ratio']))   
+        theta = np.arctan2((self._mask['height_ratio']), (self._mask['width_ratio'] * self._mask['centre_to_sides_ratio']))   
         
         #generate filter for all points which touch the top or bottom of the hexagon
-        filter = ((theta < np.tan(generated / time) < (np.pi - theta)) or
-                  (-np.pi + theta < np.tan(generated / time) < -theta))
-        
-        candidate_max_height = 2 * abs(generated[filter]).min()
+        datapoint_angles = np.arctan2(generated, time)
+        filter = np.bitwise_or(np.bitwise_and(theta < datapoint_angles, datapoint_angles < (np.pi - theta)),
+                               np.bitwise_and(-np.pi + theta < datapoint_angles, datapoint_angles < -theta))        
+        try:
+            candidate_max_height = 2 * abs(generated[filter]).min()
+        except ValueError: # occurs if no points are in the array, and thus there is no min
+            candidate_max_height = 1 # if there are no points in this region, no height bound
 
         # find max height allowed due to "side" points. Absolute values used to reduce math to first quadrant math, from symmetry
-        side_y = abs(generated[not filter])
-        side_x = abs(time[not filter])
+        inverse_filter = np.invert(filter)
+        side_y = abs(generated[inverse_filter])
+        side_x = abs(time[inverse_filter])
         h = self._mask['height_ratio']
         w = self._mask['width_ratio']
         m = - h / (w * (1 - self._mask['centre_to_sides_ratio'])) # hexagon side slope
-        candidate_max_height_2 = ((2 / m) * (h / w) * (side_y + m * side_x)).min()
+        try:
+            candidate_max_height_2 = (2 * h / w * (side_x - side_y / m)).min()
+        except ValueError:
+            candidate_max_height = 1 
 
         hex_height = min(candidate_max_height, candidate_max_height_2)
         hex_area = self._get_mask_area_from_height(hex_height)
         if (self._graphical_testing):
-            mask = CaseEvaluatorBinary.get_eye_diagram_mask(self._bit_time,
+            mask = CaseEvaluatorBinary.get_eye_diagram_mask(1,
                                                             width_ratio=hex_height * w / h,
-                                                            height_ratio='h',
-                                                            centre_to_sides_ratio=self._mask['centre_to_sides_ratio'])
-            return hex_area, mask, np.stack((generated, time), axis=-1)
-        
+                                                            height_ratio=hex_height,
+                                                            centre_to_sides_ratio=self._mask['centre_to_sides_ratio'],
+                                                            centered=True)
+            self._plot_eye_diagram(hex_area, filter, mask['path'], time, generated)
+
         return hex_area
     
 
@@ -355,7 +366,6 @@ class CaseEvaluatorBinary(Evaluator):
         target_result = np.zeros(bit_sequence.shape[0] * self._bit_width, dtype=int)
         index = 0
         for bit in np.nditer(bit_sequence, order='C'):
-            print('bit is: {}'.format(bit))
             if bit: # if the bit should be one, set the corresponding parts of the target signal to 1
                 target_result[index * self._bit_width:(index + 1) * self._bit_width] = 1
             index += 1
@@ -408,12 +418,21 @@ class CaseEvaluatorBinary(Evaluator):
         return 0.5 * height * (1 + width * self._mask['centre_to_sides_ratio'])
     
     def _plot_mask_points(self, num_in_mask, time, power):
-        mask = self._mask['path']
+        mask = self._mask['path'] # .translate(-self._bit_width / 2, 0)
         fig, ax = plt.subplots()
         patch = patches.PathPatch(mask, facecolor='orange', alpha=0.3, lw=2)
         ax.add_patch(patch)
         ax.scatter(time, power, color='r')
         plt.title("Number of invalid datapoints (in mask or wrong side): {}".format(num_in_mask))
+        plt.show()
+
+    def _plot_eye_diagram(self, hexagon_area, filter, mask, x, y):
+        fig, ax = plt.subplots()
+        patch = patches.PathPatch(mask, facecolor='orange', alpha=0.3, lw=2)
+        ax.add_patch(patch)
+        ax.scatter(x[filter], y[filter], color='r')
+        ax.scatter(x[np.invert(filter)], y[np.invert(filter)], color='b')
+        plt.title("Max hexagon of area {}".format(hexagon_area))
         plt.show()
 
 # ----------------------------- Test functions ------------------------------------
