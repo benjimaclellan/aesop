@@ -5,7 +5,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import math
 
-from problems.example.evaluator_subclasses.case_evaluator_bin import CaseEvaluatorBinary
+from problems.example.evaluator_subclasses.case_evaluator import CaseEvaluator
 from problems.example.assets.propagator import Propagator
 
 # TODO:
@@ -93,7 +93,7 @@ def time_arr(propagator):
 @pytest.fixture(scope='module')
 def basic_evaluator(rand_bit_seq, propagator):
     #TODO: add default value to central_wl so that the code doesn't fail when it's not specified
-    return CaseEvaluatorBinary(propagator, rand_bit_seq, 3, graphical_testing=TESTING_WITH_PLOT)
+    return CaseEvaluator(propagator, rand_bit_seq, 3, graphical_testing=TESTING_WITH_PLOT)
 
 
 def test_mask_creation():
@@ -101,7 +101,7 @@ def test_mask_creation():
     Tests mask creation, and confirms that mask['path].contains_points
     will correctly identify points inside the mask
     """
-    mask_full = CaseEvaluatorBinary.get_eye_diagram_mask(1)
+    mask_full = CaseEvaluator.get_eye_diagram_mask(1)
     mask = mask_full['path']
     fig, ax = plt.subplots()
     patch = patches.PathPatch(mask, facecolor='orange', alpha=0.3, lw=2)
@@ -156,20 +156,24 @@ def test_2_norm_approx(basic_evaluator, graph_mockup_approx):
     assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_approx, 'l2', mocking_graph=True), (1 / math.sqrt(1.9844)) / 24)
 
 
-def test_BER_pure_exact_square(graph_mockup_exact_square, basic_evaluator):
-    assert basic_evaluator.evaluate_graph(graph_mockup_exact_square, 'BER pure', mocking_graph=True) == 1
+@pytest.mark.parametrize('implementation_str', ['BER pure', 'BER pure alternate'])
+def test_BER_pure_exact_square(implementation_str, graph_mockup_exact_square, basic_evaluator):
+    assert basic_evaluator.evaluate_graph(graph_mockup_exact_square, implementation_str, mocking_graph=True) == 1
     
 
-def test_BER_pure_reverse_square(graph_mockup_reverse_square, basic_evaluator):
-    assert basic_evaluator.evaluate_graph(graph_mockup_reverse_square, 'BER pure', mocking_graph=True) == 0
+@pytest.mark.parametrize('implementation_str', ['BER pure', 'BER pure alternate'])
+def test_BER_pure_reverse_square(implementation_str, graph_mockup_reverse_square, basic_evaluator):
+    assert basic_evaluator.evaluate_graph(graph_mockup_reverse_square, implementation_str, mocking_graph=True) == 0
 
 
-def test_BER_pure_approx(graph_mockup_approx, basic_evaluator):
-    assert basic_evaluator.evaluate_graph(graph_mockup_approx, 'BER pure', mocking_graph=True) == 1
+@pytest.mark.parametrize('implementation_str', ['BER pure', 'BER pure alternate'])
+def test_BER_pure_approx(implementation_str, graph_mockup_approx, basic_evaluator):
+    assert basic_evaluator.evaluate_graph(graph_mockup_approx, implementation_str, mocking_graph=True) == 1
 
 
-def test_BER_pure_bitflip(graph_mockup_bitflip, basic_evaluator):
-    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_bitflip, 'BER pure', mocking_graph=True), 7 / 8)
+@pytest.mark.parametrize('implementation_str', ['BER pure', 'BER pure alternate'])
+def test_BER_pure_bitflip(implementation_str, graph_mockup_bitflip, basic_evaluator):
+    assert math.isclose(basic_evaluator.evaluate_graph(graph_mockup_bitflip, implementation_str, mocking_graph=True), 7 / 8)
 
 
 def test_BER_mask_approx(graph_mockup_approx, basic_evaluator):

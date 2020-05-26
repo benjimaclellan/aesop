@@ -16,7 +16,7 @@ Resources used:
     https://matplotlib.org/3.2.1/tutorials/advanced/path_tutorial.html
 """
 
-class CaseEvaluatorBinary(Evaluator):
+class CaseEvaluator(Evaluator):
     """
     The goal of this class is to evaluate given solutions (computational graphs) and
     to attribute them a fitness score. This evaluator's goal is to apply any of the following evaluation methods:
@@ -67,7 +67,7 @@ class CaseEvaluatorBinary(Evaluator):
         self.thresh_low = thresh_low
         
         if (eye_mask is None):
-            self._mask = CaseEvaluatorBinary.get_eye_diagram_mask(self._bit_time)
+            self._mask = CaseEvaluator.get_eye_diagram_mask(self._bit_time)
         else:
             self._mask = eye_mask
         
@@ -76,6 +76,7 @@ class CaseEvaluatorBinary(Evaluator):
             self.runtimes = {'l1': None,
                              'l2': None,
                              'BER pure': None,
+                             'BER pure alternate': None,
                              'BER with mask': None,
                              'BER scaled': None,
                              'max eye': None,
@@ -134,6 +135,13 @@ class CaseEvaluatorBinary(Evaluator):
                 self.runtimes['BER pure'] = timeit.default_timer() - start
             else:
                 score = self._BER_pure(generated)
+        elif (fitness_type == 'BER pure alternate'):
+            if (self.save_runtimes):
+                start = timeit.default_timer()
+                score = self._BER_pure_alternate_implementation(generated)
+                self.runtimes['BER pure alternate'] = timeit.default_timer() - start
+            else:
+                score = self._BER_pure_alternate_implementation(generated)
         elif (fitness_type == 'BER with mask'):
             if (self.save_runtimes):
                 start = timeit.default_timer()
@@ -230,8 +238,6 @@ class CaseEvaluatorBinary(Evaluator):
         norm_val = np.sum(np.abs(self.target - generated)**norm)**(float(1)/norm)
         if (norm_val < 0.00001): # avoid division by 0
             norm_val = 0.00001
-        print("norm val: {}".format(norm_val))
-        print("n samples: {}".format(self.propagator.n_samples))
         return (float(1) / norm_val) / self.propagator.n_samples
     
     def _BER_pure(self, generated):
@@ -251,6 +257,20 @@ class CaseEvaluatorBinary(Evaluator):
                 score += 1
             index += 1
         return score / self.target_bit_sequence.shape[0]
+    
+    def _BER_pure_alternate_implementation(self, generated):
+        """
+        Returns <correct bits> / <total bits>, where a bit is defined as correct if:
+            1. The bit is 1, and <average value across the bit> > thresh_high or
+            2. The bit is 0, and <average value across the bit> < thresh_low
+
+        :param generated : output generated from the computational graph
+        """
+        # inspired by: https://stackoverflow.com/questions/4624112/grouping-2d-numpy-array-in-average
+        bit_representation = np.mean(generated.reshape((generated.shape[0] // self._bit_width, self._bit_width)), axis=1)
+        passes = np.bitwise_or(np.bitwise_and(self.target_bit_sequence, bit_representation > self.thresh_high),
+                               np.bitwise_and(np.invert(self.target_bit_sequence), bit_representation < self.thresh_low))
+        return np.count_nonzero(passes) / self.target_bit_sequence.shape[0]
     
     def _BER_with_mask(self, generated):
         """
@@ -342,7 +362,7 @@ class CaseEvaluatorBinary(Evaluator):
         hex_height = min(candidate_max_height, candidate_max_height_2)
         hex_area = self._get_mask_area_from_height(hex_height)
         if (self._graphical_testing):
-            mask = CaseEvaluatorBinary.get_eye_diagram_mask(1,
+            mask = CaseEvaluator.get_eye_diagram_mask(1,
                                                             width_ratio=hex_height * w / h,
                                                             height_ratio=hex_height,
                                                             centre_to_sides_ratio=self._mask['centre_to_sides_ratio'],
