@@ -1,10 +1,10 @@
 import autograd.numpy as np
 from matplotlib.path import Path
 import timeit
-import numpy.polynomial.polynomial as poly
+# import numpy.polynomial.polynomial as poly
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-import matplotlib.transforms as transforms
+# import matplotlib.transforms as transforms
 
 from ..evaluator import Evaluator
 from ..assets.functions import power_
@@ -14,6 +14,10 @@ Author: Julie Belleville
 Start date: May 21, 2020
 Resources used: 
     https://matplotlib.org/3.2.1/tutorials/advanced/path_tutorial.html
+
+TODO: refactor to allow autograd to do its magic
+TODO: add a scaling kernel to weigh the l-norms
+
 """
 
 class CaseEvaluator(Evaluator):
@@ -37,19 +41,23 @@ class CaseEvaluator(Evaluator):
     """
 
 # ----------------------------- Public API ------------------------------------
-    def __init__(self, propagator, bit_sequence, bit_width, eye_mask=None, thresh_high=0.6, thresh_low=0.4, save_runtimes=True,
-                       graphical_testing=False):
+    def __init__(self, propagator, bit_sequence, bit_width, eye_mask=None, thresh_high=0.6, thresh_low=0.4,
+                save_runtimes=True, findpoints_runtimes=False, graphical_testing=False):
         """
         Initialises object with an values needed for evaluation
 
-        :param propagator :     propagator object with which evaluation is conducted (propagator)
-        :param bit_sequence :   sequence of bits of our target waveform (flattened ndarray with dtype=no.bool)
-        :param bit_width :      width of a single sample (in number of propagator) (int)
-        :param eye_mask :       shape of the mask with which eye-evaluation and BER will be determined (matplotlib.patches.Polygon)
-                                If None, default eye_mask is used
-                                Note that only the mask shape matters. Size will be scaled in evaluation
-        :param thresh_high :    min threshold for a high signal (signal normalised to 1)
-        :param thresh_low :     max threshold for a low signal
+        :param propagator :         propagator object with which evaluation is conducted (propagator)
+        :param bit_sequence :       sequence of bits of our target waveform (flattened ndarray with dtype=no.bool)
+        :param bit_width :          width of a single sample (in number of propagator) (int)
+        :param eye_mask :           shape of the mask with which eye-evaluation and BER will be determined (matplotlib.patches.Polygon)
+                                    If None, default eye_mask is used
+                                    Note that only the mask shape matters. Size will be scaled in evaluation
+        :param thresh_high :        min threshold for a high signal (signal normalised to 1)
+        :param thresh_low :         max threshold for a low signal
+        :param save_runtimes :      if True, runtimes are saved in self.runtimes (dict with key = function name, val = runtime in s)
+        :param findpoints_runtime:  ignored if save_runtimes is false.
+                                    If true, saves the time that path.contains_points(datapoints) takes to run
+
 
         :raises ValueError : if the number of bits given * the bit_width do not match the propagator length
         """
@@ -71,8 +79,9 @@ class CaseEvaluator(Evaluator):
         else:
             self._mask = eye_mask
         
+        self.save_runtimes = save_runtimes
+        self.find_points_runtime = findpoints_runtimes
         if (save_runtimes):
-            self.save_runtimes = True
             self.runtimes = {'l1': None,
                              'l2': None,
                              'BER pure': None,
@@ -82,7 +91,9 @@ class CaseEvaluator(Evaluator):
                              'max eye': None,
                              'BER with penalty': None
                             }
-        self._graphical_testing = graphical_testing
+            if (findpoints_runtimes):
+                self.runtime_breakdown = None # just for testing, so we'll only do it for BER with mask
+            self._graphical_testing = graphical_testing
 
     def evaluate_graph(self, graph, fitness_type, eval_node=None, mocking_graph=False):
         """
@@ -282,6 +293,7 @@ class CaseEvaluator(Evaluator):
         """
         score = 0
         index = 0
+        self.runtime_breakdown = 0
         for bit in np.nditer(self.target_bit_sequence, order='C'):
             middle = generated[int((index + 0.5) * self._bit_width)]
             if (self._bit_value_matches_threshold(bit, middle) and
@@ -402,8 +414,13 @@ class CaseEvaluator(Evaluator):
         
         datapoints = np.stack((time, new_generated), axis=-1)
 
+        if (self.find_points_runtime):
+            start = timeit.default_timer()
         inside_mask_filter = mask.contains_points(datapoints)
         num_in_mask = np.count_nonzero(inside_mask_filter)
+
+        if (self.find_points_runtime):
+            self.runtime_breakdown += timeit.default_timer() - start
 
         wrong_side_filter = new_generated < 0.5 if bit else new_generated > 0.5
         mask_time_filter = np.bitwise_or(self._bit_time * (0.5 - self._mask['width_ratio']/2) < time, time < self._bit_time * (0.5 + self._mask['width_ratio']/2))
