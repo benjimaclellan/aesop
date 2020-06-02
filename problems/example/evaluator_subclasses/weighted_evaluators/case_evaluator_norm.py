@@ -92,7 +92,7 @@ class NormCaseEvaluator(WeightedEvaluator):
         
         normalized = power / np.max(power)
         shifted = self._align_phase(normalized)
-        norm_val = np.sum(np.abs(self._target - shifted)**self.norm)**(float(1)/self.norm)
+        weighted_diff = np.abs(self._target - shifted) * self.weighting_funct
+        norm_val = np.sum(weighted_diff**self.norm)**(float(1)/self.norm)
 
-        return norm_val * self.weighting_funct # no need to divide by prop samples since
-                                               # weighting funct already scaled
+        return norm_val / self.waypoints_num
