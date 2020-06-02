@@ -66,9 +66,8 @@ class MaxEyeEvaluator(Evaluator):
         :param semi_minor : semi-minor axis length
         """
         return {
-                'relative_width': width_ratio,
-                'relative_height': height_ratio,
-                'centre_to_sides_ratio': centre_to_sides_ratio
+                'semi_major': semi_major,
+                'semi_minor': semi_minor,
                 }
 
     def evaluate_graph(self, graph, eval_node=None):
@@ -123,7 +122,12 @@ class MaxEyeEvaluator(Evaluator):
     
     def _plot_eye_diagram(self, x, y, scaling):
         """
-        TODO: docstring
+        Plots the scatterplot x, y of output results (shifted around to (0, 0) on each bit)
+        with the maximum sized mask which fits
+
+        :param x : time data
+        :param y : power data
+        :param scaling : the scaling factor by which to change our mask for it to be at max size
         """
         fig, ax = plt.subplots()
         patch = patches.Ellipse((0, 0), 2 * self.mask['semi_major'] * np.sqrt(scaling),
