@@ -78,10 +78,9 @@ class MaxEyeEvaluator(Evaluator):
         :param graph : the graph to evaluate
         :param eval_node : node to evaluate (if None, defaults to the final node)
         """
-        if (eval_node is None):
-            eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
-
         if (not self.mock_graph_for_testing):
+            if (eval_node is None):
+                eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
             state = graph.nodes[eval_node]['states'][0]
         else:
             state = graph # mock is passed in as graph

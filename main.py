@@ -31,8 +31,6 @@ from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 
 from lib.analysis.hessian import get_hessian, get_scaled_hessian
 
-from problems.example.evaluator_subclasses.case_evaluator_bin import test_poly
-
 if False:
     np.random.seed(0)
 
@@ -52,7 +50,10 @@ def principle_main():
 
     # %%
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-
+    print("evaluator target rf shape: {}".format(evaluator.target_rf.shape))
+    print("evaluator scale array shape: {}".format(evaluator.target_rf.shape))
+    evaluator.evaluate_graph(graph, propagator)
+    return
     # %%
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width':0.1})
     parameters, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
@@ -108,8 +109,5 @@ def principle_main():
     ax.set_yticklabels(info['parameter_names'], rotation=45, ha='right')
     plt.show()
 
-def test_case_evaluator():
-    test_poly()
-
 if __name__ == "__main__":
-    test_case_evaluator()
+    principle_main()

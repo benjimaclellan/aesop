@@ -61,19 +61,18 @@ class NormCaseEvaluator(WeightedEvaluator):
 
         :returns: (sum of |target - normalized|**norm)**(1/norm) * |sin(wt)|**n / number of samples
         """
-        if (eval_node is None):
-            eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
-
         if (not self.mock_graph_for_testing):
+            if (eval_node is None):
+                eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
+            
             state = graph.nodes[eval_node]['states'][0]
         else:
             state = graph # mock is passed in as graph
 
         return self._get_norm(state)
     
-    def get_fitness_function_gradient(self):
-        return grad(self._get_norm)
-
+    # def get_fitness_function_gradient(self):
+    #     return grad(self._get_norm)
 
     def graph_checks(self, graph):
         # TODO: figure out whether this is useful for this evaluator
@@ -95,4 +94,5 @@ class NormCaseEvaluator(WeightedEvaluator):
         shifted = self._align_phase(normalized)
         norm_val = np.sum(np.abs(self._target - shifted)**self.norm)**(float(1)/self.norm)
 
-        return norm_val * self.weighting_funct / self.propagator.n_samples
+        return norm_val * self.weighting_funct # no need to divide by prop samples since
+                                               # weighting funct already scaled

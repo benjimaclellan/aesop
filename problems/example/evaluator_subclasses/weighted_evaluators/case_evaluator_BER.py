@@ -15,7 +15,7 @@ TODO: Some possible modifications
 2. Thread-safety? I guess each thread should have its own evaluator, and that might solve everything
 """
 
-SIGMOID_EXP = 100 # kind of arbitrary but should do the trick
+SIGMOID_EXP = 1000 # kind of arbitrary but should do the trick
 
 class BERCaseEvaluator(WeightedEvaluator):
     """
@@ -28,7 +28,8 @@ class BERCaseEvaluator(WeightedEvaluator):
     """
 # ----------------------------- Public API ------------------------------------
 
-    def __init__(self, propagator, bit_sequence, bit_width, thresh=0.3, weighting_exponent=2, mock_graph_for_testing=False):
+    def __init__(self, propagator, bit_sequence, bit_width, thresh=0.3, weighting_exponent=2,
+                 mock_graph_for_testing=False):
         """
         Creates comparator object with a set norm and weighting function exponent. 
         Target sequence will be constructed from the bit sequence, and shall have 
@@ -65,21 +66,14 @@ class BERCaseEvaluator(WeightedEvaluator):
 
         :returns : <incorrect bit number> / <total bit number> (slightly softened to be differentiable)
         """
-        if (eval_node is None):
-            eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
-
         if (not self.mock_graph_for_testing):
+            if (eval_node is None):
+                eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
             state = graph.nodes[eval_node]['states'][0]
         else:
             state = graph # mock is passed in as graph
 
         return self._get_BER(state)
-    
-    def get_fitness_function_gradient(self):
-        """
-        Just to test that we have a gradient, and that no terrible error is thrown
-        """
-        return grad(self._get_BER)
 
 # --------------------------- Helper functions ---------------------------------
     def _get_BER(self, state):
@@ -104,13 +98,20 @@ class BERCaseEvaluator(WeightedEvaluator):
             power = state
         
         normalized = power / np.max(power)
+        print(f"normalized: {normalized}")
         shifted = self._align_phase(normalized)
+        print(f'shifted: {shifted}')
 
         distance = abs(self._target - shifted) # value becomes their difference from target
+        print(f'distance: {distance}')
         weighted_state = distance * self.weighting_funct
-        dist_of_bits = np.mean(
-            weighted_state.reshape((weighted_state[0] // self._bit_width, self._bit_width), axis=1)).flatten()
+        print(f'weighted_state: {weighted_state}')
 
+        dist_of_bits = np.sum(
+            np.reshape(weighted_state, (weighted_state.shape[0] // self._bit_width, self._bit_width)), axis=1)
+        print(f'dist of bits: {dist_of_bits}')
+        print(f'sigmoid output: {self._sigmoid(dist_of_bits)}')
+        
         return np.sum(self._sigmoid(dist_of_bits)) / self.waypoints_num
 
     def _sigmoid(self, x):

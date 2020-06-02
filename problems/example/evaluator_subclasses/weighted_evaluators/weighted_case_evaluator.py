@@ -64,13 +64,15 @@ class WeightedEvaluator(Evaluator):
         self.bit_sequence = bit_sequence
         self.weighting_funct = self._get_weighting_funct(bit_width, weighting_exponent)
 
-        self._target = np.resize(np.repeat(bit_sequence, bit_width), propagator.n_samples)
+        self._target = np.reshape(np.resize(np.repeat(bit_sequence, bit_width), propagator.n_samples),
+                                  (propagator.n_samples, 1))
 
         # for adjusting phase difference
         self._target_harmonic = 1 / (bit_width * self.waypoints_num * self.propagator.dt)
         self._target_rf = np.fft.fft(self._target, axis=0)
-        self._phase_shift_arr = np.fft.fftshift(
-            np.linspace(0, len(self._target_rf) - 1, len(self._target_rf)) / self.propagator.n_samples
+
+        self._phase_shift_arr = (np.fft.fftshift(
+            np.linspace(0, len(self._target_rf) - 1, len(self._target_rf))) / self.propagator.n_samples
         ).reshape((self.propagator.n_samples, 1)) # make column vector
 
         # if true, graph evaluation is replaced by a passed in state (for testing)
@@ -90,10 +92,10 @@ class WeightedEvaluator(Evaluator):
         x = np.arange(self.propagator.n_samples, dtype=int)
         w = np.pi / bit_width
         
-        waveform = np.abs(np.sin(w * x))**weighting_exponent
+        waveform = np.abs(np.sin(w * (x + 0.5)))**weighting_exponent
         normalising_factor = np.sum(waveform[0:bit_width]) # normalising is necessary for BER evaluation for example
 
-        return waveform / normalising_factor
+        return np.reshape(waveform, (waveform.shape[0], 1)) / normalising_factor
 
     def _align_phase(self, state_power):
         """
@@ -101,11 +103,12 @@ class WeightedEvaluator(Evaluator):
 
         TODO: validate effectiveness
         """
-        state_rf = np.fft.fft(state_power, axis=0)
+        state_rf = np.fft.fft(state_power, axis=0).reshape((state_power.shape[0], 1))
         target_harmonic_index = (self._target_harmonic / self.propagator.df).astype('int')
+
         phase = np.angle(state_rf[target_harmonic_index] / self._target_rf[target_harmonic_index])
-
         shift = phase / (self._target_harmonic * self.propagator.dt)
-        new_state_rf = state_rf * np.exp(-1j * shift * self._phase_shift_arr)
 
-        return np.abs(np.fft.ifft(state_rf, axis=0)), state_rf, phase, new_state_rf
+        state_rf *= np.exp(-1j * shift * self._phase_shift_arr)
+
+        return np.abs(np.fft.ifft(state_rf, axis=0))
