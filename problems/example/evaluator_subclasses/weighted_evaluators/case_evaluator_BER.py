@@ -13,6 +13,7 @@ Resources used: evaluator_rfawg.py (for phase shifting)
 TODO: Some possible modifications
 1. When we start evaluating more objects, single bit sequence might be replaced by an additional bit_seq parameter
 2. Thread-safety? I guess each thread should have its own evaluator, and that might solve everything
+3. Address the problem that reshaping doesn't work except if pattern fits perfectly into propagator rn
 """
 
 SIGMOID_EXP = 1000 # kind of arbitrary but should do the trick
@@ -53,7 +54,7 @@ class BERCaseEvaluator(WeightedEvaluator):
         self.thresh = thresh
         self._bit_width = bit_width
     
-    def evaluate_graph(self, graph, eval_node=None):
+    def evaluate_graph(self, graph, propagator, eval_node=None):
         """
         Returns the bit error ratio of the output of a graph when compared to the desired waveform,
         where the bit error ratio = <incorrect bits> / <total bits>.
@@ -69,6 +70,8 @@ class BERCaseEvaluator(WeightedEvaluator):
         if (not self.mock_graph_for_testing):
             if (eval_node is None):
                 eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
+
+            graph.propagate(propagator)
             state = graph.nodes[eval_node]['states'][0]
         else:
             state = graph # mock is passed in as graph
@@ -98,19 +101,18 @@ class BERCaseEvaluator(WeightedEvaluator):
             power = state
         
         normalized = power / np.max(power)
-        print(f"normalized: {normalized}")
         shifted = self._align_phase(normalized)
-        print(f'shifted: {shifted}')
 
-        distance = abs(self._target - shifted) # value becomes their difference from target
-        print(f'distance: {distance}')
-        weighted_state = distance * self.weighting_funct
-        print(f'weighted_state: {weighted_state}')
+        # value becomes their weighted difference from target
+        weighted_diff = np.abs(self._target - shifted) * self.weighting_funct 
+        
+        # ------- just for testing -----------
+        # norm_val = np.sum(weighted_diff)
+        # return norm_val / self.waypoints_num 
+        # ------- just for testing -----------
 
         dist_of_bits = np.sum(
-            np.reshape(weighted_state, (weighted_state.shape[0] // self._bit_width, self._bit_width)), axis=1)
-        print(f'dist of bits: {dist_of_bits}')
-        print(f'sigmoid output: {self._sigmoid(dist_of_bits)}')
+            np.reshape(weighted_diff, (weighted_diff.shape[0] // self._bit_width, self._bit_width)), axis=1)
         
         return np.sum(self._sigmoid(dist_of_bits)) / self.waypoints_num
 

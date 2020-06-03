@@ -104,9 +104,11 @@ class WeightedEvaluator(Evaluator):
         TODO: validate effectiveness
         """
         state_rf = np.fft.fft(state_power, axis=0).reshape((state_power.shape[0], 1))
-        target_harmonic_index = (self._target_harmonic / self.propagator.df).astype('int')
+        # target_harmonic_index = (np.rint(self._target_harmonic / self.propagator.df)).astype('int')
+        target_harmonic_index = (self._target_harmonic / self.propagator.df).astype('int')    
 
         phase = np.angle(state_rf[target_harmonic_index] / self._target_rf[target_harmonic_index])
+
         shift = phase / (self._target_harmonic * self.propagator.dt)
 
         state_rf *= np.exp(-1j * shift * self._phase_shift_arr)

@@ -70,7 +70,7 @@ class MaxEyeEvaluator(Evaluator):
                 'semi_minor': semi_minor,
                 }
 
-    def evaluate_graph(self, graph, eval_node=None):
+    def evaluate_graph(self, graph, propagator, eval_node=None):
         """
         Returns the inverse of the height of the largest ellipse which can
         fit inside the eye diagram of the data
@@ -81,6 +81,8 @@ class MaxEyeEvaluator(Evaluator):
         if (not self.mock_graph_for_testing):
             if (eval_node is None):
                 eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
+            
+            graph.propagate(propagator)
             state = graph.nodes[eval_node]['states'][0]
         else:
             state = graph # mock is passed in as graph

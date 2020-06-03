@@ -50,7 +50,7 @@ class NormCaseEvaluator(WeightedEvaluator):
         super().__init__(propagator, bit_sequence, bit_width, weighting_exponent, mock_graph_for_testing)
         self.norm = norm
     
-    def evaluate_graph(self, graph, eval_node=None):
+    def evaluate_graph(self, graph, propagator, eval_node=None):
         """
         Returns the self.norm-norm between our desired target waveform, and the normalized generated waveform,
         weighted by our (sinusoidal to a power) weighting function.
@@ -64,7 +64,8 @@ class NormCaseEvaluator(WeightedEvaluator):
         if (not self.mock_graph_for_testing):
             if (eval_node is None):
                 eval_node = len(graph.nodes) - 1 # set to the last node, assume they've been added in order
-            
+    
+            graph.propagate(propagator)
             state = graph.nodes[eval_node]['states'][0]
         else:
             state = graph # mock is passed in as graph
@@ -76,7 +77,7 @@ class NormCaseEvaluator(WeightedEvaluator):
         pass
 
 # --------------------------- Helper functions ---------------------------------
-    
+
     def _get_norm(self, state):
         """
         Gets the norm as described in evaluate_graph
@@ -89,6 +90,8 @@ class NormCaseEvaluator(WeightedEvaluator):
         
         normalized = power / np.max(power)
         shifted = self._align_phase(normalized)
+        # shifted = normalized
+    
         weighted_diff = np.abs(self._target - shifted) * self.weighting_funct
         norm_val = np.sum(weighted_diff**self.norm)**(float(1)/self.norm)
 
