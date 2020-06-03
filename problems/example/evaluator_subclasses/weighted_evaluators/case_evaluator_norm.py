@@ -70,9 +70,6 @@ class NormCaseEvaluator(WeightedEvaluator):
             state = graph # mock is passed in as graph
 
         return self._get_norm(state)
-    
-    # def get_fitness_function_gradient(self):
-    #     return grad(self._get_norm)
 
     def graph_checks(self, graph):
         # TODO: figure out whether this is useful for this evaluator

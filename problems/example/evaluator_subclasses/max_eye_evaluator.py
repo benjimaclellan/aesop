@@ -51,7 +51,7 @@ class MaxEyeEvaluator(Evaluator):
         self.mock_graph_for_testing = mock_graph_for_testing
 
         if (eye_mask is None): # use default mask
-            self.mask = MaxEyeEvaluator.get_eye_diagram_mask(bit_width * propagator.dt)
+            self.mask = MaxEyeEvaluator.get_eye_diagram_mask()
 
         self._graphical_testing = graphical_testing
 
@@ -109,13 +109,12 @@ class MaxEyeEvaluator(Evaluator):
         # shift datapoints, such that our mask is centred at (0, 0)
         generated = normalized - 0.5 # shift from [0, 1] to [-0.5, 0.5]
         time_tile = np.linspace(-0.5, 0.5, self._bit_width) # normalise time to [-0.5, 0.5).
-        time = np.tile(time_tile, (self._target.shape[0])) 
+        time = np.tile(time_tile, (self.bit_sequence.shape[0])) 
 
         # compute max scaling for each point, and keep only the smallest
         s_squared = (time**2 / self.mask['semi_major']**2 + generated**2 / self.mask['semi_minor']**2).min()
-        
         if (self._graphical_testing):
-            self._plot_eye_diagram(time, normalized, s_squared)
+            self._plot_eye_diagram(time, generated, s_squared)
 
         return 1 / (np.pi * self.mask['semi_major'] * self.mask['semi_minor'] * s_squared)
     
@@ -129,6 +128,9 @@ class MaxEyeEvaluator(Evaluator):
         :param scaling : the scaling factor by which to change our mask for it to be at max size
         """
         fig, ax = plt.subplots()
+        width = 2 * self.mask['semi_major'] * np.sqrt(scaling)
+        height = 2 * self.mask['semi_minor'] * np.sqrt(scaling)
+
         patch = patches.Ellipse((0, 0), 2 * self.mask['semi_major'] * np.sqrt(scaling),
                                 2 * self.mask['semi_minor'] * np.sqrt(scaling),
                                 facecolor='orange', alpha=0.3, lw=2)
