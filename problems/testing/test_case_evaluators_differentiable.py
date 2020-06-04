@@ -49,10 +49,14 @@ target_rf[target_harmonic_index + 1]: [-2257.65983154-3911.53619236j]
 target_rf[target_harmonic_index + 2]: [-563.97749247-977.99220141j]
 
 ^^ divides by not 0, so it's still kind of chill
+
+Solution: rounded instead of truncating on picking target_harmonic_index
+
+TODO: normalize after phase shift?
 """
 
 GRAPHICAL_TESTING = False
-
+EXCLUDE_LOCKED = True
 
 @pytest.fixture(scope='module')
 def default_2bits_3samplesbit_mock():
@@ -129,20 +133,21 @@ def default_propagator():
 
 def test_norm1_weight0(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3,
-                                   weighting_exponent=0, mock_graph_for_testing=True)
+                                   weighting_exponent=0, mock_graph_for_testing=True, phase_shift=False)
     sum = (0.5 + 0.3 + 0.4 + 0.2 + 0.41) / 6
     assert math.isclose(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples), sum)
 
 
 def test_norm1_weight2(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
-    evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, mock_graph_for_testing=True)
+    evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, mock_graph_for_testing=True,
+                                  phase_shift=False)
     sum = (2/3) * (1/4 * 0.5 + 1/4 * 0.3 + 1/4 * 0.4 + 1 * 0.2 + 1/4 * 0.41)
     assert math.isclose(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples), sum / 2)
 
 
 def test_norm2_weight4(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, norm=2,
-                                  weighting_exponent=4, mock_graph_for_testing=True)
+                                  weighting_exponent=4, mock_graph_for_testing=True, phase_shift=False)
     sum = (8/9)**2 * ((1/16 * 0.5)**2 + (1/16 * 0.3)**2 + (1/16 * 0.4)**2 + (1 * 0.2)**2 + (1/16 * 0.41)**2)
     weighed_norm = np.sqrt(sum)
     assert math.isclose(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples), weighed_norm / 2)
@@ -150,9 +155,9 @@ def test_norm2_weight4(propagator_6samples, bit_seq_2bits, default_2bits_3sample
 
 @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
 def test_BER_differentiation(default_graph, default_propagator, bit_seq_2bits):
-    evaluator = BERCaseEvaluator(default_propagator, bit_seq_2bits, 2)
+    evaluator = BERCaseEvaluator(default_propagator, bit_seq_2bits, 2, phase_shift=False)
 
-    exclude_locked = True
+    exclude_locked = EXCLUDE_LOCKED
     info = default_graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'],
                                                                   get_location_indices=True,
                                                                   exclude_locked=exclude_locked)
@@ -177,28 +182,31 @@ def test_BER_weight1(propagator_6samples, bit_seq_2bits, default_2bits_3samplesb
     # weight 1, thresh default
     evaluator = BERCaseEvaluator(propagator_6samples, bit_seq_2bits, 3,
                                  weighting_exponent=1,
-                                 mock_graph_for_testing=True)
+                                 mock_graph_for_testing=True,
+                                 phase_shift=False)
     assert np.abs(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples) - 1 / 2) < 0.05
 
 
 def test_BER_weight3_threshpoint2(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     # weight 3, thresh 0.2
     evaluator = BERCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, thresh=0.2,
-                                 weighting_exponent=3, mock_graph_for_testing=True)
+                                 weighting_exponent=3, mock_graph_for_testing=True,
+                                 phase_shift=False)
     assert np.abs(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples) - 1 / 2) < 0.05
 
 
 def test_BER_weight3_threshpoint25(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     # weight 3, thresh 0.25
     evaluator = BERCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, thresh=0.25,
-                                 weighting_exponent=3, mock_graph_for_testing=True)
+                                 weighting_exponent=3, mock_graph_for_testing=True,
+                                 phase_shift=False)
     assert np.abs(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples)) < 0.05
 
 
-# @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
+@pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
 def test_norm_differentation(default_graph, default_propagator, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(default_propagator, bit_seq_2bits, 4, norm=1)
-    exclude_locked = True
+    exclude_locked = EXCLUDE_LOCKED
     info = default_graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'],
                                                                   get_location_indices=True,
                                                                   exclude_locked=exclude_locked)
@@ -214,7 +222,6 @@ def test_norm_differentation(default_graph, default_propagator, bit_seq_2bits, d
     ax.set_yticklabels(info['parameter_names'], rotation=45, ha='right')
     plt.title('Norm Hessian')
     plt.show()
-    assert False
     
     # func = function_wrapper(default_graph, default_propagator, evaluator, exclude_locked=exclude_locked)
     # check_grads(func)(default_2bits_3samplesbit_mock)
@@ -242,3 +249,78 @@ def test_max_eye_0(propagator_single_sample):
     s_squared = 0.5**2 / 0.3**2 + 0.5**2 / 0.15**2
     score = 1 / (np.pi * 0.3 * 0.15 * s_squared)
     assert math.isclose(evaluator.evaluate_graph(mock, propagator_single_sample), score)
+
+
+@pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
+def test_maxEye_differentation(default_graph, default_propagator, bit_seq_2bits, default_2bits_3samplesbit_mock):
+    evaluator = MaxEyeEvaluator(default_propagator, bit_seq_2bits, 4)
+    exclude_locked = EXCLUDE_LOCKED
+    info = default_graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'],
+                                                                  get_location_indices=True,
+                                                                  exclude_locked=exclude_locked)
+    hessian = get_hessian(default_graph, default_propagator, evaluator, exclude_locked=exclude_locked)
+
+    H0 = hessian(np.array(info['parameters']))
+    print(f'H0: {H0}, H0 type: {type(H0)}')
+
+    fig, ax = plt.subplots()
+    sns.heatmap(H0)
+    ax.set(xticks = list(range(len(info['parameters']))), yticks = list(range(len(info['parameters']))))
+    ax.set_xticklabels(info['parameter_names'], rotation=45, ha='center')
+    ax.set_yticklabels(info['parameter_names'], rotation=45, ha='right')
+    plt.title('Max Eye Hessian')
+    plt.show()
+
+@pytest.mark.skip
+def test_maxEye_checkGrad(default_graph, default_propagator, bit_seq_2bits, default_2bits_3samplesbit_mock):
+    evaluator = MaxEyeEvaluator(default_propagator, bit_seq_2bits, 4)
+    func = function_wrapper(default_graph, default_propagator, evaluator, exclude_locked=EXCLUDE_LOCKED)
+    check_grads(func)(default_2bits_3samplesbit_mock)
+
+@pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
+def test_phase_shift_integer_bitSeq():
+    # just inspect manually to see that it makes sense
+    # TODO: add a test, that should be pretty easy
+    # integer bit sequence means that the bit sequence fits into the propagator an integer # of times
+    BIT_WIDTH = 3
+    seq_bit = np.array([0, 0, 1, 1])
+    propagator = Propagator(n_samples= 16 * BIT_WIDTH, window_t=16, central_wl=1)
+    shifted_seq_bit = np.array([0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0])
+    pre_shift_output = np.reshape(np.resize(np.repeat(shifted_seq_bit, BIT_WIDTH), propagator.n_samples),
+                                (propagator.n_samples, 1))
+    evaluator = NormCaseEvaluator(propagator, seq_bit, BIT_WIDTH)
+    print('NO NOISE:')
+    print(f'target: {evaluator._target}')
+    print(f'pre_shift_output: {pre_shift_output}')
+    print(f'post_shift_output: {evaluator._align_phase(pre_shift_output)}')
+    
+    noisy_pre_shift_output = pre_shift_output + np.random.normal(0, 0.05, pre_shift_output.shape[0])
+    print('WITH NOISE:')
+    print(f'pre_shift_output: {noisy_pre_shift_output}')
+    print(f'post_shift_output: {evaluator._align_phase(noisy_pre_shift_output)}')
+
+    assert False # otherwise won't print outputs
+
+@pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
+def test_phase_shift_nonInteger_bitSeq():
+    # just inspect to see that it makes sense
+    # non-integer is because the bit sequence does not fit into the propagator an int # of times
+    BIT_WIDTH = 3
+    seq_bit = np.array([0, 0, 1, 1])
+    propagator = Propagator(n_samples= 16 * BIT_WIDTH + 1, window_t=16, central_wl=1)
+    shifted_seq_bit = np.array([0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0])
+    pre_shift_output = np.reshape(np.resize(np.repeat(shifted_seq_bit, BIT_WIDTH), propagator.n_samples),
+                                (propagator.n_samples, 1))
+    evaluator = NormCaseEvaluator(propagator, seq_bit, BIT_WIDTH)
+    print('NO NOISE:')
+    # print(f'target: {evaluator._target}')
+    # print(f'pre_shift_output: {pre_shift_output}')
+    # print(f'post_shift_output: {evaluator._align_phase(pre_shift_output)}')
+    
+    noisy_pre_shift_output = pre_shift_output + np.random.normal(0, 0.05, pre_shift_output.shape[0])
+    print('WITH NOISE:')
+    print(f'pre_shift_output: {noisy_pre_shift_output}')
+    print(f'post_shift_output: {evaluator._align_phase(noisy_pre_shift_output)}')
+
+    assert False # otherwise won't print outputs
+

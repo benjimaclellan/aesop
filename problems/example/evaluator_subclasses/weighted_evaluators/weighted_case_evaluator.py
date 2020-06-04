@@ -42,7 +42,7 @@ class WeightedEvaluator(Evaluator):
 # ----------------------------- Public API ------------------------------------
 
     def __init__(self, propagator, bit_sequence, bit_width, weighting_exponent,
-                 mock_graph_for_testing):
+                 mock_graph_for_testing, phase_shift):
         """
         Creates comparator object with a set norm and weighting function exponent. 
         Target sequence will be constructed from the bit sequence, and shall have 
@@ -68,12 +68,14 @@ class WeightedEvaluator(Evaluator):
                                   (propagator.n_samples, 1))
 
         # for adjusting phase difference
-        self._target_harmonic = 1 / (bit_width * self.waypoints_num * self.propagator.dt)
-        self._target_rf = np.fft.fft(self._target, axis=0)
+        self.phase_shift = phase_shift
+        if (phase_shift):
+            self._target_harmonic = 1 / (bit_width * self.waypoints_num * self.propagator.dt)
+            self._target_rf = np.fft.fft(self._target, axis=0)
 
-        self._phase_shift_arr = (np.fft.fftshift(
-            np.linspace(0, len(self._target_rf) - 1, len(self._target_rf))) / self.propagator.n_samples
-        ).reshape((self.propagator.n_samples, 1)) # make column vector
+            self._phase_shift_arr = (np.fft.fftshift(
+                np.linspace(0, len(self._target_rf) - 1, len(self._target_rf))) / self.propagator.n_samples
+            ).reshape((self.propagator.n_samples, 1)) # make column vector
 
         # if true, graph evaluation is replaced by a passed in state (for testing)
         self.mock_graph_for_testing = mock_graph_for_testing
@@ -104,11 +106,11 @@ class WeightedEvaluator(Evaluator):
         TODO: validate effectiveness
         """
         state_rf = np.fft.fft(state_power, axis=0).reshape((state_power.shape[0], 1))
-        # target_harmonic_index = (np.rint(self._target_harmonic / self.propagator.df)).astype('int')
-        target_harmonic_index = (self._target_harmonic / self.propagator.df).astype('int')    
+        target_harmonic_index = (np.rint(self._target_harmonic / self.propagator.df)).astype('int')
+        # target_harmonic_index = (self._target_harmonic / self.propagator.df).astype('int')    
 
         phase = np.angle(state_rf[target_harmonic_index] / self._target_rf[target_harmonic_index])
-
+        print(f'phase: {phase}')
         shift = phase / (self._target_harmonic * self.propagator.dt)
 
         state_rf *= np.exp(-1j * shift * self._phase_shift_arr)

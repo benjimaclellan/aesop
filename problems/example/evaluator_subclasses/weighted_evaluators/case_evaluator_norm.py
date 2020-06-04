@@ -28,7 +28,7 @@ class NormCaseEvaluator(WeightedEvaluator):
     """
 # ----------------------------- Public API ------------------------------------
     def __init__(self, propagator, bit_sequence, bit_width, norm=1, weighting_exponent=2,
-                 mock_graph_for_testing=False):
+                 mock_graph_for_testing=False, phase_shift=True):
         """
         Creates comparator object with a set norm and weighting function exponent. 
         Target sequence will be constructed from the bit sequence, and shall have 
@@ -47,7 +47,8 @@ class NormCaseEvaluator(WeightedEvaluator):
 
         :raises ValueError if the bit width and sequence length don't fit within the propagator length
         """
-        super().__init__(propagator, bit_sequence, bit_width, weighting_exponent, mock_graph_for_testing)
+        super().__init__(propagator, bit_sequence, bit_width, weighting_exponent,
+                         mock_graph_for_testing, phase_shift)
         self.norm = norm
     
     def evaluate_graph(self, graph, propagator, eval_node=None):
@@ -89,8 +90,12 @@ class NormCaseEvaluator(WeightedEvaluator):
             power = state
         
         normalized = power / np.max(power)
-        shifted = self._align_phase(normalized)
-        # shifted = normalized
+        print(f'normalized {normalized}')
+        if (self.phase_shift):
+            shifted = self._align_phase(normalized)
+            print(f'shifted {shifted}')
+        else:
+            shifted = normalized.reshape((normalized.shape[0], 1))
     
         weighted_diff = np.abs(self._target - shifted) * self.weighting_funct
         norm_val = np.sum(weighted_diff**self.norm)**(float(1)/self.norm)

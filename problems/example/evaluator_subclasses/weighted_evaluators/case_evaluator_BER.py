@@ -30,7 +30,7 @@ class BERCaseEvaluator(WeightedEvaluator):
 # ----------------------------- Public API ------------------------------------
 
     def __init__(self, propagator, bit_sequence, bit_width, thresh=0.3, weighting_exponent=2,
-                 mock_graph_for_testing=False):
+                 mock_graph_for_testing=False, phase_shift=True):
         """
         Creates comparator object with a set norm and weighting function exponent. 
         Target sequence will be constructed from the bit sequence, and shall have 
@@ -50,7 +50,8 @@ class BERCaseEvaluator(WeightedEvaluator):
 
         :raises ValueError if the bit width and sequence length don't fit within the propagator length
         """
-        super().__init__(propagator, bit_sequence, bit_width, weighting_exponent, mock_graph_for_testing)
+        super().__init__(propagator, bit_sequence, bit_width, weighting_exponent,
+                         mock_graph_for_testing, phase_shift)
         self.thresh = thresh
         self._bit_width = bit_width
     
@@ -101,7 +102,10 @@ class BERCaseEvaluator(WeightedEvaluator):
             power = state
         
         normalized = power / np.max(power)
-        shifted = self._align_phase(normalized)
+        if (self.phase_shift):
+            shifted = self._align_phase(normalized)
+        else:
+            shifted = normalized.reshape((normalized.shape[0], 1))
 
         # value becomes their weighted difference from target
         weighted_diff = np.abs(self._target - shifted) * self.weighting_funct 
