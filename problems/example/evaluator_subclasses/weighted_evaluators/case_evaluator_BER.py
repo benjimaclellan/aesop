@@ -108,7 +108,7 @@ class BERCaseEvaluator(WeightedEvaluator):
             shifted = normalized.reshape((normalized.shape[0], 1))
 
         # value becomes their weighted difference from target
-        weighted_diff = np.abs(self._target - shifted) * self.weighting_funct 
+        weighted_diff = np.abs(self._target - shifted) * self._weighting_funct 
         
         # ------- just for testing -----------
         # norm_val = np.sum(weighted_diff)

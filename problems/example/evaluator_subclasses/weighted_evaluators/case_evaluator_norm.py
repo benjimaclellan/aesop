@@ -49,7 +49,7 @@ class NormCaseEvaluator(WeightedEvaluator):
         """
         super().__init__(propagator, bit_sequence, bit_width, weighting_exponent,
                          mock_graph_for_testing, phase_shift)
-        self.norm = norm
+        self._norm = norm
     
     def evaluate_graph(self, graph, propagator, eval_node=None):
         """
@@ -77,6 +77,15 @@ class NormCaseEvaluator(WeightedEvaluator):
         # TODO: figure out whether this is useful for this evaluator
         pass
 
+    @property
+    def norm(self):
+        return self._norm
+    
+    @norm.setter
+    def norm(self, norm):
+        if norm < 1:
+            raise ValueError('Norm must be at least 1')
+        self._norm = norm
 # --------------------------- Helper functions ---------------------------------
 
     def _get_norm(self, state):
@@ -97,7 +106,7 @@ class NormCaseEvaluator(WeightedEvaluator):
         else:
             shifted = normalized.reshape((normalized.shape[0], 1))
     
-        weighted_diff = np.abs(self._target - shifted) * self.weighting_funct
-        norm_val = np.sum(weighted_diff**self.norm)**(float(1)/self.norm)
+        weighted_diff = np.abs(self._target - shifted) * self._weighting_funct
+        norm_val = np.sum(weighted_diff**self._norm)**(float(1)/self._norm)
 
         return norm_val / self.waypoints_num

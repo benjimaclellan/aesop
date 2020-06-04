@@ -61,8 +61,9 @@ class WeightedEvaluator(Evaluator):
             raise ValueError("the desired sequence does not fit in the propagator")
         
         self.propagator = propagator
-        self.bit_sequence = bit_sequence
-        self.weighting_funct = self._get_weighting_funct(bit_width, weighting_exponent)
+        self._bit_sequence = bit_sequence
+        self._weighting_exp = weighting_exponent
+        self._weighting_funct = self._get_weighting_funct(bit_width, weighting_exponent)
 
         self._target = np.reshape(np.resize(np.repeat(bit_sequence, bit_width), propagator.n_samples),
                                   (propagator.n_samples, 1))
@@ -79,6 +80,25 @@ class WeightedEvaluator(Evaluator):
 
         # if true, graph evaluation is replaced by a passed in state (for testing)
         self.mock_graph_for_testing = mock_graph_for_testing
+    
+    @property
+    def weighting_exp(self):
+        return self._weighting_exp
+    
+    @weighting_exp.setter
+    def weighting_exp(self, exp):
+        self._weighting_funct = self._get_weighting_funct(self.bit_width, exp)
+        self._weighting_exp = exp
+    
+    @property
+    def bit_sequence(self):
+        return self._bit_sequence
+    
+    @bit_sequence.setter
+    def bit_sequence(self, bit_seq):
+        self._target = np.reshape(np.resize(np.repeat(bit_seq, self.bit_width), self.propagator.n_samples),
+                                  (self.propagator.n_samples, 1))
+        self._bit_sequence = bit_seq
 
 # --------------------------- Helper functions ---------------------------------
 

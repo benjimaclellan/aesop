@@ -52,10 +52,11 @@ target_rf[target_harmonic_index + 2]: [-563.97749247-977.99220141j]
 
 Solution: rounded instead of truncating on picking target_harmonic_index
 
-TODO: normalize after phase shift?
+TODO: normalize after phase shift instead of before?
+TODO: investigate phase shift tests
 """
 
-GRAPHICAL_TESTING = False
+GRAPHICAL_TESTING = True
 EXCLUDE_LOCKED = True
 
 @pytest.fixture(scope='module')
