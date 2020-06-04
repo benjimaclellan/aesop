@@ -31,7 +31,7 @@ TODO:
     UPDATE: ok so it looks like the problem is something to do with the phase,
             and self._target_rf[target_harmonic_index] == 0 (which as the fundamental freq, it really shouldn't)
 
-This is our problem:
+Failed 
 For <bit_seq_length> * <bit_num> divides <propagator length>:
 target_rf[target_harmonic_index - 2]: [0.+0.j]
 target_rf[target_harmonic_index - 1]: [0.+0.j]
@@ -53,10 +53,9 @@ target_rf[target_harmonic_index + 2]: [-563.97749247-977.99220141j]
 Solution: rounded instead of truncating on picking target_harmonic_index
 
 TODO: normalize after phase shift instead of before?
-TODO: investigate phase shift tests
 """
 
-GRAPHICAL_TESTING = True
+GRAPHICAL_TESTING = False
 EXCLUDE_LOCKED = True
 
 @pytest.fixture(scope='module')
@@ -278,7 +277,7 @@ def test_maxEye_checkGrad(default_graph, default_propagator, bit_seq_2bits, defa
     func = function_wrapper(default_graph, default_propagator, evaluator, exclude_locked=EXCLUDE_LOCKED)
     check_grads(func)(default_2bits_3samplesbit_mock)
 
-@pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
+# @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
 def test_phase_shift_integer_bitSeq():
     # just inspect manually to see that it makes sense
     # TODO: add a test, that should be pretty easy
@@ -290,14 +289,14 @@ def test_phase_shift_integer_bitSeq():
     pre_shift_output = np.reshape(np.resize(np.repeat(shifted_seq_bit, BIT_WIDTH), propagator.n_samples),
                                 (propagator.n_samples, 1))
     evaluator = NormCaseEvaluator(propagator, seq_bit, BIT_WIDTH)
+    # print(f'target: {evaluator._target}')
     print('NO NOISE:')
-    print(f'target: {evaluator._target}')
-    print(f'pre_shift_output: {pre_shift_output}')
+    # print(f'pre_shift_output: {pre_shift_output}')
     print(f'post_shift_output: {evaluator._align_phase(pre_shift_output)}')
     
-    noisy_pre_shift_output = pre_shift_output + np.random.normal(0, 0.05, pre_shift_output.shape[0])
+    noisy_pre_shift_output = pre_shift_output + np.random.normal(loc=0, scale=0.05, size=(pre_shift_output.shape[0], 1))
     print('WITH NOISE:')
-    print(f'pre_shift_output: {noisy_pre_shift_output}')
+    # print(f'pre_shift_output: {noisy_pre_shift_output}')
     print(f'post_shift_output: {evaluator._align_phase(noisy_pre_shift_output)}')
 
     assert False # otherwise won't print outputs
