@@ -61,6 +61,7 @@ class WeightedEvaluator(Evaluator):
             raise ValueError("the desired sequence does not fit in the propagator")
         
         self.propagator = propagator
+        self._bit_width = bit_width
         self._bit_sequence = bit_sequence
         self._weighting_exp = weighting_exponent
         self._weighting_funct = self._get_weighting_funct(bit_width, weighting_exponent)
@@ -130,7 +131,6 @@ class WeightedEvaluator(Evaluator):
         # target_harmonic_index = (self._target_harmonic / self.propagator.df).astype('int')    
 
         phase = np.angle(state_rf[target_harmonic_index] / self._target_rf[target_harmonic_index])
-        print(f'phase: {phase}')
         shift = phase / (self._target_harmonic * self.propagator.dt)
 
         state_rf *= np.exp(-1j * shift * self._phase_shift_arr)

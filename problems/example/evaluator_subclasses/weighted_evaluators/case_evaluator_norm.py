@@ -98,15 +98,15 @@ class NormCaseEvaluator(WeightedEvaluator):
         else:
             power = state
         
-        normalized = power / np.max(power)
-        print(f'normalized {normalized}')
+        # normalized = power / np.max(power)
+        normalized = (power - np.min(power)) / (np.max(power) - np.min(power))
+
         if (self.phase_shift):
             shifted = self._align_phase(normalized)
-            print(f'shifted {shifted}')
         else:
             shifted = normalized.reshape((normalized.shape[0], 1))
     
         weighted_diff = np.abs(self._target - shifted) * self._weighting_funct
         norm_val = np.sum(weighted_diff**self._norm)**(float(1)/self._norm)
 
-        return norm_val / self.waypoints_num
+        return norm_val / (self.propagator.n_samples / self._bit_width)

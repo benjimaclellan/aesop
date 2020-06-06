@@ -53,7 +53,6 @@ class BERCaseEvaluator(WeightedEvaluator):
         super().__init__(propagator, bit_sequence, bit_width, weighting_exponent,
                          mock_graph_for_testing, phase_shift)
         self.thresh = thresh
-        self._bit_width = bit_width
     
     def evaluate_graph(self, graph, propagator, eval_node=None):
         """
@@ -101,7 +100,7 @@ class BERCaseEvaluator(WeightedEvaluator):
         else:
             power = state
         
-        normalized = power / np.max(power)
+        normalized = (power - np.min(power)) / (np.max(power) - np.min(power))
         if (self.phase_shift):
             shifted = self._align_phase(normalized)
         else:
@@ -118,7 +117,7 @@ class BERCaseEvaluator(WeightedEvaluator):
         dist_of_bits = np.sum(
             np.reshape(weighted_diff, (weighted_diff.shape[0] // self._bit_width, self._bit_width)), axis=1)
         
-        return np.sum(self._sigmoid(dist_of_bits)) / self.waypoints_num
+        return np.sum(self._sigmoid(dist_of_bits)) / (self.propagator.n_samples / self._bit_width)
 
     def _sigmoid(self, x):
         return 1 / (1 + np.exp(-1 * SIGMOID_EXP * (x - self.thresh)))
