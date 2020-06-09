@@ -13,7 +13,7 @@ from .assets.functions import logbook_update, logbook_initialize
 def parameters_genetic_algorithm(graph, propagator, evaluator):
     # hyper-parameters, will later be added as function arguments to change dynamically
     n_generations = 25
-    n_population = 25
+    n_population = 64
     rate_mut = 0.9
     rate_crx = 0.9
     crossover = crossover_singlepoint
@@ -23,6 +23,7 @@ def parameters_genetic_algorithm(graph, propagator, evaluator):
     verbose = False
     n_cores = 6
     parallel = False
+    new_individuals_divisor = 20
 
     if parallel:
         pool = mp.Pool(n_cores)
@@ -63,7 +64,14 @@ def parameters_genetic_algorithm(graph, propagator, evaluator):
             mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use
             child = mutation(parent, mutant)
             population.append((None, child))
-
+        
+        for i in range(n_population // new_individuals_divisor): #TODO: add a decay factor?
+            # generate a few random new ppl to keep our populations spry and non-convergent
+            parameters = graph.sample_parameters_to_list(probability_dist=mutation_operator, **mut_kwargs)
+            graph.distribute_parameters_from_list(parameters, node_edge_index, parameter_index)  # this probably isn't necessary, but if API changes it  may be
+            graph.propagate(propagator)
+            score = evaluator.evaluate_graph(graph, propagator)
+            population.append((score, parameters))
 
         # loop through population and update scores for evolved individuals
         for i, (score, individual) in enumerate(population):
@@ -79,7 +87,7 @@ def parameters_genetic_algorithm(graph, propagator, evaluator):
         population = population[:-(len(population)-n_population) or None]  # remove last N worst performing individuals
 
         # update HoF status
-        if population[0][0] > hof[0]:
+        if population[0][0] < hof[0]:
             hof = population[0]  # set hof to best of this generation if it is better thant he existing hof
 
         # updates log book
