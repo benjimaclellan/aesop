@@ -2,11 +2,10 @@ import autograd.numpy as np
 from autograd import grad
 from autograd.misc.optimizers import adam
 import copy
+import random
 
-import problems.example.evaluator
-import problems.example.propagator
-import problems.example.graph
 from lib.analysis.hessian import function_wrapper
+from .assets.functions import logbook_update, logbook_initialize
 
 """
 Util objective:
@@ -32,7 +31,6 @@ Resources: Genetic algorithm adapted from `parameters_genetic_algorithm.py`
 """
 
 """
-TODO: add logs
 TODO: allow multiprocessing (multithread it!)
 TODO: consider whether we'd like to test other autograd-provided optimizers?
 TODO: test boundary setting methods (rigging the fitness function to have a steep slope at
@@ -98,7 +96,7 @@ def get_initial_population(graph, propagator, evaluator, n_pop, mutation_operato
         parameters = graph.sample_parameters_to_list(probability_dist=mutation_operator_dist)
         
         # may or may not be necessary, depending on implementation changes
-        graph.distribute_parameters_from_lis(parameters, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(parameters, node_edge_index, parameter_index)
 
         graph.propagate(propagator)
         score = evaluator.evaluate_graph(graph, propagator)
@@ -106,8 +104,7 @@ def get_initial_population(graph, propagator, evaluator, n_pop, mutation_operato
     
     return population, node_edge_index, parameter_index
 
-
-def get_individual_score(graph, propagator, evaluator, individual, node_edge_index, parameter_index):
+def get_individual_score(graph, propagator, evaluator, individual_params, node_edge_index, parameter_index):
     """
     Gets the score of an individual
 
@@ -120,8 +117,8 @@ def get_individual_score(graph, propagator, evaluator, individual, node_edge_ind
 
     :return: the score received by the individual with this evaluator
     """
-    graph.distribute_parameters_from_list(individual, node_edge_index, parameter_index)
-    graph.propagator(propagator)
+    graph.distribute_parameters_from_list(individual_params, node_edge_index, parameter_index)
+    graph.propagate(propagator)
     return evaluator.evaluate_graph(graph, propagator)
 
 
@@ -129,7 +126,8 @@ def get_individual_score(graph, propagator, evaluator, individual, node_edge_ind
 
 def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
                              n_population=64, rate_mut=0.9, rate_crx=0.9, 
-                             crossover=crossover_singlepoint, mutation_operator_dist='uniform'):
+                             crossover=crossover_singlepoint, mutation_operator_dist='uniform',
+                             verbose=False):
     """
     Genetic algorithm for tuning parameters in a set topology. Parametrised version
     of the function implemented by @benjimaclellan
@@ -144,39 +142,41 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
     :param mutation_operator_dist: distribution of the mutation operator
     :return: final_population (sorted), log_book
     """
+    log, log_metrics = logbook_initialize()
     population, node_edge_index, parameter_index = \
         get_initial_population(graph, propagator, evaluator, n_population,
                                mutation_operator_dist)
+    
+    # updates log book with initial population statistics
+    logbook_update(0, population, log, log_metrics, verbose=verbose)
 
     #TODO: include and update logbook
-    for _ in range(n_generations):
+    for generation_num in range(1, n_generations + 1):
         # Cross-over
-        for i in range(np.floor(rate_crx * n_population).astype('int')):
-            parent1, parent2 = [parent for (score, parent) in tuple(np.random.sample(population, 2))]
+        for _ in range(np.floor(rate_crx * n_population).astype('int')):
+            parent1, parent2 = [parent for (score, parent) in tuple(random.sample(population, 2))]
             children = crossover(parent1, parent2)
             for child in children:
-                score = get_individual_score(graph, propagator,
-                                            evaluator, child,
-                                            node_edge_index,
-                                            parameter_index)
+                score = get_individual_score(graph, propagator, evaluator, child, node_edge_index, parameter_index)
                 population.append((score, child))
-        #mutation
-        for i in range(np.floor(rate_mut * n_population).astype('int')):
-            parent = [parent for (score, parent) in tuple(np.random.sample(population, 1))]
+        # mutation
+        for _ in range(np.floor(rate_mut * n_population).astype('int')):
+            parent = [parent for (score, parent) in tuple(random.sample(population, 1))][0]
             mut = graph.sample_parameters_to_list()
             child = mutation(parent, mut)
-            score = get_individual_score(graph, propagator,
-                                         evaluator, child,
-                                         node_edge_index, parameter_index)
+            score = get_individual_score(graph, propagator, evaluator, child, node_edge_index, parameter_index)
             population.append((score, child))
-        
+       
         # TODO: consider entirely new individuals to prevent early convergence?
+        
         # sort population, and then take the best n_population individuals
         population.sort(reverse=False)
         population = population[:-(len(population) - n_population) or None]
-        #TODO: update logs
+        
+        # updates log book
+        logbook_update(generation_num, population, log, log_metrics, verbose=verbose)
     
-    return population #, log
+    return population, log
 
 # -------------------- Adam implementation ----------------------
 

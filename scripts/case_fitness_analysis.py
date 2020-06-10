@@ -1,7 +1,7 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 
-from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
+from algorithms.parameter_optimization_utils import tuning_genetic_algorithm as parameters_genetic_algorithm
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_norm import NormCaseEvaluator
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_BER import BERCaseEvaluator
 
@@ -130,7 +130,8 @@ def run_all_lnorm(bit_seqs):
                 evaluator = NormCaseEvaluator(propagator, bit_seq, BIT_WIDTH,
                                               norm=l_norm, weighting_exponent=exp)
                 graph = get_graph()
-                individual_params, score, log = parameters_genetic_algorithm(graph, propagator, evaluator)
+                population, log = parameters_genetic_algorithm(graph, propagator, evaluator)
+                score, individual_params = population[0]
                 print(f"norm: {l_norm}, weight exp: {exp}:")
                 print(log)
                 display_output(bit_seq, evaluator._target, graph, individual_params, propagator, title=f'top individual, score: {score}')
@@ -143,7 +144,8 @@ def run_all_BER(bit_seqs):
         for bit_seq in bit_seqs:
             evaluator = BERCaseEvaluator(propagator, bit_seq, BIT_WIDTH, weighting_exponent=exp)
             graph = get_graph()
-            individual_params, score, log = parameters_genetic_algorithm(graph, propagator, evaluator)
+            population, log = parameters_genetic_algorithm(graph, propagator, evaluator)
+            score, individual_params = population[0]
             print(f"weight exp: {exp}:")
             print(log)
             display_output(bit_seq, evaluator._target, graph, individual_params, propagator, title=f'top individual, score: {score}')
