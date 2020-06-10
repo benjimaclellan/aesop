@@ -37,8 +37,8 @@ TODO: test boundary setting methods (rigging the fitness function to have a stee
       boundaries, or manually removing components of the vector which would violate boundaries)
 TODO: remove code duplicates between parameters_genetic_algorithm.py once functionality has been
       replicated here
-TODO: ponder refactoring into object-oriented (reducing the passed parameters a bit?)
 TODO: decide on termination condition for Adam (score is approx static? Number of iterations?)
+TODO: investigate those invalid values in sqrt / power runtime warnings
 """
 
 # -------------------- Helper functions for GA ----------------------
@@ -176,11 +176,23 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         # updates log book
         logbook_update(generation_num, population, log, log_metrics, verbose=verbose)
     
-    return population, log
+    return population, log, log_metrics
 
 # -------------------- Adam implementation ----------------------
 
-def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=100, adam_num_iters=100):
+def adam_callback(params, iter, gradient):
+    if (iter % 24 == 0):
+        print(f'iter: {iter}, params:{params}')
+
+
+def adam_function_wrapper(param_function):
+    def _function(_params, _iter):
+        return param_function(_params)
+    
+    return _function
+
+
+def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=1, adam_num_iters=50, exclude_locked=True):
     """
     Performs Adam gradient descent of `graph` parameters on a single graph topology,
     starting at `start_param`. This function does not take parameter bounds into account
@@ -193,10 +205,11 @@ def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=100, ad
     :param params: start value for parameters
     :param total_iters: temporary parameter to determine the number of times to run each adam optimization call
     :param adam_num_iters: parameter batch size for each Adam call (100 is the autograd default)
-    #TODO: replace num_iterations by some stability metric
+    #TODO: replace total_iters by some stability metric
     """
-    fitness_funct = function_wrapper(graph, propagator, evaluator)
-    fitness_grad = grad(fitness_funct)
+    fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
+    adam_fitness_funct = adam_function_wrapper(fitness_funct)
+    fitness_grad = grad(adam_fitness_funct)
     for _ in range(total_iters):
         params = adam(fitness_grad, params, num_iters=adam_num_iters)
 
