@@ -1,5 +1,6 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
+import warnings
 
 from algorithms.parameter_optimization_utils import tuning_genetic_algorithm as parameters_genetic_algorithm
 from algorithms.parameter_optimization_utils import adam_ignore_bounds, get_initial_population, get_individual_score
@@ -29,8 +30,6 @@ Evaluation procedure:
 2. On each of these sequences, 
 
 TODO: how to represent the structure which holds all my logs?
-TODO: once topological GA is set up, remove the hardcoded topology and run the full GA
-TODO: add max eye metric into the mix (implement multi-tiered evaluation, which will mess up the log metrics...)
 TODO: verify that all metrics are normalised to 1, and if they're not, do it
 TODO: figure out how to incorporate stability of solution
 TODO: add visualisation based on log data
@@ -43,7 +42,10 @@ Observations:
 2. The populations are converging weirdly fast: can we give it some intensive to explore more?
 """
 
+
+warnings.filterwarnings('error')
 DISPLAY_GRAPHICS = True
+
 # ---- Defining testing variables
 SEQUENCE_LENGTHS = [8, 32, 128]
 L_NORM_VALS = [1, 2]
@@ -257,6 +259,26 @@ def run_GA_Adam(k_gen, n_pop, graph, propagator, evaluator, n_adam_optimize=None
     new_pop = _helper_adam(n_pop, graph, propagator, evaluator, optimal_pop, log, log_metrics, adam_funct)
     return new_pop, log, log_metrics
 
+
+def adam_convergence_single_start(graph, propagator, evaluator, params, start_score,
+                                  num_datapoints=200, iter_per_datapoint=25, adam_funct=adam_ignore_bounds):
+    _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+
+    y = np.zeros(num_datapoints)
+    y[0] = start_score
+
+    for i in range(1, num_datapoints):
+        try:
+            params = adam_funct(graph, propagator, evaluator, params, adam_num_iters=iter_per_datapoint)
+        except RuntimeWarning:
+            print(f'Warning was caused by params: {params}')
+        y[i] = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
+        print(i)
+        print(params)
+    
+    return y
+
+
 # --------------------------- Data generation scripts -----------------------
 
 # ---- Case fitness Analysis GA
@@ -280,3 +302,53 @@ def optimization_comparison_GA_Adam_both():
     # run_random_generation_adam(50, graph, propagator, evaluator)
     print("GA + Adam")
     run_GA_Adam(25, 50, graph, propagator, evaluator, n_adam_optimize=5)
+
+# ---- Test Adam convergence rate
+def adam_plot_convergence():
+    TEST_SIZE = 3
+    NUM_DATAPOINTS = 200
+    ITER_PER_DATAPOINT = 10
+
+    # set up plot
+    x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
+    fig, ax = plt.subplots()
+
+    graph = get_graph()
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    pop, _, _ = get_initial_population(graph, propagator, evaluator, TEST_SIZE, 'uniform')
+
+    for (score, param) in pop:
+        y = adam_convergence_single_start(graph, propagator, evaluator,
+                                          param, score,
+                                          num_datapoints=NUM_DATAPOINTS,
+                                          iter_per_datapoint=ITER_PER_DATAPOINT)
+        ax.plot(x, y)
+
+    plt.title('Adam convergence, from random initialisation')    
+
+# ---- Investigate/debug invalid operations in np
+"""
+From catching some warnings and printing out the relevant parameters, I have found that
+the Adam gradient descent function throws error with this set of parameters, among others:
+
+Warning was caused by params:
+[array(6.8865031), array(0.90046671), array(0.17608712), array(0.5016831), array(0.01039607), array(0.89368645), array(5.49449059), array(4.59739421), array(3.81079523), array(4.15281539), array(3.23579555), array(0.26189728), array(0.17032813), array(0.92093702), array(0.93044737), array(0.00088058), array(0.53162683), array(0.49920884), array(0.69133006)]
+"""
+def unearth_np_runtimeWarnings_sqrt_power():
+    # TODO: check if any of these params violate their bounds and if so? Maybe within proper bounds there is no problem
+    graph = get_graph()
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    params = [6.8865031, 0.90046671, 0.17608712, 0.5016831,
+              0.01039607, 0.89368645, 5.49449059, 4.59739421,
+              3.81079523, 4.15281539, 3.23579555, 0.26189728,
+              0.17032813, 0.92093702, 0.93044737, 0.00088058,
+              0.53162683, 0.49920884, 0.69133006]
+
+    _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+    score = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
+    print(f'Initial score: {score}')
+    try:
+        params = adam_ignore_bounds(graph, propagator, evaluator, params, adam_num_iters=1)
+        score = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
+    except RuntimeWarning:
+        print(f'Warning was caused by params: {params}')

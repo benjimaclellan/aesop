@@ -14,7 +14,7 @@ To optimize performance following a given fitness function, using gradient desce
 and genetic algorithms. This util is only intended for tunable parameter optimization (i.e does not include changes 
 in the computational graph structure).
 
-Note that we shall want to compare effects of changes along 2 axes:
+Note that we sbashbashall want to compare effects of changes along 2 axes:
 1. Batch size for gradient descent
 2. Initialisation of parameters
 
@@ -180,9 +180,12 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
 
 # -------------------- Adam implementation ----------------------
 
-def adam_callback(params, iter, gradient):
-    if (iter % 24 == 0):
-        print(f'iter: {iter}, params:{params}')
+def get_callback_funct(graph, propagator, evaluator, period):
+    def _adam_callback(_params, _iter, _gradient):
+        if (iter % period == 0):
+            _, _node_edge_index, _parameter_index, _, _ = graph.extract_parameters_to_list()
+            score = get_individual_score(graph, propagator, evaluator, _params, _node_edge_index, _parameter_index)
+            print(f'iter: {_iter}, score: {score}')
 
 
 def adam_function_wrapper(param_function):
@@ -192,7 +195,8 @@ def adam_function_wrapper(param_function):
     return _function
 
 
-def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=1, adam_num_iters=50, exclude_locked=True):
+def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=1,
+                       adam_num_iters=50, exclude_locked=True):
     """
     Performs Adam gradient descent of `graph` parameters on a single graph topology,
     starting at `start_param`. This function does not take parameter bounds into account
@@ -207,6 +211,7 @@ def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=1, adam
     :param adam_num_iters: parameter batch size for each Adam call (100 is the autograd default)
     #TODO: replace total_iters by some stability metric
     """
+
     fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
     adam_fitness_funct = adam_function_wrapper(fitness_funct)
     fitness_grad = grad(adam_fitness_funct)
