@@ -158,6 +158,17 @@ class Graph(GraphParent):
                                                      model_attributes['step_sizes'], probability_dist=probability_dist, **kwargs)
 
         return parameters
+    
+    def get_parameter_bounds(self):
+        """
+        Returns the lower bounds, upper bounds of parameters, in the order returned by all other functions
+
+        :Return: <lower bounds (array)>, <upper bounds (array)>
+        """
+        attributes = ['lower_bounds', 'upper_bounds']
+        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=False)
+        
+        return np.array(model_attributes['lower_bounds']), np.array(model_attributes['upper_bounds'])
 
     @staticmethod
     def extract_attributes(_node_edge, _model, _attributes, _model_attributes, exclude_locked=True, *args):

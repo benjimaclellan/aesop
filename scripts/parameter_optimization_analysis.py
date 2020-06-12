@@ -1,9 +1,10 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 import warnings
+import time
 
 from algorithms.parameter_optimization_utils import tuning_genetic_algorithm as parameters_genetic_algorithm
-from algorithms.parameter_optimization_utils import adam_ignore_bounds, get_initial_population, get_individual_score
+from algorithms.parameter_optimization_utils import adam_gradient_projection, get_initial_population, get_individual_score, adam_bounded_by_well
 
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_norm import NormCaseEvaluator
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_BER import BERCaseEvaluator
@@ -225,7 +226,7 @@ def _helper_adam(n_pop, graph, propagator, evaluator, population, log, log_metri
     return new_pop, log, log_metrics
 
 
-def run_random_generation_adam(n_pop, graph, propagator, evaluator, adam_funct=adam_ignore_bounds):
+def run_random_generation_adam(n_pop, graph, propagator, evaluator, adam_funct=adam_gradient_projection):
     """
     Observe scores from Adam gradient descent, starting from a random pool of parameters 
 
@@ -239,7 +240,7 @@ def run_random_generation_adam(n_pop, graph, propagator, evaluator, adam_funct=a
     return _helper_adam(n_pop, graph, propagator, evaluator, pop, log, log_metrics, adam_funct), log, log_metrics
 
 
-def run_GA_Adam(k_gen, n_pop, graph, propagator, evaluator, n_adam_optimize=None, adam_funct=adam_ignore_bounds):
+def run_GA_Adam(k_gen, n_pop, graph, propagator, evaluator, n_adam_optimize=None, adam_funct=adam_gradient_projection):
     """
     Observe scores from Adam gradient descent, starting from parameters selected by our GA
     
@@ -261,22 +262,26 @@ def run_GA_Adam(k_gen, n_pop, graph, propagator, evaluator, n_adam_optimize=None
 
 
 def adam_convergence_single_start(graph, propagator, evaluator, params, start_score,
-                                  num_datapoints=200, iter_per_datapoint=25, adam_funct=adam_ignore_bounds):
+                                  num_datapoints=20, iter_per_datapoint=100, adam_funct=adam_gradient_projection):
+    """
+    Returns an array of the score after each iteration, and total runtime
+    """
     _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
 
     y = np.zeros(num_datapoints)
     y[0] = start_score
 
+    start_time = time.time()
+
     for i in range(1, num_datapoints):
         try:
             params = adam_funct(graph, propagator, evaluator, params, adam_num_iters=iter_per_datapoint)
         except RuntimeWarning:
-            print(f'Warning was caused by params: {params}')
+            print(f"Responsible param: {params}")
         y[i] = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
-        print(i)
-        print(params)
     
-    return y
+    runtime = time.time() - start_time
+    return y, runtime
 
 
 # --------------------------- Data generation scripts -----------------------
@@ -305,8 +310,11 @@ def optimization_comparison_GA_Adam_both():
 
 # ---- Test Adam convergence rate
 def adam_plot_convergence():
+    """
+    Set arbitrary data, and we shall observe how varying num_datapoints and iter_per_datapoints affects the convergence rate
+    """
     TEST_SIZE = 3
-    NUM_DATAPOINTS = 200
+    NUM_DATAPOINTS = 100
     ITER_PER_DATAPOINT = 10
 
     # set up plot
@@ -314,41 +322,87 @@ def adam_plot_convergence():
     fig, ax = plt.subplots()
 
     graph = get_graph()
+    lower_bounds, upper_bounds = graph.get_parameter_bounds()
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    pop, _, _ = get_initial_population(graph, propagator, evaluator, TEST_SIZE, 'uniform')
+ 
+    # get population
+    _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+    # param1 = np.array([11.64118131, 0.14383736, 0.85613375, 0.57724734,
+    #                    0.1212238, 0.6877792, 0.80447541,  0.50509355,
+    #                    4.6475438, 5.75813538, 1.28394131, 0.24668306,
+    #                    0.88160998, 0.50833344, 0.79258724,  0.5225826,
+    #                    0.38159943, 0.66444558, 0.86493135])
+    np.random.seed(293) # need this to be consistent across runs to compare different performances
+    param1 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
+    param2 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
+    param3 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
+
+    score1 = get_individual_score(graph, propagator, evaluator, param1, node_edge_index, parameter_index)
+    # param2 = np.array([1.15118814e+00, 6.13639581e-01, 5.80859136e-01, 4.32122914e-01,
+    #                    5.27651008e-01, 5.32862384e-01, 2.36319077e+00, 5.35892507e+00, 
+    #                    1.87055910e-01, 1.97872182e+00, 4.81834792e+00, 5.45103444e-02,
+    #                    7.82720729e-01, 8.67472757e-01, 1.00000000e-08, 2.71635862e-01,
+    #                    4.98460536e-01, 1.00000000e-08, 4.73664213e-01])
+    score2 = get_individual_score(graph, propagator, evaluator, param2, node_edge_index, parameter_index)
+    # param3 = np.array([3.27449616e+00, 5.27711459e-01, 6.25728464e-01, 3.10795039e-01,
+    #                    1.51775284e-01, 5.16474242e-01, 4.21206691e+00, 1.30420430e+00,
+    #                    1.90865137e+00, 5.29036628e+00, 9.39604385e-01, 2.32957002e-01,
+    #                    3.97238116e-01, 4.40928774e-01, 7.34503654e-01, 8.42325168e-01,
+    #                    4.93136065e-03, 4.64810536e-01, 4.67624480e-01])
+    score3 = get_individual_score(graph, propagator, evaluator, param3, node_edge_index, parameter_index)
+
+    pop = [(score1, param1), (score2, param2), (score3, param3)]
 
     for (score, param) in pop:
-        y = adam_convergence_single_start(graph, propagator, evaluator,
-                                          param, score,
+        param_arr = np.array(param)
+        y, runtime = adam_convergence_single_start(graph, propagator, evaluator,
+                                          param_arr, score,
                                           num_datapoints=NUM_DATAPOINTS,
-                                          iter_per_datapoint=ITER_PER_DATAPOINT)
-        ax.plot(x, y)
+                                          iter_per_datapoint=ITER_PER_DATAPOINT,
+                                          adam_funct=adam_bounded_by_well)
+        ax.plot(x, y, label=f'runtime: {runtime}s')
 
-    plt.title('Adam convergence, from random initialisation')    
+    plt.title('Adam convergence: 100 datapoints, 10 iterations/datapoint, from random initialisation')
+    ax.legend()
+    plt.show()
 
 # ---- Investigate/debug invalid operations in np
-"""
-From catching some warnings and printing out the relevant parameters, I have found that
-the Adam gradient descent function throws error with this set of parameters, among others:
 
-Warning was caused by params:
-[array(6.8865031), array(0.90046671), array(0.17608712), array(0.5016831), array(0.01039607), array(0.89368645), array(5.49449059), array(4.59739421), array(3.81079523), array(4.15281539), array(3.23579555), array(0.26189728), array(0.17032813), array(0.92093702), array(0.93044737), array(0.00088058), array(0.53162683), array(0.49920884), array(0.69133006)]
-"""
-def unearth_np_runtimeWarnings_sqrt_power():
-    # TODO: check if any of these params violate their bounds and if so? Maybe within proper bounds there is no problem
+def unearth_np_runtimeWarnings(bug_name='negative sqrt'):
+    """
+    From catching some warnings and printing out the relevant parameters, I have found that
+    the Adam gradient descent function throws error with this set of parameters, among others:
+
+    [array(6.8865031), array(0.90046671), array(0.17608712), array(0.5016831), array(0.01039607), array(0.89368645), array(5.49449059), array(4.59739421), array(3.81079523), array(4.15281539), array(3.23579555), array(0.26189728), array(0.17032813), array(0.92093702), array(0.93044737), array(0.00088058), array(0.53162683), array(0.49920884), array(0.69133006)]
+
+    Conclusion: bounds were being violated due to gradient descent! Basically we were taking the sqrt of a negative number
+    So... implemented a bounded version of Adam gradient descent (which may or may not be optimal, but we shall see)
+    """
     graph = get_graph()
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    params = [6.8865031, 0.90046671, 0.17608712, 0.5016831,
-              0.01039607, 0.89368645, 5.49449059, 4.59739421,
-              3.81079523, 4.15281539, 3.23579555, 0.26189728,
-              0.17032813, 0.92093702, 0.93044737, 0.00088058,
-              0.53162683, 0.49920884, 0.69133006]
-
+    if (bug_name == 'negative sqrt'):
+        params = np.array([6.8865031, 0.90046671, 0.17608712, 0.5016831,
+                        0.01039607, 0.89368645, 5.49449059, 4.59739421,
+                        3.81079523, 4.15281539, 3.23579555, 0.26189728,
+                        0.17032813, 0.92093702, 0.93044737, 0.00088058,
+                        0.53162683, 0.49920884, 0.69133006])
+        iterations = 1
+    elif (bug_name == 'divide by 0'):
+        params = np.array([8.22559052, 0.7512986, 0.62604531, 0.84083605, 0.97379119,
+                           0.76196413, 2.65005011, 5.92595876, 1.52594465, 5.39680289,
+                           1.89100988, 0.32769156, 0.91642178, 0.2716401, 0.51948166,
+                           0.38430662, 0.99432464, 0.95274344, 0.39452347])
+        iterations = 7
+    else: 
+        raise ValueError('no set of parameters for that debug')
+    
     _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+    graph.distribute_parameters_from_list(params, node_edge_index, parameter_index)
+
     score = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
     print(f'Initial score: {score}')
-    try:
-        params = adam_ignore_bounds(graph, propagator, evaluator, params, adam_num_iters=1)
-        score = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
-    except RuntimeWarning:
-        print(f'Warning was caused by params: {params}')
+    
+    params = adam_gradient_projection(graph, propagator, evaluator, params, adam_num_iters=iterations)
+    print('second score computation begins')
+    score = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
+    print(f'second score: {score}')

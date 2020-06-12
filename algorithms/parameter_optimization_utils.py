@@ -3,6 +3,7 @@ from autograd import grad
 from autograd.misc.optimizers import adam
 import copy
 import random
+import warnings
 
 from lib.analysis.hessian import function_wrapper
 from .assets.functions import logbook_update, logbook_initialize
@@ -180,23 +181,77 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
 
 # -------------------- Adam implementation ----------------------
 
-def get_callback_funct(graph, propagator, evaluator, period):
-    def _adam_callback(_params, _iter, _gradient):
-        if (iter % period == 0):
-            _, _node_edge_index, _parameter_index, _, _ = graph.extract_parameters_to_list()
-            score = get_individual_score(graph, propagator, evaluator, _params, _node_edge_index, _parameter_index)
-            print(f'iter: {_iter}, score: {score}')
-
-
 def adam_function_wrapper(param_function):
     def _function(_params, _iter):
         return param_function(_params)
     
     return _function
 
+def adam_bounded(lower_bounds, upper_bounds, grad, x, callback=None, num_iters=100, step_size=0.001,
+                     b1=0.9, b2=0.999, eps=10**-8):
+    """
+    Adam, as implemented by the autograd library: https://github.com/HIPS/autograd/blob/master/autograd/misc/optimizers.py
+    Modified via the gradient projection method (in order to keep parameter values within physically required bounds). At each
+    iteration, the gradient is applied and then the resulting vector is clipped to within its bounds
 
-def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=1,
-                       adam_num_iters=50, exclude_locked=True):
+    TODO: Reread algorithm and determine how to handle the moment estimates because I feel like that... might be a thing
+
+    Description from the autograd team: Adam as described in http://arxiv.org/pdf/1412.6980.pdf.
+    It's basically RMSprop with momentum and some correction terms.
+    
+    :param lower_bounds : dimension must match x. lower_bounds[i] is the lower bound of parameter x[i]
+    :param upper_bounds : dimension must match x. upper_bounds[i] is the upper bound of parameter x[i]
+    :param x : x should be a np array!!
+    """
+    delta_arr = (upper_bounds - lower_bounds) * 10**-8 # some parameters are NOT differentiable on the boundary so we just avoid that...
+
+    lower_bounds = lower_bounds + delta_arr
+    upper_bounds = upper_bounds - delta_arr
+    m = np.zeros(len(x))
+    v = np.zeros(len(x))
+    for i in range(num_iters):
+        g = grad(x, i)
+        if callback: callback(x, i, g)
+        m = (1 - b1) * g      + b1 * m  # First  moment estimate.
+        v = (1 - b2) * (g**2) + b2 * v  # Second moment estimate.
+        mhat = m / (1 - b1**(i + 1))    # Bias correction.
+        vhat = v / (1 - b2**(i + 1))
+        x = x - step_size*mhat/(np.sqrt(vhat) + eps)
+        x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
+
+    return x
+
+def adam_bounded_by_well(graph, propagator, evaluator, params, total_iters=1,
+                         adam_num_iters=100, exclude_locked=True):
+    """
+    Basically multiply in a sharp exponential across the normal fitness function,
+    such that said exponential is 1 inside the domain, and blows up near the boundary
+    """
+    lower_bounds, upper_bounds = graph.get_parameter_bounds()
+    delta_arr = (upper_bounds - lower_bounds) * 10**-8
+    exp_coefs = (upper_bounds - lower_bounds) * 10**8
+    
+    lower_bounds = lower_bounds + delta_arr
+    upper_bounds = upper_bounds - delta_arr
+
+    fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
+
+    def _bounded_fitness_funct(x):
+        upper_well = np.exp(-exp_coefs * (x - upper_bounds)) + 1
+        lower_well = np.exp(exp_coefs * (x - upper_bounds)) + 1
+        return upper_well * upper_bounds * fitness_funct(x)
+
+    adam_bounded_fitness_funct = adam_function_wrapper(_bounded_fitness_funct)
+    fitness_grad = grad(adam_bounded_fitness_funct)
+
+    for _ in range(total_iters):
+        params = adam(fitness_grad, params, num_iters=adam_num_iters)
+    
+    return params
+    
+
+def adam_gradient_projection(graph, propagator, evaluator, params, total_iters=1,
+                          adam_num_iters=100, exclude_locked=True):
     """
     Performs Adam gradient descent of `graph` parameters on a single graph topology,
     starting at `start_param`. This function does not take parameter bounds into account
@@ -215,11 +270,13 @@ def adam_ignore_bounds(graph, propagator, evaluator, params, total_iters=1,
     fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
     adam_fitness_funct = adam_function_wrapper(fitness_funct)
     fitness_grad = grad(adam_fitness_funct)
+
+    lower_bounds, upper_bounds = graph.get_parameter_bounds()
+
     for _ in range(total_iters):
-        params = adam(fitness_grad, params, num_iters=adam_num_iters)
+        params = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params, num_iters=adam_num_iters)
 
     return params
-
     
 
 """
