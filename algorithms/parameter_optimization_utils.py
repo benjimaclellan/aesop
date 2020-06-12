@@ -187,12 +187,15 @@ def adam_function_wrapper(param_function):
     
     return _function
 
-def adam_bounded(lower_bounds, upper_bounds, grad, x, callback=None, num_iters=100, step_size=0.001,
-                     b1=0.9, b2=0.999, eps=10**-8):
+def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=None,
+                 convergence_thresh_abs=0.00085, callback=None, num_iters=100, step_size=0.001,
+                 b1=0.9, b2=0.999, eps=10**-8):
     """
     Adam, as implemented by the autograd library: https://github.com/HIPS/autograd/blob/master/autograd/misc/optimizers.py
-    Modified via the gradient projection method (in order to keep parameter values within physically required bounds). At each
-    iteration, the gradient is applied and then the resulting vector is clipped to within its bounds
+    
+    Modified via the gradient projection method (in order to keep parameter values within physically required bounds) and convergence check. At each
+    iteration, the gradient is applied and then the resulting vector is clipped to within its bounds. Every
+    `convergence_check_period` iterations, we check whether the magnitude of the most recent change is smaller than a threshold. If so, we return
 
     TODO: Reread algorithm and determine how to handle the moment estimates because I feel like that... might be a thing
 
@@ -202,11 +205,17 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, callback=None, num_iters=1
     :param lower_bounds : dimension must match x. lower_bounds[i] is the lower bound of parameter x[i]
     :param upper_bounds : dimension must match x. upper_bounds[i] is the upper bound of parameter x[i]
     :param x : x should be a np array!!
+
+    :return <new parameters>, last iteration number (num_iters if no early termination)
     """
     delta_arr = (upper_bounds - lower_bounds) * 10**-8 # some parameters are NOT differentiable on the boundary so we just avoid that...
 
     lower_bounds = lower_bounds + delta_arr
     upper_bounds = upper_bounds - delta_arr
+
+    if (convergence_check_period is None):
+        convergence_check_period = num_iters + 1 # i.e. will never check for convergence
+
     m = np.zeros(len(x))
     v = np.zeros(len(x))
     for i in range(num_iters):
@@ -217,41 +226,49 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, callback=None, num_iters=1
         mhat = m / (1 - b1**(i + 1))    # Bias correction.
         vhat = v / (1 - b2**(i + 1))
         x = x - step_size*mhat/(np.sqrt(vhat) + eps)
+
+        if (i % convergence_check_period == convergence_check_period - 1):
+            delta = np.linalg.norm(step_size*mhat/(np.sqrt(vhat) + eps))
+            if (delta < convergence_thresh_abs): # return early if the function meets our threshold of convergence
+                print(f'i: {i}, delta: {delta}, convergence_thresh_abs: {convergence_thresh_abs}')
+                return x, i
+
         x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
 
-    return x
+    return x, num_iters
 
-def adam_bounded_by_well(graph, propagator, evaluator, params, total_iters=1,
-                         adam_num_iters=100, exclude_locked=True):
-    """
-    Basically multiply in a sharp exponential across the normal fitness function,
-    such that said exponential is 1 inside the domain, and blows up near the boundary
-    """
-    lower_bounds, upper_bounds = graph.get_parameter_bounds()
-    delta_arr = (upper_bounds - lower_bounds) * 10**-8
-    exp_coefs = (upper_bounds - lower_bounds) * 10**8
+# def adam_bounded_by_well(graph, propagator, evaluator, params, total_iters=1,
+#                          adam_num_iters=100, exclude_locked=True):
+#     """
+#     Basically multiply in a sharp exponential across the normal fitness function,
+#     such that said exponential is 1 inside the domain, and blows up near the boundary
+#     """
+#     lower_bounds, upper_bounds = graph.get_parameter_bounds()
+#     delta_arr = (upper_bounds - lower_bounds) * 10**-5
+#     exp_coefs = (upper_bounds - lower_bounds) * 50
     
-    lower_bounds = lower_bounds + delta_arr
-    upper_bounds = upper_bounds - delta_arr
+#     lower_bounds = lower_bounds + delta_arr
+#     upper_bounds = upper_bounds - delta_arr
 
-    fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
+#     fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
 
-    def _bounded_fitness_funct(x):
-        upper_well = np.exp(-exp_coefs * (x - upper_bounds)) + 1
-        lower_well = np.exp(exp_coefs * (x - upper_bounds)) + 1
-        return upper_well * upper_bounds * fitness_funct(x)
+#     def _bounded_fitness_funct(x):
+#         upper_well = np.exp(-exp_coefs * (x - upper_bounds)) + 1
+#         lower_well = np.exp(exp_coefs * (x - upper_bounds)) + 1
+#         return upper_well * upper_bounds * fitness_funct(x)
 
-    adam_bounded_fitness_funct = adam_function_wrapper(_bounded_fitness_funct)
-    fitness_grad = grad(adam_bounded_fitness_funct)
+#     adam_bounded_fitness_funct = adam_function_wrapper(_bounded_fitness_funct)
+#     fitness_grad = grad(adam_bounded_fitness_funct)
 
-    for _ in range(total_iters):
-        params = adam(fitness_grad, params, num_iters=adam_num_iters)
+#     for _ in range(total_iters):
+#         params = adam(fitness_grad, params, num_iters=adam_num_iters)
     
-    return params
+#     return params
     
 
-def adam_gradient_projection(graph, propagator, evaluator, params, total_iters=1,
-                          adam_num_iters=100, exclude_locked=True):
+def adam_gradient_projection(graph, propagator, evaluator, params,
+                             convergence_check_period=None,
+                             adam_num_iters=100, exclude_locked=True):
     """
     Performs Adam gradient descent of `graph` parameters on a single graph topology,
     starting at `start_param`. This function does not take parameter bounds into account
@@ -273,16 +290,8 @@ def adam_gradient_projection(graph, propagator, evaluator, params, total_iters=1
 
     lower_bounds, upper_bounds = graph.get_parameter_bounds()
 
-    for _ in range(total_iters):
-        params = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params, num_iters=adam_num_iters)
+    params = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params,
+                          convergence_check_period=convergence_check_period,
+                          num_iters=adam_num_iters)
 
     return params
-    
-
-"""
-Plan: create another Adam function which wraps the 'evaluate_graph' fitness function such that the parameter
-      bounds are enforced by a dramatic increase in function value at the parameter edges
-
-      Also create an Adam function that just inspects each parameters and hard resets parameter A to its 
-      max and min if it steps over in either direction
-"""

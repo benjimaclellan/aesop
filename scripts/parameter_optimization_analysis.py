@@ -4,7 +4,7 @@ import warnings
 import time
 
 from algorithms.parameter_optimization_utils import tuning_genetic_algorithm as parameters_genetic_algorithm
-from algorithms.parameter_optimization_utils import adam_gradient_projection, get_initial_population, get_individual_score, adam_bounded_by_well
+from algorithms.parameter_optimization_utils import adam_gradient_projection, get_initial_population, get_individual_score
 
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_norm import NormCaseEvaluator
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_BER import BERCaseEvaluator
@@ -274,10 +274,15 @@ def adam_convergence_single_start(graph, propagator, evaluator, params, start_sc
     start_time = time.time()
 
     for i in range(1, num_datapoints):
-        try:
-            params = adam_funct(graph, propagator, evaluator, params, adam_num_iters=iter_per_datapoint)
-        except RuntimeWarning:
-            print(f"Responsible param: {params}")
+        params, termination_iter = adam_funct(graph, propagator, evaluator, params,
+                                              adam_num_iters=iter_per_datapoint,
+                                              convergence_check_period=1)
+        
+        if (termination_iter != iter_per_datapoint):
+            print(f"Terminated early on datapoint {i}, iteration: {termination_iter}")
+            y[i:num_datapoints] = np.nan # we just don't want it to display anything
+            break
+
         y[i] = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
     
     runtime = time.time() - start_time
@@ -314,8 +319,8 @@ def adam_plot_convergence():
     Set arbitrary data, and we shall observe how varying num_datapoints and iter_per_datapoints affects the convergence rate
     """
     TEST_SIZE = 3
-    NUM_DATAPOINTS = 100
-    ITER_PER_DATAPOINT = 10
+    NUM_DATAPOINTS = 20
+    ITER_PER_DATAPOINT = 50
 
     # set up plot
     x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
@@ -327,42 +332,30 @@ def adam_plot_convergence():
  
     # get population
     _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
-    # param1 = np.array([11.64118131, 0.14383736, 0.85613375, 0.57724734,
-    #                    0.1212238, 0.6877792, 0.80447541,  0.50509355,
-    #                    4.6475438, 5.75813538, 1.28394131, 0.24668306,
-    #                    0.88160998, 0.50833344, 0.79258724,  0.5225826,
-    #                    0.38159943, 0.66444558, 0.86493135])
+
     np.random.seed(293) # need this to be consistent across runs to compare different performances
     param1 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
     param2 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
     param3 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
 
     score1 = get_individual_score(graph, propagator, evaluator, param1, node_edge_index, parameter_index)
-    # param2 = np.array([1.15118814e+00, 6.13639581e-01, 5.80859136e-01, 4.32122914e-01,
-    #                    5.27651008e-01, 5.32862384e-01, 2.36319077e+00, 5.35892507e+00, 
-    #                    1.87055910e-01, 1.97872182e+00, 4.81834792e+00, 5.45103444e-02,
-    #                    7.82720729e-01, 8.67472757e-01, 1.00000000e-08, 2.71635862e-01,
-    #                    4.98460536e-01, 1.00000000e-08, 4.73664213e-01])
     score2 = get_individual_score(graph, propagator, evaluator, param2, node_edge_index, parameter_index)
-    # param3 = np.array([3.27449616e+00, 5.27711459e-01, 6.25728464e-01, 3.10795039e-01,
-    #                    1.51775284e-01, 5.16474242e-01, 4.21206691e+00, 1.30420430e+00,
-    #                    1.90865137e+00, 5.29036628e+00, 9.39604385e-01, 2.32957002e-01,
-    #                    3.97238116e-01, 4.40928774e-01, 7.34503654e-01, 8.42325168e-01,
-    #                    4.93136065e-03, 4.64810536e-01, 4.67624480e-01])
     score3 = get_individual_score(graph, propagator, evaluator, param3, node_edge_index, parameter_index)
 
     pop = [(score1, param1), (score2, param2), (score3, param3)]
 
+    i = 0
     for (score, param) in pop:
         param_arr = np.array(param)
         y, runtime = adam_convergence_single_start(graph, propagator, evaluator,
                                           param_arr, score,
                                           num_datapoints=NUM_DATAPOINTS,
                                           iter_per_datapoint=ITER_PER_DATAPOINT,
-                                          adam_funct=adam_bounded_by_well)
-        ax.plot(x, y, label=f'runtime: {runtime}s')
+                                          adam_funct=adam_gradient_projection)
+        ax.plot(x, y, label=f'run {i}, runtime: {runtime}s')
+        i += 1
 
-    plt.title('Adam convergence: 100 datapoints, 10 iterations/datapoint, from random initialisation')
+    plt.title('Adam convergence: 20 datapoints, 50 iterations/datapoint, from random initialisation')
     ax.legend()
     plt.show()
 
