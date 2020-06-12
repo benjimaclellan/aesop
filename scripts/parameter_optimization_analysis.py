@@ -319,8 +319,8 @@ def adam_plot_convergence():
     Set arbitrary data, and we shall observe how varying num_datapoints and iter_per_datapoints affects the convergence rate
     """
     TEST_SIZE = 3
-    NUM_DATAPOINTS = 20
-    ITER_PER_DATAPOINT = 50
+    NUM_DATAPOINTS = 5
+    ITER_PER_DATAPOINT = 5
 
     # set up plot
     x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
@@ -334,18 +334,13 @@ def adam_plot_convergence():
     _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
 
     np.random.seed(293) # need this to be consistent across runs to compare different performances
-    param1 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
-    param2 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
-    param3 = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
+    pop = [None] * TEST_SIZE
+    for i in range(TEST_SIZE):
+        param = np.random.uniform(low=lower_bounds, high=upper_bounds, size=(lower_bounds.shape[0]))
+        score = get_individual_score(graph, propagator, evaluator, param, node_edge_index, parameter_index)
+        pop[i] = (score, param)
 
-    score1 = get_individual_score(graph, propagator, evaluator, param1, node_edge_index, parameter_index)
-    score2 = get_individual_score(graph, propagator, evaluator, param2, node_edge_index, parameter_index)
-    score3 = get_individual_score(graph, propagator, evaluator, param3, node_edge_index, parameter_index)
-
-    pop = [(score1, param1), (score2, param2), (score3, param3)]
-
-    i = 0
-    for (score, param) in pop:
+    for i, (score, param) in enumerate(pop):
         param_arr = np.array(param)
         y, runtime = adam_convergence_single_start(graph, propagator, evaluator,
                                           param_arr, score,
@@ -353,9 +348,8 @@ def adam_plot_convergence():
                                           iter_per_datapoint=ITER_PER_DATAPOINT,
                                           adam_funct=adam_gradient_projection)
         ax.plot(x, y, label=f'run {i}, runtime: {runtime}s')
-        i += 1
 
-    plt.title('Adam convergence: 20 datapoints, 50 iterations/datapoint, from random initialisation')
+    plt.title('Adam convergence: 5 datapoints, 5 iterations/datapoint, from random initialisation')
     ax.legend()
     plt.show()
 

@@ -237,34 +237,6 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
 
     return x, num_iters
 
-# def adam_bounded_by_well(graph, propagator, evaluator, params, total_iters=1,
-#                          adam_num_iters=100, exclude_locked=True):
-#     """
-#     Basically multiply in a sharp exponential across the normal fitness function,
-#     such that said exponential is 1 inside the domain, and blows up near the boundary
-#     """
-#     lower_bounds, upper_bounds = graph.get_parameter_bounds()
-#     delta_arr = (upper_bounds - lower_bounds) * 10**-5
-#     exp_coefs = (upper_bounds - lower_bounds) * 50
-    
-#     lower_bounds = lower_bounds + delta_arr
-#     upper_bounds = upper_bounds - delta_arr
-
-#     fitness_funct = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
-
-#     def _bounded_fitness_funct(x):
-#         upper_well = np.exp(-exp_coefs * (x - upper_bounds)) + 1
-#         lower_well = np.exp(exp_coefs * (x - upper_bounds)) + 1
-#         return upper_well * upper_bounds * fitness_funct(x)
-
-#     adam_bounded_fitness_funct = adam_function_wrapper(_bounded_fitness_funct)
-#     fitness_grad = grad(adam_bounded_fitness_funct)
-
-#     for _ in range(total_iters):
-#         params = adam(fitness_grad, params, num_iters=adam_num_iters)
-    
-#     return params
-    
 
 def adam_gradient_projection(graph, propagator, evaluator, params,
                              convergence_check_period=None,
