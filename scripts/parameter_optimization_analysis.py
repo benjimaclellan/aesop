@@ -4,7 +4,7 @@ import warnings
 import time
 
 from algorithms.parameter_optimization_utils import tuning_genetic_algorithm as parameters_genetic_algorithm
-from algorithms.parameter_optimization_utils import adam_gradient_projection, get_initial_population, get_individual_score
+from algorithms.parameter_optimization_utils import adam_gradient_projection, get_initial_population, get_individual_score, tuning_adam_gradient_descent
 
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_norm import NormCaseEvaluator
 from problems.example.evaluator_subclasses.weighted_evaluators.case_evaluator_BER import BERCaseEvaluator
@@ -30,7 +30,6 @@ Evaluation procedure:
 1. For each bit sequence length, generate 3 random (but reproducible) sequences
 2. On each of these sequences, 
 
-TODO: how to represent the structure which holds all my logs?
 TODO: verify that all metrics are normalised to 1, and if they're not, do it
 TODO: figure out how to incorporate stability of solution
 TODO: add visualisation based on log data
@@ -39,7 +38,7 @@ TODO: normalize so that smallest power is shifted to 0?
 TODO: what if we reward lack of up and down within a given bit or stretch of "high"? (a sort of derivative grading scheme?)
 
 Observations:
-1. We're lacking incentive on the quick up-downs bc it's worth just saying screw it?
+1. We're lacking incentive on the quick up-downs bc it's worth losing some points in one place in optimization?
 2. The populations are converging weirdly fast: can we give it some intensive to explore more?
 """
 
@@ -319,8 +318,8 @@ def adam_plot_convergence():
     Set arbitrary data, and we shall observe how varying num_datapoints and iter_per_datapoints affects the convergence rate
     """
     TEST_SIZE = 3
-    NUM_DATAPOINTS = 5
-    ITER_PER_DATAPOINT = 5
+    NUM_DATAPOINTS = 20
+    ITER_PER_DATAPOINT = 50
 
     # set up plot
     x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
@@ -349,7 +348,7 @@ def adam_plot_convergence():
                                           adam_funct=adam_gradient_projection)
         ax.plot(x, y, label=f'run {i}, runtime: {runtime}s')
 
-    plt.title('Adam convergence: 5 datapoints, 5 iterations/datapoint, from random initialisation')
+    plt.title('Adam convergence: 20 datapoints, 50 iterations/datapoint, from random initialisation')
     ax.legend()
     plt.show()
 
