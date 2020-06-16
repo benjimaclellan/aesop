@@ -119,8 +119,15 @@ def get_individual_score(graph, propagator, evaluator, individual_params, node_e
 
     :return: the score received by the individual with this evaluator
     """
-    graph.distribute_parameters_from_list(individual_params, node_edge_index, parameter_index)
-    graph.propagate(propagator)
+    try:
+        graph.distribute_parameters_from_list(individual_params, node_edge_index, parameter_index)
+        graph.propagate(propagator)
+    except RuntimeWarning as w:
+        lower, upper = graph.get_parameter_bounds()
+        print(f'lower bound: {lower}')
+        print(f'upper bound: {upper}')
+        print(f'individual params: {individual_params}')
+        raise w
     return evaluator.evaluate_graph(graph, propagator)
 
 
@@ -129,7 +136,7 @@ def get_individual_score(graph, propagator, evaluator, individual_params, node_e
 def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
                              n_population=64, rate_mut=0.9, rate_crx=0.9, 
                              crossover=crossover_singlepoint, mutation_operator_dist='uniform',
-                             verbose=False):
+                             optimize_top_X=0, verbose=False):
     """
     Genetic algorithm for tuning parameters in a set topology. Parametrised version
     of the function implemented by @benjimaclellan
@@ -142,6 +149,7 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
     :param rate_crx: the rate of crossover
     :param crossover: crossover function
     :param mutation_operator_dist: distribution of the mutation operator
+    :param optimize_top_X: if 0, acts as a regular GA. Else, executes Adam gradient descent on the top x elements each generation
     :return: final_population (sorted), log_book
     """
     log, log_metrics = logbook_initialize()
@@ -175,6 +183,13 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         
         # sort population, and then take the best n_population individuals
         population.sort(reverse=False)
+        if (optimize_top_X != 0):
+            tuned_pop, log = tuning_adam_gradient_descent(graph, propagator, evaluator,
+                                                        n_pop=optimize_top_X, pop=population[0:optimize_top_X],
+                                                        n_batches=5)
+            
+            population.extend(tuned_pop)
+            population.sort(reverse=False)
         population = population[:-(len(population) - n_population) or None]
         
         # updates log book
@@ -235,6 +250,7 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
             delta = np.linalg.norm(step_size*mhat/(np.sqrt(vhat) + eps))
             if (delta < convergence_thresh_abs): # return early if the function meets our threshold of convergence
                 print(f'i: {i}, delta: {delta}, convergence_thresh_abs: {convergence_thresh_abs}')
+                x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
                 return x, i
 
         x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
@@ -308,17 +324,31 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
     fitness_grad = grad(adam_fitness_funct)
 
     lower_bounds, upper_bounds = graph.get_parameter_bounds()
+    print(f'lower bounds: {lower_bounds}')
+    print(f'upper bounds: {upper_bounds}')
 
     # setup logging, and update with initial population statistics
     log, log_metrics = logbook_initialize()
     logbook_update(0, pop, log, log_metrics, verbose=verbose)
 
+    # setup tracking of individuals that have reached convergence
+    has_converged = [False] * n_pop
+
     # run each batch
     for batch in range(n_batches):
+        if (verbose):
+            print(f'Batch {batch}')
         start_time = time.time()
         for i in range(n_pop):
-            tmp_pop, _ = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1], convergence_check_period=convergence_check_period, num_iters=batch_size)
+            if (has_converged[i]):
+                continue # if we've converged once, we skip future checks
+
+            tmp_pop, actual_iters = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1], convergence_check_period=convergence_check_period, num_iters=batch_size)
             pop[i] = (None, tmp_pop)
+            if (actual_iters != batch_size): # i.e. if it cut out early bc we've levelled out enough
+                has_converged[i] = True
+            if (verbose):
+                print(f'population #: {i}')
         
         runtime = time.time() - start_time
         

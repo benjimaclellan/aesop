@@ -189,9 +189,13 @@ class DelayLine(SinglePath):
             beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
             field_short_tmp = field_short
-
-            field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
-            field_long = np.exp(1j * beta * length) * (
-                    1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
-
+            try:
+                field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
+                field_long = np.exp(1j * beta * length) * (
+                        1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
+            except RuntimeWarning as w:
+                print(f'RuntimeWarning: {w}')
+                print(f'coupling ratios: {coupling_ratios}')
+                print(f'coupling ratio: {coupling_ratio}')
+                raise w
         return [ifft_(field_short, propagator.dt)]
