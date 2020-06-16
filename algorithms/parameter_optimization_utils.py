@@ -342,14 +342,14 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
         for i in range(n_pop):
             if (has_converged[i]):
                 continue # if we've converged once, we skip future checks
-
+            if (verbose):
+                print(f'population #: {i}')
+        
             tmp_pop, actual_iters = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1], convergence_check_period=convergence_check_period, num_iters=batch_size)
             pop[i] = (None, tmp_pop)
             if (actual_iters != batch_size): # i.e. if it cut out early bc we've levelled out enough
                 has_converged[i] = True
-            if (verbose):
-                print(f'population #: {i}')
-        
+
         runtime = time.time() - start_time
         
         # note that we don't count the population evaluation in the runtime, because it's not necessary for the optimization algorithm (unlike in GAs)
