@@ -51,6 +51,7 @@ def crossover_singlepoint(parent1, parent2, **kwargs):
         crx_point = np.random.randint(1, len(parent1))
         child1 = copy.deepcopy(parent1[:crx_point] + parent2[crx_point:])
         child2 = copy.deepcopy(parent2[:crx_point] + parent1[crx_point:])
+
         return child1, child2
     except:
         return parent1, parent2
@@ -121,14 +122,14 @@ def get_individual_score(graph, propagator, evaluator, individual_params, node_e
     """
     try:
         graph.distribute_parameters_from_list(individual_params, node_edge_index, parameter_index)
-        graph.propagate(propagator)
+
+        return evaluator.evaluate_graph(graph, propagator)
     except RuntimeWarning as w:
         lower, upper = graph.get_parameter_bounds()
         print(f'lower bound: {lower}')
         print(f'upper bound: {upper}')
         print(f'individual params: {individual_params}')
         raise w
-    return evaluator.evaluate_graph(graph, propagator)
 
 
 # -------------------- GA implementation ----------------------
@@ -157,11 +158,15 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         get_initial_population(graph, propagator, evaluator, n_population,
                                mutation_operator_dist)
     
+    if (optimize_top_X > 0):
+        adam_logs = []
+
     # updates log book with initial population statistics
     logbook_update(0, population, log, log_metrics, verbose=verbose)
 
     #TODO: include and update logbook
     for generation_num in range(1, n_generations + 1):
+        print(f'Generation: {generation_num}')
         start_time = time.time() # saving runtime
 
         # Cross-over
@@ -178,15 +183,14 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
             child = mutation(parent, mut)
             score = get_individual_score(graph, propagator, evaluator, child, node_edge_index, parameter_index)
             population.append((score, child))
-       
-        # TODO: consider entirely new individuals to prevent early convergence?
-        
+               
         # sort population, and then take the best n_population individuals
         population.sort(reverse=False)
-        if (optimize_top_X != 0):
-            tuned_pop, log = tuning_adam_gradient_descent(graph, propagator, evaluator,
+        if (optimize_top_X > 0):
+            tuned_pop, adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator,
                                                         n_pop=optimize_top_X, pop=population[0:optimize_top_X],
                                                         n_batches=5)
+            adam_logs.append(adam_log)
             
             population.extend(tuned_pop)
             population.sort(reverse=False)
@@ -196,6 +200,9 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         runtime = time.time() - start_time
         logbook_update(generation_num, population, log, log_metrics, runtime=runtime, verbose=verbose)
     
+    if (optimize_top_X > 0):
+        return population, log, adam_logs
+
     return population, log
 
 # -------------------- Adam implementation ----------------------
@@ -208,7 +215,7 @@ def adam_function_wrapper(param_function):
 
 def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=None,
                  convergence_thresh_abs=0.00085, callback=None, num_iters=100, step_size=0.001,
-                 b1=0.9, b2=0.999, eps=10**-8):
+                 b1=0.9, b2=0.999, eps=10**-8, verbose=True):
     """
     Adam, as implemented by the autograd library: https://github.com/HIPS/autograd/blob/master/autograd/misc/optimizers.py
     
@@ -249,7 +256,8 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
         if (i % convergence_check_period == convergence_check_period - 1):
             delta = np.linalg.norm(step_size*mhat/(np.sqrt(vhat) + eps))
             if (delta < convergence_thresh_abs): # return early if the function meets our threshold of convergence
-                print(f'i: {i}, delta: {delta}, convergence_thresh_abs: {convergence_thresh_abs}')
+                if (verbose):
+                    print(f'i: {i}, delta: {delta}, convergence_thresh_abs: {convergence_thresh_abs}')
                 x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
                 return x, i
 
@@ -289,7 +297,7 @@ def adam_gradient_projection(graph, propagator, evaluator, params,
 
 
 def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, batch_size=50, convergence_check_period=1,
-                                 n_pop=64, pop=None, exclude_locked=True, verbose=False):
+                                 n_pop=64, pop=None, exclude_locked=True, verbose=True):
     """
     Performs adam gradient descent on `n_population` individuals. Data is logged and returned at the end
 
@@ -324,8 +332,9 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
     fitness_grad = grad(adam_fitness_funct)
 
     lower_bounds, upper_bounds = graph.get_parameter_bounds()
-    print(f'lower bounds: {lower_bounds}')
-    print(f'upper bounds: {upper_bounds}')
+    if (verbose):
+        print(f'lower bounds: {lower_bounds}')
+        print(f'upper bounds: {upper_bounds}')
 
     # setup logging, and update with initial population statistics
     log, log_metrics = logbook_initialize()
@@ -345,8 +354,8 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
             if (verbose):
                 print(f'population #: {i}')
         
-            tmp_pop, actual_iters = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1], convergence_check_period=convergence_check_period, num_iters=batch_size)
-            pop[i] = (None, tmp_pop)
+            tmp_param, actual_iters = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1], convergence_check_period=convergence_check_period, num_iters=batch_size, verbose=verbose)
+            pop[i] = (None, tmp_param)
             if (actual_iters != batch_size): # i.e. if it cut out early bc we've levelled out enough
                 has_converged[i] = True
 
@@ -361,6 +370,7 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
     
     # once batches are complete, cleanup
     pop.sort(reverse=False, key=lambda x: x[0]) # key is necessary in case score is the same for 2 elements
+    pop = [(score, params.tolist()) for (score, params) in pop] # needed for compatibility with the GA operators
     return pop, log
 
 
