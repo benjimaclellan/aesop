@@ -166,7 +166,8 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
 
     #TODO: include and update logbook
     for generation_num in range(1, n_generations + 1):
-        print(f'Generation: {generation_num}')
+        if verbose:
+            print(f'Generation: {generation_num}')
         start_time = time.time() # saving runtime
 
         # Cross-over

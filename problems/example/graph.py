@@ -77,7 +77,7 @@ class Graph(GraphParent):
                 self.edges[edge].pop('states')
         return
 
-    def propagate(self, propagator, deep_copy=True):
+    def propagate(self, propagator, deep_copy=False):
         if deep_copy:
             return self._propagate_deepcopy(propagator)
         
@@ -95,7 +95,6 @@ class Graph(GraphParent):
                 tmp_states = []
                 for edge in self.get_in_edges(node):
                     if self._propagate_on_edges and 'model' in self.edges[edge]:
-                        print(self.nodes[edge[0]])
                         tmp_states += self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1)  # TODO: Check that models on edge are single spatial mode maybe
                     else:
                         tmp_states += self.edges[edge]['states']
@@ -106,6 +105,7 @@ class Graph(GraphParent):
                     self.edges[edge]['states'] = [state]
                 else:
                     self.edges[edge]['states'] = copy.deepcopy([state])
+            self.nodes[node]['states'] = states
             
         return self
     
