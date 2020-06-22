@@ -17,7 +17,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
     """  """
     def __init__(self, propagator, **kwargs):
         super().__init__(**kwargs)
-        self.evaluation_node = 4  # TODO this is just a placeholder for testing, need dynamic setting
+        self.evaluation_node = 3  # TODO this is just a placeholder for testing, need dynamic setting
 
         self.target_harmonic = 12e9  # target pattern repetition in Hz
 

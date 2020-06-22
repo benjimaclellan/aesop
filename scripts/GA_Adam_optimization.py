@@ -80,15 +80,15 @@ def generate_data():
     propagator = get_propagator()
     evaluator = get_evaluator()
 
-    # pure GA
-    np.random.seed(RANDOM_SEED)
-    random.seed(RANDOM_SEED)
-    ga_pop, ga_log = tuning_genetic_algorithm(graph, propagator, evaluator) # , n_population=20, n_generations=5)
-    ga_log.to_pickle('GA_default_log.pkl')
-    with open('GA_default_pop.pkl', 'wb') as handle:
-        pickle.dump(ga_pop, handle)
-    print("GA")
-    print(ga_log)
+    # # pure GA
+    # np.random.seed(RANDOM_SEED)
+    # random.seed(RANDOM_SEED)
+    # ga_pop, ga_log = tuning_genetic_algorithm(graph, propagator, evaluator) # , n_population=20, n_generations=5)
+    # ga_log.to_pickle('GA_default_log.pkl')
+    # with open('GA_default_pop.pkl', 'wb') as handle:
+    #     pickle.dump(ga_pop, handle)
+    # print("GA")
+    # print(ga_log)
 
     # pure Adam
     np.random.seed(RANDOM_SEED)
@@ -99,29 +99,29 @@ def generate_data():
     print("Adam")
     print(adam_log)
     
-    # use GA population to begin Adam tuning
-    with open('GA_default_pop.pkl', 'rb') as handle:
-        ga_pop = pickle.load(handle)
+    # # use GA population to begin Adam tuning
+    # with open('GA_default_pop.pkl', 'rb') as handle:
+    #     ga_pop = pickle.load(handle)
 
-        ga_adam_pop, ga_adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, pop=ga_pop, verbose=True) #, n_pop=20, n_batches=5, batch_size=10, pop=ga_pop)
-        ga_adam_log.to_pickle('GA_Adam_log.pkl')
-        with open('GA_Adam_pop.pkl', 'wb') as handle2:
-            pickle.dump(ga_adam_pop, handle2)
-        print('GA + Adam')
-        print(ga_adam_log)
+    #     ga_adam_pop, ga_adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, pop=ga_pop, verbose=True) #, n_pop=20, n_batches=5, batch_size=10, pop=ga_pop)
+    #     ga_adam_log.to_pickle('GA_Adam_log.pkl')
+    #     with open('GA_Adam_pop.pkl', 'wb') as handle2:
+    #         pickle.dump(ga_adam_pop, handle2)
+    #     print('GA + Adam')
+    #     print(ga_adam_log)
 
-    # Use Adam tuning within GA population for top 10 individuals of each generation
-    np.random.seed(RANDOM_SEED)
-    random.seed(RANDOM_SEED)
-    ga_with_adam_pop, ga_with_adam_log, ga_with_adam_adamLog = tuning_genetic_algorithm(graph, propagator, evaluator, optimize_top_X=10)
-    ga_with_adam_log.to_pickle('GA_with_Adam_log.pkl')
-    with open ('GA_with_Adam_pop.pkl', 'wb') as handle:
-        pickle.dump(ga_with_adam_pop, handle)
-    with open('GA_with_Adam_AdamLog.pkl', 'wb') as handle:
-        pickle.dump(ga_with_adam_adamLog, handle)
-    print('GA with Adam at each step')
-    print(ga_with_adam_log)
-    print(ga_with_adam_adamLog)
+    # # Use Adam tuning within GA population for top 10 individuals of each generation
+    # np.random.seed(RANDOM_SEED)
+    # random.seed(RANDOM_SEED)
+    # ga_with_adam_pop, ga_with_adam_log, ga_with_adam_adamLog = tuning_genetic_algorithm(graph, propagator, evaluator, optimize_top_X=10)
+    # ga_with_adam_log.to_pickle('GA_with_Adam_log.pkl')
+    # with open ('GA_with_Adam_pop.pkl', 'wb') as handle:
+    #     pickle.dump(ga_with_adam_pop, handle)
+    # with open('GA_with_Adam_AdamLog.pkl', 'wb') as handle:
+    #     pickle.dump(ga_with_adam_adamLog, handle)
+    # print('GA with Adam at each step')
+    # print(ga_with_adam_log)
+    # print(ga_with_adam_adamLog)
 
 
 def load_and_output_data():
@@ -129,19 +129,19 @@ def load_and_output_data():
     propagator = get_propagator()
     evaluator = get_evaluator()
 
-    # # GA
-    # ga_log = pd.read_pickle('GA_default_log.pkl')
-    # print('GA log:')
-    # print(ga_log)
+    # GA
+    ga_log = pd.read_pickle('GA_default_log.pkl')
+    print('GA log:')
+    print(ga_log)
 
     # ga_log_old = pd.read_pickle('GA_default_log_copy.pkl')
     # print('GA log old:')
     # print(ga_log_old)
 
-    # with open('GA_default_pop.pkl', 'rb') as handle:
-    #     ga_pop = pickle.load(handle)
-    #     best_score, best_params = ga_pop[0]
-    #     display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA default population best: {best_score}')
+    with open('GA_default_pop.pkl', 'rb') as handle:
+        ga_pop = pickle.load(handle)
+        best_score, best_params = ga_pop[0]
+        display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA default population best: {best_score}')
     
     # Adam
     adam_log = pd.read_pickle('Adam_default_log.pkl')
@@ -153,28 +153,28 @@ def load_and_output_data():
         best_score, best_params = adam_pop[0]
         display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'Adam default population best: {best_score}')
     
-    # # GA + (and then) Adam
-    # ga_adam_log = pd.read_pickle('GA_Adam_log.pkl')
-    # print('GA + Adam log: ')
-    # print(ga_adam_log)
+    # GA + (and then) Adam
+    ga_adam_log = pd.read_pickle('GA_Adam_log.pkl')
+    print('GA + Adam log: ')
+    print(ga_adam_log)
 
-    # with open('GA_Adam_pop.pkl', 'rb') as handle:
-    #     ga_adam_pop = pickle.load(handle)
-    #     best_score, best_params = ga_adam_pop[0]
-    #     display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA + Adam population best: {best_score}')
+    with open('GA_Adam_pop.pkl', 'rb') as handle:
+        ga_adam_pop = pickle.load(handle)
+        best_score, best_params = ga_adam_pop[0]
+        display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA + Adam population best: {best_score}')
     
-    # #GA with Adam at each step
-    # ga_with_adam_log = pd.read_pickle('GA_with_Adam_log.pkl')
-    # print('GA with Adam at each step log: ')
-    # print(ga_with_adam_log)
+    #GA with Adam at each step
+    ga_with_adam_log = pd.read_pickle('GA_with_Adam_log.pkl')
+    print('GA with Adam at each step log: ')
+    print(ga_with_adam_log)
 
-    # with open('GA_with_Adam_Adamlog.pkl', 'rb') as handle:
-    #     ga_with_adam_adamLog = pickle.load(handle)
-    #     for i, adamLog in enumerate(ga_with_adam_adamLog):
-    #         print(f'Generation {i + 1}')
-    #         print(adamLog)
+    with open('GA_with_Adam_Adamlog.pkl', 'rb') as handle:
+        ga_with_adam_adamLog = pickle.load(handle)
+        for i, adamLog in enumerate(ga_with_adam_adamLog):
+            print(f'Generation {i + 1}')
+            print(adamLog)
 
-    # with open('GA_with_Adam_pop.pkl', 'rb') as handle:
-    #     ga_with_adam_pop = pickle.load(handle)
-    #     best_score, best_params = ga_adam_pop[0]
-    #     display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA with Adam at each step population best: {best_score}')
+    with open('GA_with_Adam_pop.pkl', 'rb') as handle:
+        ga_with_adam_pop = pickle.load(handle)
+        best_score, best_params = ga_adam_pop[0]
+        display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA with Adam at each step population best: {best_score}')

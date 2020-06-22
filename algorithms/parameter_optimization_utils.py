@@ -216,7 +216,8 @@ def adam_function_wrapper(param_function):
 
 def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=None,
                  convergence_thresh_abs=0.00085, callback=None, num_iters=100, step_size=0.001,
-                 b1=0.9, b2=0.999, eps=10**-8, verbose=True):
+                 b1=0.9, b2=0.999, eps=10**-8,
+                 m=None, v=None, verbose=True):
     """
     Adam, as implemented by the autograd library: https://github.com/HIPS/autograd/blob/master/autograd/misc/optimizers.py
     
@@ -243,8 +244,12 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
     if (convergence_check_period is None):
         convergence_check_period = num_iters + 1 # i.e. will never check for convergence
 
-    m = np.zeros(len(x))
-    v = np.zeros(len(x))
+    # for testing purposes, we're going to allow these to be set, such that we can exit the function and restart where we ended
+    if m is None:
+        m = np.zeros(len(x))
+    if v is None:
+        v = np.zeros(len(x))
+    
     for i in range(num_iters):
         g = grad(x, i)
         if callback: callback(x, i, g)
@@ -264,7 +269,7 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
 
         x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
 
-    return x, num_iters
+    return x, num_iters, m, v
 
 
 def adam_gradient_projection(graph, propagator, evaluator, params,
@@ -343,6 +348,7 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
 
     # setup tracking of individuals that have reached convergence
     has_converged = [False] * n_pop
+    saved_m_v = [None] * n_pop
 
     # run each batch
     for batch in range(n_batches):
@@ -355,8 +361,12 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
             if (verbose):
                 print(f'population #: {i}')
         
-            tmp_param, actual_iters = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1], convergence_check_period=convergence_check_period, num_iters=batch_size, verbose=verbose)
+            tmp_param, actual_iters, m, v = adam_bounded(lower_bounds, upper_bounds, fitness_grad, pop[i][1],
+                                                         convergence_check_period=convergence_check_period,
+                                                         num_iters=batch_size, m=saved_m_v[i][0], v=saved_m_v[i][1], 
+                                                         verbose=verbose)
             pop[i] = (None, tmp_param)
+            saved_m_v[i] = (m, v)
             if (actual_iters != batch_size): # i.e. if it cut out early bc we've levelled out enough
                 has_converged[i] = True
 
