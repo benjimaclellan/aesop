@@ -90,7 +90,7 @@ def generate_data():
     print("GA")
     print(ga_log)
 
-    # # pure Adam
+    # pure Adam
     np.random.seed(RANDOM_SEED)
     adam_pop, adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, verbose=True) # , n_pop=20, n_batches=5, batch_size=10)
     adam_log.to_pickle('Adam_default_log.pkl')
@@ -99,7 +99,7 @@ def generate_data():
     print("Adam")
     print(adam_log)
     
-    use GA population to begin Adam tuning
+    # use GA population to begin Adam tuning
     with open('GA_default_pop.pkl', 'rb') as handle:
         ga_pop = pickle.load(handle)
 
