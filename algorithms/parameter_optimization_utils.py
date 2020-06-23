@@ -101,7 +101,7 @@ def get_initial_population(graph, propagator, evaluator, n_pop, mutation_operato
         # may or may not be necessary, depending on implementation changes
         graph.distribute_parameters_from_list(parameters, node_edge_index, parameter_index)
 
-        graph.propagate(propagator)
+        # graph.propagate(propagator)
         score = evaluator.evaluate_graph(graph, propagator)
         population.append((score, parameters))
     
@@ -158,6 +158,7 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         get_initial_population(graph, propagator, evaluator, n_population,
                                mutation_operator_dist)
     
+    print('optimize pop')
     if (optimize_top_X > 0):
         adam_logs = []
 
@@ -348,7 +349,7 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
 
     # setup tracking of individuals that have reached convergence
     has_converged = [False] * n_pop
-    saved_m_v = [None] * n_pop
+    saved_m_v = [(None, None)] * n_pop
 
     # run each batch
     for batch in range(n_batches):
@@ -366,7 +367,7 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
                                                          num_iters=batch_size, m=saved_m_v[i][0], v=saved_m_v[i][1], 
                                                          verbose=verbose)
             pop[i] = (None, tmp_param)
-            saved_m_v[i] = (m, v)
+            # saved_m_v[i] = (m, v)
             if (actual_iters != batch_size): # i.e. if it cut out early bc we've levelled out enough
                 has_converged[i] = True
 
