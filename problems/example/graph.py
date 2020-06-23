@@ -19,7 +19,7 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False):
+    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, deep_copy=False):
         """
         """
         super().__init__()
@@ -40,6 +40,8 @@ class Graph(GraphParent):
         self._propagate_on_edges = propagate_on_edges
 
         self._propagation_order = None
+
+        self._deep_copy = deep_copy
 
         return
 
@@ -77,8 +79,8 @@ class Graph(GraphParent):
                 self.edges[edge].pop('states')
         return
 
-    def propagate(self, propagator, deep_copy=False):
-        if deep_copy:
+    def propagate(self, propagator):
+        if self._deep_copy:
             return self._propagate_deepcopy(propagator)
         
         return self._propagate_limit_deepcopy(propagator)
@@ -95,6 +97,7 @@ class Graph(GraphParent):
                 tmp_states = []
                 for edge in self.get_in_edges(node):
                     if self._propagate_on_edges and 'model' in self.edges[edge]:
+                        # TODO: investigate this suspicious use of the previous node (should prob use )
                         tmp_states += self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1)  # TODO: Check that models on edge are single spatial mode maybe
                     else:
                         tmp_states += self.edges[edge]['states']
