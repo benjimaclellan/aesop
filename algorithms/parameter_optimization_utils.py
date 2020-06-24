@@ -266,7 +266,7 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
                 if (verbose):
                     print(f'i: {i}, delta: {delta}, convergence_thresh_abs: {convergence_thresh_abs}')
                 x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
-                return x, i
+                return x, i, m, v
 
         x = np.clip(x, a_min=lower_bounds, a_max=upper_bounds)
 
@@ -296,11 +296,11 @@ def adam_gradient_projection(graph, propagator, evaluator, params,
 
     lower_bounds, upper_bounds = graph.get_parameter_bounds()
 
-    params, iters_run = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params,
-                        convergence_check_period=convergence_check_period,
-                        num_iters=adam_num_iters)
+    params, iters_run, m, v = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params,
+                              convergence_check_period=convergence_check_period,
+                              num_iters=adam_num_iters)
 
-    return params, iters_run
+    return params, iters_run, m, v
 
 
 def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, batch_size=50, convergence_check_period=1,
@@ -367,7 +367,7 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
                                                          num_iters=batch_size, m=saved_m_v[i][0], v=saved_m_v[i][1], 
                                                          verbose=verbose)
             pop[i] = (None, tmp_param)
-            # saved_m_v[i] = (m, v)
+            saved_m_v[i] = (m, v)
             if (actual_iters != batch_size): # i.e. if it cut out early bc we've levelled out enough
                 has_converged[i] = True
 

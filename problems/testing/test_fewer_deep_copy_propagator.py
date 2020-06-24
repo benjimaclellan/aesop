@@ -1,7 +1,8 @@
 import pytest
 import autograd.numpy as np
+from autograd import grad
 
-from algorithms.parameter_optimization_utils import get_individual_score, get_initial_population
+from algorithms.parameter_optimization_utils import get_individual_score, get_initial_population, adam_function_wrapper
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
@@ -10,6 +11,9 @@ from problems.example.node_types_subclasses.single_path import CorningFiber, Pha
 
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
+
+from lib.analysis.hessian import function_wrapper
+
 
 # ---------------------------- Providers --------------------------------
 def get_graph(deep_copy):
@@ -85,3 +89,16 @@ def test_evaluation_equality(params, graph_deepcopy, graph_no_deepcopy, propagat
            get_individual_score(graph_no_deepcopy, propagator, evaluator,
                                 params, nodeEdgeIndex_parameterIndex[0],
                                 nodeEdgeIndex_parameterIndex[1])
+
+@pytest.mark.parametrize("params", param_list)
+def test_gradient_equality(params, graph_deepcopy, graph_no_deepcopy, propagator, evaluator, nodeEdgeIndex_parameterIndex):
+    # setup the gradient function and bounds
+    fitness_funct_deepcopy = function_wrapper(graph_deepcopy, propagator, evaluator, exclude_locked=True)
+    adam_fitness_funct_deepcopy = adam_function_wrapper(fitness_funct_deepcopy)
+    fitness_grad_deepcopy = grad(adam_fitness_funct_deepcopy)
+    
+    fitness_funct_no_deepcopy = function_wrapper(graph_no_deepcopy, propagator, evaluator, exclude_locked=True)
+    adam_fitness_funct_no_deepcopy = adam_function_wrapper(fitness_funct_no_deepcopy)
+    fitness_grad_no_deepcopy = grad(adam_fitness_funct_no_deepcopy)
+
+    assert fitness_grad_deepcopy(params, 0) == fitness_grad_no_deepcopy(params, 0)
