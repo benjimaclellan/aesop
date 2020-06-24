@@ -270,27 +270,29 @@ def display_adam_convergence_data():
     # deepcopy version
     fig, ax = plt.subplots()
     ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
+    ax.set_xlim(right=NUM_DATAPOINTS * ITER_PER_DATAPOINT)
     x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
     with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_withDeepCopy.pkl', 'rb') as handle:
         data = pickle.load(handle)
         for i, run in enumerate(data):
             ax.plot(x, run[0], label=f'test {i}')
 
-        plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, with deep copy')
-        ax.legend()
-        plt.show()
+        # plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, with deep copy')
+        # ax.legend()
+        # plt.show()
     
     # not deepcopy version
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
     ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
+
     with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_withoutDeepCopy.pkl', 'rb') as handle:
         data = pickle.load(handle)
         for i, run in enumerate(data):
-            ax.plot(x, run[0], label=f'test {i}')
+            ax.plot(x, run[0], linestyle=':') # , label=f'test {i}')
             # if (i == 23):
             #     ax.plot(x, run[0], label=f'test{i}')
 
-        plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, without deep copy')
+        plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, with deep copy (solid) and without (dotted)')
         ax.legend()
         plt.show()
 
@@ -332,5 +334,24 @@ def diagnose_uphill_case():
     ax.plot(x, run_data_no_deepcopy[0], label='no deepcopy')
     ax.plot(x, run_data_deepcopy[0], label='deepcopy')
     ax.legend()
-    plt.title(f'The mysterious affair of the no deepcopy Adam convergence')
+    plt.title(f'Comparing a single starting point: deepcopy and no deepcopy')
+    plt.show()
+
+def display_uphill_case():
+    DATAPOINT_NUM = 300
+
+    # setup graphs
+    fig, ax = plt.subplots()
+    x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
+
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_noDeepcopy.pkl', 'rb') as handle:
+        y, runtime = pickle.load(handle)
+        ax.plot(x, y, label='no deepcopy')
+    
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'rb') as handle:
+        y, runtime = pickle.load(handle)
+        ax.plot(x, y, label='deepcopy')
+    
+    ax.legend()
+    plt.title(f'Comparing a single starting point: deepcopy and no deepcopy')
     plt.show()
