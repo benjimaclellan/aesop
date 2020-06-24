@@ -5,11 +5,13 @@ from scripts.parameter_optimization_analysis import run_case_fitness_analysis_be
 
 from scripts.GA_Adam_optimization import generate_data, load_and_output_data, \
                                          generate_adam_convergence_data, \
-                                         display_adam_convergence_data
+                                         display_adam_convergence_data, \
+                                         diagnose_uphill_case
 
 if __name__ == "__main__":
+    diagnose_uphill_case()
     # generate_adam_convergence_data()
-    display_adam_convergence_data()
+    # display_adam_convergence_data()
     # generate_data()
     # load_and_output_data()
     # unearth_np_runtimeWarnings(bug_name='divide by 0')

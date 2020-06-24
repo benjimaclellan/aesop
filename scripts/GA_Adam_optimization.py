@@ -195,7 +195,7 @@ def load_and_output_data():
 # ---------------------------- Adam Diagnosis ---------------------------
 
 def _adam_convergence_from_start(graph, propagator, evaluator, params,
-                                 num_datapoints=50, iter_per_datapoint=100):
+                                 num_datapoints=50, iter_per_datapoint=100, convergence_check_period=1):
     """
     Returns an array of the score after each iteration, and total runtime
     """
@@ -220,7 +220,7 @@ def _adam_convergence_from_start(graph, propagator, evaluator, params,
     for i in range(1, num_datapoints):
         params, termination_iter, m, v = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params,
                                                       num_iters=iter_per_datapoint,
-                                                      convergence_check_period=1, m=m, v=v)
+                                                      convergence_check_period=convergence_check_period, m=m, v=v)
 
         if (termination_iter != iter_per_datapoint):
             print(f"Terminated early on datapoint {i}, iteration: {termination_iter}")
@@ -264,13 +264,17 @@ def generate_adam_convergence_data():
     _generate_adam_convergence_data(graph_no_deepcopy, propagator, evaluator, title_qualifier='withoutDeepCopy')
 
 def display_adam_convergence_data():
+    # create colour map
+    cm = plt.get_cmap('brg')
+
     # deepcopy version
     fig, ax = plt.subplots()
+    ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
     x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
     with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_withDeepCopy.pkl', 'rb') as handle:
         data = pickle.load(handle)
-        for run in data:
-            ax.plot(x, run[0], label=f'runtime: {run[1]}')
+        for i, run in enumerate(data):
+            ax.plot(x, run[0], label=f'test {i}')
 
         plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, with deep copy')
         ax.legend()
@@ -278,12 +282,55 @@ def display_adam_convergence_data():
     
     # not deepcopy version
     fig, ax = plt.subplots()
+    ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
     with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_withoutDeepCopy.pkl', 'rb') as handle:
         data = pickle.load(handle)
-        for run in data:
-            ax.plot(x, run[0], label=f'runtime: {run[1]}')
+        for i, run in enumerate(data):
+            ax.plot(x, run[0], label=f'test {i}')
+            # if (i == 23):
+            #     ax.plot(x, run[0], label=f'test{i}')
 
         plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, without deep copy')
         ax.legend()
         plt.show()
 
+def diagnose_uphill_case():
+    DATAPOINT_NUM = 300
+
+    graph_no_deepcopy = get_graph(False)
+    graph_deepcopy = get_graph(True)
+    propagator = get_propagator()
+    evaluator = get_evaluator()
+
+    np.random.seed(RANDOM_SEED_ADAM) # need this to be consistent across runs to compare different performances
+    pop, _, _ = get_initial_population(graph_no_deepcopy, propagator, evaluator, 24, 'uniform')
+    score, param_list = pop[23]
+    y, runtime = _adam_convergence_from_start(graph_no_deepcopy, propagator, evaluator,
+                                              np.array(param_list),
+                                              num_datapoints=DATAPOINT_NUM,
+                                              iter_per_datapoint=ITER_PER_DATAPOINT,
+                                              convergence_check_period=None)
+
+    run_data_no_deepcopy = (y, runtime)
+    y, runtime = _adam_convergence_from_start(graph_deepcopy, propagator, evaluator,
+                                              np.array(param_list),
+                                              num_datapoints=DATAPOINT_NUM,
+                                              iter_per_datapoint=ITER_PER_DATAPOINT,
+                                              convergence_check_period=None)
+    run_data_deepcopy = (y, runtime)
+
+    
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_noDeepcopy.pkl', 'wb') as handle:
+        pickle.dump(run_data_no_deepcopy, handle)
+
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'wb') as handle:
+        pickle.dump(run_data_deepcopy, handle)
+
+    
+    fig, ax = plt.subplots()
+    x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
+    ax.plot(x, run_data_no_deepcopy[0], label='no deepcopy')
+    ax.plot(x, run_data_deepcopy[0], label='deepcopy')
+    ax.legend()
+    plt.title(f'The mysterious affair of the no deepcopy Adam convergence')
+    plt.show()
