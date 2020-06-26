@@ -3,6 +3,7 @@ import autograd.numpy as np
 from autograd import grad
 import numpy.testing as testing
 import matplotlib.pyplot as plt
+import copy
 
 from algorithms.parameter_optimization_utils import get_individual_score, get_initial_population, adam_function_wrapper
 
@@ -14,27 +15,66 @@ from problems.example.node_types_subclasses.single_path import CorningFiber, Pha
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import power_, psd_
+from problems.example.evaluator import Evaluator
+
 
 from lib.analysis.hessian import function_wrapper
 
 
 GRAPHICAL_TESTING = False
 
+"""
+Summary of findings so far: we can replace the deepcopies in the nested for loops by not deepcopies, and it works IF we don't propagate on edges
+                            If we do propagate on edges, there' more to it s
+- VJP of np.copy is not supported
+- The first deepcopy results in a derivative. The subsequent ones do not
+- You cannot trick the system with recursion, alas
+
+TODO (to try):
+- using the builtin autograd list type for temp state?
+"""
+
 # ---------------------------- Providers --------------------------------
 def get_graph(deep_copy):
     """
     Returns the default graph for testing, with fixed topology at this time
     """
-    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6}),
-             1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+    # nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6}),
+    #          1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+    #          2: WaveShaper(),
+    #          3: DelayLine(),
+    #          4: MeasurementDevice()
+    #          }
+
+    # edges = [(0,1, CorningFiber(parameters=[0])),
+    #          (1,2, CorningFiber(parameters=[0])),
+    #          (2,3),
+    #          (3,4)]
+
+    # nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6}),
+    #          1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+    #          2: WaveShaper(),
+    #          3: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+    #          4: DelayLine(),
+    #          5: WaveShaper(),
+    #          6: MeasurementDevice()
+    #          }
+
+    # edges = [(0,1),
+    #          (1,2),
+    #          (2,3),
+    #          (3,4),
+    #          (4,5),
+    #          (5,6)]
+
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
+             1: WaveShaper(),
              2: WaveShaper(),
-             3: DelayLine(),
-             4: MeasurementDevice()
-             }
-    edges = [(0,1, CorningFiber(parameters=[0])),
-             (1,2, CorningFiber(parameters=[0])),
-             (2,3),
-             (3,4)]
+             3: MeasurementDevice()
+            }
+    edges = [(0, 1),
+             (1, 2),
+             (2, 3)]
 
     graph = Graph(nodes, edges, propagate_on_edges=True, deep_copy=deep_copy)
     graph.assert_number_of_edges()
@@ -73,6 +113,45 @@ def display_states_deepcopy_noDeepcopy(state_deepcopy, state_no_deepcopy, propag
     ax[1].legend()
     plt.show()
 
+
+def summation_no_copy(x):
+    # return _summation_no_copy_recursive(x, 3)
+    sum = 0
+    REPEATS = 3
+
+    for i in range(REPEATS):
+        sum += i * np.sum(x)
+    return sum
+
+
+def summation_copy(x):
+    # return _summation_copy_recursive(x, 3)
+    sum = 0
+    REPEATS = 3
+    x_copies = [copy.deepcopy(x)] * REPEATS
+
+    for i in range(REPEATS):
+        sum += i * np.sum(x_copies[i])
+    return sum
+
+def _summation_no_copy_recursive(x, i):
+    if i == 0:
+        return 0
+    return i * np.sum(x) + _summation_no_copy_recursive(x, i - 1)
+
+def _summation_copy_recursive(x, i):
+    if i == 0:
+        return 0
+    return i * copy.deepcopy(np.sum(x)) + _summation_copy_recursive(x, i - 1)
+
+
+class SummationEvaluator(Evaluator):
+    def evaluate_graph(self, graph, propagator):
+        graph.propagate(propagator)
+        state = graph.nodes[len(graph.nodes) - 1]['states'][0]
+        return np.sum(power_(state))
+
+
 @pytest.fixture(scope='function')
 def graph_deepcopy():
     return get_graph(True)
@@ -98,7 +177,7 @@ def nodeEdgeIndex_parameterIndex(graph_no_deepcopy):
     _, node_edge_index, parameter_index, _, _ = graph_no_deepcopy.extract_parameters_to_list()
     return node_edge_index, parameter_index
 
-
+@pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_evaluation_equality(params, graph_deepcopy, graph_no_deepcopy, propagator, evaluator, nodeEdgeIndex_parameterIndex):
     assert get_individual_score(graph_deepcopy, propagator, evaluator,
@@ -108,7 +187,7 @@ def test_evaluation_equality(params, graph_deepcopy, graph_no_deepcopy, propagat
                                 params, nodeEdgeIndex_parameterIndex[0],
                                 nodeEdgeIndex_parameterIndex[1])
 
-@pytest.mark.xfail
+@pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_gradient_equality(params, graph_deepcopy, graph_no_deepcopy, propagator, evaluator, nodeEdgeIndex_parameterIndex):
     # setup the gradient function and bounds
@@ -116,12 +195,37 @@ def test_gradient_equality(params, graph_deepcopy, graph_no_deepcopy, propagator
     adam_fitness_funct_deepcopy = adam_function_wrapper(fitness_funct_deepcopy)
     fitness_grad_deepcopy = grad(adam_fitness_funct_deepcopy)
     
-    fitness_funct_no_deepcopy = function_wrapper(graph_no_deepcopy, propagator, evaluator, exclude_locked=True)
+    propagator_no_deepcopy= get_propagator()
+    fitness_funct_no_deepcopy = function_wrapper(graph_no_deepcopy, propagator_no_deepcopy, evaluator, exclude_locked=True)
     adam_fitness_funct_no_deepcopy = adam_function_wrapper(fitness_funct_no_deepcopy)
     fitness_grad_no_deepcopy = grad(adam_fitness_funct_no_deepcopy)
 
-    assert fitness_grad_deepcopy(params, 0) == fitness_grad_no_deepcopy(params, 0)
+    print(fitness_grad_deepcopy(params, 0))
+    print(fitness_grad_no_deepcopy(params, 0))
+    assert np.allclose(fitness_grad_deepcopy(params, 0), fitness_grad_no_deepcopy(params, 0))
 
+@pytest.mark.skip
+@pytest.mark.parametrize("params", param_list)
+def test_gradient_summation_funct(params, graph_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
+    evaluator = SummationEvaluator()
+
+    # setup the gradient function and bounds
+    fitness_funct_deepcopy = function_wrapper(graph_deepcopy, propagator, evaluator, exclude_locked=True)
+    fitness_grad_deepcopy = grad(fitness_funct_deepcopy) # grad(adam_fitness_funct_deepcopy)
+    
+    propagator_no_deepcopy= get_propagator()
+    fitness_funct_no_deepcopy = function_wrapper(graph_no_deepcopy, propagator_no_deepcopy, evaluator, exclude_locked=True)
+    fitness_grad_no_deepcopy = grad(fitness_funct_no_deepcopy) # grad(adam_fitness_funct_no_deepcopy)
+
+    print(fitness_grad_deepcopy(params))
+    print(fitness_grad_no_deepcopy(params))
+    print('param names:')
+    print(graph_deepcopy.get_parameter_info())
+
+    assert np.allclose(fitness_grad_deepcopy(params), fitness_grad_no_deepcopy(params))
+
+
+@pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_propagation_result_equality(params, graph_deepcopy, graph_no_deepcopy, propagator, evaluator, nodeEdgeIndex_parameterIndex):
     propagator_nodeepcopy = get_propagator()
@@ -140,3 +244,16 @@ def test_propagation_result_equality(params, graph_deepcopy, graph_no_deepcopy, 
         display_states_deepcopy_noDeepcopy(deepcopy_state, no_deepcopy_state, propagator)
 
     testing.assert_allclose(deepcopy_state, no_deepcopy_state)
+
+# @pytest.mark.skip
+def test_autograd_deepcopy_behaviour():
+    x = np.array([1, 2, 3, 4, 3.5, 920, 0])
+
+    grad_copy = grad(summation_copy)
+    grad_no_copy = grad(summation_no_copy)
+
+    print(f'with deepcopy: {grad_copy(x)}')
+    print(f'without deepcopy: {grad_no_copy(x)}')
+
+    assert np.allclose(grad_copy(x), grad_no_copy(x))
+    assert False

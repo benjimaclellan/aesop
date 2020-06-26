@@ -2,8 +2,9 @@
 
 import warnings
 
-import autograd.numpy as np
-import autograd.numpy as sp
+# import autograd.numpy as np
+# import autograd.numpy as sp
+import jax.numpy as np
 
 import scipy.signal as signal
 
@@ -17,7 +18,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
     """  """
     def __init__(self, propagator, **kwargs):
         super().__init__(**kwargs)
-        self.evaluation_node = 3  # TODO this is just a placeholder for testing, need dynamic setting
+        # self.evaluation_node = 3  # TODO this is just a placeholder for testing, need dynamic setting
 
         self.target_harmonic = 12e9  # target pattern repetition in Hz
 
@@ -35,8 +36,9 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         self.normalize = False
 
     def evaluate_graph(self, graph, propagator):
+        evaluation_node = len(graph.nodes) - 1
         graph.propagate(propagator)
-        state = graph.nodes[self.evaluation_node]['states'][0]
+        state = graph.nodes[evaluation_node]['states'][0]
         score = self.waveform_temporal_overlap(state, propagator)
         return score
 
@@ -65,8 +67,10 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
 
     def compare(self, graph, propagator):
+        evaluation_node = len(graph.nodes) - 1
+
         fig, ax = plt.subplots(1, 1)
-        state = graph.nodes[self.evaluation_node]['states'][0]
+        state = graph.nodes[evaluation_node]['states'][0]
         ax.plot(propagator.t, power_(state), label='Measured State')
         ax.plot(propagator.t, self.target, label='Target State')
         ax.set(xlabel='Time', ylabel='Power a.u.')

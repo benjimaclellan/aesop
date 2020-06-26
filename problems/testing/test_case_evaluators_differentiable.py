@@ -131,6 +131,7 @@ def default_propagator():
     return Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
 
 
+@pytest.mark.skip
 def test_norm1_weight0(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3,
                                    weighting_exponent=0, mock_graph_for_testing=True, phase_shift=False)
@@ -138,6 +139,7 @@ def test_norm1_weight0(propagator_6samples, bit_seq_2bits, default_2bits_3sample
     assert math.isclose(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples), sum)
 
 
+@pytest.mark.skip
 def test_norm1_weight2(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, mock_graph_for_testing=True,
                                   phase_shift=False)
@@ -145,6 +147,7 @@ def test_norm1_weight2(propagator_6samples, bit_seq_2bits, default_2bits_3sample
     assert math.isclose(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples), sum / 2)
 
 
+@pytest.mark.skip
 def test_norm2_weight4(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, norm=2,
                                   weighting_exponent=4, mock_graph_for_testing=True, phase_shift=False)
@@ -153,6 +156,7 @@ def test_norm2_weight4(propagator_6samples, bit_seq_2bits, default_2bits_3sample
     assert math.isclose(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples), weighed_norm / 2)
 
 
+@pytest.mark.skip
 @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
 def test_BER_differentiation(default_graph, default_propagator, bit_seq_2bits):
     evaluator = BERCaseEvaluator(default_propagator, bit_seq_2bits, 2, phase_shift=False)
@@ -178,6 +182,7 @@ def test_BER_differentiation(default_graph, default_propagator, bit_seq_2bits):
     # check_grads(func)(default_2bits_3samplesbit_mock)
 
 
+@pytest.mark.skip
 def test_BER_weight1(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     # weight 1, thresh default
     evaluator = BERCaseEvaluator(propagator_6samples, bit_seq_2bits, 3,
@@ -187,6 +192,7 @@ def test_BER_weight1(propagator_6samples, bit_seq_2bits, default_2bits_3samplesb
     assert np.abs(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples) - 1 / 2) < 0.05
 
 
+@pytest.mark.skip
 def test_BER_weight3_threshpoint2(propagator_6samples, bit_seq_2bits, default_2bits_3samplesbit_mock):
     # weight 3, thresh 0.2
     evaluator = BERCaseEvaluator(propagator_6samples, bit_seq_2bits, 3, thresh=0.2,
@@ -203,6 +209,7 @@ def test_BER_weight3_threshpoint25(propagator_6samples, bit_seq_2bits, default_2
     assert np.abs(evaluator.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples)) < 0.05
 
 
+@pytest.mark.skip
 @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
 def test_norm_differentation(default_graph, default_propagator, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = NormCaseEvaluator(default_propagator, bit_seq_2bits, 4, norm=1)
@@ -227,11 +234,13 @@ def test_norm_differentation(default_graph, default_propagator, bit_seq_2bits, d
     # check_grads(func)(default_2bits_3samplesbit_mock)
 
 
+@pytest.mark.skip
 @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='graphical testing disabled')
 def test_max_eye_graphical_simple(max_eye_evaluator_basic, default_2bits_3samplesbit_mock):
     max_eye_evaluator_basic.evaluate_graph(default_2bits_3samplesbit_mock, propagator_6samples)
 
 
+@pytest.mark.skip
 @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='graphical testing disabled')
 def test_max_eye_graphical_longer(propagator_42samples, bit_seq_6bits,
                                   default_6bits_7samplesbit_mock):
@@ -241,6 +250,7 @@ def test_max_eye_graphical_longer(propagator_42samples, bit_seq_6bits,
     evaluator.evaluate_graph(default_6bits_7samplesbit_mock, propagator_6samples)
 
 
+@pytest.mark.skip
 def test_max_eye_0(propagator_single_sample):
     bit_seq = np.array([1])
     evaluator = MaxEyeEvaluator(propagator_single_sample, bit_seq, 1,
@@ -250,7 +260,7 @@ def test_max_eye_0(propagator_single_sample):
     score = 1 / (np.pi * 0.3 * 0.15 * s_squared)
     assert math.isclose(evaluator.evaluate_graph(mock, propagator_single_sample), score)
 
-
+@pytest.mark.skip
 @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
 def test_maxEye_differentation(default_graph, default_propagator, bit_seq_2bits, default_2bits_3samplesbit_mock):
     evaluator = MaxEyeEvaluator(default_propagator, bit_seq_2bits, 4)
@@ -278,6 +288,7 @@ def test_maxEye_checkGrad(default_graph, default_propagator, bit_seq_2bits, defa
     check_grads(func)(default_2bits_3samplesbit_mock)
 
 # @pytest.mark.skipif(not GRAPHICAL_TESTING, reason='not doing graphical testing')
+@pytest.mark.skip
 def test_phase_shift_integer_bitSeq():
     # just inspect manually to see that it makes sense
     # TODO: add a test, that should be pretty easy

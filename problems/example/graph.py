@@ -3,6 +3,7 @@
 """
 
 import autograd.numpy as np
+
 import networkx as nx
 import copy
 import matplotlib.pyplot as plt
@@ -118,21 +119,25 @@ class Graph(GraphParent):
         propagation_order = self.propagation_order
         for node in propagation_order:  # loop through nodes in the prescribed, physical order
             if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-                tmp_states = [np.copy(propagator.state)]  # nodes take a list of propagators as default, to account for multipath
+                tmp_states = [copy.deepcopy(propagator.state)]  # nodes take a list of propagators as default, to account for multipath
             else:  # if we have incoming nodes to get the propagator from
                 tmp_states = []  # initialize list to add all incoming propagators to
                 for edge in self.get_in_edges(node):  # loop through incoming edges
                     if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
                         tmp_states += copy.deepcopy(self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1))  # TODO: Check that models on edge are single spatial mode maybe
+                        # tmp_states += self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1)
                     else:
                         tmp_states += copy.deepcopy(self.edges[edge]['states'])
+                        # tmp_states += self.edges[edge]['states']
 
             # save the list of propagators at that node locations (deepcopy required throughout)
             states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node))
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
                 self.edges[edge]['states'] = copy.deepcopy([state])
+                # self.edges[edge]['states'] = [state]
 
             self.nodes[node]['states'] = copy.deepcopy(states)
+            # self.nodes[node]['states'] = states
         return self
             
 
@@ -206,6 +211,29 @@ class Graph(GraphParent):
         model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=False)
         
         return np.array(model_attributes['lower_bounds']), np.array(model_attributes['upper_bounds'])
+    
+    def get_parameter_info(self, exclude_locked=True):
+        """
+        Returns the node number and parameter name of each parameter, in the order returned by all other functions
+
+        :Return: for each parameter: 'node A: type <ModelType>: param N <ParamName>'
+        """
+        info = self.extract_attributes_to_list_experimental(['parameter_names'], exclude_locked=exclude_locked)
+        param_names = info['parameter_names']
+        node_nums = info['node_edge_index']
+        param_indices = info['parameter_index']
+        
+        param_infos = ''
+
+        for i in range(len(param_indices)):
+            node_num = node_nums[i]
+            node_type = type(self.nodes[node_nums[i]]['model'])
+            param_i = param_indices[i]
+            param_name_i = param_names[i]
+            info_string = f'node {node_num}, type {node_type}, param {param_i}={param_name_i}'
+            param_infos += info_string + '\n'
+        
+        return param_infos
 
     @staticmethod
     def extract_attributes(_node_edge, _model, _attributes, _model_attributes, exclude_locked=True, *args):
