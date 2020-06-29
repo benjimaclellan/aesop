@@ -2,9 +2,9 @@
 
 import warnings
 
-# import autograd.numpy as np
+import autograd.numpy as np
 # import autograd.numpy as sp
-import jax.numpy as np
+# import jax.numpy as np
 
 import scipy.signal as signal
 
@@ -36,9 +36,9 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         self.normalize = False
 
     def evaluate_graph(self, graph, propagator):
-        evaluation_node = len(graph.nodes) - 1
+        evaluation_node = [node for node in graph.nodes if not graph.out_edges(node)][0]  # finds node with no outgoing edges
         graph.propagate(propagator)
-        state = graph.nodes[evaluation_node]['states'][0]
+        state = graph.measure_propagator(evaluation_node)
         score = self.waveform_temporal_overlap(state, propagator)
         return score
 
@@ -67,10 +67,10 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
 
     def compare(self, graph, propagator):
-        evaluation_node = len(graph.nodes) - 1
+        evaluation_node = [node for node in graph.nodes if not graph.out_edges(node)][0]  # finds node with no outgoing edges
 
         fig, ax = plt.subplots(1, 1)
-        state = graph.nodes[evaluation_node]['states'][0]
+        state = graph.measure_propagator(evaluation_node)
         ax.plot(propagator.t, power_(state), label='Measured State')
         ax.plot(propagator.t, self.target, label='Target State')
         ax.set(xlabel='Time', ylabel='Power a.u.')

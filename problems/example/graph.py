@@ -44,6 +44,8 @@ class Graph(GraphParent):
 
         self._deep_copy = deep_copy
 
+        self._propagator_saves = {}
+
         return
 
     def get_in_degree(self, node):
@@ -84,8 +86,42 @@ class Graph(GraphParent):
         if self._deep_copy:
             return self._propagate_deepcopy(propagator)
         
-        return self._propagate_limit_deepcopy(propagator)
-    
+        # return self._propagate_limit_deepcopy(propagator)
+        return self._propagate_no_deepcopy(propagator)
+
+    def _propagate_no_deepcopy(self, propagator):
+        """
+        Uses no deepcopy functionality - hopefully avoiding issues with autograd.
+        Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
+        """
+
+        print('This propagate function does NOT use copy.deepcopy')
+
+        propagation_order = self.propagation_order
+        self._propagator_saves = {}  # will save each propagator here ##TODO make sure this is not saving the same object in multiple places somehow (it doesn't seem like it though)
+
+        for node in propagation_order:  # loop through nodes in the prescribed, physical order
+            if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
+                tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
+            else:  # if we have incoming nodes to get the propagator from
+                tmp_states = []  # initialize list to add all incoming propagators to
+                for edge in self.get_in_edges(node):  # loop through incoming edges
+                    if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
+                        tmp_states += self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1)
+                    else:
+                        tmp_states += self._propagator_saves[edge]
+
+            # save the list of propagators at that node locations (deepcopy required throughout)
+            states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node))
+            for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
+                self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
+
+            self._propagator_saves[node] = states
+        return self
+
+    def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
+        return self._propagator_saves[node][0]
+
     def _propagate_limit_deepcopy(self, propagator):
         """
         """
@@ -337,7 +373,7 @@ class Graph(GraphParent):
 
         # please note that we do not include the edges here (most of the time I doubt we will use edges, but it may be useful in the future)
         for node in reversed(self.propagation_order):
-            state = self.nodes[node]['states'][0]
+            state = self.measure_propagator(node)
             line = {'ls':next(linestyles), 'lw':3}
             ax[0].plot(propagator.t, power_(state), label=node, **line)
             ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df), **line)

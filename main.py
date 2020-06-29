@@ -40,12 +40,16 @@ def principle_main():
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
              1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
              2:WaveShaper(),
-             3:MeasurementDevice()}
-    edges = [(0,1, CorningFiber(parameters=[0])),
-             (1,2, CorningFiber(parameters=[0])),
-             (2,3)]
+             3:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
+             4: WaveShaper(),
+             5:MeasurementDevice()}
+    edges = [(0,1),
+             (1,2),
+             (2,3),
+             (3,4),
+             (4,5)]
 
-    graph = Graph(nodes, edges, propagate_on_edges = True)
+    graph = Graph(nodes, edges, propagate_on_edges = False, deep_copy=False)
     graph.assert_number_of_edges()
 
     # %%
@@ -53,7 +57,7 @@ def principle_main():
     print("evaluator target rf shape: {}".format(evaluator.target_rf.shape))
     print("evaluator scale array shape: {}".format(evaluator.target_rf.shape))
     evaluator.evaluate_graph(graph, propagator)
-    return
+
     # %%
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width':0.1})
     parameters, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
@@ -111,3 +115,4 @@ def principle_main():
 
 if __name__ == "__main__":
     principle_main()
+

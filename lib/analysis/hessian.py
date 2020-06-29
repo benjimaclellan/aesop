@@ -1,9 +1,10 @@
 import autograd.numpy as np
+from autograd import hessian
 from autograd import elementwise_grad, jacobian
 import warnings
 
 
-def hessian(func, argnum = 0):
+def hessian_local(func, argnum = 0):
     '''
     Compute the hessian by computing the transpose of the jacobian of the gradient.
     '''
@@ -19,6 +20,8 @@ def hessian(func, argnum = 0):
 def get_hessian(graph, propagator, evaluator, exclude_locked=True):
     func = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
     hessian_function = hessian(func)
+    # hessian_function = hessian_local(func)
+
     return hessian_function
 
 def get_scaled_hessian(graph, propagator, evaluator, exclude_locked=True):
