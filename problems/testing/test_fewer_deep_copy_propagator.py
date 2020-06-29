@@ -1,6 +1,6 @@
 import pytest
 import autograd.numpy as np
-from autograd import grad
+from autograd import grad, hessian
 import numpy.testing as testing
 import matplotlib.pyplot as plt
 import copy
@@ -128,10 +128,12 @@ def summation_copy(x):
     # return _summation_copy_recursive(x, 3)
     sum = 0
     REPEATS = 3
-    x_copies = [copy.deepcopy(x)] * REPEATS
 
     for i in range(REPEATS):
-        sum += i * np.sum(x_copies[i])
+        tmp = copy.deepcopy(x)
+        sum += i * np.sum(tmp)
+        print(type(tmp))
+
     return sum
 
 def _summation_no_copy_recursive(x, i):
@@ -204,6 +206,7 @@ def test_gradient_equality(params, graph_deepcopy, graph_no_deepcopy, propagator
     print(fitness_grad_no_deepcopy(params, 0))
     assert np.allclose(fitness_grad_deepcopy(params, 0), fitness_grad_no_deepcopy(params, 0))
 
+
 @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_gradient_summation_funct(params, graph_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
@@ -223,6 +226,28 @@ def test_gradient_summation_funct(params, graph_deepcopy, graph_no_deepcopy, pro
     print(graph_deepcopy.get_parameter_info())
 
     assert np.allclose(fitness_grad_deepcopy(params), fitness_grad_no_deepcopy(params))
+
+
+@pytest.mark.skip
+@pytest.mark.parametrize("params", param_list)
+def test_hessian_summation_funct(params, graph_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
+    evaluator = SummationEvaluator()
+
+    # setup the gradient function and bounds
+    fitness_funct_deepcopy = function_wrapper(graph_deepcopy, propagator, evaluator, exclude_locked=True)
+    fitness_hess_deepcopy = hessian(fitness_funct_deepcopy)
+    
+    propagator_no_deepcopy= get_propagator()
+    fitness_funct_no_deepcopy = function_wrapper(graph_no_deepcopy, propagator_no_deepcopy, evaluator, exclude_locked=True)
+    fitness_hess_no_deepcopy = hessian(fitness_funct_no_deepcopy)
+
+    params = np.array(params)
+    print(fitness_hess_deepcopy(params))
+    print(fitness_hess_no_deepcopy(params))
+    print('param names:')
+    print(graph_deepcopy.get_parameter_info())
+
+    assert np.allclose(fitness_hess_deepcopy(params), fitness_hess_no_deepcopy(params))
 
 
 @pytest.mark.skip
@@ -256,4 +281,3 @@ def test_autograd_deepcopy_behaviour():
     print(f'without deepcopy: {grad_no_copy(x)}')
 
     assert np.allclose(grad_copy(x), grad_no_copy(x))
-    assert False
