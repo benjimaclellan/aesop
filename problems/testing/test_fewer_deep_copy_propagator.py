@@ -207,7 +207,7 @@ def test_gradient_equality(params, graph_deepcopy, graph_no_deepcopy, propagator
     assert np.allclose(fitness_grad_deepcopy(params, 0), fitness_grad_no_deepcopy(params, 0))
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_gradient_summation_funct(params, graph_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
     evaluator = SummationEvaluator()
@@ -228,7 +228,7 @@ def test_gradient_summation_funct(params, graph_deepcopy, graph_no_deepcopy, pro
     assert np.allclose(fitness_grad_deepcopy(params), fitness_grad_no_deepcopy(params))
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_hessian_summation_funct(params, graph_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
     evaluator = SummationEvaluator()
