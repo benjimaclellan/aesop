@@ -95,7 +95,7 @@ class Graph(GraphParent):
         Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
         """
 
-        print('This propagate function does NOT use copy.deepcopy')
+        # print('This propagate function does NOT use copy.deepcopy')
 
         propagation_order = self.propagation_order
         self._propagator_saves = {}  # will save each propagator here ##TODO make sure this is not saving the same object in multiple places somehow (it doesn't seem like it though)
@@ -372,11 +372,11 @@ class Graph(GraphParent):
         linestyles = cycle(['-', '--', '-.', ':'])
 
         # please note that we do not include the edges here (most of the time I doubt we will use edges, but it may be useful in the future)
-        for node in reversed(self.propagation_order):
+        for cnt, node in enumerate(reversed(self.propagation_order)):
             state = self.measure_propagator(node)
             line = {'ls':next(linestyles), 'lw':3}
             ax[0].plot(propagator.t, power_(state), label=node, **line)
-            ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df), **line)
+            ax[1].plot(propagator.f, 0.1*cnt + psd_(state, propagator.dt, propagator.df)/np.max(psd_(state, propagator.dt, propagator.df)), **line)
 
         ax[0].legend()
         plt.show()

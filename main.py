@@ -31,7 +31,7 @@ from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 
 from lib.analysis.hessian import get_hessian, get_scaled_hessian
 
-if False:
+if True:
     np.random.seed(0)
 
 def principle_main():
@@ -40,16 +40,14 @@ def principle_main():
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
              1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
              2:WaveShaper(),
-             3:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
-             4: WaveShaper(),
-             5:MeasurementDevice()}
+             3:CorningFiber(),
+             4:MeasurementDevice()}
     edges = [(0,1),
              (1,2),
              (2,3),
-             (3,4),
-             (4,5)]
+             (3,4)]
 
-    graph = Graph(nodes, edges, propagate_on_edges = False, deep_copy=False)
+    graph = Graph(nodes, edges, propagate_on_edges=False, deep_copy=False)
     graph.assert_number_of_edges()
 
     # %%
@@ -65,6 +63,7 @@ def principle_main():
     plt.close('all')
     nx.draw(graph, labels = dict(zip(graph.nodes, graph.nodes)))
     plt.show()
+
 
     # %%
     print(configuration.EVOLUTION_OPERATORS)
@@ -87,6 +86,7 @@ def principle_main():
     graph.inspect_state(propagator)
 
     evaluator.compare(graph, propagator)
+    return
 
     # #%%
     # fig, ax = plt.subplots(1,1)

@@ -10,7 +10,7 @@ import autograd.numpy as np
 from ..node_types import SinglePath
 
 from ..assets.decorators import register_node_types_all
-from ..assets.functions import fft_, ifft_, psd_, power_
+from ..assets.functions import fft_, ifft_, psd_, power_, fft_shift_
 
 @register_node_types_all
 class CorningFiber(SinglePath):
@@ -42,7 +42,8 @@ class CorningFiber(SinglePath):
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
-        state = ifft_( np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f, 2) ) * fft_(state, propagator.dt), propagator.dt)
+        dispersion = fft_shift_(np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f, 2) ), ax=0)
+        state = ifft_( dispersion * fft_(state, propagator.dt), propagator.dt)
         return [state]
 
 
@@ -92,7 +93,7 @@ class WaveShaper(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        number_of_bins = 5
+        number_of_bins = 15
         self._number_of_bins = number_of_bins
         self.frequency_bin_width = 12e9
 
@@ -144,8 +145,20 @@ class WaveShaper(SinglePath):
         # We cannot use array assignment as it is not supported by autograd
         amplitude_mask = np.concatenate((pad_left, amp1, pad_right), axis=0)
         phase_mask = np.concatenate((pad_left, phase1, pad_right), axis=0)
+        mask = fft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0)
 
-        state = ifft_(amplitude_mask * np.exp(1j * phase_mask) * fft_(state, propagator.dt), propagator.dt)
+        state = ifft_(mask * fft_(state, propagator.dt), propagator.dt)
+
+        fig, ax = plt.subplots(2, 1)
+        ax[0].plot(propagator.t, power_(state))
+        ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df))
+
+        fig, ax = plt.subplots(2, 1)
+        ax[0].plot(propagator.f, np.power(np.abs(fft_(state, propagator.dt)), 2))
+        ax[1].plot(propagator.f, amplitude_mask)
+        ax[1].plot(propagator.f, phase_mask)
+        ax[1].plot(propagator.f, phase_mask)
+
         return [state]
 
 @register_node_types_all
