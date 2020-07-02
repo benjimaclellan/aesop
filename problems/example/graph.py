@@ -20,7 +20,7 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, deep_copy=False):
+    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, deep_copy='none'):
         """
         """
         super().__init__()
@@ -83,11 +83,14 @@ class Graph(GraphParent):
         return
 
     def propagate(self, propagator):
-        if self._deep_copy:
+        if self._deep_copy == 'none':
+            return self._propagate_no_deepcopy(propagator)
+        elif self._deep_copy == 'limited':
+            return self._propagate_limit_deepcopy(propagator)
+        elif self._deep_copy == 'full':
             return self._propagate_deepcopy(propagator)
-        
-        # return self._propagate_limit_deepcopy(propagator)
-        return self._propagate_no_deepcopy(propagator)
+        else:
+            raise ValueError('deep_copy must be given as none, limited, or full')
 
     def _propagate_no_deepcopy(self, propagator):
         """
@@ -146,6 +149,7 @@ class Graph(GraphParent):
                 else:
                     self.edges[edge]['states'] = copy.deepcopy([state])
             self.nodes[node]['states'] = states
+            self._propagator_saves[node] = states
             
         return self
     
@@ -173,6 +177,7 @@ class Graph(GraphParent):
                 # self.edges[edge]['states'] = [state]
 
             self.nodes[node]['states'] = copy.deepcopy(states)
+            self._propagator_saves[node] = copy.deepcopy(states)
             # self.nodes[node]['states'] = states
         return self
             

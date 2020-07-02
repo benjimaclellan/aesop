@@ -18,7 +18,7 @@ from problems.example.node_types_subclasses.single_path import CorningFiber, Pha
 
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_
+from problems.example.assets.functions import power_, psd_, fft_, ifft_
 
 from algorithms.assets.functions import logbook_update, logbook_initialize
 
@@ -29,7 +29,7 @@ DISPLAY_GRAPHICS = True
 # for Adam convergence tests
 TEST_SIZE = 32
 NUM_DATAPOINTS = 100
-ITER_PER_DATAPOINT = 10
+ITER_PER_DATAPOINT = 1
 
 # ---------------------------- Providers --------------------------------
 def get_graph(deep_copy):
@@ -70,10 +70,6 @@ def display_output_sawtooth(evaluator, graph, graph_parameters, propagator, titl
         graph.propagate(propagator)
         state = graph.nodes[len(graph.nodes) - 1]['states'][0]
         actual_output = power_(state)
-        
-        # actual_normalized = (actual_output - np.min(actual_output)) / (np.max(actual_output) - np.min(actual_output))
-        # actual_normalized = actual_output / np.max(actual_output)
-        # expected_normalised = evaluator.target / np.max(evaluator.target)
 
         _, ax = plt.subplots()
         ax.plot(propagator.t[0:pnts_displayed], evaluator.target[0:pnts_displayed], label='target', color='r', lw=1)
@@ -81,11 +77,64 @@ def display_output_sawtooth(evaluator, graph, graph_parameters, propagator, titl
         ax.legend()
         plt.title(title)
         plt.show()
+    
+def compare_params(graph, propagator, evaluator, params_list, label_list, title='compare 2 params'):
+    if DISPLAY_GRAPHICS:
+        pnts_displayed = propagator.n_samples // 10
+
+        _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+        _, ax = plt.subplots(2, 1)
+        # ax.plot(propagator.t[0:pnts_displayed], evaluator.target[0:pnts_displayed], label='target', lw=1)
+
+        for params, label in zip(params_list, label_list):
+            graph.distribute_parameters_from_list(params, node_edge_index, parameter_index)
+            graph.propagate(propagator)
+            state = graph.measure_propagator(len(graph.nodes) - 1)
+            actual_output = power_(state)
+            ax[0].plot(propagator.t[0:pnts_displayed], actual_output[0:pnts_displayed], label=f'{label} time', lw=1)
+            ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df), label=f'{label} freq', lw=1)
+            print(label)
+            print(psd_(state, propagator.dt, propagator.df))
+        
+        ax[0].legend()
+        ax[1].legend()
+        plt.title(title)
+        plt.show()
+
+        if (len(params_list) == 2):
+            _, ax = plt.subplots(2, 1)
+            graph.distribute_parameters_from_list(params_list[0], node_edge_index, parameter_index)
+            graph.propagate(propagator)
+            state1 = graph.measure_propagator(len(graph.nodes) - 1)
+            freq1 = fft_(state1, propagator.dt)
+            actual_output1 = power_(state1)
+            # actual_psd1 = psd_(state1, propagator.dt, propagator.df)
+
+            graph.distribute_parameters_from_list(params_list[1], node_edge_index, parameter_index)
+            graph.propagate(propagator)
+            state2 = graph.measure_propagator(len(graph.nodes) - 1)
+            actual_output2 = power_(state2)
+            freq2 = fft_(state2, propagator.dt)
+            # actual_psd2 = psd_(state2, propagator.dt, propagator.df)
+
+            diff_time = actual_output2 - actual_output1
+            ax[0].plot(propagator.t[0:pnts_displayed], diff_time[0:pnts_displayed], label=f'{label}: diff between results time', lw=1)
+            # diff_freq = actual_psd2 - actual_psd1
+            diff_freq = freq2 - freq1
+            diff_time_tmp = ifft_(diff_freq, propagator.dt)
+            diff_psd = psd_(diff_time_tmp, propagator.dt, propagator.df)
+            ax[1].plot(propagator.f, diff_psd, label=f'{label}: diff between results freq', lw=1)
+
+            ax[0].legend()
+            ax[1].legend()
+            plt.title('Difference between 2 params: time and freq domains')
+            plt.show()
+
 
 # ---------------------------- Data Generation ---------------------------
 
 def generate_data():
-    graph = get_graph(False)
+    graph = get_graph('limited')
     propagator = get_propagator()
     evaluator = get_evaluator()
 
@@ -134,7 +183,7 @@ def generate_data():
 
 
 def load_and_output_data():
-    graph = get_graph(True)
+    graph = get_graph('full')
     propagator = get_propagator()
     evaluator = get_evaluator()
 
@@ -220,7 +269,8 @@ def _adam_convergence_from_start(graph, propagator, evaluator, params,
     for i in range(1, num_datapoints):
         params, termination_iter, m, v = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params,
                                                       num_iters=iter_per_datapoint,
-                                                      convergence_check_period=convergence_check_period, m=m, v=v)
+                                                      convergence_check_period=convergence_check_period, m=m, v=v, 
+                                                      verbose=True)
 
         if (termination_iter != iter_per_datapoint):
             print(f"Terminated early on datapoint {i}, iteration: {termination_iter}")
@@ -228,6 +278,10 @@ def _adam_convergence_from_start(graph, propagator, evaluator, params,
             break
 
         y[i] = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
+        # if (i >= 173 and i <= 180):
+        #     print(i)
+        #     print(params)
+        #     print()
     
     return y, time.time() - start_time
 
@@ -257,10 +311,10 @@ def generate_adam_convergence_data():
     propagator = get_propagator()
     evaluator = get_evaluator()
 
-    graph_deepcopy = get_graph(True)
+    graph_deepcopy = get_graph('full')
     _generate_adam_convergence_data(graph_deepcopy, propagator, evaluator, title_qualifier='withDeepCopy')
 
-    graph_no_deepcopy = get_graph(False)
+    graph_no_deepcopy = get_graph('limited')
     _generate_adam_convergence_data(graph_no_deepcopy, propagator, evaluator, title_qualifier='withoutDeepCopy')
 
 def display_adam_convergence_data():
@@ -297,10 +351,10 @@ def display_adam_convergence_data():
         plt.show()
 
 def diagnose_uphill_case():
-    DATAPOINT_NUM = 300
+    DATAPOINT_NUM = 181
 
-    graph_no_deepcopy = get_graph(False)
-    graph_deepcopy = get_graph(True)
+    graph_no_deepcopy = get_graph('limited')
+    # graph_deepcopy = get_graph('full')
     propagator = get_propagator()
     evaluator = get_evaluator()
 
@@ -314,31 +368,31 @@ def diagnose_uphill_case():
                                               convergence_check_period=None)
 
     run_data_no_deepcopy = (y, runtime)
-    y, runtime = _adam_convergence_from_start(graph_deepcopy, propagator, evaluator,
-                                              np.array(param_list),
-                                              num_datapoints=DATAPOINT_NUM,
-                                              iter_per_datapoint=ITER_PER_DATAPOINT,
-                                              convergence_check_period=None)
-    run_data_deepcopy = (y, runtime)
+    # y, runtime = _adam_convergence_from_start(graph_deepcopy, propagator, evaluator,
+    #                                           np.array(param_list),
+    #                                           num_datapoints=DATAPOINT_NUM,
+    #                                           iter_per_datapoint=ITER_PER_DATAPOINT,
+    #                                           convergence_check_period=None)
+    # run_data_deepcopy = (y, runtime)
 
     
     with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_noDeepcopy.pkl', 'wb') as handle:
         pickle.dump(run_data_no_deepcopy, handle)
 
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'wb') as handle:
-        pickle.dump(run_data_deepcopy, handle)
+    # with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'wb') as handle:
+    #     pickle.dump(run_data_deepcopy, handle)
 
     
     fig, ax = plt.subplots()
     x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
     ax.plot(x, run_data_no_deepcopy[0], label='no deepcopy')
-    ax.plot(x, run_data_deepcopy[0], label='deepcopy')
+    # ax.plot(x, run_data_deepcopy[0], label='deepcopy')
     ax.legend()
     plt.title(f'Comparing a single starting point: deepcopy and no deepcopy')
     plt.show()
 
 def display_uphill_case():
-    DATAPOINT_NUM = 300
+    DATAPOINT_NUM = 181
 
     # setup graphs
     fig, ax = plt.subplots()
@@ -346,12 +400,39 @@ def display_uphill_case():
 
     with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_noDeepcopy.pkl', 'rb') as handle:
         y, runtime = pickle.load(handle)
-        ax.plot(x, y, label='no deepcopy')
+        ax.plot(x[173:181], y[173:181], label='no deepcopy')
+        # ax.plot(x, y, label='no deepcopy')
     
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'rb') as handle:
-        y, runtime = pickle.load(handle)
-        ax.plot(x, y, label='deepcopy')
+    # with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'rb') as handle:
+    #     y, runtime = pickle.load(handle)
+    #     ax.plot(x, y, label='deepcopy')
     
     ax.legend()
     plt.title(f'Comparing a single starting point: deepcopy and no deepcopy')
     plt.show()
+
+def compare_big_jump():
+    prejump_params = np.array(
+                    [5.15130495, 0.92105773, 0.99999999, 0.79299178, 0.99999999, 0.80663515,
+                     2.64814918, 5.37367294, 0.78283939, 5.31339156, 6.15854142, 0.46009278,
+                     0.56741198, 0.76225641, 0.26890699, 0.41031763, 0.46803960, 0.41965900,
+                     0.99999999]
+                    )
+    postjump_params = np.array(
+                    [5.15050071, 0.92059505, 0.99999999, 0.79362395, 0.99999999, 0.80623950,
+                     2.64781833, 5.37252838, 0.78398131, 5.31226456, 6.15866165, 0.45890617,
+                     0.56864731, 0.76171969, 0.26982987, 0.41053914, 0.46860968, 0.42059382,
+                     0.99999999]
+                    )
+    diff = postjump_params - prejump_params
+    print(diff)
+
+    graph = get_graph('full')
+    propagator = get_propagator()
+    evaluator = get_evaluator()
+    _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+
+    prejump_score = get_individual_score(graph, propagator, evaluator, prejump_params, node_edge_index=node_edge_index, parameter_index=parameter_index)
+    postjump_score = get_individual_score(graph, propagator, evaluator, postjump_params, node_edge_index=node_edge_index, parameter_index=parameter_index)
+
+    compare_params(graph, propagator, evaluator, [prejump_params, postjump_params], [f'prejump: {prejump_score}', f'postjump: {postjump_score}'], title='Comparing pre-jump and post-jump results')
