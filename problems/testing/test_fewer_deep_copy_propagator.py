@@ -181,7 +181,7 @@ def nodeEdgeIndex_parameterIndex(graph_no_deepcopy):
     return node_edge_index, parameter_index
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_evaluation_equality(params, graph_deepcopy, graph_limited_deepcopy, graph_no_deepcopy, propagator, evaluator, nodeEdgeIndex_parameterIndex):
     assert get_individual_score(graph_limited_deepcopy, propagator, evaluator,
@@ -228,18 +228,18 @@ def test_gradient_equality(params, graph_deepcopy, graph_limited_deepcopy, graph
     testing.assert_equal(fitness_grad_limited_deepcopy(params, 0), fitness_grad_no_deepcopy(params, 0))
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_gradient_summation_funct(params, graph_deepcopy, graph_limited_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
     evaluator = SummationEvaluator()
 
     # setup the gradient function and bounds
     fitness_funct_deepcopy = function_wrapper(graph_deepcopy, propagator, evaluator, exclude_locked=True)
-    fitness_grad_deepcopy = grad(fitness_funct_deepcopy) # grad(adam_fitness_funct_deepcopy)
+    fitness_grad_deepcopy = grad(fitness_funct_deepcopy)
     
     propagator_no_deepcopy= get_propagator()
     fitness_funct_no_deepcopy = function_wrapper(graph_no_deepcopy, propagator_no_deepcopy, evaluator, exclude_locked=True)
-    fitness_grad_no_deepcopy = grad(fitness_funct_no_deepcopy) # grad(adam_fitness_funct_no_deepcopy)
+    fitness_grad_no_deepcopy = grad(fitness_funct_no_deepcopy)
 
     propagator_limited_deepcopy = get_propagator()
     fitness_funct_limited_deepcopy = function_wrapper(graph_limited_deepcopy, propagator_limited_deepcopy, evaluator, exclude_locked=True)
@@ -254,8 +254,7 @@ def test_gradient_summation_funct(params, graph_deepcopy, graph_limited_deepcopy
     assert not np.allclose(fitness_grad_limited_deepcopy(params), fitness_grad_deepcopy(params))
     assert np.allclose(fitness_grad_limited_deepcopy(params), fitness_grad_no_deepcopy(params))
 
-
-@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_hessian_summation_funct(params, graph_deepcopy, graph_limited_deepcopy, graph_no_deepcopy, propagator, nodeEdgeIndex_parameterIndex):
     evaluator = SummationEvaluator()
@@ -283,7 +282,7 @@ def test_hessian_summation_funct(params, graph_deepcopy, graph_limited_deepcopy,
     assert np.allclose(fitness_hess_limited_deepcopy(params), fitness_hess_no_deepcopy(params))
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 @pytest.mark.parametrize("params", param_list)
 def test_propagation_result_equality(params, graph_deepcopy, graph_limited_deepcopy, graph_no_deepcopy, propagator, evaluator, nodeEdgeIndex_parameterIndex):
     propagator_nodeepcopy = get_propagator()

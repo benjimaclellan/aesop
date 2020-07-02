@@ -149,16 +149,6 @@ class WaveShaper(SinglePath):
 
         state = ifft_(mask * fft_(state, propagator.dt), propagator.dt)
 
-        fig, ax = plt.subplots(2, 1)
-        ax[0].plot(propagator.t, power_(state))
-        ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df))
-
-        fig, ax = plt.subplots(2, 1)
-        ax[0].plot(propagator.f, np.power(np.abs(fft_(state, propagator.dt)), 2))
-        ax[1].plot(propagator.f, amplitude_mask)
-        ax[1].plot(propagator.f, phase_mask)
-        ax[1].plot(propagator.f, phase_mask)
-
         return [state]
 
 @register_node_types_all
