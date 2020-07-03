@@ -29,10 +29,10 @@ DISPLAY_GRAPHICS = True
 # for Adam convergence tests
 TEST_SIZE = 32
 NUM_DATAPOINTS = 100
-ITER_PER_DATAPOINT = 1
+ITER_PER_DATAPOINT = 10
 
 # ---------------------------- Providers --------------------------------
-def get_graph(deep_copy):
+def get_graph():
     """
     Returns the default graph for testing, with fixed topology at this time
     """
@@ -47,7 +47,7 @@ def get_graph(deep_copy):
              (2,3),
              (3,4)]
 
-    graph = Graph(nodes, edges, propagate_on_edges=True, deep_copy=deep_copy)
+    graph = Graph(nodes, edges, propagate_on_edges=True)
     graph.assert_number_of_edges()
     return graph
 
@@ -78,7 +78,7 @@ def display_output_sawtooth(evaluator, graph, graph_parameters, propagator, titl
         plt.title(title)
         plt.show()
     
-def compare_params(graph, propagator, evaluator, params_list, label_list, title='compare 2 params'):
+def compare_params(graph, propagator, evaluator, params_list, label_list, title=''):
     if DISPLAY_GRAPHICS:
         pnts_displayed = propagator.n_samples // 10
 
@@ -101,52 +101,23 @@ def compare_params(graph, propagator, evaluator, params_list, label_list, title=
         plt.title(title)
         plt.show()
 
-        if (len(params_list) == 2):
-            _, ax = plt.subplots(2, 1)
-            graph.distribute_parameters_from_list(params_list[0], node_edge_index, parameter_index)
-            graph.propagate(propagator)
-            state1 = graph.measure_propagator(len(graph.nodes) - 1)
-            freq1 = fft_(state1, propagator.dt)
-            actual_output1 = power_(state1)
-            # actual_psd1 = psd_(state1, propagator.dt, propagator.df)
-
-            graph.distribute_parameters_from_list(params_list[1], node_edge_index, parameter_index)
-            graph.propagate(propagator)
-            state2 = graph.measure_propagator(len(graph.nodes) - 1)
-            actual_output2 = power_(state2)
-            freq2 = fft_(state2, propagator.dt)
-            # actual_psd2 = psd_(state2, propagator.dt, propagator.df)
-
-            diff_time = actual_output2 - actual_output1
-            ax[0].plot(propagator.t[0:pnts_displayed], diff_time[0:pnts_displayed], label=f'{label}: diff between results time', lw=1)
-            # diff_freq = actual_psd2 - actual_psd1
-            diff_freq = freq2 - freq1
-            diff_time_tmp = ifft_(diff_freq, propagator.dt)
-            diff_psd = psd_(diff_time_tmp, propagator.dt, propagator.df)
-            ax[1].plot(propagator.f, diff_psd, label=f'{label}: diff between results freq', lw=1)
-
-            ax[0].legend()
-            ax[1].legend()
-            plt.title('Difference between 2 params: time and freq domains')
-            plt.show()
-
 
 # ---------------------------- Data Generation ---------------------------
 
 def generate_data():
-    graph = get_graph('limited')
+    graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
 
     # # pure GA
-    # np.random.seed(RANDOM_SEED)
-    # random.seed(RANDOM_SEED)
-    # ga_pop, ga_log = tuning_genetic_algorithm(graph, propagator, evaluator) # , n_population=20, n_generations=5)
-    # ga_log.to_pickle('GA_default_log.pkl')
-    # with open('GA_default_pop.pkl', 'wb') as handle:
-    #     pickle.dump(ga_pop, handle)
-    # print("GA")
-    # print(ga_log)
+    np.random.seed(RANDOM_SEED)
+    random.seed(RANDOM_SEED)
+    ga_pop, ga_log = tuning_genetic_algorithm(graph, propagator, evaluator) # , n_population=20, n_generations=5)
+    ga_log.to_pickle('GA_default_log.pkl')
+    with open('GA_default_pop.pkl', 'wb') as handle:
+        pickle.dump(ga_pop, handle)
+    print("GA")
+    print(ga_log)
 
     # # pure Adam
     np.random.seed(RANDOM_SEED)
@@ -158,48 +129,48 @@ def generate_data():
     print(adam_log)
     
     # use GA population to begin Adam tuning
-    # with open('GA_default_pop.pkl', 'rb') as handle:
-    #     ga_pop = pickle.load(handle)
+    with open('GA_default_pop.pkl', 'rb') as handle:
+        ga_pop = pickle.load(handle)
 
-    #     ga_adam_pop, ga_adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, pop=ga_pop, verbose=True) #, n_pop=20, n_batches=5, batch_size=10, pop=ga_pop)
-    #     ga_adam_log.to_pickle('GA_Adam_log.pkl')
-    #     with open('GA_Adam_pop.pkl', 'wb') as handle2:
-    #         pickle.dump(ga_adam_pop, handle2)
-    #     print('GA + Adam')
-    #     print(ga_adam_log)
+        ga_adam_pop, ga_adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, pop=ga_pop, verbose=True) #, n_pop=20, n_batches=5, batch_size=10, pop=ga_pop)
+        ga_adam_log.to_pickle('GA_Adam_log.pkl')
+        with open('GA_Adam_pop.pkl', 'wb') as handle2:
+            pickle.dump(ga_adam_pop, handle2)
+        print('GA + Adam')
+        print(ga_adam_log)
 
     # # Use Adam tuning within GA population for top 10 individuals of each generation
-    # np.random.seed(RANDOM_SEED)
-    # random.seed(RANDOM_SEED)
-    # ga_with_adam_pop, ga_with_adam_log, ga_with_adam_adamLog = tuning_genetic_algorithm(graph, propagator, evaluator, optimize_top_X=10)
-    # ga_with_adam_log.to_pickle('GA_with_Adam_log.pkl')
-    # with open ('GA_with_Adam_pop.pkl', 'wb') as handle:
-    #     pickle.dump(ga_with_adam_pop, handle)
-    # with open('GA_with_Adam_AdamLog.pkl', 'wb') as handle:
-    #     pickle.dump(ga_with_adam_adamLog, handle)
-    # print('GA with Adam at each step')
-    # print(ga_with_adam_log)
-    # print(ga_with_adam_adamLog)
+    np.random.seed(RANDOM_SEED)
+    random.seed(RANDOM_SEED)
+    ga_with_adam_pop, ga_with_adam_log, ga_with_adam_adamLog = tuning_genetic_algorithm(graph, propagator, evaluator, optimize_top_X=10)
+    ga_with_adam_log.to_pickle('GA_with_Adam_log.pkl')
+    with open ('GA_with_Adam_pop.pkl', 'wb') as handle:
+        pickle.dump(ga_with_adam_pop, handle)
+    with open('GA_with_Adam_AdamLog.pkl', 'wb') as handle:
+        pickle.dump(ga_with_adam_adamLog, handle)
+    print('GA with Adam at each step')
+    print(ga_with_adam_log)
+    print(ga_with_adam_adamLog)
 
 
 def load_and_output_data():
-    graph = get_graph('full')
+    graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
 
-    # # GA
-    # ga_log = pd.read_pickle('GA_default_log.pkl')
-    # print('GA log:')
-    # print(ga_log)
+    # GA
+    ga_log = pd.read_pickle('GA_default_log.pkl')
+    print('GA log:')
+    print(ga_log)
 
-    # ga_log_old = pd.read_pickle('GA_default_log_copy.pkl')
-    # print('GA log old:')
-    # print(ga_log_old)
+    ga_log_old = pd.read_pickle('GA_default_log_copy.pkl')
+    print('GA log old:')
+    print(ga_log_old)
 
-    # with open('GA_default_pop.pkl', 'rb') as handle:
-    #     ga_pop = pickle.load(handle)
-    #     best_score, best_params = ga_pop[0]
-    #     display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA default population best: {best_score}')
+    with open('GA_default_pop.pkl', 'rb') as handle:
+        ga_pop = pickle.load(handle)
+        best_score, best_params = ga_pop[0]
+        display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA default population best: {best_score}')
     
     # Adam
     adam_log = pd.read_pickle('Adam_default_log.pkl')
@@ -215,36 +186,36 @@ def load_and_output_data():
         print(f'calculated score: {score}')
         assert score == best_score
     
-    # # GA + (and then) Adam
-    # ga_adam_log = pd.read_pickle('GA_Adam_log.pkl')
-    # print('GA + Adam log: ')
-    # print(ga_adam_log)
+    # GA + (and then) Adam
+    ga_adam_log = pd.read_pickle('GA_Adam_log.pkl')
+    print('GA + Adam log: ')
+    print(ga_adam_log)
 
-    # with open('GA_Adam_pop.pkl', 'rb') as handle:
-    #     ga_adam_pop = pickle.load(handle)
-    #     best_score, best_params = ga_adam_pop[0]
-    #     display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA + Adam population best: {best_score}')
+    with open('GA_Adam_pop.pkl', 'rb') as handle:
+        ga_adam_pop = pickle.load(handle)
+        best_score, best_params = ga_adam_pop[0]
+        display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA + Adam population best: {best_score}')
     
-    # #GA with Adam at each step
-    # ga_with_adam_log = pd.read_pickle('GA_with_Adam_log.pkl')
-    # print('GA with Adam at each step log: ')
-    # print(ga_with_adam_log)
+    #GA with Adam at each step
+    ga_with_adam_log = pd.read_pickle('GA_with_Adam_log.pkl')
+    print('GA with Adam at each step log: ')
+    print(ga_with_adam_log)
 
-    # with open('GA_with_Adam_Adamlog.pkl', 'rb') as handle:
-    #     ga_with_adam_adamLog = pickle.load(handle)
-    #     for i, adamLog in enumerate(ga_with_adam_adamLog):
-    #         print(f'Generation {i + 1}')
-    #         print(adamLog)
+    with open('GA_with_Adam_Adamlog.pkl', 'rb') as handle:
+        ga_with_adam_adamLog = pickle.load(handle)
+        for i, adamLog in enumerate(ga_with_adam_adamLog):
+            print(f'Generation {i + 1}')
+            print(adamLog)
 
-    # with open('GA_with_Adam_pop.pkl', 'rb') as handle:
-    #     ga_with_adam_pop = pickle.load(handle)
-    #     best_score, best_params = ga_adam_pop[0]
-    #     display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA with Adam at each step population best: {best_score}')
+    with open('GA_with_Adam_pop.pkl', 'rb') as handle:
+        ga_with_adam_pop = pickle.load(handle)
+        best_score, best_params = ga_adam_pop[0]
+        display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA with Adam at each step population best: {best_score}')
 
 # ---------------------------- Adam Diagnosis ---------------------------
 
 def _adam_convergence_from_start(graph, propagator, evaluator, params,
-                                 num_datapoints=50, iter_per_datapoint=100, convergence_check_period=1):
+                                 num_datapoints=50, iter_per_datapoint=100, convergence_check_period=None):
     """
     Returns an array of the score after each iteration, and total runtime
     """
@@ -267,6 +238,7 @@ def _adam_convergence_from_start(graph, propagator, evaluator, params,
     fitness_grad = grad(adam_fitness_funct)
 
     for i in range(1, num_datapoints):
+        print(f'   datapoint: {i}')
         params, termination_iter, m, v = adam_bounded(lower_bounds, upper_bounds, fitness_grad, params,
                                                       num_iters=iter_per_datapoint,
                                                       convergence_check_period=convergence_check_period, m=m, v=v, 
@@ -278,10 +250,6 @@ def _adam_convergence_from_start(graph, propagator, evaluator, params,
             break
 
         y[i] = get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
-        # if (i >= 173 and i <= 180):
-        #     print(i)
-        #     print(params)
-        #     print()
     
     return y, time.time() - start_time
 
@@ -296,6 +264,7 @@ def _generate_adam_convergence_data(graph, propagator, evaluator, title_qualifie
     pop, _, _ = get_initial_population(graph, propagator, evaluator, TEST_SIZE, 'uniform')
 
     for i, (_, param) in enumerate(pop):
+        print(f'population element: {i}')
         param_arr = np.array(param)
         y, runtime = _adam_convergence_from_start(graph, propagator, evaluator,
                                                   param_arr,
@@ -307,88 +276,73 @@ def _generate_adam_convergence_data(graph, propagator, evaluator, title_qualifie
         pickle.dump(data, handle)
 
 
+def display_initial_pop(size=TEST_SIZE, seed=RANDOM_SEED_ADAM):
+    propagator = get_propagator()
+    evaluator = get_evaluator()
+    graph = get_graph()
+
+    np.random.seed(seed)
+    pop, _, _ = get_initial_population(graph, propagator, evaluator, size, 'uniform')
+    _, ax = plt.subplots()
+    x = np.zeros(size)
+    y = np.array([score for (score, individual) in pop])
+    print(f'x: {x.shape}')
+    print(f'y: {y.shape}')
+    ax.scatter(x, y)
+    plt.show()
+
 def generate_adam_convergence_data():
     propagator = get_propagator()
     evaluator = get_evaluator()
+    graph = get_graph()
 
-    graph_deepcopy = get_graph('full')
-    _generate_adam_convergence_data(graph_deepcopy, propagator, evaluator, title_qualifier='withDeepCopy')
+    _generate_adam_convergence_data(graph, propagator, evaluator, title_qualifier='')
 
-    graph_no_deepcopy = get_graph('limited')
-    _generate_adam_convergence_data(graph_no_deepcopy, propagator, evaluator, title_qualifier='withoutDeepCopy')
 
 def display_adam_convergence_data():
     # create colour map
     cm = plt.get_cmap('brg')
 
-    # deepcopy version
     fig, ax = plt.subplots()
     ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
     ax.set_xlim(right=NUM_DATAPOINTS * ITER_PER_DATAPOINT)
     x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_withDeepCopy.pkl', 'rb') as handle:
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_.pkl', 'rb') as handle:
         data = pickle.load(handle)
         for i, run in enumerate(data):
             ax.plot(x, run[0], label=f'test {i}')
 
-        # plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, with deep copy')
-        # ax.legend()
-        # plt.show()
-    
-    # not deepcopy version
-    # fig, ax = plt.subplots()
-    ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
-
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_withoutDeepCopy.pkl', 'rb') as handle:
-        data = pickle.load(handle)
-        for i, run in enumerate(data):
-            ax.plot(x, run[0], linestyle=':') # , label=f'test {i}')
-            # if (i == 23):
-            #     ax.plot(x, run[0], label=f'test{i}')
-
-        plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}, with deep copy (solid) and without (dotted)')
+        plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}')
         ax.legend()
         plt.show()
+
 
 def diagnose_uphill_case():
     DATAPOINT_NUM = 181
 
-    graph_no_deepcopy = get_graph('limited')
-    # graph_deepcopy = get_graph('full')
+    graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
 
     np.random.seed(RANDOM_SEED_ADAM) # need this to be consistent across runs to compare different performances
-    pop, _, _ = get_initial_population(graph_no_deepcopy, propagator, evaluator, 24, 'uniform')
+    pop, _, _ = get_initial_population(graph, propagator, evaluator, 24, 'uniform')
     score, param_list = pop[23]
-    y, runtime = _adam_convergence_from_start(graph_no_deepcopy, propagator, evaluator,
+    y, runtime = _adam_convergence_from_start(graph, propagator, evaluator,
                                               np.array(param_list),
                                               num_datapoints=DATAPOINT_NUM,
                                               iter_per_datapoint=ITER_PER_DATAPOINT,
                                               convergence_check_period=None)
 
-    run_data_no_deepcopy = (y, runtime)
-    # y, runtime = _adam_convergence_from_start(graph_deepcopy, propagator, evaluator,
-    #                                           np.array(param_list),
-    #                                           num_datapoints=DATAPOINT_NUM,
-    #                                           iter_per_datapoint=ITER_PER_DATAPOINT,
-    #                                           convergence_check_period=None)
-    # run_data_deepcopy = (y, runtime)
-
+    run_data = (y, runtime)
     
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_noDeepcopy.pkl', 'wb') as handle:
-        pickle.dump(run_data_no_deepcopy, handle)
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase.pkl', 'wb') as handle:
+        pickle.dump(run_data, handle)
 
-    # with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'wb') as handle:
-    #     pickle.dump(run_data_deepcopy, handle)
-
-    
     fig, ax = plt.subplots()
     x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
-    ax.plot(x, run_data_no_deepcopy[0], label='no deepcopy')
-    # ax.plot(x, run_data_deepcopy[0], label='deepcopy')
+    ax.plot(x, run_data[0])
     ax.legend()
-    plt.title(f'Comparing a single starting point: deepcopy and no deepcopy')
+    plt.title(f'Single starting point')
     plt.show()
 
 def display_uphill_case():
@@ -398,17 +352,13 @@ def display_uphill_case():
     fig, ax = plt.subplots()
     x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
 
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_noDeepcopy.pkl', 'rb') as handle:
-        y, runtime = pickle.load(handle)
-        ax.plot(x[173:181], y[173:181], label='no deepcopy')
-        # ax.plot(x, y, label='no deepcopy')
-    
-    # with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase_deepcopy.pkl', 'rb') as handle:
-    #     y, runtime = pickle.load(handle)
-    #     ax.plot(x, y, label='deepcopy')
+    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase.pkl', 'rb') as handle:
+        y, _ = pickle.load(handle)
+        # ax.plot(x[173:181], y[173:181])
+        ax.plot(x, y, label='')
     
     ax.legend()
-    plt.title(f'Comparing a single starting point: deepcopy and no deepcopy')
+    plt.title('Single starting point')
     plt.show()
 
 def compare_big_jump():
@@ -427,7 +377,7 @@ def compare_big_jump():
     diff = postjump_params - prejump_params
     print(diff)
 
-    graph = get_graph('full')
+    graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
     _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()

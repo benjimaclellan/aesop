@@ -8,10 +8,12 @@ from scripts.GA_Adam_optimization import generate_data, load_and_output_data, \
                                          display_adam_convergence_data, \
                                          diagnose_uphill_case, \
                                          display_uphill_case, \
-                                         compare_big_jump
+                                         compare_big_jump, \
+                                         display_initial_pop
 
 if __name__ == "__main__":
-    compare_big_jump()
+    display_initial_pop()
+    # compare_big_jump()
     # diagnose_uphill_case()
     # display_uphill_case()
     # generate_adam_convergence_data()

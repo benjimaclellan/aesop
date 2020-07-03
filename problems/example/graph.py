@@ -20,7 +20,7 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, deep_copy='none'):
+    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False):
         """
         """
         super().__init__()
@@ -41,8 +41,6 @@ class Graph(GraphParent):
         self._propagate_on_edges = propagate_on_edges
 
         self._propagation_order = None
-
-        self._deep_copy = deep_copy
 
         self._propagator_saves = {}
 
@@ -83,14 +81,7 @@ class Graph(GraphParent):
         return
 
     def propagate(self, propagator):
-        if self._deep_copy == 'none':
-            return self._propagate_no_deepcopy(propagator)
-        elif self._deep_copy == 'limited':
-            return self._propagate_limit_deepcopy(propagator)
-        elif self._deep_copy == 'full':
-            return self._propagate_deepcopy(propagator)
-        else:
-            raise ValueError('deep_copy must be given as none, limited, or full')
+        return self._propagate_no_deepcopy(propagator)
 
     def _propagate_no_deepcopy(self, propagator):
         """
@@ -124,63 +115,6 @@ class Graph(GraphParent):
 
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
-
-    def _propagate_limit_deepcopy(self, propagator):
-        """
-        """
-        propagation_order = self.propagation_order
-        for node in propagation_order:
-            # for all non-start node, the rep invariant is that it ALREADY contains a propagator (albeit not updated yet)s
-            if not self.pre(node):
-                tmp_states = [propagator.state] 
-            else:
-                tmp_states = []
-                for edge in self.get_in_edges(node):
-                    if self._propagate_on_edges and 'model' in self.edges[edge]:
-                        # TODO: investigate this suspicious use of the previous node (should prob use )
-                        tmp_states += self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1)  # TODO: Check that models on edge are single spatial mode maybe
-                    else:
-                        tmp_states += self.edges[edge]['states']
-            
-            states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.get_out_degree(node))
-            for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-                if (i == 0):
-                    self.edges[edge]['states'] = [state]
-                else:
-                    self.edges[edge]['states'] = copy.deepcopy([state])
-            self.nodes[node]['states'] = states
-            self._propagator_saves[node] = states
-            
-        return self
-    
-    def _propagate_deepcopy(self, propagator):
-        """
-        """
-        propagation_order = self.propagation_order
-        for node in propagation_order:  # loop through nodes in the prescribed, physical order
-            if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-                tmp_states = [copy.deepcopy(propagator.state)]  # nodes take a list of propagators as default, to account for multipath
-            else:  # if we have incoming nodes to get the propagator from
-                tmp_states = []  # initialize list to add all incoming propagators to
-                for edge in self.get_in_edges(node):  # loop through incoming edges
-                    if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
-                        tmp_states += copy.deepcopy(self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1))  # TODO: Check that models on edge are single spatial mode maybe
-                        # tmp_states += self.edges[edge]['model'].propagate(self.nodes[edge[0]]['states'], propagator, 1, 1)
-                    else:
-                        tmp_states += copy.deepcopy(self.edges[edge]['states'])
-                        # tmp_states += self.edges[edge]['states']
-
-            # save the list of propagators at that node locations (deepcopy required throughout)
-            states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node))
-            for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-                self.edges[edge]['states'] = copy.deepcopy([state])
-                # self.edges[edge]['states'] = [state]
-
-            self.nodes[node]['states'] = copy.deepcopy(states)
-            self._propagator_saves[node] = copy.deepcopy(states)
-            # self.nodes[node]['states'] = states
-        return self
-            
 
     @property
     def propagation_order(self):
