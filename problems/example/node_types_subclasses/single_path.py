@@ -93,7 +93,7 @@ class WaveShaper(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        number_of_bins = 15
+        number_of_bins = 5
         self._number_of_bins = number_of_bins
         self.frequency_bin_width = 12e9
 

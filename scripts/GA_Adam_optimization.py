@@ -27,9 +27,14 @@ RANDOM_SEED_ADAM = 3901190
 DISPLAY_GRAPHICS = True
 
 # for Adam convergence tests
-TEST_SIZE = 32
-NUM_DATAPOINTS = 100
-ITER_PER_DATAPOINT = 10
+TEST_SIZE_ADAM = 32
+NUM_DATAPOINTS_ADAM = 100
+ITER_PER_DATAPOINT_ADAM = 10
+
+# for diagnosing uphill
+TEST_SIZE_UPHILL = 32
+NUM_DATAPOINTS_UPHILL = 500
+ITER_PER_DATAPOINT_UPHILL = 1
 
 # ---------------------------- Providers --------------------------------
 def get_graph():
@@ -104,7 +109,7 @@ def compare_params(graph, propagator, evaluator, params_list, label_list, title=
 
 # ---------------------------- Data Generation ---------------------------
 
-def generate_data():
+def generate_data_GA_Adam_comparison():
     graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
@@ -153,7 +158,7 @@ def generate_data():
     print(ga_with_adam_adamLog)
 
 
-def load_and_output_data():
+def load_and_output_data_GA_Adam_comparison():
     graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
@@ -261,22 +266,22 @@ def _generate_adam_convergence_data(graph, propagator, evaluator, title_qualifie
  
     # get population
     np.random.seed(RANDOM_SEED_ADAM) # need this to be consistent across runs to compare different performances
-    pop, _, _ = get_initial_population(graph, propagator, evaluator, TEST_SIZE, 'uniform')
+    pop, _, _ = get_initial_population(graph, propagator, evaluator, TEST_SIZE_ADAM, 'uniform')
 
     for i, (_, param) in enumerate(pop):
         print(f'population element: {i}')
         param_arr = np.array(param)
         y, runtime = _adam_convergence_from_start(graph, propagator, evaluator,
                                                   param_arr,
-                                                  num_datapoints=NUM_DATAPOINTS,
-                                                  iter_per_datapoint=ITER_PER_DATAPOINT)
+                                                  num_datapoints=NUM_DATAPOINTS_ADAM,
+                                                  iter_per_datapoint=ITER_PER_DATAPOINT_ADAM)
         data.append((y, runtime))
 
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_{title_qualifier}.pkl', 'wb') as handle:
+    with open(f'{NUM_DATAPOINTS_ADAM}datapoints_{ITER_PER_DATAPOINT_ADAM}iterPerDatapoint_{title_qualifier}.pkl', 'wb') as handle:
         pickle.dump(data, handle)
 
 
-def display_initial_pop(size=TEST_SIZE, seed=RANDOM_SEED_ADAM):
+def display_initial_pop(size=TEST_SIZE_ADAM, seed=RANDOM_SEED_ADAM):
     propagator = get_propagator()
     evaluator = get_evaluator()
     graph = get_graph()
@@ -300,25 +305,23 @@ def generate_adam_convergence_data():
 
 
 def display_adam_convergence_data():
-    # create colour map
-    cm = plt.get_cmap('brg')
+    cm = plt.get_cmap('brg')     # create colour map
 
     fig, ax = plt.subplots()
-    ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE) for i in range(TEST_SIZE)])
-    ax.set_xlim(right=NUM_DATAPOINTS * ITER_PER_DATAPOINT)
-    x = np.arange(0, NUM_DATAPOINTS * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_.pkl', 'rb') as handle:
+    ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE_ADAM) for i in range(TEST_SIZE_ADAM)])
+    ax.set_xlim(right=NUM_DATAPOINTS_ADAM * ITER_PER_DATAPOINT_ADAM)
+    x = np.arange(0, NUM_DATAPOINTS_ADAM * ITER_PER_DATAPOINT_ADAM, ITER_PER_DATAPOINT_ADAM)
+    with open(f'{NUM_DATAPOINTS_ADAM}datapoints_{ITER_PER_DATAPOINT_ADAM}iterPerDatapoint_.pkl', 'rb') as handle:
         data = pickle.load(handle)
         for i, run in enumerate(data):
             ax.plot(x, run[0], label=f'test {i}')
 
-        plt.title(f'Adam convergence: {NUM_DATAPOINTS} datapoints, {ITER_PER_DATAPOINT} iterations/datapoint, seed: {RANDOM_SEED_ADAM}')
+        plt.title(f'Adam convergence: {NUM_DATAPOINTS_ADAM} datapoints, {ITER_PER_DATAPOINT_ADAM} iterations/datapoint, seed: {RANDOM_SEED_ADAM}')
         ax.legend()
         plt.show()
 
 
 def diagnose_uphill_case():
-    DATAPOINT_NUM = 181
 
     graph = get_graph()
     propagator = get_propagator()
@@ -329,30 +332,28 @@ def diagnose_uphill_case():
     score, param_list = pop[23]
     y, runtime = _adam_convergence_from_start(graph, propagator, evaluator,
                                               np.array(param_list),
-                                              num_datapoints=DATAPOINT_NUM,
-                                              iter_per_datapoint=ITER_PER_DATAPOINT,
+                                              num_datapoints=NUM_DATAPOINTS_UPHILL,
+                                              iter_per_datapoint=ITER_PER_DATAPOINT_UPHILL,
                                               convergence_check_period=None)
 
     run_data = (y, runtime)
     
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase.pkl', 'wb') as handle:
+    with open(f'{NUM_DATAPOINTS_UPHILL}datapoints_{ITER_PER_DATAPOINT_UPHILL}iterPerDatapoint_uphillCase.pkl', 'wb') as handle:
         pickle.dump(run_data, handle)
 
     fig, ax = plt.subplots()
-    x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
+    x = np.arange(0, NUM_DATAPOINTS_UPHILL * ITER_PER_DATAPOINT_UPHILL, ITER_PER_DATAPOINT_UPHILL)
     ax.plot(x, run_data[0])
     ax.legend()
     plt.title(f'Single starting point')
     plt.show()
 
 def display_uphill_case():
-    DATAPOINT_NUM = 181
-
     # setup graphs
     fig, ax = plt.subplots()
-    x = np.arange(0, DATAPOINT_NUM * ITER_PER_DATAPOINT, ITER_PER_DATAPOINT)
+    x = np.arange(0, NUM_DATAPOINTS_UPHILL * ITER_PER_DATAPOINT_UPHILL, ITER_PER_DATAPOINT_UPHILL)
 
-    with open(f'{NUM_DATAPOINTS}datapoints_{ITER_PER_DATAPOINT}iterPerDatapoint_uphillCase.pkl', 'rb') as handle:
+    with open(f'{NUM_DATAPOINTS_UPHILL}datapoints_{ITER_PER_DATAPOINT_UPHILL}iterPerDatapoint_uphillCase.pkl', 'rb') as handle:
         y, _ = pickle.load(handle)
         # ax.plot(x[173:181], y[173:181])
         ax.plot(x, y, label='')
