@@ -44,6 +44,7 @@ class CorningFiber(SinglePath):
         length = self.parameters[0]
         dispersion = fft_shift_(np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f, 2) ), ax=0)
         state = ifft_( dispersion * fft_(state, propagator.dt), propagator.dt)
+        print(f'Corning fiber state: {state}')
         return [state]
 
 
@@ -148,7 +149,7 @@ class WaveShaper(SinglePath):
         mask = fft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0)
 
         state = ifft_(mask * fft_(state, propagator.dt), propagator.dt)
-
+        print(f'Waveshaper state: {state}')
         return [state]
 
 @register_node_types_all
@@ -201,4 +202,5 @@ class DelayLine(SinglePath):
                 print(f'coupling ratios: {coupling_ratios}')
                 print(f'coupling ratio: {coupling_ratio}')
                 raise w
+        print(f'Delay line state: {ifft_(field_short, propagator.dt)}')
         return [ifft_(field_short, propagator.dt)]

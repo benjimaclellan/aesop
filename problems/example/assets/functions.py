@@ -18,14 +18,18 @@ def power_(state):
 def psd_(state, dt, df, ax=0):
     """Power spectral density of a spectrum
     """
-    return np.power(np.abs(np.fft.fftshift(np.fft.fft(np.fft.fftshift(state, axes=ax), axis=ax), axes=ax) * dt), 2) / df
+    tmp = np.power(np.abs(np.fft.fftshift(np.fft.fft(np.fft.fftshift(state, axes=ax), axis=ax), axes=ax) * dt), 2) / df
+    print(f'psd_: {tmp}')
+    return tmp
     # return np.power(np.abs(fft_(state, dt, ax)), 2) / df
 
 
 def fft_(state, dt, ax=0):
     """Proper Fast Fourier Transform for zero-centered vectors
     """
-    return np.fft.fft(state, axis=ax) * dt
+    tmp = np.fft.fft(state, axis=ax) * dt
+    print(f'fft_: {tmp}')
+    return tmp
     # return np.fft.fftshift(np.fft.fft(np.fft.fftshift(state, axes=ax), axis=ax), axes=ax) * dt
 
 def fft_shift_(state, ax=0):
@@ -38,7 +42,9 @@ def fft_shift_(state, ax=0):
 def ifft_(state_f, dt, ax=0):
     """Proper Inverse Fast Fourier Transform for zero-centered vectors
     """
-    return np.fft.ifft(state_f, axis=ax) / dt
+    tmp = np.fft.ifft(state_f, axis=ax) / dt
+    print(f'ifft_: {tmp}')
+    return tmp
     # return np.fft.fftshift(np.fft.ifft(np.fft.fftshift(state_f, axes=ax), axis=ax), axes=ax) / dt
 
 
