@@ -22,7 +22,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_builtin import parameters_minimize
@@ -36,7 +36,6 @@ if True:
 
 def principle_main():
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
-
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
              1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
              2:WaveShaper(),
@@ -46,6 +45,15 @@ def principle_main():
              (1,2),
              (2,3),
              (3,4)]
+
+    # propagator = Propagator(window_t = 1e-9, n_samples = 2**16, central_wl=1.55e-6)
+    # nodes = {0:PulsedLaser(parameters_from_name={'pulse_shape':'gaussian',
+    #                                              'pulse_width':0.1e-12,
+    #                                              'peak_power':1,
+    #                                              't_rep':1e-9, 'central_wl':1.55e6, 'train':False}),
+    #          1:DelayLine(parameters=[1,0.5,0.5,1]),
+    #          2:MeasurementDevice()}
+    # edges = [(0,1), (1,2)]
 
     graph = Graph(nodes, edges, propagate_on_edges=False, deep_copy=False)
     graph.assert_number_of_edges()
@@ -82,10 +90,17 @@ def principle_main():
     #%%
     graph.distribute_parameters_from_list(parameters, node_edge_index, parameter_index)
 
-    graph.propagate(propagator)
-    graph.inspect_state(propagator)
+    graph.propagate(propagator, save_transforms=True)
+    # graph.inspect_state(propagator)
+    state = graph.measure_propagator(2)
+    fig, ax = plt.subplots(2, 1)
+    ax[0].plot(propagator.t, np.power(np.abs(state),2))
 
-    evaluator.compare(graph, propagator)
+
+    # evaluator.compare(graph, propagator)
+
+    graph.visualize_transforms(nodes_to_visualize=graph.nodes, propagator=propagator)
+
     return
 
     # #%%

@@ -31,6 +31,8 @@ class NodeType(object):
             self._parameters = self.default_parameters
 
 
+        self.transform = None  # this is a variable which will store a visual representation of the transformation
+
         return
 
     @property
