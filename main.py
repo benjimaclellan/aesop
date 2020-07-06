@@ -72,7 +72,6 @@ def principle_main():
     nx.draw(graph, labels = dict(zip(graph.nodes, graph.nodes)))
     plt.show()
 
-
     # %%
     print(configuration.EVOLUTION_OPERATORS)
     print(configuration.NODE_TYPES)
@@ -96,14 +95,11 @@ def principle_main():
     fig, ax = plt.subplots(2, 1)
     ax[0].plot(propagator.t, np.power(np.abs(state),2))
 
-
-    # evaluator.compare(graph, propagator)
+    evaluator.compare(graph, propagator)
 
     graph.visualize_transforms(nodes_to_visualize=graph.nodes, propagator=propagator)
 
-    return
 
-    # #%%
     # fig, ax = plt.subplots(1,1)
     #
     # model_attributes = graph.extract_attributes_to_list_experimental(['lower_bounds', 'upper_bounds', 'parameter_names'], get_location_indices=True)
