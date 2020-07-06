@@ -28,8 +28,8 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         self.scale_array = (np.fft.fftshift(
             np.linspace(0, len(self.target_rf) - 1, len(self.target_rf))) / propagator.n_samples).reshape((propagator.n_samples, 1))
 
-        self.target_harmonic_ind = (np.rint(self.target_harmonic / propagator.df)).astype('int')
-        
+        # self.target_harmonic_ind = (np.rint(self.target_harmonic / propagator.df)).astype('int')
+        self.target_harmonic_ind = (self.target_harmonic / propagator.df).astype('int')
         if (self.target_harmonic_ind >= self.target_rf.shape[0]):
             self.target_harmonic_ind = self.target_rf.shape[0]
         
@@ -49,7 +49,6 @@ class RadioFrequencyWaveformGeneration(Evaluator):
             generated = generated / np.max(generated)
 
         shifted = self.shift_function(generated, propagator)
-        # shifted = generated
 
         overlap_integral = np.sum(np.abs(self.target - shifted)) / propagator.n_samples
         return overlap_integral

@@ -28,7 +28,7 @@ DISPLAY_GRAPHICS = True
 
 # for Adam convergence tests
 TEST_SIZE_ADAM = 32
-NUM_DATAPOINTS_ADAM = 100
+NUM_DATAPOINTS_ADAM = 200
 ITER_PER_DATAPOINT_ADAM = 10
 
 # for diagnosing uphill
@@ -73,7 +73,7 @@ def display_output_sawtooth(evaluator, graph, graph_parameters, propagator, titl
         _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
         graph.distribute_parameters_from_list(graph_parameters, node_edge_index, parameter_index)
         graph.propagate(propagator)
-        state = graph.nodes[len(graph.nodes) - 1]['states'][0]
+        state = graph.measure_propagator([node for node in graph.nodes if not graph.out_edges(node)][0])
         actual_output = power_(state)
 
         _, ax = plt.subplots()
@@ -94,7 +94,7 @@ def compare_params(graph, propagator, evaluator, params_list, label_list, title=
         for params, label in zip(params_list, label_list):
             graph.distribute_parameters_from_list(params, node_edge_index, parameter_index)
             graph.propagate(propagator)
-            state = graph.measure_propagator(len(graph.nodes) - 1)
+            state = graph.measure_propagator([node for node in graph.nodes if not graph.out_edges(node)][0])
             actual_output = power_(state)
             ax[0].plot(propagator.t[0:pnts_displayed], actual_output[0:pnts_displayed], label=f'{label} time', lw=1)
             ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df), label=f'{label} freq', lw=1)
@@ -168,10 +168,6 @@ def load_and_output_data_GA_Adam_comparison():
     print('GA log:')
     print(ga_log)
 
-    ga_log_old = pd.read_pickle('GA_default_log_copy.pkl')
-    print('GA log old:')
-    print(ga_log_old)
-
     with open('GA_default_pop.pkl', 'rb') as handle:
         ga_pop = pickle.load(handle)
         best_score, best_params = ga_pop[0]
@@ -214,7 +210,7 @@ def load_and_output_data_GA_Adam_comparison():
 
     with open('GA_with_Adam_pop.pkl', 'rb') as handle:
         ga_with_adam_pop = pickle.load(handle)
-        best_score, best_params = ga_adam_pop[0]
+        best_score, best_params = ga_with_adam_pop[0]
         display_output_sawtooth(evaluator, graph, best_params, propagator, title=f'GA with Adam at each step population best: {best_score}')
 
 # ---------------------------- Adam Diagnosis ---------------------------
@@ -296,6 +292,18 @@ def display_initial_pop(size=TEST_SIZE_ADAM, seed=RANDOM_SEED_ADAM):
     ax.scatter(x, y)
     plt.show()
 
+
+def generate_single_param(seed=RANDOM_SEED_ADAM):
+    propagator = get_propagator()
+    evaluator = get_evaluator()
+    graph = get_graph()
+
+    np.random.seed(seed)
+    print('single parameter\n')
+    pop, _, _ = get_initial_population(graph, propagator, evaluator, 1, 'uniform')
+    print(f'param val: {pop[0][1]} \n\nscore: {pop[0][0]}')
+
+
 def generate_adam_convergence_data():
     propagator = get_propagator()
     evaluator = get_evaluator()
@@ -322,7 +330,6 @@ def display_adam_convergence_data():
 
 
 def diagnose_uphill_case():
-
     graph = get_graph()
     propagator = get_propagator()
     evaluator = get_evaluator()
@@ -345,7 +352,7 @@ def diagnose_uphill_case():
     x = np.arange(0, NUM_DATAPOINTS_UPHILL * ITER_PER_DATAPOINT_UPHILL, ITER_PER_DATAPOINT_UPHILL)
     ax.plot(x, run_data[0])
     ax.legend()
-    plt.title(f'Single starting point')
+    plt.title(f'Convergence of a single point, with phase shift in rfawg evaluator (truncated not rounded)')
     plt.show()
 
 def display_uphill_case():
@@ -355,7 +362,6 @@ def display_uphill_case():
 
     with open(f'{NUM_DATAPOINTS_UPHILL}datapoints_{ITER_PER_DATAPOINT_UPHILL}iterPerDatapoint_uphillCase.pkl', 'rb') as handle:
         y, _ = pickle.load(handle)
-        # ax.plot(x[173:181], y[173:181])
         ax.plot(x, y, label='')
     
     ax.legend()
