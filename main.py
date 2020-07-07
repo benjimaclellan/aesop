@@ -37,14 +37,21 @@ if True:
 def principle_main():
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
+             -1:VariablePowerSplitter(),
+             -2:CorningFiber(),
+             -3:VariablePowerSplitter(),
              1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
              2:WaveShaper(),
              3:CorningFiber(),
-             4:MeasurementDevice()}
-    edges = [(0,1),
+             4:VariablePowerSplitter(),
+             5:CorningFiber(),
+             6:WaveShaper(),
+             7:VariablePowerSplitter(),
+             8:MeasurementDevice()}
+    edges = [(0,-1), (-1, -2), (-2, -3), (-1,-3), (-3, 1),
              (1,2),
              (2,3),
-             (3,4)]
+             (3,4), (4,5), (5,7), (4,6), (6,7), (7,8)]
 
     # propagator = Propagator(window_t = 1e-9, n_samples = 2**16, central_wl=1.55e-6)
     # nodes = {0:PulsedLaser(parameters_from_name={'pulse_shape':'gaussian',
@@ -69,8 +76,12 @@ def principle_main():
     parameters, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
 
     plt.close('all')
-    nx.draw(graph, labels = dict(zip(graph.nodes, graph.nodes)))
+
+    # nx.draw(graph, labels = dict(zip(graph.nodes, graph.nodes)))
+    graph.draw(labels = dict(zip(graph.nodes, graph.nodes)))
     plt.show()
+
+    return
 
     # %%
     print(configuration.EVOLUTION_OPERATORS)
