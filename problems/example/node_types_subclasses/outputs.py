@@ -30,5 +30,5 @@ class MeasurementDevice(Output):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         return states

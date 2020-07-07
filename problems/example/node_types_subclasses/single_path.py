@@ -39,12 +39,23 @@ class CorningFiber(SinglePath):
         return
 
     # TODO : check this, and every other model for correctness (so far its been about logic flow)
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
+<<<<<<< HEAD
         dispersion = fft_shift_(np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f, 2) ), ax=0)
         state = ifft_( dispersion * fft_(state, propagator.dt), propagator.dt)
         print(f'Corning fiber state: {state}')
+=======
+        dispersion = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
+
+        if save_transforms:
+            self.transform = (('f', dispersion, 'dispersion'),)
+        else:
+            self.transform = None
+
+        state = ifft_( fft_shift_(np.exp(-1j * dispersion), ax=0) * fft_(state, propagator.dt), propagator.dt)
+>>>>>>> df2ce4016d3cb9da63bd7f4cdadd63ce1c810aaf
         return [state]
 
 
@@ -73,13 +84,19 @@ class PhaseModulator(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
         depth = self.parameters[0]
         frequency = self.parameters[1]
 
-        state1 = state * np.exp(1j * depth * (np.cos(2 * np.pi * frequency * propagator.t, dtype='complex')))
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t, dtype='float'))
+        if save_transforms:
+            self.transform = (('t', transform, 'modulation'),)
+        else:
+            self.transform = None
+
+        state1 = state * np.exp(1j * transform)
         return [state1]
 
 
@@ -114,11 +131,10 @@ class WaveShaper(SinglePath):
         self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bins)] + \
                                ['phase{}'.format(ind) for ind in range(number_of_bins)]
 
-
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
         # Slice at into the first half (amp) and last half (phase)
@@ -146,10 +162,14 @@ class WaveShaper(SinglePath):
         # We cannot use array assignment as it is not supported by autograd
         amplitude_mask = np.concatenate((pad_left, amp1, pad_right), axis=0)
         phase_mask = np.concatenate((pad_left, phase1, pad_right), axis=0)
-        mask = fft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0)
 
-        state = ifft_(mask * fft_(state, propagator.dt), propagator.dt)
-        print(f'Waveshaper state: {state}')
+        state = ifft_(fft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt), propagator.dt)
+
+        if save_transforms:
+            self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
+        else:
+            self.transform = None
+
         return [state]
 
 @register_node_types_all
@@ -159,10 +179,7 @@ class DelayLine(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        self._lengths = [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12]
-        self._n = 1.444
-
-        self.number_of_parameters = 8
+        self.number_of_parameters = 4
         self.upper_bounds = [1] * self.number_of_parameters
         self.lower_bounds = [0] * self.number_of_parameters
         self.data_types = ['float'] * self.number_of_parameters
@@ -172,12 +189,16 @@ class DelayLine(SinglePath):
         self.parameter_locks = [False] * self.number_of_parameters
         self.parameter_names = ['coupling_ratio{}'.format(ind) for ind in range(self.number_of_parameters)]
 
+        self._n = 1.444
+        self._delays = [2**k * 1e-12 for k in range(0, self.number_of_parameters)]
+        # [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12
+
         self.default_parameters = [0] * self.number_of_parameters
 
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
         coupling_ratios = self.parameters
@@ -188,19 +209,28 @@ class DelayLine(SinglePath):
 
         field_short_tmp = np.zeros_like(field_short)
 
-        for i, coupling_ratio in enumerate(coupling_ratios):
-            length = (propagator.speed_of_light / self._n) * self._lengths[i]
+        ## TODO fix the fft, ifft functions
+        for i, (coupling_ratio, delay) in enumerate(zip(coupling_ratios, self._delays)):
+            length = (propagator.speed_of_light / self._n) * delay
             beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
             field_short_tmp = field_short
             try:
                 field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
-                field_long = np.exp(1j * beta * length) * (
+                field_long = np.exp(1j * fft_shift_(beta * length, ax=0)) * (
                         1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
             except RuntimeWarning as w:
                 print(f'RuntimeWarning: {w}')
                 print(f'coupling ratios: {coupling_ratios}')
                 print(f'coupling ratio: {coupling_ratio}')
                 raise w
-        print(f'Delay line state: {ifft_(field_short, propagator.dt)}')
+
+        if save_transforms:
+            transform = np.zeros_like(propagator.t).astype('float')
+            for i, (coupling_ratio, delay) in enumerate(zip(coupling_ratios, self._delays)):
+                transform[(np.abs(propagator.t - (-delay))).argmin()] = coupling_ratio
+            self.transform = (('t', transform, 'delay coupling ratios'),)
+        else:
+            self.transform = None
+
         return [ifft_(field_short, propagator.dt)]

@@ -77,6 +77,14 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         ax.legend()
         scale_units(ax, unit='s', axes=['x'])
         plt.show()
+
+        fig, ax = plt.subplots(1, 1)
+        state = graph.measure_propagator(evaluation_node)
+        ax.plot(rfspectrum_(state, propagator.dt), label='Measured State')
+        ax.set(xlabel='', ylabel='Power a.u.')
+        ax.legend()
+        scale_units(ax, unit='Hz', axes=['x'])
+        plt.show()
         return
 
 

@@ -30,7 +30,7 @@ class VariablePowerSplitter(MultiPath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0):
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         self.set_parameters_as_attr()
         state = sum(states)  # TODO NEED TO FIX THIS CAUSE THIS IS DEFINITELY NOT LEGIT
         return [state] * num_outputs

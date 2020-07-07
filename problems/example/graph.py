@@ -12,6 +12,7 @@ import warnings
 
 from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
+from lib.functions import scale_units
 
 
 class Graph(GraphParent):
@@ -26,7 +27,7 @@ class Graph(GraphParent):
         super().__init__()
 
         for node, model in nodes.items():
-            self.add_node(node, **{'model': model, 'name': 'FEATURE NOT IMPLEMENTED', 'lock': False})
+            self.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
 
         # add the models to the edges if propagating on edges (fibers, paths etc)
         #TODO: this maybe could be improved - its a little hacky (but it works for now, so leave for now)
@@ -80,16 +81,22 @@ class Graph(GraphParent):
                 self.edges[edge].pop('states')
         return
 
+<<<<<<< HEAD
     def propagate(self, propagator):
         return self._propagate_no_deepcopy(propagator)
+=======
+    def propagate(self, propagator, save_transforms=False):
+        # if self._deep_copy:
+        #     return self._propagate_deepcopy(propagator)
+        # return self._propagate_limit_deepcopy(propagator)
+        return self._propagate_no_deepcopy(propagator, save_transforms=save_transforms)
+>>>>>>> df2ce4016d3cb9da63bd7f4cdadd63ce1c810aaf
 
-    def _propagate_no_deepcopy(self, propagator):
+    def _propagate_no_deepcopy(self, propagator, save_transforms=False):
         """
         Uses no deepcopy functionality - hopefully avoiding issues with autograd.
         Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
         """
-
-        # print('This propagate function does NOT use copy.deepcopy')
 
         propagation_order = self.propagation_order
         self._propagator_saves = {}  # will save each propagator here ##TODO make sure this is not saving the same object in multiple places somehow (it doesn't seem like it though)
@@ -101,12 +108,12 @@ class Graph(GraphParent):
                 tmp_states = []  # initialize list to add all incoming propagators to
                 for edge in self.get_in_edges(node):  # loop through incoming edges
                     if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
-                        tmp_states += self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1)
+                        tmp_states += self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1, save_transforms=save_transforms)
                     else:
                         tmp_states += self._propagator_saves[edge]
 
             # save the list of propagators at that node locations (deepcopy required throughout)
-            states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node))
+            states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
                 self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
 
@@ -116,6 +123,39 @@ class Graph(GraphParent):
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
 
+<<<<<<< HEAD
+=======
+    def visualize_transforms(self, nodes_to_visualize, propagator):
+        """
+        each node's propagate function (if applicable) can save the transformations (as functions of t or f) into the class variable
+        node.transform, where node.transform = (dof, transfer function, text label) where dof is t or f
+
+        :param nodes_to_visualize: list of nodes to look for transfer functions to plot
+        :param propagator: same propagator as in the simulations
+        :return:
+        """
+
+
+        fig, ax = plt.subplots(2, 1)
+        for node in nodes_to_visualize:
+            self.nodes[node]['model'].transform
+            if self.nodes[node]['model'].transform is not None:
+                for _, (dof, transform, label) in enumerate(self.nodes[node]['model'].transform):
+                    label_str = 'Node {} | {} | {}'.format(node, self.nodes[node]['name'], label)
+                    if dof == 't':
+                        ax[0].plot(propagator.t, transform/np.max(transform), label=label_str)
+                    elif dof == 'f':
+                        ax[1].plot(propagator.f, transform/np.max(transform), label=label_str)
+        for axi in ax:
+            axi.legend()
+        ax[0].set_xlabel('Time')
+        ax[1].set_xlabel('Frequency')
+        scale_units(ax[0], unit='s', axes=['x'])
+        scale_units(ax[1], unit='Hz', axes=['x'])
+        return
+            
+
+>>>>>>> df2ce4016d3cb9da63bd7f4cdadd63ce1c810aaf
     @property
     def propagation_order(self):
         """Returns the sorted order of nodes (based on which reverse walking the graph)
