@@ -10,7 +10,7 @@ import autograd.numpy as np
 from ..node_types import SinglePath
 
 from ..assets.decorators import register_node_types_all
-from ..assets.functions import fft_, ifft_, psd_, power_, fft_shift_
+from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_
 
 @register_node_types_all
 class CorningFiber(SinglePath):
@@ -49,8 +49,7 @@ class CorningFiber(SinglePath):
         else:
             self.transform = None
 
-        state = ifft_( fft_shift_(np.exp(-1j * dispersion), ax=0) * fft_(state, propagator.dt), propagator.dt)
-        print(f'CorningFiber: {state}')
+        state = ifft_( ifft_shift_(np.exp(-1j * dispersion), ax=0) * fft_(state, propagator.dt), propagator.dt)
         return [state]
 
 
@@ -158,14 +157,13 @@ class WaveShaper(SinglePath):
         amplitude_mask = np.concatenate((pad_left, amp1, pad_right), axis=0)
         phase_mask = np.concatenate((pad_left, phase1, pad_right), axis=0)
 
-        state = ifft_(fft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt), propagator.dt)
+        state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt), propagator.dt)
 
         if save_transforms:
             self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
         else:
             self.transform = None
 
-        print(f'Waveshaper: {state}')
         return [state]
 
 @register_node_types_all
@@ -175,7 +173,7 @@ class DelayLine(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        self.number_of_parameters = 4
+        self.number_of_parameters = 8
         self.upper_bounds = [1] * self.number_of_parameters
         self.lower_bounds = [0] * self.number_of_parameters
         self.data_types = ['float'] * self.number_of_parameters
@@ -196,7 +194,6 @@ class DelayLine(SinglePath):
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
-        print(f'start state: {state}')
         coupling_ratios = self.parameters
 
         # field is in the spectral domain here now
@@ -214,7 +211,7 @@ class DelayLine(SinglePath):
 
             try:
                 field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
-                field_long = np.exp(1j * fft_shift_(beta * length, ax=0)) * (
+                field_long = np.exp(1j * ifft_shift_(beta * length, ax=0)) * (
                         1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
             except RuntimeWarning as w:
                 print(f'RuntimeWarning: {w}')
@@ -224,12 +221,10 @@ class DelayLine(SinglePath):
 
         if save_transforms:
             transform = np.zeros_like(propagator.t).astype('float')
-            for i, (coupling_ratio, delay) in enumerate(zip(coupling_ratios, self._delays)):
+            for (coupling_ratio, delay) in zip(coupling_ratios, self._delays):
                 transform[(np.abs(propagator.t - (-delay))).argmin()] = coupling_ratio
             self.transform = (('t', transform, 'delay coupling ratios'),)
         else:
             self.transform = None
 
-        tmp = np.fft.fftshift(np.fft.ifft(field_short, axis=0), axes=0) / propagator.dt
-        print(f'Delayline: {tmp}')
         return [ifft_(field_short, propagator.dt)]

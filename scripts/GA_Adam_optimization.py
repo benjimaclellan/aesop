@@ -18,7 +18,7 @@ from problems.example.node_types_subclasses.single_path import CorningFiber, Pha
 
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_, psd_, fft_, ifft_
+from problems.example.assets.functions import power_, psd_
 
 from algorithms.assets.functions import logbook_update, logbook_initialize
 
@@ -35,6 +35,10 @@ ITER_PER_DATAPOINT_ADAM = 10
 TEST_SIZE_UPHILL = 32
 NUM_DATAPOINTS_UPHILL = 500
 ITER_PER_DATAPOINT_UPHILL = 1
+
+"""
+Note: picking the wrong index in phase shift (see evaluator_rfawg.py) can result in excessively discontinuous results in gradient descent
+"""
 
 # ---------------------------- Providers --------------------------------
 def get_graph():
@@ -287,21 +291,8 @@ def display_initial_pop(size=TEST_SIZE_ADAM, seed=RANDOM_SEED_ADAM):
     _, ax = plt.subplots()
     x = np.zeros(size)
     y = np.array([score for (score, individual) in pop])
-    print(f'x: {x.shape}')
-    print(f'y: {y.shape}')
     ax.scatter(x, y)
     plt.show()
-
-
-def generate_single_param(seed=RANDOM_SEED_ADAM):
-    propagator = get_propagator()
-    evaluator = get_evaluator()
-    graph = get_graph()
-
-    np.random.seed(seed)
-    print('single parameter\n')
-    pop, _, _ = get_initial_population(graph, propagator, evaluator, 1, 'uniform')
-    print(f'param val: {pop[0][1]} \n\nscore: {pop[0][0]}')
 
 
 def generate_adam_convergence_data():
@@ -315,7 +306,7 @@ def generate_adam_convergence_data():
 def display_adam_convergence_data():
     cm = plt.get_cmap('brg')     # create colour map
 
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.set_prop_cycle('color', [cm(1.*i/TEST_SIZE_ADAM) for i in range(TEST_SIZE_ADAM)])
     ax.set_xlim(right=NUM_DATAPOINTS_ADAM * ITER_PER_DATAPOINT_ADAM)
     x = np.arange(0, NUM_DATAPOINTS_ADAM * ITER_PER_DATAPOINT_ADAM, ITER_PER_DATAPOINT_ADAM)
@@ -327,69 +318,3 @@ def display_adam_convergence_data():
         plt.title(f'Adam convergence: {NUM_DATAPOINTS_ADAM} datapoints, {ITER_PER_DATAPOINT_ADAM} iterations/datapoint, seed: {RANDOM_SEED_ADAM}')
         ax.legend()
         plt.show()
-
-
-def diagnose_uphill_case():
-    graph = get_graph()
-    propagator = get_propagator()
-    evaluator = get_evaluator()
-
-    np.random.seed(RANDOM_SEED_ADAM) # need this to be consistent across runs to compare different performances
-    pop, _, _ = get_initial_population(graph, propagator, evaluator, 24, 'uniform')
-    score, param_list = pop[23]
-    y, runtime = _adam_convergence_from_start(graph, propagator, evaluator,
-                                              np.array(param_list),
-                                              num_datapoints=NUM_DATAPOINTS_UPHILL,
-                                              iter_per_datapoint=ITER_PER_DATAPOINT_UPHILL,
-                                              convergence_check_period=None)
-
-    run_data = (y, runtime)
-    
-    with open(f'{NUM_DATAPOINTS_UPHILL}datapoints_{ITER_PER_DATAPOINT_UPHILL}iterPerDatapoint_uphillCase.pkl', 'wb') as handle:
-        pickle.dump(run_data, handle)
-
-    fig, ax = plt.subplots()
-    x = np.arange(0, NUM_DATAPOINTS_UPHILL * ITER_PER_DATAPOINT_UPHILL, ITER_PER_DATAPOINT_UPHILL)
-    ax.plot(x, run_data[0])
-    ax.legend()
-    plt.title(f'Convergence of a single point, with phase shift in rfawg evaluator (truncated not rounded)')
-    plt.show()
-
-def display_uphill_case():
-    # setup graphs
-    fig, ax = plt.subplots()
-    x = np.arange(0, NUM_DATAPOINTS_UPHILL * ITER_PER_DATAPOINT_UPHILL, ITER_PER_DATAPOINT_UPHILL)
-
-    with open(f'{NUM_DATAPOINTS_UPHILL}datapoints_{ITER_PER_DATAPOINT_UPHILL}iterPerDatapoint_uphillCase.pkl', 'rb') as handle:
-        y, _ = pickle.load(handle)
-        ax.plot(x, y, label='')
-    
-    ax.legend()
-    plt.title('Single starting point')
-    plt.show()
-
-def compare_big_jump():
-    prejump_params = np.array(
-                    [5.15130495, 0.92105773, 0.99999999, 0.79299178, 0.99999999, 0.80663515,
-                     2.64814918, 5.37367294, 0.78283939, 5.31339156, 6.15854142, 0.46009278,
-                     0.56741198, 0.76225641, 0.26890699, 0.41031763, 0.46803960, 0.41965900,
-                     0.99999999]
-                    )
-    postjump_params = np.array(
-                    [5.15050071, 0.92059505, 0.99999999, 0.79362395, 0.99999999, 0.80623950,
-                     2.64781833, 5.37252838, 0.78398131, 5.31226456, 6.15866165, 0.45890617,
-                     0.56864731, 0.76171969, 0.26982987, 0.41053914, 0.46860968, 0.42059382,
-                     0.99999999]
-                    )
-    diff = postjump_params - prejump_params
-    print(diff)
-
-    graph = get_graph()
-    propagator = get_propagator()
-    evaluator = get_evaluator()
-    _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
-
-    prejump_score = get_individual_score(graph, propagator, evaluator, prejump_params, node_edge_index=node_edge_index, parameter_index=parameter_index)
-    postjump_score = get_individual_score(graph, propagator, evaluator, postjump_params, node_edge_index=node_edge_index, parameter_index=parameter_index)
-
-    compare_params(graph, propagator, evaluator, [prejump_params, postjump_params], [f'prejump: {prejump_score}', f'postjump: {postjump_score}'], title='Comparing pre-jump and post-jump results')
