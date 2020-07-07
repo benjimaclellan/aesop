@@ -196,7 +196,7 @@ class DelayLine(SinglePath):
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
-
+        print(f'start state: {state}')
         coupling_ratios = self.parameters
 
         # field is in the spectral domain here now
@@ -206,11 +206,12 @@ class DelayLine(SinglePath):
         field_short_tmp = np.zeros_like(field_short)
 
         ## TODO fix the fft, ifft functions
-        for i, (coupling_ratio, delay) in enumerate(zip(coupling_ratios, self._delays)):
+        for (coupling_ratio, delay) in zip(coupling_ratios, self._delays):
             length = (propagator.speed_of_light / self._n) * delay
             beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
             field_short_tmp = field_short
+
             try:
                 field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
                 field_long = np.exp(1j * fft_shift_(beta * length, ax=0)) * (
@@ -229,5 +230,6 @@ class DelayLine(SinglePath):
         else:
             self.transform = None
 
-        print(f'Delayline: {ifft_(field_short, propagator.dt)}')
+        tmp = np.fft.fftshift(np.fft.ifft(field_short, axis=0), axes=0) / propagator.dt
+        print(f'Delayline: {tmp}')
         return [ifft_(field_short, propagator.dt)]
