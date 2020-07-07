@@ -146,7 +146,89 @@ class Graph(GraphParent):
         scale_units(ax[0], unit='s', axes=['x'])
         scale_units(ax[1], unit='Hz', axes=['x'])
         return
-            
+
+    def draw(self, ax=None, labels=None):
+        """
+        custom plotting function to more closely resemble schematic diagrams
+
+        :param ax:
+        :param labels:
+        :return:
+        """
+
+        pos = self.optical_system_layout()
+
+        if ax is None:
+            fig, ax = plt.subplots(1,1)
+        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
+
+
+        str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
+
+        ax.annotate(str,
+                    xy=(0.02, 0.98), xytext=(0.02, 0.98), xycoords='axes fraction',
+                    textcoords='offset points',
+                    size=7, va='top',
+                    bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
+
+        # nx.draw_planar(self)
+
+        return
+
+
+    def optical_system_layout(self):
+        """
+        gives a more intuitive graph layout that matches more to experimental setup diagrams (left to right, more of a grid)
+        :return:
+        """
+        pos = {}
+        y_spacing = 1
+        x_spacing = 1
+        nodes_rem = copy.copy(self.propagation_order)
+        x_counter = 0
+        y_counter = 0
+
+        next_node = nodes_rem[0]
+
+        while len(nodes_rem) > 0:
+            node = next_node
+
+            x_pos = x_counter * x_spacing
+
+            suc = self.suc(node)
+            out_degree = self.get_out_degree(node)
+            pre = self.pre(node)
+            in_degree = self.get_in_degree(node)
+
+            if in_degree == 0:
+                x_pos = 0
+                y_pos = 2 * y_counter * y_spacing
+            elif in_degree == 1:
+                x_pos = pos[pre[0]][0] + x_spacing
+                y_pos = y_counter * y_spacing
+            elif in_degree > 1:
+                x_pos = pos[pre[0]][0] + x_spacing
+                y_pos = y_counter * y_spacing
+
+            pos[node] = [x_pos, y_pos]
+
+            nodes_rem.remove(node)
+            if not len(nodes_rem):
+                break
+
+            if out_degree == 0:
+                next_node = nodes_rem[0]
+                y_counter += 1
+                continue
+            elif out_degree == 1:
+                x_counter += 1
+                next_node = suc[0]
+            elif out_degree > 1:
+                y_counter += 1
+                next_node = suc[0]
+
+        return pos
+
     @property
     def propagation_order(self):
         """Returns the sorted order of nodes (based on which reverse walking the graph)
