@@ -42,11 +42,6 @@ class CorningFiber(SinglePath):
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
-<<<<<<< HEAD
-        dispersion = fft_shift_(np.exp(-1j * length * self.beta * np.power(2 * np.pi * propagator.f, 2) ), ax=0)
-        state = ifft_( dispersion * fft_(state, propagator.dt), propagator.dt)
-        print(f'Corning fiber state: {state}')
-=======
         dispersion = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
 
         if save_transforms:
@@ -55,7 +50,7 @@ class CorningFiber(SinglePath):
             self.transform = None
 
         state = ifft_( fft_shift_(np.exp(-1j * dispersion), ax=0) * fft_(state, propagator.dt), propagator.dt)
->>>>>>> df2ce4016d3cb9da63bd7f4cdadd63ce1c810aaf
+        print(f'CorningFiber: {state}')
         return [state]
 
 
@@ -170,6 +165,7 @@ class WaveShaper(SinglePath):
         else:
             self.transform = None
 
+        print(f'Waveshaper: {state}')
         return [state]
 
 @register_node_types_all
@@ -233,4 +229,5 @@ class DelayLine(SinglePath):
         else:
             self.transform = None
 
+        print(f'Delayline: {ifft_(field_short, propagator.dt)}')
         return [ifft_(field_short, propagator.dt)]

@@ -81,16 +81,11 @@ class Graph(GraphParent):
                 self.edges[edge].pop('states')
         return
 
-<<<<<<< HEAD
-    def propagate(self, propagator):
-        return self._propagate_no_deepcopy(propagator)
-=======
     def propagate(self, propagator, save_transforms=False):
         # if self._deep_copy:
         #     return self._propagate_deepcopy(propagator)
         # return self._propagate_limit_deepcopy(propagator)
         return self._propagate_no_deepcopy(propagator, save_transforms=save_transforms)
->>>>>>> df2ce4016d3cb9da63bd7f4cdadd63ce1c810aaf
 
     def _propagate_no_deepcopy(self, propagator, save_transforms=False):
         """
@@ -123,8 +118,6 @@ class Graph(GraphParent):
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
 
-<<<<<<< HEAD
-=======
     def visualize_transforms(self, nodes_to_visualize, propagator):
         """
         each node's propagate function (if applicable) can save the transformations (as functions of t or f) into the class variable
@@ -154,8 +147,6 @@ class Graph(GraphParent):
         scale_units(ax[1], unit='Hz', axes=['x'])
         return
             
-
->>>>>>> df2ce4016d3cb9da63bd7f4cdadd63ce1c810aaf
     @property
     def propagation_order(self):
         """Returns the sorted order of nodes (based on which reverse walking the graph)
