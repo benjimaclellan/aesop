@@ -19,7 +19,7 @@ class CorningFiber(SinglePath):
     """
 
     def __init__(self, **kwargs):
-        self.node_lock = True
+        self.node_lock = False
 
         self.number_of_parameters = 1
         self.default_parameters = [1]
@@ -33,7 +33,7 @@ class CorningFiber(SinglePath):
         self.parameter_locks = [False]
         self.parameter_names = ['length']
 
-        self.beta = 1
+        self.beta = 1e-23
 
         super().__init__(**kwargs)
         return

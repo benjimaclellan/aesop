@@ -1,3 +1,8 @@
+
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib as mpl
+
 import autograd.numpy as np
 from autograd import hessian
 from autograd import elementwise_grad, jacobian
@@ -20,8 +25,6 @@ def hessian_local(func, argnum = 0):
 def get_hessian(graph, propagator, evaluator, exclude_locked=True):
     func = function_wrapper(graph, propagator, evaluator, exclude_locked=exclude_locked)
     hessian_function = hessian(func)
-    # hessian_function = hessian_local(func)
-
     return hessian_function
 
 def get_scaled_hessian(graph, propagator, evaluator, exclude_locked=True):
@@ -37,18 +40,12 @@ def get_scaled_hessian(graph, propagator, evaluator, exclude_locked=True):
     return scaled_hessian_function
 
 
-def lha_analysis(parameters, func, uncertainty_scaling, hessian_function = None):
+def lha_analysis(hessian_function, parameters):
     """
 
     """
-    # Compute the Hessian of the fitness function (as a function of x), or pass in from initialization
-    if hessian_function is None:
-        hessian_function = hessian(func)
 
-    H0 = hessian_function(np.array(parameters)) / 2.0
-
-    scale_mat = np.dot(np.array([uncertainty_scaling]).T, np.array([uncertainty_scaling]))
-    H0 *= scale_mat
+    H0 = hessian_function(np.array(parameters))
 
     # the hessian should be symetric, check if this is the case
     SYMMETRY_TOL = 1e-5
@@ -61,8 +58,26 @@ def lha_analysis(parameters, func, uncertainty_scaling, hessian_function = None)
     eigen_items = np.linalg.eig(H0)
     eigensort_inds = np.argsort(eigen_items[0])
     eigenvalues, eigenvectors = eigen_items[0][eigensort_inds], eigen_items[1][:, eigensort_inds]
-
     return np.diag(H0), H0, eigenvalues, eigenvectors
+
+
+def plot_eigenvectors(parameter_names, eigenvectors, eigenvalues):
+    fig, ax = plt.subplots(1,1)
+
+    norm = mpl.colors.Normalize(vmin=min(eigenvalues), vmax=max(eigenvalues))
+    cmap = cm.viridis
+
+
+
+    xticks = list(range(len(parameter_names)))
+    for i, (evec, eval) in enumerate(zip(eigenvectors, eigenvalues)):
+        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+
+        markerline, stemlines, baseline = ax.stem(xticks, evec, use_line_collection=True, markerfmt='o')
+        markerline.set_markerfacecolor(m.to_rgba(eval))
+    ax.set(xticks=xticks)
+    ax.set_xticklabels(parameter_names, rotation=45, ha='center')
+    return ax
 
 def function_wrapper(graph, propagator, evaluator, exclude_locked = False):
     """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
