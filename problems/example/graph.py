@@ -3,6 +3,7 @@
 """
 
 import autograd.numpy as np
+from autograd import grad, hessian
 
 import networkx as nx
 import copy
@@ -45,10 +46,37 @@ class Graph(GraphParent):
 
         self._propagator_saves = {}
 
-        
-
-
+        # initialize variables to store function handles for grad & hess
+        self.func = None
+        self.grad = None
+        self.hess = None
         return
+
+    def function_wrapper(self, propagator, evaluator, exclude_locked=True):
+        """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
+
+        def _function(_parameters, _graph, _propagator, _evaluator, _node_edge_index, _parameter_index):
+            _graph.distribute_parameters_from_list(_parameters, _node_edge_index, _parameter_index)
+            _graph.propagate(_propagator)
+            score = _evaluator.evaluate_graph(_graph, _propagator)
+            return score
+
+        info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
+                                                                exclude_locked=exclude_locked)
+
+        func = lambda parameters: _function(parameters, self, propagator, evaluator,
+                                            info['node_edge_index'], info['parameter_index'])
+        return func
+
+
+    def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
+        self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
+        self.grad = grad(self.func)
+
+        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        self.hess = lambda parameters: hess_tmp(np.array(parameters))
+        return
+
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))
@@ -392,7 +420,8 @@ class Graph(GraphParent):
 
         attributes = ['parameters', 'lower_bounds', 'upper_bounds']
 
-        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=True,
+        model_attributes = self.extract_attributes_to_list_experimental(attributes,
+                                                                        get_location_indices=True,
                                                                         exclude_locked=exclude_locked)
 
         parameters = model_attributes['parameters']
