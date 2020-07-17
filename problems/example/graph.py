@@ -127,8 +127,6 @@ class Graph(GraphParent):
         :param propagator: same propagator as in the simulations
         :return:
         """
-
-
         fig, ax = plt.subplots(2, 1)
         for node in nodes_to_visualize:
             self.nodes[node]['model'].transform
