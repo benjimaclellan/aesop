@@ -9,6 +9,9 @@ TODO: Check with Ben or Piotr
     - Generally higher power = more noise
     - But there could be an environmental source or something which would not be dependent of power
 - Do we want the noise param to match the matlab script (i.e. be in dB) or to be the ratio (am leaning to the Matlab bc the scaling might be more sense)
+- OK so technically specifying the sample_num here is a problem bc it restricts the propagator side. SO THIS CANNOT STAY.
+    That said, regenerating all this info at each function call is extra
+    Think about a neat solution to this design flaw
 """
 
 
@@ -25,13 +28,14 @@ class AdditiveNoise():
         """
         Creates an noise object with the described properties
 
-        :param sample_num: number of noise samples to provide (should match sample number of signal)
+        :param sample_num: number of noise samples to provide (should match sample number of signals to which noise is applied)
         :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
         :param noise_param: scaling parameter for noise (standard deviation for Gaussian)
         :param noise_filter: None for now
         :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled 
         :param noise_on: True if the noise of the object is to be applied, False otherwise
                          Note that the noise can also be turned off for the whole class (upon which this variable has no effect)
+        :param seed: seed with which np.random can generate the pseudorandom noise vectors
         """
         self.sample_num = sample_num
         
@@ -41,27 +45,30 @@ class AdditiveNoise():
             raise ValueError('Noise filter options not yet implemented, object must be None')
         if (noise_type != 'relative' and noise_type != 'absolute'):
             raise ValueError('Noise type must be relative or absolute')
-        if (seed is not None):
-            np.random.seed(seed)
         
         # keep log of noise sources for debugging, and in case of resampling
         self.noise_sources = []
 
         # create noise distribution
-        self.add_noise_source(sample_num=sample_num, distribution='gaussian', noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type)
+        self.sample_num = sample_num
+        self.add_noise_source(distribution=distribution, noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type, seed=seed)
 
         self.noise_on = noise_on
-        self.noise_type = noise_type
     
-    def add_noise_source(self, sample_num=None, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='relative'):
+    def add_noise_source(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='relative', seed=None):
         """
-        Maybe useful?
-        https://stackoverflow.com/questions/14058340/adding-noise-to-a-signal-in-python
+        Adds a noise source to the AdditiveNoise object (all future calls to add_noise_to_propagation will also include this source)
+
+        :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
+        :param noise_param: scaling parameter for noise (standard deviation for Gaussian)
+        :param noise_filter: None for now
+        :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled
+        :param seed: seed with which np.random can generate the pseudorandom noise vectors
         """
         if (distribution != 'gaussian'):
             raise ValueError(f"{distribution} distribution not supported. Only 'gaussian' is supported at this time")
-        if ((sample_num is not None) and (sample_num != self.sample_num)):
-            raise ValueError(f'sample_num {sample_num} does not match this object sample_num {self.sample_num}')
+        if (seed is not None):
+            np.random.seed(seed)
 
         noise = np.random.normal(scale=1, size=(self.sample_num, 2)).view(dtype='complex').flatten()
         noise_scaling = np.linalg.norm(power_(noise))**0.5
@@ -79,6 +86,7 @@ class AdditiveNoise():
         Adds noise to the input state, and returns the noisy state
         
         :param state: the pre-noise state
+        :return: the state including noise
         """
         if (not self.noise_on or not AdditiveNoise.simulate_with_noise):
             return state
