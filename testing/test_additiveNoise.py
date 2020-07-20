@@ -3,6 +3,7 @@ import pytest
 from autograd import grad
 
 from problems.example.assets.additive_noise import AdditiveNoise
+from problems.example.assets.propagator import Propagator
 
 @pytest.fixture(autouse=True)
 def setup():
@@ -10,11 +11,11 @@ def setup():
 
 
 def display_time_freq(noise):
-    x = np.linspace(-2*np.pi, 2*np.pi, 10000)
-    signal = np.sin(x) + 1j*0 # we just really want a visible signal that's not constant power so *shrugs*
-    noise.display_noisy_signal(signal)
-    noise.display_noise(signal)
-    noise.display_noise_sources_absolute()
+    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
+    signal = np.sin(2 * np.pi / 1.55e-6 * propagator.t) + 1j*0 # we just really want a visible signal that's not constant power so *shrugs*
+    noise.display_noisy_signal(signal, propagator=propagator)
+    noise.display_noise(signal, propagator=propagator)
+    noise.display_noise_sources_absolute(propagator=propagator)
 
 
 # test not Gaussian and incorrect noise type

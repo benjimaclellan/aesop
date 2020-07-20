@@ -98,6 +98,8 @@ class AdditiveNoise():
         :param signal: the pre-noise state
         :return: the state including noise
         """
+        print(f'signal shape: {signal.shape}')
+        
         if (self._sample_num is None):
             self.sample_num = signal.shape[0]
         elif (self.sample_num != signal.shape[0]):
@@ -110,6 +112,7 @@ class AdditiveNoise():
 
         for noise in self.noise_sources:
             #TODO: figure out why it's divided by 20 and not 10 in that power of 10...
+            print(f"noise shape: {noise['noise_vector'].shape}")
             if noise['noise_type'] == 'relative':
                 signal += noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 20)
             else:
@@ -118,10 +121,9 @@ class AdditiveNoise():
         print(f"Noise power norm unscaled: {noise['noise_power_norm']}")
         print(f"Signal power norm pure: {signal_power_norm}")
 
-
         return signal
 
-    def display_noisy_signal(self, signal):
+    def display_noisy_signal(self, signal, propagator=None):
         """
         Displays plots the noisy signal power in the time and frequency domains
 
@@ -130,17 +132,26 @@ class AdditiveNoise():
         #TODO: fix up the axes a bit but tbh I just want to see the shape
         _, ax = plt.subplots(2, 1)
 
-        noisy_signal = self.add_noise_to_propagation(signal) 
-        x = np.linspace(-1, 1, num=self.sample_num)
+        noisy_signal = self.add_noise_to_propagation(signal)
+        if (propagator is None): # use arbitrary scale
+            t = np.linspace(-1, 1, num=self.sample_num)
+            f = t
+            dt = 1
+            df = 1
+        else:
+            t = propagator.t
+            f = propagator.f
+            dt = propagator.dt 
+            df = propagator.df
 
-        ax[0].plot(x, power_(noisy_signal), label='time domain')
-        ax[1].plot(x, 10 * np.log10(psd_(noisy_signal, 1, 1)), label='freq domain')
+        ax[0].plot(t, power_(noisy_signal), label='time domain')
+        ax[1].plot(f, 10 * np.log10(psd_(noisy_signal, dt, df)), label='freq domain')
         ax[0].legend()
         ax[1].legend()
         plt.title('Noisy signal')
         plt.show()
     
-    def display_noise(self, signal):
+    def display_noise(self, signal, propagator=None):
         """
         Displays plots the noise power in the time and frequency domains
 
@@ -151,16 +162,25 @@ class AdditiveNoise():
 
         pure_signal = np.copy(signal)
         noise_vector = self.add_noise_to_propagation(signal) - pure_signal
-        x = np.linspace(-1, 1, num=self.sample_num)
-
-        ax[0].plot(x, power_(noise_vector), label='time domain')
-        ax[1].plot(x, 10 * np.log10(psd_(noise_vector, 1, 1)), label='freq domain (log)')
+        if (propagator is None): # use arbitrary scale
+            t = np.linspace(-1, 1, num=self.sample_num)
+            f = t
+            dt = 1
+            df = 1
+        else:
+            t = propagator.t
+            f = propagator.f
+            dt = propagator.dt 
+            df = propagator.df
+    
+        ax[0].plot(t, power_(noise_vector), label='time domain')
+        ax[1].plot(f, 10 * np.log10(psd_(noise_vector, dt, df)), label='freq domain (log)')
         ax[0].legend()
         ax[1].legend()
         plt.title('Total noise')
         plt.show()
 
-    def display_noise_sources_absolute(self):
+    def display_noise_sources_absolute(self, propagator=None):
         """
         Displays plots the power of individual noise contributions in the time and frequency domains
 
@@ -177,12 +197,22 @@ class AdditiveNoise():
     
         _, ax = plt.subplots(2, 1)
 
-        x = np.linspace(-1, 1, num=self.sample_num)
+        if (propagator is None): # use arbitrary scale
+            t = np.linspace(-1, 1, num=self.sample_num)
+            f = t
+            dt = 1
+            df = 1
+        else:
+            t = propagator.t
+            f = propagator.f
+            dt = propagator.dt 
+            df = propagator.df
+
         for noise in self.noise_sources:
             noise_param = noise['noise_param']
             noise_vector = noise['noise_vector'] * noise_param
-            ax[0].plot(x, power_(noise_vector), label=f'time domain, param: {noise_param}')
-            ax[1].plot(x, psd_(noise_vector, 1, 1), label=f'freq domain, param: {noise_param}')
+            ax[0].plot(t, power_(noise_vector), label=f'time domain, param: {noise_param}')
+            ax[1].plot(f, psd_(noise_vector, dt, df), label=f'freq domain, param: {noise_param}')
         
         if (display_only_sample): # we only want to remove the sample number if we set it ourselves at the top of the method
             self._sample_num = None
@@ -204,7 +234,7 @@ class AdditiveNoise():
             np.random.seed(self._seed) # things will be replicable (if single threaded)
 
         for noise_source in self.noise_sources:
-            noise = np.random.normal(scale=1, size=(n, 2)).view(dtype='complex').flatten()
+            noise = np.random.normal(scale=1, size=(n, 2)).view(dtype='complex')
             noise_power_norm = np.linalg.norm(power_(noise))**0.5
             noise_source['noise_vector'] = noise
             noise_source['noise_power_norm'] = noise_power_norm
