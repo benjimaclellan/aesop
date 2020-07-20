@@ -6,9 +6,9 @@ from .functions import fft_, power_, psd_
 """
 TODO: Check with Ben or Piotr
 - Do we want the noise param to match the matlab script (i.e. be in dB) or to be the ratio (am leaning to the Matlab bc the scaling might be more sense)
-TODO: update functions to take propagator (not just vector) 1. Update functions 2. Update tests 3. change the frequency representation to be normalized smh
+TODO: change frequencyrep to be normalized like the matlab code
+TODO: consider whether add_noise_to_propagation should avoid changing "signal"
 """
-
 
 class AdditiveNoise():
     """
@@ -76,7 +76,7 @@ class AdditiveNoise():
             raise ValueError('Noise filter options not yet implemented, object must be None')
 
         if (self._sample_num is not None):
-            noise = np.random.normal(scale=1, size=(self.sample_num, 2)).view(dtype='complex').flatten()
+            noise = np.random.normal(scale=1, size=(self.sample_num, 2)).view(dtype='complex')
             noise_power_norm = np.linalg.norm(power_(noise))**0.5
         else:
             noise = None
@@ -95,11 +95,9 @@ class AdditiveNoise():
         """
         Adds noise to the input state, and returns the noisy state
         
-        :param signal: the pre-noise state
+        :param signal: the pre-noise state (IS MODIFIED BY THE FUNCTION)
         :return: the state including noise
-        """
-        print(f'signal shape: {signal.shape}')
-        
+        """        
         if (self._sample_num is None):
             self.sample_num = signal.shape[0]
         elif (self.sample_num != signal.shape[0]):
@@ -112,14 +110,10 @@ class AdditiveNoise():
 
         for noise in self.noise_sources:
             #TODO: figure out why it's divided by 20 and not 10 in that power of 10...
-            print(f"noise shape: {noise['noise_vector'].shape}")
             if noise['noise_type'] == 'relative':
                 signal += noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 20)
             else:
-                signal += noise['noise_vector'] * 10**(noise['noise_param'] / 20)
-
-        print(f"Noise power norm unscaled: {noise['noise_power_norm']}")
-        print(f"Signal power norm pure: {signal_power_norm}")
+                signal += noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 20)
 
         return signal
 
@@ -127,10 +121,12 @@ class AdditiveNoise():
         """
         Displays plots the noisy signal power in the time and frequency domains
 
-        Note that signal WILL set sample_num value
+        Note that signal WILL set sample_num value, but the vector signal WILL NOT be modified
         """
         #TODO: fix up the axes a bit but tbh I just want to see the shape
         _, ax = plt.subplots(2, 1)
+
+        signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
 
         noisy_signal = self.add_noise_to_propagation(signal)
         if (propagator is None): # use arbitrary scale
@@ -155,13 +151,14 @@ class AdditiveNoise():
         """
         Displays plots the noise power in the time and frequency domains
 
-        Note that signal WILL set sample_num value
+        Note that signal WILL set sample_num value, but the vector signal WILL NOT be modified
         """
         #TODO: fix up the axes a bit but tbh I just want to see the shape
         _, ax = plt.subplots(2, 1)
 
-        pure_signal = np.copy(signal)
-        noise_vector = self.add_noise_to_propagation(signal) - pure_signal
+        mutated_signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
+
+        noise_vector = self.add_noise_to_propagation(mutated_signal) - signal
         if (propagator is None): # use arbitrary scale
             t = np.linspace(-1, 1, num=self.sample_num)
             f = t
@@ -210,7 +207,7 @@ class AdditiveNoise():
 
         for noise in self.noise_sources:
             noise_param = noise['noise_param']
-            noise_vector = noise['noise_vector'] * noise_param
+            noise_vector = noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 20)
             ax[0].plot(t, power_(noise_vector), label=f'time domain, param: {noise_param}')
             ax[1].plot(f, psd_(noise_vector, dt, df), label=f'freq domain, param: {noise_param}')
         
@@ -240,20 +237,3 @@ class AdditiveNoise():
             noise_source['noise_power_norm'] = noise_power_norm
         
         self._sample_num = n
-
-
-def testing_main():
-    noise = AdditiveNoise(noise_type='absolute', noise_param=4)
-    noise.display_noise()
-    noise.add_noise_source(noise_param=2) # relative noises
-    noise.add_noise_source(noise_param=1)
-    noise.add_noise_source(noise_param=0.5)
-    noise.display_noise_sources_absolute()
-    noise.noise_on = False
-    noise.display_noise()
-    noise.noise_on = True
-    noise.add_noise_to_propagation(np.array([1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1], dtype='complex'))
-    noise.display_noise()
-    AdditiveNoise.simulate_with_noise = False
-    noise.display_noise()
-    noise.display_noise_sources_absolute()
