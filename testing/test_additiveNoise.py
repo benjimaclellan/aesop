@@ -12,7 +12,7 @@ def setup():
 
 def display_time_freq(noise):
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
-    signal = np.sin(2 * np.pi / 1.55e-6 * propagator.t) + 1j*0 # we just really want a visible signal that's not constant power so *shrugs*
+    signal = np.sin(2 * np.pi / 1e-9 * propagator.t) + 1j*0 # we just really want a visible signal that's not constant power so *shrugs*
     noise.display_noisy_signal(signal, propagator=propagator)
     noise.display_noise(signal, propagator=propagator)
     noise.display_noise_sources_absolute(propagator=propagator)
