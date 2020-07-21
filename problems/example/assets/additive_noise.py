@@ -227,13 +227,15 @@ class AdditiveNoise():
     
     @sample_num.setter
     def sample_num(self, n):
-        if (self._seed is not None):
-            np.random.seed(self._seed) # things will be replicable (if single threaded)
+        self._sample_num = n
+        self.resample_noise(seed=self._seed)
+    
+    def resample_noise(self, seed=None):
+        if (seed is not None):
+            np.random.seed(seed)
 
         for noise_source in self.noise_sources:
-            noise = np.random.normal(scale=1, size=(n, 2)).view(dtype='complex')
+            noise = np.random.normal(scale=1, size=(self._sample_num, 2)).view(dtype='complex')
             noise_power_norm = np.linalg.norm(power_(noise))**0.5
             noise_source['noise_vector'] = noise
             noise_source['noise_power_norm'] = noise_power_norm
-        
-        self._sample_num = n

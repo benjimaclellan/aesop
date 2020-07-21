@@ -27,7 +27,6 @@ def display_time_freq(noise, signal, propagator):
     noise.display_noise_sources_absolute(propagator=propagator)
 
 
-# test not Gaussian and incorrect noise type
 def test_incorrect_distribution():
     with pytest.raises(ValueError):
         AdditiveNoise(distribution='lorentzian')
@@ -38,7 +37,6 @@ def test_incorrect_noise_type():
         AdditiveNoise(noise_type='transcendent')
 
 
-# simple test, visually assess whether the time-freq domain look correct
 @pytest.mark.skip
 def test_display_timeFreq(signal, propagator):
     # noise param = 1
@@ -58,7 +56,6 @@ def test_display_timeFreq(signal, propagator):
     display_time_freq(noise32, signal, propagator)
 
 
-# test multiple noise sources in one
 @pytest.mark.skip
 def test_multiple_noise_sources(signal, propagator):
     noise = AdditiveNoise(noise_param=2, seed=0)
@@ -74,7 +71,6 @@ def test_multiple_noise_sources(signal, propagator):
     noise.display_noise_sources_absolute(propagator=propagator)
 
 
-# test absolute vs relative (with new object)
 @pytest.mark.skip
 def test_absolute_vs_relative(signal, propagator):
     signal2 = 2 * np.copy(signal)
@@ -92,7 +88,6 @@ def test_absolute_vs_relative(signal, propagator):
     noise.display_noise(signal2, propagator=propagator) # noise expected to have same amplitude
 
 
-# test noise_on and simulate with noise
 @pytest.mark.skip
 def test_noise_disactivation(signal, propagator):
     noise = AdditiveNoise(noise_param=4, seed=0)
@@ -107,7 +102,6 @@ def test_noise_disactivation(signal, propagator):
     noise.display_noise(signal, propagator=propagator) # should show nothing
 
 
-# test incompatible shapes
 def test_incompatible_signal_shapes(signal):
     noise = AdditiveNoise()
     noise.add_noise_to_propagation(signal)
@@ -116,5 +110,80 @@ def test_incompatible_signal_shapes(signal):
 
 
 # test autograd capabilities
+def gain_sum_no_noise(signal):
+    return np.sum(np.abs(5 * signal))
 
-# test that noise arrays are not recomputed everytime add_noise_to_propagation is added
+def gain_sum_noise(signal):
+    gain = 5 * signal
+    noise = AdditiveNoise(noise_param=4, seed=0)
+    output = noise.add_noise_to_propagation(gain)
+    return np.sum(np.abs(output))
+
+def get_funct_gain_sum_noise(test_signal):
+    noise = AdditiveNoise(noise_param=4, seed=0)
+    noise.add_noise_to_propagation(test_signal) # try without this too...
+                                                # But in practice if we evaluate before we derive
+                                                # this test is accurate to what would happen
+    def funct(signal):
+        gain = 5 * signal
+        output = noise.add_noise_to_propagation(gain)
+        return np.sum(np.abs(output))
+    
+    return funct
+
+
+@pytest.mark.skip
+def test_autograd_gain(signal):
+    tmp = np.copy(signal)
+    print(f'Sum power no noise: {gain_sum_no_noise(tmp)}')
+    
+    tmp = np.copy(signal)
+    print(f'Sum power noise: {gain_sum_noise(tmp)}')
+    
+    tmp = np.copy(signal)
+    gain_separate_noise_gen = get_funct_gain_sum_noise(tmp)
+    tmp = np.copy(signal)
+    print(f'Sum power separate noise: {gain_separate_noise_gen(tmp)}')
+
+    grad_no_noise = grad(gain_sum_no_noise)
+    grad_noise = grad(gain_sum_noise)
+    grad_separate_noise_gen = grad(gain_separate_noise_gen)
+
+    tmp = np.copy(signal)
+    print(f'grad sum power no noise: {grad_no_noise(tmp)}')
+    
+    tmp = np.copy(signal)
+    print(f'grad sum power noise: {grad_noise(tmp)}')
+    
+    tmp = np.copy(signal)
+    gain_separate_noise_gen = get_funct_gain_sum_noise(tmp)
+    tmp = np.copy(signal)
+    print(f'grad sum power separate noise: {grad_separate_noise_gen(tmp)}')
+
+    assert False
+
+
+def test_autograd_convergence(signal):
+    # same as the gain test, but we'll take the average of a BUNCH of noisy signals and see if it converges
+    TOTAL_ITERATIONS = 10000
+
+    grad_sum = np.zeros((signal.shape[0], 1), dtype='complex')
+
+    for i in range(TOTAL_ITERATIONS):
+        tmp = np.copy(signal)
+        noise = AdditiveNoise(noise_param=4, seed=i)
+        
+        def funct(x):
+            gain = 5 * x
+            output = noise.add_noise_to_propagation(gain)
+            return np.sum(np.abs(output))
+        
+        grad_funct = grad(funct)
+        grad_sum += grad_funct(tmp)
+    
+    avg_grad = grad_sum / TOTAL_ITERATIONS
+    print(avg_grad)
+    assert False
+
+
+# test that noise arrays are not recomputed everytime add_noise_to_propagation is added?
