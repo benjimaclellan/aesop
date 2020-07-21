@@ -97,7 +97,7 @@ class AdditiveNoise():
         
         :param signal: the pre-noise state (IS MODIFIED BY THE FUNCTION)
         :return: the state including noise
-        """        
+        """      
         if (self._sample_num is None):
             self.sample_num = signal.shape[0]
         elif (self.sample_num != signal.shape[0]):
@@ -105,17 +105,18 @@ class AdditiveNoise():
 
         if (not self.noise_on or not AdditiveNoise.simulate_with_noise):
             return signal
-        
+
+        total_noise = np.zeros(signal.shape, dtype='complex')
         signal_power_norm = np.linalg.norm(power_(signal))**0.5 #TODO: Think about... for now it just matches Matlab
 
         for noise in self.noise_sources:
             #TODO: figure out why it's divided by 20 and not 10 in that power of 10...
             if noise['noise_type'] == 'relative':
-                signal += noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 20)
+                total_noise = total_noise + noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 20)
             else:
-                signal += noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 20)
+                total_noise = total_noise + noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 20)
 
-        return signal
+        return signal + total_noise
 
     def display_noisy_signal(self, signal, propagator=None):
         """
@@ -231,6 +232,9 @@ class AdditiveNoise():
         self.resample_noise(seed=self._seed)
     
     def resample_noise(self, seed=None):
+        if (self._sample_num is None):
+            raise ValueError("no sample number has been set")
+
         if (seed is not None):
             np.random.seed(seed)
 

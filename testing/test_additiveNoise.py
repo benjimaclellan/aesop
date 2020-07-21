@@ -37,7 +37,6 @@ def test_incorrect_noise_type():
         AdditiveNoise(noise_type='transcendent')
 
 
-@pytest.mark.skip
 def test_display_timeFreq(signal, propagator):
     # noise param = 1
     noise1 = AdditiveNoise(noise_param=1, seed=0)
@@ -56,7 +55,6 @@ def test_display_timeFreq(signal, propagator):
     display_time_freq(noise32, signal, propagator)
 
 
-@pytest.mark.skip
 def test_multiple_noise_sources(signal, propagator):
     noise = AdditiveNoise(noise_param=2, seed=0)
     noise.display_noisy_signal(signal, propagator=propagator)
@@ -71,7 +69,6 @@ def test_multiple_noise_sources(signal, propagator):
     noise.display_noise_sources_absolute(propagator=propagator)
 
 
-@pytest.mark.skip
 def test_absolute_vs_relative(signal, propagator):
     signal2 = 2 * np.copy(signal)
 
@@ -88,7 +85,6 @@ def test_absolute_vs_relative(signal, propagator):
     noise.display_noise(signal2, propagator=propagator) # noise expected to have same amplitude
 
 
-@pytest.mark.skip
 def test_noise_disactivation(signal, propagator):
     noise = AdditiveNoise(noise_param=4, seed=0)
     noise.display_noisy_signal(signal, propagator=propagator) # should show pure signal
@@ -131,9 +127,8 @@ def get_funct_gain_sum_noise(test_signal):
     
     return funct
 
-
 @pytest.mark.skip
-def test_autograd_gain(signal):
+def test_autograd_gain1(signal):
     tmp = np.copy(signal)
     print(f'Sum power no noise: {gain_sum_no_noise(tmp)}')
     
@@ -162,28 +157,76 @@ def test_autograd_gain(signal):
 
     assert False
 
-
+@pytest.mark.skip
 def test_autograd_convergence(signal):
     # same as the gain test, but we'll take the average of a BUNCH of noisy signals and see if it converges
-    TOTAL_ITERATIONS = 10000
+    TOTAL_ITERATIONS = 1
 
     grad_sum = np.zeros((signal.shape[0], 1), dtype='complex')
+    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute')
+    noise.add_noise_to_propagation(np.copy(signal))
 
     for i in range(TOTAL_ITERATIONS):
         tmp = np.copy(signal)
-        noise = AdditiveNoise(noise_param=4, seed=i)
+        noise.resample_noise(seed=i)
         
         def funct(x):
+            """
+            Making this a linear function bc it's easier to validate the derivative there
+            """
             gain = 5 * x
             output = noise.add_noise_to_propagation(gain)
-            return np.sum(np.abs(output))
+            return np.sum(output).astype(dtype='float')
         
         grad_funct = grad(funct)
+        print("About to evaluate grad function!")
         grad_sum += grad_funct(tmp)
-    
+
     avg_grad = grad_sum / TOTAL_ITERATIONS
+    print("Average gradient:")
     print(avg_grad)
     assert False
 
+def test_autograd_gain_signal_absolute():
+    signal = np.zeros((10000, 1), dtype='complex')
+    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute')
+    noise.add_noise_to_propagation(signal)
 
-# test that noise arrays are not recomputed everytime add_noise_to_propagation is added?
+    noise.resample_noise(seed=0)
+    def funct(G):
+        all_noise = noise.add_noise_to_propagation(signal) # using empty signal but doesn't matter, it's a constant with this deriv
+        print(f"all_noise sum: {np.sum(np.abs(all_noise))}")
+        return np.sum(np.abs(G * all_noise))
+    
+    grad_funct = grad(funct)
+    print("Evaluating grad function")
+    gradient_at_G = grad_funct(np.array([5]))
+    print(gradient_at_G)
+
+    # get noise sum
+    noise.resample_noise(seed=0)
+    noise_sum = np.sum(np.abs(noise.add_noise_to_propagation(signal)))
+    assert np.isclose(gradient_at_G[0], noise_sum)
+
+def test_autograd_gain_signal_relative():
+    GAIN = 8
+
+    signal = np.ones((10000, 1), dtype='complex')
+    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='relative')
+    noise.add_noise_to_propagation(signal)
+
+    noise.resample_noise(seed=0)
+    def funct(G):
+        output = noise.add_noise_to_propagation(G * signal) -  G * signal
+        return np.sum(output).astype(dtype='float')
+    
+    grad_funct = grad(funct)
+    print("Evaluating grad function")
+    gradient_at_G = grad_funct(np.array([GAIN]))
+    print(gradient_at_G)
+
+    # test with expected val
+    noise.resample_noise(seed=0)
+    noise_sum = np.sum(noise.add_noise_to_propagation(signal) - signal).astype(dtype='float')
+    print(f"noise_sum: {noise_sum}")
+    assert np.isclose(gradient_at_G[0], noise_sum)
