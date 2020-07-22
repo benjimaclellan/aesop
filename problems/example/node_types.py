@@ -22,8 +22,6 @@ class Input(NodeTypeParent):
         self._range_input_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
         self._range_output_edges = (1, 4)  # minimum, maximum number of input edges, may be changed in children
 
-        return
-
 
 @register_node_types
 class Output(NodeTypeParent):

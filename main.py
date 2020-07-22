@@ -62,7 +62,7 @@ def principle_main():
     #          2:MeasurementDevice()}
     # edges = [(0,1), (1,2)]
 
-    graph = Graph(nodes, edges, propagate_on_edges=False, deep_copy=False)
+    graph = Graph(nodes, edges, propagate_on_edges=False)
     graph.assert_number_of_edges()
 
     # %%

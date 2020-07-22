@@ -5,6 +5,9 @@ from autograd import grad
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
 
+SKIP_GRAPHICAL_TEST = True
+
+
 @pytest.fixture(autouse=True)
 def setup():
     AdditiveNoise.simulate_with_noise = True
@@ -37,6 +40,7 @@ def test_incorrect_noise_type():
         AdditiveNoise(noise_type='transcendent')
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_display_timeFreq(signal, propagator):
     # noise param = 1
     noise1 = AdditiveNoise(noise_param=1, seed=0)
@@ -55,6 +59,7 @@ def test_display_timeFreq(signal, propagator):
     display_time_freq(noise32, signal, propagator)
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_multiple_noise_sources(signal, propagator):
     noise = AdditiveNoise(noise_param=2, seed=0)
     noise.display_noisy_signal(signal, propagator=propagator)
@@ -69,6 +74,7 @@ def test_multiple_noise_sources(signal, propagator):
     noise.display_noise_sources_absolute(propagator=propagator)
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_absolute_vs_relative(signal, propagator):
     signal2 = 2 * np.copy(signal)
 
@@ -85,6 +91,7 @@ def test_absolute_vs_relative(signal, propagator):
     noise.display_noise(signal2, propagator=propagator) # noise expected to have same amplitude
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_noise_disactivation(signal, propagator):
     noise = AdditiveNoise(noise_param=4, seed=0)
     noise.display_noisy_signal(signal, propagator=propagator) # should show pure signal

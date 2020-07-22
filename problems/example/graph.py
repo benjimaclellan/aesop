@@ -12,6 +12,7 @@ import warnings
 
 from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
+from .assets.additive_noise import AdditiveNoise
 from lib.functions import scale_units
 
 
@@ -80,6 +81,89 @@ class Graph(GraphParent):
             if 'states' in self.edges[edge]:
                 self.edges[edge].pop('states')
         return
+    
+    def get_output_signal(self, propagator, node=None, save_transforms=False):
+        """
+        Propagates (with noise) through the graph, and returns the signal at node (if node is None, output node picked)
+        Does not change value of AdditiveNoise.simulate_with_noise (though it's not threadsafe: it's changed within the method)
+
+        :param propagator: propagator with which to evaluate the signal
+        :param node: node to evaluate. If None, output node is used
+        :save_transforms: True to save transforms for visualisation. False otherwise
+
+        :returns: noisy signal at node
+        """
+        # get noisy output signal (or noiseless! Whatever it's previously set at (but usually noisy))
+        if (node is None):
+            node = self.get_output_node()
+
+        start_noise_status = AdditiveNoise.simulate_with_noise
+        AdditiveNoise.simulate_with_noise = True
+
+        self.propagate(propagator, save_transforms=save_transforms)
+        
+        AdditiveNoise.simulate_with_noise = start_noise_status # restore initial value
+        return self.measure_propagator(node)
+    
+    def get_output_signal_pure(self, propagator, node=None, save_transforms=False):
+        """
+        Propagates (without noise) through the graph, and returns the signal at node (if node is None, output node picked)
+        Does not change value of AdditiveNoise.simulate_with_noise (though it's not threadsafe: it's changed within the method)
+
+        :param propagator: propagator with which to evaluate the signal
+        :param node: node to evaluate. If None, output node is used
+        :save_transforms: True to save transforms for visualisation. False otherwise
+
+        :returns: noiseless signal at node
+        """
+        if (node is None):
+            node = self.get_output_node()
+
+        start_noise_status = AdditiveNoise.simulate_with_noise
+        AdditiveNoise.simulate_with_noise = False
+
+        self.propagate(propagator, save_transforms=save_transforms)
+
+        AdditiveNoise.simulate_with_noise = start_noise_status # restore initial value
+        return self.measure_propagator(node)
+
+    def get_output_noise(self, propagator, node=None, save_transforms=False):
+        """
+        Returns the noise at node (if node is None, output node picked)
+        Does not change value of AdditiveNoise.simulate_with_noise (though it's not threadsafe: it's changed within the method)
+
+        :param propagator: propagator with which to evaluate the signal
+        :param node: node to evaluate. If None, output node is used
+        :save_transforms: True to save transforms for visualisation. False otherwise
+
+        :returns: signal at node
+        """
+        noisy = self.get_output_signal(propagator, node=node, save_transforms=save_transforms)
+        noiseless = self.get_output_signal_pure(propagator, node=node, save_transforms=save_transforms)
+
+        return noisy - noiseless
+    
+    def display_noise_contributions(self, propagator, node=None):
+        noisy = self.get_output_signal(propagator, node=node)
+        noiseless = self.get_output_signal_pure(propagator, node=node)
+        fig, ax = plt.subplots(2, 1)
+        linestyles = ['-', ':', ':']
+        labels = ['noisy', 'noiseless', 'noise']
+        noisy_max = np.max(psd_(noisy, propagator.dt, propagator.df))
+        for (state, line, label) in zip([noisy, noiseless, noisy - noiseless], linestyles, labels):
+            ax[0].plot(propagator.t, power_(state), ls=line, label=label)
+            psd = psd_(state, propagator.dt, propagator.df)
+            ax[1].plot(propagator.f, 10 * np.log10(psd/noisy_max), ls=line, label=label)
+        
+        ax[0].legend()
+        ax[1].legend()
+        plt.show()
+
+    def get_output_node(self):
+        """
+        Returns the output node (i.e. the node with no output vertices). If there are multiple output nodes, returns the first
+        """
+        return [node for node in self.nodes if not self.out_edges(node)][0]  # finds node with no outgoing edges
 
     def propagate(self, propagator, save_transforms=False):
         # if self._deep_copy:
@@ -103,16 +187,31 @@ class Graph(GraphParent):
                 tmp_states = []  # initialize list to add all incoming propagators to
                 for edge in self.get_in_edges(node):  # loop through incoming edges
                     if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
-                        tmp_states += self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1, save_transforms=save_transforms)
+                        signal = self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1, save_transforms=save_transforms)
+                        
+                        # add noise to propagation
+                        noise_model = self.edges[edge]['model'].noise_model
+                        if (noise_model is not None):
+                            signal = noise_model.add_noise_to_propagation(signal)
+
+                        tmp_states += signal
                     else:
                         tmp_states += self._propagator_saves[edge]
 
             # save the list of propagators at that node locations (deepcopy required throughout)
             states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
+
+            # add noise to propagation
+            noise_model = self.nodes[node]['model'].noise_model
+            if (noise_model is not None):
+                for i in range(len(states)):
+                    states[i] = noise_model.add_noise_to_propagation(states[i])
+
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
                 self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
 
             self._propagator_saves[node] = states
+
         return self
 
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
@@ -129,7 +228,6 @@ class Graph(GraphParent):
         """
         fig, ax = plt.subplots(2, 1)
         for node in nodes_to_visualize:
-            self.nodes[node]['model'].transform
             if self.nodes[node]['model'].transform is not None:
                 for _, (dof, transform, label) in enumerate(self.nodes[node]['model'].transform):
                     label_str = 'Node {} | {} | {}'.format(node, self.nodes[node]['name'], label)
@@ -416,17 +514,22 @@ class Graph(GraphParent):
                 if 'model' in self.edges[edge]:
                     self.edges[edge]['model'].inspect_parameters()
 
-    def inspect_state(self, propagator):
+    def inspect_state(self, propagator, freq_log_scale=False):
         """ we loop through all nodes and plot the optical state *after* the node"""
         fig, ax = plt.subplots(2, 1)
         linestyles = cycle(['-', '--', '-.', ':'])
 
         # please note that we do not include the edges here (most of the time I doubt we will use edges, but it may be useful in the future)
+        # for cnt, node in enumerate(self.propagation_order):
         for cnt, node in enumerate(reversed(self.propagation_order)):
             state = self.measure_propagator(node)
             line = {'ls':next(linestyles), 'lw':3}
             ax[0].plot(propagator.t, power_(state), label=node, **line)
-            ax[1].plot(propagator.f, 0.1*cnt + psd_(state, propagator.dt, propagator.df)/np.max(psd_(state, propagator.dt, propagator.df)), **line)
+            psd = psd_(state, propagator.dt, propagator.df)
+            if freq_log_scale:
+                ax[1].plot(propagator.f, 10 * np.log10(psd/np.max(psd)), **line)
+            else:
+                ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
 
         ax[0].legend()
         plt.show()

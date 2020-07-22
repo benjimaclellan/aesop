@@ -30,10 +30,8 @@ class NodeType(object):
         else:
             self._parameters = self.default_parameters
 
-
         self.transform = None  # this is a variable which will store a visual representation of the transformation
-
-        return
+        self.noise_model = None
 
     @property
     def parameters(self):

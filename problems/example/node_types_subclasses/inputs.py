@@ -9,6 +9,7 @@ unit = UnitRegistry()
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import power_, psd_
+from ..assets.additive_noise import AdditiveNoise
 
 from ..node_types import Input
 
@@ -97,7 +98,8 @@ class ContinuousWaveLaser(Input):
         self.parameters = self.default_parameters
 
         super().__init__(**kwargs)
-        return
+        
+        self.noise_model = AdditiveNoise(noise_param=1) # OSNR from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 
 
 

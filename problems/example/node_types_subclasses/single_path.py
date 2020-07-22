@@ -144,7 +144,7 @@ class WaveShaper(SinglePath):
 
         amp1 = np.concatenate(a)
         phase1 = np.concatenate(p)
-
+    
         left = np.floor((propagator.n_samples - amp1.shape[0]) / 2).astype('int')
         right = propagator.n_samples - np.ceil((propagator.n_samples - amp1.shape[0]) / 2).astype('int')
 

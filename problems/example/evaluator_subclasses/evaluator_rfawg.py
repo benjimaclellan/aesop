@@ -36,7 +36,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         self.normalize = False
 
     def evaluate_graph(self, graph, propagator):
-        evaluation_node = [node for node in graph.nodes if not graph.out_edges(node)][0]  # finds node with no outgoing edges
+        evaluation_node = graph.get_output_node()  # finds node with no outgoing edges
         graph.propagate(propagator)
         state = graph.measure_propagator(evaluation_node)
         score = self.waveform_temporal_overlap(state, propagator)

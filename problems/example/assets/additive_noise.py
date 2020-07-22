@@ -4,10 +4,9 @@ import matplotlib.pyplot as plt
 from .functions import fft_, power_, psd_
 
 """
-TODO: Check with Ben or Piotr
-- Do we want the noise param to match the matlab script (i.e. be in dB) or to be the ratio (am leaning to the Matlab bc the scaling might be more sense)
 TODO: change frequencyrep to be normalized like the matlab code
-TODO: consider whether add_noise_to_propagation should avoid changing "signal"
+TODO: make the noise parameter OSNR in dB (simple, tends to be on datasheets) -> verify that I did this correctly
+TODO: check whether it's normal that noise doesn't seem visible in freq domain (with inspect). Prob fine though
 """
 
 class AdditiveNoise():
@@ -110,14 +109,50 @@ class AdditiveNoise():
         signal_power_norm = np.linalg.norm(power_(signal))**0.5 #TODO: Think about... for now it just matches Matlab
 
         for noise in self.noise_sources:
-            #TODO: figure out why it's divided by 20 and not 10 in that power of 10...
+            #TODO: check that dividing by 10 was the correct choice
             if noise['noise_type'] == 'relative':
-                total_noise = total_noise + noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 20)
+                total_noise = total_noise + noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 10)
             else:
-                total_noise = total_noise + noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 20)
+                total_noise = total_noise + noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 10)
 
         return signal + total_noise
+    
+    @property
+    def sample_num(self):
+        if (self._sample_num is None):
+            raise ValueError('No sample num set yet')
+        return self._sample_num
+    
+    @sample_num.setter
+    def sample_num(self, n):
+        self._sample_num = n
+        self.resample_noise(seed=self._seed)
+    
+    def resample_noise(self, seed=None):
+        if (self._sample_num is None):
+            raise ValueError("no sample number has been set")
 
+        if (seed is not None):
+            np.random.seed(seed)
+
+        for noise_source in self.noise_sources:
+            noise = np.random.normal(scale=1, size=(self._sample_num, 2)).view(dtype='complex')
+            noise_power_norm = np.linalg.norm(power_(noise))**0.5
+            noise_source['noise_vector'] = noise
+            noise_source['noise_power_norm'] = noise_power_norm
+    
+    @staticmethod
+    def get_OSNR(signal, noise, in_dB=True):
+        """
+        Returns OSNR (RMS(input)^2 / RMS(noise)^2)
+        """
+        osnr = np.mean(power_(signal)) / np.mean(power_(noise))
+        if (not in_dB):
+            return osnr
+
+        return 10 * np.log10(osnr)
+
+# ------------------------------------------------- Visualisation methods, to help with debugging ----------------------------------------
     def display_noisy_signal(self, signal, propagator=None):
         """
         Displays plots the noisy signal power in the time and frequency domains
@@ -208,7 +243,7 @@ class AdditiveNoise():
 
         for noise in self.noise_sources:
             noise_param = noise['noise_param']
-            noise_vector = noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 20)
+            noise_vector = noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 10)
             ax[0].plot(t, power_(noise_vector), label=f'time domain, param: {noise_param}')
             ax[1].plot(f, psd_(noise_vector, dt, df), label=f'freq domain, param: {noise_param}')
         
@@ -219,27 +254,3 @@ class AdditiveNoise():
         ax[1].legend()
         plt.title('Display each noise source as absolute')
         plt.show()
-    
-    @property
-    def sample_num(self):
-        if (self._sample_num is None):
-            raise ValueError('No sample num set yet')
-        return self._sample_num
-    
-    @sample_num.setter
-    def sample_num(self, n):
-        self._sample_num = n
-        self.resample_noise(seed=self._seed)
-    
-    def resample_noise(self, seed=None):
-        if (self._sample_num is None):
-            raise ValueError("no sample number has been set")
-
-        if (seed is not None):
-            np.random.seed(seed)
-
-        for noise_source in self.noise_sources:
-            noise = np.random.normal(scale=1, size=(self._sample_num, 2)).view(dtype='complex')
-            noise_power_norm = np.linalg.norm(power_(noise))**0.5
-            noise_source['noise_vector'] = noise
-            noise_source['noise_power_norm'] = noise_power_norm
