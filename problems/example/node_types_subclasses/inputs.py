@@ -83,23 +83,23 @@ class ContinuousWaveLaser(Input):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        self.number_of_parameters = 2
-        self.default_parameters = [1, 1.55e-6]
+        self.number_of_parameters = 3
+        self.default_parameters = [1, 1.55e-6, 55]
 
-        self.upper_bounds = [2, 1.54e-6]
-        self.lower_bounds = [0, 1.56e-6]
-        self.data_types = ['float', 'float']
-        self.step_sizes = [None, None]
-        self.parameter_imprecisions = [0.1, 0.01e-6]
-        self.parameter_units = [unit.W, unit.m]
-        self.parameter_locks = [True, True]
-        self.parameter_names = ['peak_power', 'central_wl']
+        self.upper_bounds = [2, 1.54e-6, 200] # upper bound for osnr randomly set
+        self.lower_bounds = [0, 1.56e-6, 1]
+        self.data_types = ['float', 'float', 'float']
+        self.step_sizes = [None, None, None]
+        self.parameter_imprecisions = [0.1, 0.01e-6, 0]
+        self.parameter_units = [unit.W, unit.m, None] # TODO: check whether we should use dB instead of None
+        self.parameter_locks = [True, True, True]
+        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB']
 
         self.parameters = self.default_parameters
 
         super().__init__(**kwargs)
         
-        self.noise_model = AdditiveNoise(noise_param=1) # OSNR from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
+        self.noise_model = AdditiveNoise(noise_param=self.parameters[2]) # OSNR from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 
 
 

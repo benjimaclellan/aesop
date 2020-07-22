@@ -21,7 +21,7 @@ def propagator():
 
 @pytest.fixture(scope='function')
 def laser_graph():
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
+    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6, 'osnr_dB':55}),
              1: MeasurementDevice()
             }
     edges = [(0, 1)]
@@ -35,7 +35,7 @@ def default_graph():
     """
     Returns the default graph for testing, with fixed topology at this time
     """
-    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6}),
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6, 'osnr_dB':55}),
              1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
              2: WaveShaper(),
              3: MeasurementDevice()
@@ -50,18 +50,30 @@ def default_graph():
     return graph
 
 
+def get_laser_graph_osnr(osnr):
+    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6, 'osnr_dB':osnr}),
+             1: MeasurementDevice()
+            }
+    edges = [(0, 1)]
+    graph = Graph(nodes, edges, propagate_on_edges=False)
+    graph.assert_number_of_edges()
+    return graph
+
+
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_laser_graph(laser_graph, propagator):
     laser_graph.propagate(propagator)
     laser_graph.inspect_state(propagator, freq_log_scale=True)
 
-@pytest.mark.skip
-def test_laser_osnr(laser_graph, propagator):
-    signal = laser_graph.get_output_signal_pure(propagator)
-    noise = laser_graph.get_output_noise(propagator)
-    print(f'OSNR: {AdditiveNoise.get_OSNR(signal, noise)}')
-    assert False
 
+def test_laser_osnr(propagator):
+    for i in range(1, 10):
+        graph = get_laser_graph_osnr(i)
+        signal = graph.get_output_signal_pure(propagator)
+        noise = graph.get_output_noise(propagator)
+        print(i)
+        print(AdditiveNoise.get_OSNR(signal, noise))
+        assert np.isclose(AdditiveNoise.get_OSNR(signal, noise), i)
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_default_graph(default_graph, propagator):
@@ -73,12 +85,3 @@ def test_default_graph(default_graph, propagator):
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_default_graph_isolate_noise(default_graph, propagator):
     default_graph.display_noise_contributions(propagator)
-
-
-# def test_plot():
-#     param = np.array([1, 2, 3, 4, 5, 10, 20, 50, 100])
-#     OSNR = np.array([-1.6017, -0.60744, 0.38948, 1.3936, 2.3968, 7.3985, 17.3932, 47.3924, 97.3937])
-#     fig, ax = plt.subplots()
-#     ax.plot(param, OSNR)
-#     ax.scatter(param, OSNR)
-#     plt.show()

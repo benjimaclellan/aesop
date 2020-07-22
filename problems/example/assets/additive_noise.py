@@ -5,7 +5,7 @@ from .functions import fft_, power_, psd_
 
 """
 TODO: change frequencyrep to be normalized like the matlab code
-TODO: make the noise parameter OSNR in dB (simple, tends to be on datasheets) -> verify that I did this correctly
+TODO: make the noise parameter OSNR in dB (simple, tends to be on datasheets) -> verify that I did this correctly. CHANGE TO DB
 TODO: check whether it's normal that noise doesn't seem visible in freq domain (with inspect). Prob fine though
 """
 
@@ -24,7 +24,7 @@ class AdditiveNoise():
 
         :param sample_num: number of noise samples to provide (should match sample number of signals to which noise is applied)
         :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (standard deviation for Gaussian)
+        :param noise_param: scaling parameter for noise (if noise_type='relative', this parameter is OSNR in dB. If absolute, this param is std dev of Gaussian)
         :param noise_filter: None for now
         :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled 
         :param noise_on: True if the noise of the object is to be applied, False otherwise
@@ -57,7 +57,7 @@ class AdditiveNoise():
                  We will seed ONCE when initializing the noise sources, so if you have an external random call, might make it harder to track down the precise noise vectors 
 
         :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (standard deviation for Gaussian)
+        :param noise_param: scaling parameter for noise (if noise_type='relative', this parameter is OSNR in dB. If absolute, this param is std dev of Gaussian)
         :param noise_filter: None for now
         :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
@@ -76,17 +76,20 @@ class AdditiveNoise():
 
         if (self._sample_num is not None):
             noise = np.random.normal(scale=1, size=(self.sample_num, 2)).view(dtype='complex')
-            noise_power_norm = np.linalg.norm(power_(noise))**0.5
+            mean_noise_power = np.mean(power_(noise))
         else:
             noise = None
-            noise_power_norm = None
+            mean_noise_power = None
+        
+        if (noise_type == 'relative'):
+            noise_param = 10**(noise_param / 10) # convert OSNR(dB) to OSNR(ratio)
 
         source = {'distribution': distribution,
                   'noise_param': noise_param,
                   'filter' : noise_filter,
                   'noise_type': noise_type,
                   'noise_vector': noise,
-                  'noise_power_norm': noise_power_norm
+                  'mean_noise_power': mean_noise_power
                  }
         self.noise_sources.append(source)
     
@@ -106,14 +109,14 @@ class AdditiveNoise():
             return signal
 
         total_noise = np.zeros(signal.shape, dtype='complex')
-        signal_power_norm = np.linalg.norm(power_(signal))**0.5 #TODO: Think about... for now it just matches Matlab
+        mean_signal_power = np.mean(power_(signal))
 
         for noise in self.noise_sources:
-            #TODO: check that dividing by 10 was the correct choice
             if noise['noise_type'] == 'relative':
-                total_noise = total_noise + noise['noise_vector'] * signal_power_norm / noise['noise_power_norm'] * 10**(-1 * noise['noise_param'] / 10)
+                scaling_factor = (mean_signal_power / noise['mean_noise_power'] / noise['noise_param'])**0.5
+                total_noise = total_noise + noise['noise_vector'] * scaling_factor
             else:
-                total_noise = total_noise + noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 10)
+                total_noise = total_noise + noise['noise_vector'] * noise['noise_param']
 
         return signal + total_noise
     
@@ -137,9 +140,9 @@ class AdditiveNoise():
 
         for noise_source in self.noise_sources:
             noise = np.random.normal(scale=1, size=(self._sample_num, 2)).view(dtype='complex')
-            noise_power_norm = np.linalg.norm(power_(noise))**0.5
+            mean_noise_power = np.mean(power_(noise))
             noise_source['noise_vector'] = noise
-            noise_source['noise_power_norm'] = noise_power_norm
+            noise_source['mean_noise_power'] = mean_noise_power
     
     @staticmethod
     def get_OSNR(signal, noise, in_dB=True):
@@ -195,6 +198,7 @@ class AdditiveNoise():
         mutated_signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
 
         noise_vector = self.add_noise_to_propagation(mutated_signal) - signal
+
         if (propagator is None): # use arbitrary scale
             t = np.linspace(-1, 1, num=self.sample_num)
             f = t
