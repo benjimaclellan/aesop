@@ -85,3 +85,18 @@ def test_default_graph(default_graph, propagator):
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_default_graph_isolate_noise(default_graph, propagator):
     default_graph.display_noise_contributions(propagator)
+
+
+# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_graph_resampling(laser_graph, propagator):
+    # TODO: check resampling works on edges too
+    laser_graph.propagate(propagator)
+    output0 = np.copy(laser_graph.measure_propagator(laser_graph.get_output_node()))
+
+    laser_graph.resample_all_noise()
+
+    laser_graph.propagate(propagator)
+    output1 = laser_graph.measure_propagator(laser_graph.get_output_node())
+
+    assert not np.allclose(output0, output1)
+

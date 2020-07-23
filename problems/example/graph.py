@@ -143,6 +143,30 @@ class Graph(GraphParent):
 
         return noisy - noiseless
     
+    def resample_all_noise(self, seed=None):
+        """
+        Resamples noise for all noise models in the graph
+
+        :param seed: seed to use prior to resampling
+        """
+        if (seed is not None):
+            np.random.seed(seed)
+    
+        for node in self.nodes:
+            print('node')
+            print(node)
+            noise_model = self.nodes[node]['model'].noise_model
+            if (noise_model is not None):
+                noise_model.resample_noise()
+        
+        for edge in self.edges:
+            print('edge')
+            print(edge)
+            if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
+                noise_model = self.edges[edge]['model'].noise_model
+                if (noise_model is not None):
+                    noise_model.resample_noise()
+    
     def display_noise_contributions(self, propagator, node=None):
         noisy = self.get_output_signal(propagator, node=node)
         noiseless = self.get_output_signal_pure(propagator, node=node)
