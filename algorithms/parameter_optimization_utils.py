@@ -35,12 +35,8 @@ Resources: Genetic algorithm adapted from `parameters_genetic_algorithm.py`
 """
 TODO: allow multiprocessing (multithread it!)
 TODO: consider whether we'd like to test other autograd-provided optimizers?
-TODO: test boundary setting methods (rigging the fitness function to have a steep slope at
-      boundaries, or manually removing components of the vector which would violate boundaries)
 TODO: remove code duplicates between parameters_genetic_algorithm.py once functionality has been
       replicated here
-TODO: decide on termination condition for Adam (score is approx static? Number of iterations?)
-TODO: investigate those invalid values in sqrt / power runtime warnings
 """
 
 # -------------------- Helper functions for GA ----------------------

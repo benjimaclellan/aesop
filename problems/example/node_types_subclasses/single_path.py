@@ -84,7 +84,8 @@ class PhaseModulator(SinglePath):
         depth = self.parameters[0]
         frequency = self.parameters[1]
 
-        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t, dtype='float'))
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t))
+    
         if save_transforms:
             self.transform = (('t', transform, 'modulation'),)
         else:

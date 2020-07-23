@@ -2,6 +2,9 @@ import autograd.numpy as np
 import pytest
 import random
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from autograd import grad
 
 from problems.example.graph import Graph
 from problems.example.assets.additive_noise import AdditiveNoise
@@ -12,7 +15,17 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
+from lib.analysis.hessian import function_wrapper, get_hessian
+from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+
+
+"""
+TODO: does it make sense that the osnr parameter doesn't affect the gradient?? Like is there some cancellation
+"""
+
+
 SKIP_GRAPHICAL_TEST = True
+
 
 @pytest.fixture(scope='function')
 def propagator():
@@ -28,6 +41,11 @@ def laser_graph():
     graph = Graph(nodes, edges, propagate_on_edges=False)
     graph.assert_number_of_edges()
     return graph
+
+
+@pytest.fixture(scope='function')
+def evaluator(propagator):
+    return RadioFrequencyWaveformGeneration(propagator)
 
 
 @pytest.fixture(scope='function')
@@ -99,4 +117,93 @@ def test_graph_resampling(laser_graph, propagator):
     output1 = laser_graph.measure_propagator(laser_graph.get_output_node())
 
     assert not np.allclose(output0, output1)
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_propagate_with_without_noise(default_graph, propagator):
+    AdditiveNoise.simulate_with_noise = True
+    default_graph.propagate(propagator)
+    default_graph.inspect_state(propagator)
+
+    AdditiveNoise.simulate_with_noise = False
+    default_graph.propagate(propagator)
+    default_graph.inspect_state(propagator)
+
+
+def test_propagate_autograd_grad(default_graph, propagator, evaluator):
+    NUM_SAMPLES = 10
+
+    default_graph.propagate(propagator)
+    propagate_wrapped = function_wrapper(default_graph, propagator, evaluator)
+    propagate_grad = grad(propagate_wrapped)
+
+    # np.random.seed(0)
+    np.random.seed(3)
+    params = default_graph.sample_parameters_to_list() # pick random place from which to sample from
+    
+    # simulate with noise
+    AdditiveNoise.simulate_with_noise = True
+
+    grad_sum = np.zeros(len(params))
+    for i in range(NUM_SAMPLES):
+        default_graph.resample_all_noise(seed=i)
+        grad_eval = propagate_grad(params)
+        grad_sum += grad_eval
+
+    average_grad = grad_sum / NUM_SAMPLES
+
+    print(f'\nNoisy grad average over {NUM_SAMPLES} samples:')
+    print(average_grad)
+
+    # simulate without noise
+    AdditiveNoise.simulate_with_noise = False
+    noiseless_grad = propagate_grad(params)
+    print('\nNoiseless grad:')
+    print(noiseless_grad)
+
+    assert np.allclose(noiseless_grad, average_grad, atol=1e-6)
+
+
+def test_propagate_autograd_hess(default_graph, propagator, evaluator):
+    NUM_SAMPLES = 10
+    default_graph.propagate(propagator)
+
+    propagate_hess = get_hessian(default_graph, propagator, evaluator)
+
+    np.random.seed(3030)
+    params = np.array(default_graph.sample_parameters_to_list())
+
+    # simulate with noise
+    AdditiveNoise.simulate_with_noise = True
+    hess_sum = np.zeros((len(params), len(params)))
+    for i in range(NUM_SAMPLES):
+        default_graph.resample_all_noise(seed=i)
+        hess_eval = propagate_hess(params)
+        hess_sum += hess_eval
+    
+    average_hess = hess_sum / NUM_SAMPLES
+
+    print(f'\nNoisy hessian average over {NUM_SAMPLES} samples:')
+    print(average_hess)
+
+    # simulate without noise
+    AdditiveNoise.simulate_with_noise = False
+    noiseless_hess = propagate_hess(params)
+    print('\nNoiseless hess:')
+    print(noiseless_hess)
+
+    if (True): # not SKIP_GRAPHICAL_TEST):
+        info = default_graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'], get_location_indices=True, exclude_locked=True)
+
+        _, ax = plt.subplots(2, 1)
+        sns.heatmap(average_hess, ax=ax[0])
+        sns.heatmap(noiseless_hess, ax=ax[1])
+        for i in range(2):
+            ax[i].set(xticks = list(range(len(info['parameters']))), yticks = list(range(len(info['parameters']))))
+            ax[i].set_xticklabels(info['parameter_names'], rotation=45, ha='center')
+            ax[i].set_yticklabels(info['parameter_names'], rotation=45, ha='right')
+        
+        plt.show()
+
+    assert np.allclose(noiseless_hess, average_hess, atol=1e-1)
+
 

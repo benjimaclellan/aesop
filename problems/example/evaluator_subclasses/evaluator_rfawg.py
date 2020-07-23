@@ -56,6 +56,10 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
     def shift_function(self, state_power, propagator):
         state_rf = np.fft.fft(state_power, axis=0)
+        
+        if (state_rf[self.target_harmonic_ind] == 0):
+            return state_power # no phase shift in this case, and it'll break my lovely gradient otherwise (bit of a hack but...)
+        
         phase = np.angle(state_rf[self.target_harmonic_ind] / self.target_rf[self.target_harmonic_ind])
 
         shift = phase / (self.target_harmonic * propagator.dt)

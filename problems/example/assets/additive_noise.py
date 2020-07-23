@@ -5,8 +5,7 @@ from .functions import fft_, power_, psd_
 
 """
 TODO: change frequencyrep to be normalized like the matlab code
-TODO: make the noise parameter OSNR in dB (simple, tends to be on datasheets) -> verify that I did this correctly. CHANGE TO DB
-TODO: check whether it's normal that noise doesn't seem visible in freq domain (with inspect). Prob fine though
+TODO: can we create different copies of the class for threadsafe-ness purposes? Think about potential parallelization (one class per graph?)
 """
 
 class AdditiveNoise():

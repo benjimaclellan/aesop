@@ -153,15 +153,11 @@ class Graph(GraphParent):
             np.random.seed(seed)
     
         for node in self.nodes:
-            print('node')
-            print(node)
             noise_model = self.nodes[node]['model'].noise_model
             if (noise_model is not None):
                 noise_model.resample_noise()
         
         for edge in self.edges:
-            print('edge')
-            print(edge)
             if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
                 noise_model = self.edges[edge]['model'].noise_model
                 if (noise_model is not None):
@@ -201,10 +197,9 @@ class Graph(GraphParent):
         Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
         """
 
-        propagation_order = self.propagation_order
         self._propagator_saves = {}  # will save each propagator here ##TODO make sure this is not saving the same object in multiple places somehow (it doesn't seem like it though)
 
-        for node in propagation_order:  # loop through nodes in the prescribed, physical order
+        for node in self.propagation_order:  # loop through nodes in the prescribed, physical order
             if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
                 tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
             else:  # if we have incoming nodes to get the propagator from
