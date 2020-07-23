@@ -76,7 +76,7 @@ def mutation(parent, mutant):
     return child
 
 
-def get_initial_population(graph, propagator, evaluator, n_pop, mutation_operator_dist):
+def get_initial_population(graph, propagator, evaluator, n_pop, mutation_operator_dist, resample_per_individual=False):
     """
     Initializes a random population of the same topology,
     but different tuning parameter values
@@ -92,6 +92,9 @@ def get_initial_population(graph, propagator, evaluator, n_pop, mutation_operato
     
     population = []
     for _ in range(n_pop):
+        if (resample_per_individual):
+            graph.resample_all_noise()
+
         parameters = graph.sample_parameters_to_list(probability_dist=mutation_operator_dist)
         
         # may or may not be necessary, depending on implementation changes
@@ -133,7 +136,8 @@ def get_individual_score(graph, propagator, evaluator, individual_params, node_e
 def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
                              n_population=64, rate_mut=0.9, rate_crx=0.9, 
                              crossover=crossover_singlepoint, mutation_operator_dist='uniform',
-                             optimize_top_X=0, verbose=False):
+                             resample_per_individual=False, resample_period_gen=1, resample_period_optimization=1,
+                             optimize_top_X=0, optimization_batch_size=10, optimization_batch_num=25, verbose=False):
     """
     Genetic algorithm for tuning parameters in a set topology. Parametrised version
     of the function implemented by @benjimaclellan
@@ -141,20 +145,32 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
     :param graph: graph to tune
     :param propagator: propagator to use for graph evaluation
     :param evaluator: evaluator to use for graph evaluation
+
     :param n_generations: number of generations to the tuning genetic algorithm
     :param rate_mut: the rate of mutation
     :param rate_crx: the rate of crossover
     :param crossover: crossover function
     :param mutation_operator_dist: distribution of the mutation operator
+
+    :param resample_per_individual: If true, noise models of the graph are resampled for each individual 
+                                    Then, resample_period_gen and resample_perod_Adam are ignored (since resampling occurs at most frequent possible interval)
+                                    If False, resample_period_gen or resample_period_Adam govern resampling rate
+    :param resample_period_gen: Period of resampling, in generations. If negative, never resample. Ignored if resample_per_individual is True
+    :param resample_period_optimization: Period of resampling per gradient optimization batch
+
     :param optimize_top_X: if 0, acts as a regular GA. Else, executes Adam gradient descent on the top x elements each generation
+    :param optimization_batch_size: batch size for each round of optimization (if optimize_top_X > 0)
+    :param optimization_batch_num : number of batches for optimization (if optimize_top_X > 0)
+
     :return: final_population (sorted), log_book
+    :raise ValueError: if resampling period of optimization is not a multiple of batch size, and resample_per_individual is False
     """
     log, log_metrics = logbook_initialize()
     population, node_edge_index, parameter_index = \
         get_initial_population(graph, propagator, evaluator, n_population,
-                               mutation_operator_dist)
-    
-    print('optimize pop')
+                               mutation_operator_dist, resample_per_individual=resample_per_individual)
+    if verbose:
+        print('optimize pop')
     if (optimize_top_X > 0):
         adam_logs = []
 
@@ -167,11 +183,18 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
             print(f'Generation: {generation_num}')
         start_time = time.time() # saving runtime
 
+        if (not resample_per_individual and generation_num % resample_period_gen == 0): # resample every resample_period_gen generations
+            graph.resample_all_noise()
+
         # Cross-over
         for _ in range(np.floor(rate_crx * n_population).astype('int')):
             parent1, parent2 = [parent for (score, parent) in tuple(random.sample(population, 2))]
             children = crossover(parent1, parent2)
             for child in children:
+    
+                if (resample_per_individual):
+                    graph.resample_all_noise()
+
                 score = get_individual_score(graph, propagator, evaluator, child, node_edge_index, parameter_index)
                 population.append((score, child))
         # mutation
@@ -179,6 +202,10 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
             parent = [parent for (score, parent) in tuple(random.sample(population, 1))][0]
             mut = graph.sample_parameters_to_list()
             child = mutation(parent, mut)
+
+            if (resample_per_individual):
+                graph.resample_all_noise()
+    
             score = get_individual_score(graph, propagator, evaluator, child, node_edge_index, parameter_index)
             population.append((score, child))
                
@@ -187,7 +214,10 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         if (optimize_top_X > 0):
             tuned_pop, adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator,
                                                         n_pop=optimize_top_X, pop=population[0:optimize_top_X],
-                                                        n_batches=5)
+                                                        resample_per_individual=resample_per_individual,
+                                                        resample_period=resample_period_optimization,
+                                                        n_batches=optimization_batch_num,
+                                                        batch_size=optimization_batch_size)
             adam_logs.append(adam_log)
             
             population.extend(tuned_pop)
@@ -299,8 +329,10 @@ def adam_gradient_projection(graph, propagator, evaluator, params,
     return params, iters_run, m, v
 
 
-def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, batch_size=50, convergence_check_period=1,
-                                 n_pop=64, pop=None, exclude_locked=True, verbose=True):
+def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=125, batch_size=10, convergence_check_period=1,
+                                 n_pop=64, pop=None, 
+                                 resample_per_individual=False, resample_period=1,
+                                 exclude_locked=True, verbose=True):
     """
     Performs adam gradient descent on `n_population` individuals. Data is logged and returned at the end
 
@@ -312,6 +344,10 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
     :param convergence_check_period: the period at which to check for premature convergence
     :param n_pop: size of the population to tune
     :param pop: initial population to tune. If None, initial pop is generated by the function
+    :param resample_per_individual: If true, noise models of the graph are resampled for each individual 
+                                    Then, resample_period_gen and resample_perod_Adam are ignored (since resampling occurs at most frequent possible interval)
+                                    If False, resample_period_gen or resample_period_Adam govern resampling rate
+    :param resample_period: Period of resampling (in batches)
     :param exclude_locked: if True, exclude locked/constant parameters from derivative calculations. Else, include all parameters
     :param verbose: if True, print each log lines as they are generated. If else, don't.
 
@@ -351,10 +387,18 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
     for batch in range(n_batches):
         if (verbose):
             print(f'Batch {batch}')
+
+        if (not resample_per_individual and batch % resample_period == 0):
+            graph.resample_all_noise()
+
         start_time = time.time()
         for i in range(n_pop):
+            if (resample_per_individual):
+                graph.resample_all_noise()
+
             if (has_converged[i]):
                 continue # if we've converged once, we skip future checks
+
             if (verbose):
                 print(f'population #: {i}')
         
@@ -370,6 +414,8 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=25, bat
         runtime = time.time() - start_time
         
         # note that we don't count the population evaluation in the runtime, because it's not necessary for the optimization algorithm (unlike in GAs)
+        # it's useful for logging, however 
+    
         for i in range(n_pop):
             pop[i] = (get_individual_score(graph, propagator, evaluator, pop[i][1], node_edge_index, parameter_index), pop[i][1])
         
