@@ -131,6 +131,9 @@ class AdditiveNoise():
         self.resample_noise(seed=self._seed)
     
     def resample_noise(self, seed=None):
+        if (not AdditiveNoise.simulate_with_noise): # do not bother
+            return
+
         if (self._sample_num is None):
             raise ValueError("no sample number has been set")
 

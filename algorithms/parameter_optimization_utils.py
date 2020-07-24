@@ -9,6 +9,8 @@ import time
 from lib.analysis.hessian import function_wrapper
 from .assets.functions import logbook_update, logbook_initialize
 
+from problems.example.assets.additive_noise import AdditiveNoise
+
 """
 Util objective:
 
@@ -134,7 +136,7 @@ def get_individual_score(graph, propagator, evaluator, individual_params, node_e
 # -------------------- GA implementation ----------------------
 
 def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
-                             n_population=64, rate_mut=0.9, rate_crx=0.9, 
+                             n_population=64, rate_mut=0.9, rate_crx=0.9, noise=True,
                              crossover=crossover_singlepoint, mutation_operator_dist='uniform',
                              resample_per_individual=False, resample_period_gen=1, resample_period_optimization=1,
                              optimize_top_X=0, optimization_batch_size=10, optimization_batch_num=25, verbose=False):
@@ -165,6 +167,8 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
     :return: final_population (sorted), log_book
     :raise ValueError: if resampling period of optimization is not a multiple of batch size, and resample_per_individual is False
     """
+    AdditiveNoise.simulate_with_noise = noise
+
     log, log_metrics = logbook_initialize()
     population, node_edge_index, parameter_index = \
         get_initial_population(graph, propagator, evaluator, n_population,
@@ -183,7 +187,7 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
             print(f'Generation: {generation_num}')
         start_time = time.time() # saving runtime
 
-        if (not resample_per_individual and generation_num % resample_period_gen == 0): # resample every resample_period_gen generations
+        if (not resample_per_individual and resample_period_gen > 0 and generation_num % resample_period_gen == 0): # resample every resample_period_gen generations
             graph.resample_all_noise()
 
         # Cross-over
@@ -212,7 +216,7 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
         # sort population, and then take the best n_population individuals
         population.sort(reverse=False)
         if (optimize_top_X > 0):
-            tuned_pop, adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator,
+            tuned_pop, adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, noise=noise,
                                                         n_pop=optimize_top_X, pop=population[0:optimize_top_X],
                                                         resample_per_individual=resample_per_individual,
                                                         resample_period=resample_period_optimization,
@@ -330,7 +334,7 @@ def adam_gradient_projection(graph, propagator, evaluator, params,
 
 
 def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=125, batch_size=10, convergence_check_period=1,
-                                 n_pop=64, pop=None, 
+                                 n_pop=64, pop=None, noise=True,
                                  resample_per_individual=False, resample_period=1,
                                  exclude_locked=True, verbose=True):
     """
@@ -355,6 +359,8 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=125, ba
 
     :return optimized population, log
     """
+    AdditiveNoise.simulate_with_noise = noise
+
     # setup initial population
     if (pop is None):
         pop, node_edge_index, parameter_index = get_initial_population(graph, propagator, evaluator, n_pop, 'uniform')
@@ -388,7 +394,7 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=125, ba
         if (verbose):
             print(f'Batch {batch}')
 
-        if (not resample_per_individual and batch % resample_period == 0):
+        if (not resample_per_individual and resample_period > 0 and batch % resample_period == 0):
             graph.resample_all_noise()
 
         start_time = time.time()
@@ -417,6 +423,9 @@ def tuning_adam_gradient_descent(graph, propagator, evaluator, n_batches=125, ba
         # it's useful for logging, however 
     
         for i in range(n_pop):
+            if (resample_per_individual): # doesn't help converges, but makes the quality criteria "fair" across the individuals
+                graph.resample_all_noise()
+
             pop[i] = (get_individual_score(graph, propagator, evaluator, pop[i][1], node_edge_index, parameter_index), pop[i][1])
         
         # update log
