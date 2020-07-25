@@ -250,8 +250,8 @@ def get_noise_setting_benchmark():
     noise (generational resampling and batch resampling),
     noise (individual sampling).
     """
-    # no noise
-    generate_data_GA_Adam_comparison(with_noise=False, qualifier_str='_noNoise')
+    # # no noise
+    # generate_data_GA_Adam_comparison(with_noise=False, qualifier_str='_noNoise')
 
     # with noise (no resampling)
     generate_data_GA_Adam_comparison(with_noise=True, resample_per_individual=False,
@@ -266,6 +266,180 @@ def get_noise_setting_benchmark():
     # with noise (individual sampling)
     generate_data_GA_Adam_comparison(with_noise=True, resample_per_individual=True, resample_period_gen=-1,
                                      resample_period_optimization=-1, qualifier_str='_noiseIndividualResample')
+
+
+def _noise_treatment_benchmark_runtime():
+    # load in all data and compare runtimes
+    log_types = ['GA_default_log', 'Adam_default_log', 'GA_Adam_log', 'GA_with_Adam_log']
+
+    labels = ['GA', 'Adam', 'GA followed by Adam', 'GA with Adam']
+    no_noise = []
+    noise_no_resample = []
+    noise_gen_resample = []
+    noise_ind_resample = []
+
+    for log_name in log_types:
+        no_noise_pd = pd.read_pickle(f'{log_name}_noNoise.pkl')
+        no_noise.append(no_noise_pd['runtime'].sum() + 1) # + 1 is to counter the -1 runtime of generation 0
+
+        noise_no_resample_pd = pd.read_pickle(f'{log_name}_noiseNoResample.pkl')
+        noise_no_resample.append(noise_no_resample_pd['runtime'].sum() + 1)
+
+        noise_gen_resample_pd = pd.read_pickle(f'{log_name}_noiseGenerationalBatchResample.pkl')
+        noise_gen_resample.append(noise_gen_resample_pd['runtime'].sum() + 1)
+
+        noise_ind_resample_pd = pd.read_pickle(f'{log_name}_noiseIndividualResample.pkl')
+        noise_ind_resample.append(noise_ind_resample_pd['runtime'].sum() + 1)
+    
+    x = np.arange(len(labels))
+    width = 0.6
+
+    _, ax = plt.subplots()
+    ax.bar(x - 3 * width / 4, no_noise, width, label='no noise')
+    ax.bar(x - width / 4, noise_no_resample, width, label='noise no resample')
+    ax.bar(x + width / 4, noise_gen_resample, width, label='noise generation resample')
+    ax.bar(x + 3 * width / 4, noise_ind_resample, width, label='noise individual resample')
+
+    ax.set_y_label('Runtime (s)')
+    ax.set_title('Runtime by algorithm and noise treatment')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
+
+    plt.show()
+
+
+def _noise_treatment_compare_params():
+    log_types = ['GA_default_log', 'Adam_default_log', 'GA_Adam_log', 'GA_with_Adam_log']
+    graph = get_graph()
+    attributes = graph.extract_attributes_to_list_experimental(['parameter_names'], get_location_indices=True, exclude_locked=False)['parameter_names']
+    labels = attributes['parameter_names']
+    upper_bounds = attributes['upper_bounds']
+
+    _, ax = plt.subplots(1, 4)
+
+    x = np.arange(len(labels))
+    width = 0.6
+
+    for i, log_name in enumerate(log_types):
+        with open(f'{log_name}_noNoise.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            param = np.array(pop[0][1]) / upper_bounds
+            ax[i].bar(x - 3 * width / 4, param, width, label='no noise')
+        
+        with open(f'{log_name}_noiseNoResample.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            param = np.array(pop[0][1]) / upper_bounds
+            ax[i].bar(x - 1 * width / 4, param, width, label='noise no resample')
+        
+        with open(f'{log_name}_noiseGenerationalBatchResample.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            param = np.array(pop[0][1]) / upper_bounds
+            ax[i].bar(x + 1 * width / 4, param, width, label='noise generation resample')
+        
+        with open(f'{log_name}_noiseIndividualResample.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            param = np.array(pop[0][1]) / upper_bounds
+            ax[i].bar(x + 3 * width / 4, param, width, label='noise individual resample')
+        
+        ax[i].set_y_label('Param value (normalized against max allowed value)')
+        ax[i].set_title(log_types)
+        ax[i].set_xticks(x)
+        ax[i].set_xticklabels(labels)
+        ax[i].legend()
+    
+    plt.show()
+
+
+def _assess_fitness_with_rand_noise(graph, propagator, evaluator, params):
+    AdditiveNoise.simulate_with_noise = True
+    _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+
+    sum = 0
+    for _ in range(50):
+        graph.resample_all_noise()
+        sum += get_individual_score(graph, propagator, evaluator, params, node_edge_index, parameter_index)
+
+    return sum / 50
+
+
+def _noise_treatment_fitness_benchmark():
+    # load in all data and compare runtimes
+    log_types = ['GA_default_log', 'Adam_default_log', 'GA_Adam_log', 'GA_with_Adam_log']
+
+    labels = ['GA', 'Adam', 'GA followed by Adam', 'GA with Adam']
+    no_noise = []
+    noise_no_resample = []
+    noise_gen_resample = []
+    noise_ind_resample = []
+
+    graph = get_graph()
+    propagator = get_propagator()
+    evaluator = get_evaluator()
+
+    np.random.seed(3050100)
+    for log_name in log_types:
+        with open(f'{log_name}_noNoise.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            params = np.array(pop[0][1])
+            no_noise.append(_assess_fitness_with_rand_noise(graph, propagator, evaluator, params))
+
+        with open(f'{log_name}_noiseNoResample.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            params = np.array(pop[0][1])
+            noise_no_resample.append(_assess_fitness_with_rand_noise(graph, propagator, evaluator, params))
+        
+        with open(f'{log_name}_noiseGenerationalBatchResample.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            params = np.array(pop[0][1])
+            noise_gen_resample.append(_assess_fitness_with_rand_noise(graph, propagator, evaluator, params))
+
+        with open(f'{log_name}_noiseIndividualResample.pkl', 'rb') as handle:
+            pop = pickle.load(handle)
+            params = np.array(pop[0][1])
+            noise_ind_resample.append(_assess_fitness_with_rand_noise(graph, propagator, evaluator, params))
+    
+    x = np.arange(len(labels))
+    width = 0.6
+
+    _, ax = plt.subplots()
+    ax.bar(x - 3 * width / 4, no_noise, width, label='no noise')
+    ax.bar(x - width / 4, noise_no_resample, width, label='noise no resample')
+    ax.bar(x + width / 4, noise_gen_resample, width, label='noise generation resample')
+    ax.bar(x + 3 * width / 4, noise_ind_resample, width, label='noise individual resample')
+
+    ax.set_y_label('Fitness of best output')
+    ax.set_title('Fitness by algorithm and noise treatment')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
+
+    plt.show()
+
+
+def compare_noise_setting_benchmark():
+    """
+    The idea is to see how well the design would perform in a real system: thus we will run the top individuals of the
+    population with noise (arbitrary noise sources)
+
+    1. Compare runtimes from each methods (order of magnitude for now, since I ran them all on my laptop with a bunch of tabs open)
+        Let's make a fun bar graph (grouped by convergence type, with each type of noise treatment in each group)
+    2. Compare the actual output designs: are they similar or not at all?
+        So make a bar graph... divide: each param gets a row (subdivided by the noise techniques). Each algorithm gets a separate plot
+    3. Compare the final performances of the best element (averaged over X tests with diff noise. Remember to seed!!)
+        Do the little bar graph thing again!
+    4. TODO: compare hessian for stability?
+    """
+    _noise_treatment_benchmark_runtime()
+    _noise_treatment_compare_params()
+
+
+
+
+
+
+    
+
 
 # ---------------------------- Adam Diagnosis ---------------------------
 

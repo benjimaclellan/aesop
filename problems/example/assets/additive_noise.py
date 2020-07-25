@@ -98,14 +98,14 @@ class AdditiveNoise():
         
         :param signal: the pre-noise state (IS MODIFIED BY THE FUNCTION)
         :return: the state including noise
-        """      
+        """   
+        if (not self.noise_on or not AdditiveNoise.simulate_with_noise): # TODO: move this ahead in the code such that we don't set sample num 
+            return signal
+   
         if (self._sample_num is None):
             self.sample_num = signal.shape[0]
         elif (self.sample_num != signal.shape[0]):
             raise ValueError(f'signal length is {signal.shape[0]} much match sample_num {self.sample_num}')
-
-        if (not self.noise_on or not AdditiveNoise.simulate_with_noise):
-            return signal
 
         total_noise = np.zeros(signal.shape, dtype='complex')
         mean_signal_power = np.mean(power_(signal))
