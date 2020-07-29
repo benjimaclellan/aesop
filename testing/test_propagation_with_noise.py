@@ -34,13 +34,7 @@ def propagator():
 
 @pytest.fixture(scope='function')
 def laser_graph():
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6, 'osnr_dB':55}),
-             1: MeasurementDevice()
-            }
-    edges = [(0, 1)]
-    graph = Graph(nodes, edges, propagate_on_edges=False)
-    graph.assert_number_of_edges()
-    return graph
+   return get_laser_graph_osnr(55)
 
 
 @pytest.fixture(scope='function')
@@ -53,7 +47,23 @@ def default_graph():
     """
     Returns the default graph for testing, with fixed topology at this time
     """
-    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6, 'osnr_dB':55}),
+    return get_default_graph_osnr(55)
+
+
+def get_laser_graph_osnr(osnr):
+    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6, 'osnr_dB':osnr}),
+             1: MeasurementDevice()
+            }
+    edges = [(0, 1)]
+    graph = Graph(nodes, edges, propagate_on_edges=False)
+    graph.assert_number_of_edges()
+    return graph
+
+def get_default_graph_osnr(osnr):
+    """
+    Returns the default graph for testing, with fixed topology at this time
+    """
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6, 'osnr_dB':osnr}),
              1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
              2: WaveShaper(),
              3: MeasurementDevice()
@@ -64,16 +74,6 @@ def default_graph():
              (2, 3)]
 
     graph = Graph(nodes, edges, propagate_on_edges=True)
-    graph.assert_number_of_edges()
-    return graph
-
-
-def get_laser_graph_osnr(osnr):
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6, 'osnr_dB':osnr}),
-             1: MeasurementDevice()
-            }
-    edges = [(0, 1)]
-    graph = Graph(nodes, edges, propagate_on_edges=False)
     graph.assert_number_of_edges()
     return graph
 
@@ -105,7 +105,6 @@ def test_default_graph_isolate_noise(default_graph, propagator):
     default_graph.display_noise_contributions(propagator)
 
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_graph_resampling(laser_graph, propagator):
     # TODO: check resampling works on edges too
     laser_graph.propagate(propagator)
@@ -128,24 +127,32 @@ def test_propagate_with_without_noise(default_graph, propagator):
     default_graph.propagate(propagator)
     default_graph.inspect_state(propagator)
 
+# No tunable parameters in the laser-measurement only graph, so no point in testing grad
+@pytest.mark.parametrize("graph", [get_default_graph_osnr(55), get_default_graph_osnr(4)])
+def test_propagate_autograd_grad(graph, propagator, evaluator):
+    # simulate with noise
+    AdditiveNoise.simulate_with_noise = True
 
-def test_propagate_autograd_grad(default_graph, propagator, evaluator):
-    NUM_SAMPLES = 10
+    NUM_SAMPLES = 100
 
-    default_graph.propagate(propagator)
-    propagate_wrapped = function_wrapper(default_graph, propagator, evaluator)
+    graph.propagate(propagator)
+    propagate_wrapped = function_wrapper(graph, propagator, evaluator)
     propagate_grad = grad(propagate_wrapped)
 
     # np.random.seed(0)
     np.random.seed(3)
-    params = default_graph.sample_parameters_to_list() # pick random place from which to sample from
-    
-    # simulate with noise
-    AdditiveNoise.simulate_with_noise = True
+    params = graph.sample_parameters_to_list() # pick random place from which to sample from
+
+    # show propagation
+    if (not SKIP_GRAPHICAL_TEST):
+        _, node_edge_index, parameter_index, _, _ = graph.extract_parameters_to_list()
+        graph.distribute_parameters_from_list(params, node_edge_index, parameter_index)
+        graph.propagate(propagator)
+        graph.inspect_state(propagator, freq_log_scale=True)
 
     grad_sum = np.zeros(len(params))
     for i in range(NUM_SAMPLES):
-        default_graph.resample_all_noise(seed=i)
+        graph.resample_all_noise(seed=i)
         grad_eval = propagate_grad(params)
         grad_sum += grad_eval
 
@@ -160,10 +167,13 @@ def test_propagate_autograd_grad(default_graph, propagator, evaluator):
     print('\nNoiseless grad:')
     print(noiseless_grad)
 
-    assert np.allclose(noiseless_grad, average_grad, atol=1e-6)
+    assert np.allclose(noiseless_grad, average_grad, atol=1e-3)
 
 
 def test_propagate_autograd_hess(default_graph, propagator, evaluator):
+    # simulate with noise
+    AdditiveNoise.simulate_with_noise = True
+
     NUM_SAMPLES = 10
     default_graph.propagate(propagator)
 
@@ -172,8 +182,6 @@ def test_propagate_autograd_hess(default_graph, propagator, evaluator):
     np.random.seed(3030)
     params = np.array(default_graph.sample_parameters_to_list())
 
-    # simulate with noise
-    AdditiveNoise.simulate_with_noise = True
     hess_sum = np.zeros((len(params), len(params)))
     for i in range(NUM_SAMPLES):
         default_graph.resample_all_noise(seed=i)
@@ -191,7 +199,7 @@ def test_propagate_autograd_hess(default_graph, propagator, evaluator):
     print('\nNoiseless hess:')
     print(noiseless_hess)
 
-    if (True): # not SKIP_GRAPHICAL_TEST):
+    if (not SKIP_GRAPHICAL_TEST):
         info = default_graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'], get_location_indices=True, exclude_locked=True)
 
         _, ax = plt.subplots(2, 1)

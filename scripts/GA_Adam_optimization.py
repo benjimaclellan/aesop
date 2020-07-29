@@ -291,16 +291,16 @@ def _noise_treatment_benchmark_runtime():
         noise_ind_resample_pd = pd.read_pickle(f'{log_name}_noiseIndividualResample.pkl')
         noise_ind_resample.append(noise_ind_resample_pd['runtime'].sum() + 1)
     
-    x = np.arange(len(labels))
+    x = np.arange(len(labels)) * 2
     width = 0.6
 
     _, ax = plt.subplots()
-    ax.bar(x - 3 * width / 4, no_noise, width, label='no noise')
-    ax.bar(x - width / 4, noise_no_resample, width, label='noise no resample')
-    ax.bar(x + width / 4, noise_gen_resample, width, label='noise generation resample')
-    ax.bar(x + 3 * width / 4, noise_ind_resample, width, label='noise individual resample')
+    ax.bar(x - 3 * width / 4, no_noise, width / 2, label='no noise')
+    ax.bar(x - width / 4, noise_no_resample, width / 2, label='noise no resample')
+    ax.bar(x + width / 4, noise_gen_resample, width / 2, label='noise generation resample')
+    ax.bar(x + 3 * width / 4, noise_ind_resample, width / 2, label='noise individual resample')
 
-    ax.set_y_label('Runtime (s)')
+    ax.set_ylabel('Runtime (s)')
     ax.set_title('Runtime by algorithm and noise treatment')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
@@ -310,44 +310,47 @@ def _noise_treatment_benchmark_runtime():
 
 
 def _noise_treatment_compare_params():
-    log_types = ['GA_default_log', 'Adam_default_log', 'GA_Adam_log', 'GA_with_Adam_log']
+    log_types = ['GA_default_pop', 'Adam_default_pop', 'GA_Adam_pop', 'GA_with_Adam_pop']
     graph = get_graph()
-    attributes = graph.extract_attributes_to_list_experimental(['parameter_names'], get_location_indices=True, exclude_locked=False)['parameter_names']
+    attributes = graph.extract_attributes_to_list_experimental(['parameter_names', 'upper_bounds'], get_location_indices=True, exclude_locked=True)
     labels = attributes['parameter_names']
     upper_bounds = attributes['upper_bounds']
 
-    _, ax = plt.subplots(1, 4)
+    fig, ax = plt.subplots(4, 1)
+    fig.tight_layout(pad=1)
 
-    x = np.arange(len(labels))
+    x = np.arange(len(labels)) * 2
     width = 0.6
 
     for i, log_name in enumerate(log_types):
         with open(f'{log_name}_noNoise.pkl', 'rb') as handle:
             pop = pickle.load(handle)
             param = np.array(pop[0][1]) / upper_bounds
-            ax[i].bar(x - 3 * width / 4, param, width, label='no noise')
+            ax[i].bar(x - 3 * width / 4, param, width / 2, label='no noise')
         
         with open(f'{log_name}_noiseNoResample.pkl', 'rb') as handle:
             pop = pickle.load(handle)
             param = np.array(pop[0][1]) / upper_bounds
-            ax[i].bar(x - 1 * width / 4, param, width, label='noise no resample')
+            ax[i].bar(x - 1 * width / 4, param, width / 2, label='noise no resample')
         
         with open(f'{log_name}_noiseGenerationalBatchResample.pkl', 'rb') as handle:
             pop = pickle.load(handle)
             param = np.array(pop[0][1]) / upper_bounds
-            ax[i].bar(x + 1 * width / 4, param, width, label='noise generation resample')
+            ax[i].bar(x + 1 * width / 4, param, width / 2, label='noise generation resample')
         
         with open(f'{log_name}_noiseIndividualResample.pkl', 'rb') as handle:
             pop = pickle.load(handle)
             param = np.array(pop[0][1]) / upper_bounds
-            ax[i].bar(x + 3 * width / 4, param, width, label='noise individual resample')
+            ax[i].bar(x + 3 * width / 4, param, width / 2, label='noise individual resample')
         
-        ax[i].set_y_label('Param value (normalized against max allowed value)')
-        ax[i].set_title(log_types)
+        ax[i].set_title(log_name)
+        ax[i].tick_params(labelsize=7)
         ax[i].set_xticks(x)
         ax[i].set_xticklabels(labels)
-        ax[i].legend()
     
+    ax[2].set_ylabel('Param value (normalized against max allowed value)')
+    ax[1].legend()
+
     plt.show()
 
 
@@ -365,7 +368,7 @@ def _assess_fitness_with_rand_noise(graph, propagator, evaluator, params):
 
 def _noise_treatment_fitness_benchmark():
     # load in all data and compare runtimes
-    log_types = ['GA_default_log', 'Adam_default_log', 'GA_Adam_log', 'GA_with_Adam_log']
+    log_types = ['GA_default_pop', 'Adam_default_pop', 'GA_Adam_pop', 'GA_with_Adam_pop']
 
     labels = ['GA', 'Adam', 'GA followed by Adam', 'GA with Adam']
     no_noise = []
@@ -375,6 +378,7 @@ def _noise_treatment_fitness_benchmark():
 
     graph = get_graph()
     propagator = get_propagator()
+    graph.propagate(propagator)
     evaluator = get_evaluator()
 
     np.random.seed(3050100)
@@ -399,16 +403,16 @@ def _noise_treatment_fitness_benchmark():
             params = np.array(pop[0][1])
             noise_ind_resample.append(_assess_fitness_with_rand_noise(graph, propagator, evaluator, params))
     
-    x = np.arange(len(labels))
+    x = np.arange(len(labels)) * 2
     width = 0.6
 
     _, ax = plt.subplots()
-    ax.bar(x - 3 * width / 4, no_noise, width, label='no noise')
-    ax.bar(x - width / 4, noise_no_resample, width, label='noise no resample')
-    ax.bar(x + width / 4, noise_gen_resample, width, label='noise generation resample')
-    ax.bar(x + 3 * width / 4, noise_ind_resample, width, label='noise individual resample')
+    ax.bar(x - 3 * width / 4, no_noise, width / 2, label='no noise')
+    ax.bar(x - width / 4, noise_no_resample, width / 2, label='noise no resample')
+    ax.bar(x + width / 4, noise_gen_resample, width / 2, label='noise generation resample')
+    ax.bar(x + 3 * width / 4, noise_ind_resample, width / 2, label='noise individual resample')
 
-    ax.set_y_label('Fitness of best output')
+    ax.set_ylabel('Fitness of best output')
     ax.set_title('Fitness by algorithm and noise treatment')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
@@ -432,13 +436,7 @@ def compare_noise_setting_benchmark():
     """
     _noise_treatment_benchmark_runtime()
     _noise_treatment_compare_params()
-
-
-
-
-
-
-    
+    _noise_treatment_fitness_benchmark()
 
 
 # ---------------------------- Adam Diagnosis ---------------------------

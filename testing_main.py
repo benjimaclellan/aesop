@@ -2,11 +2,13 @@ from scripts.GA_Adam_optimization import generate_data_GA_Adam_comparison, load_
                                          generate_adam_convergence_data, \
                                          display_adam_convergence_data, \
                                          display_initial_pop, \
-                                         get_noise_setting_benchmark
+                                         get_noise_setting_benchmark, \
+                                         compare_noise_setting_benchmark
 
 
 if __name__ == "__main__":
-    get_noise_setting_benchmark()
+    compare_noise_setting_benchmark()
+    # get_noise_setting_benchmark()
     # display_initial_pop()
     # generate_adam_convergence_data()
     # display_adam_convergence_data()
