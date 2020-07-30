@@ -5,7 +5,7 @@ from autograd import grad
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
 
-SKIP_GRAPHICAL_TEST = True
+SKIP_GRAPHICAL_TEST = False
 
 
 @pytest.fixture(autouse=True)

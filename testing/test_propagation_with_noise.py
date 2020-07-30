@@ -24,7 +24,7 @@ TODO: does it make sense that the osnr parameter doesn't affect the gradient?? L
 """
 
 
-SKIP_GRAPHICAL_TEST = True
+SKIP_GRAPHICAL_TEST = False
 
 
 @pytest.fixture(scope='function')

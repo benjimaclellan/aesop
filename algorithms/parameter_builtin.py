@@ -5,11 +5,10 @@ import cma
 """
 """
 
-def parameters_optimize(graph, x0=None, method='L-BFGS', options):
+def parameters_optimize(graph, options, x0=None, method='L-BFGS'):
     if method == 'L-BFGS':
-
-
-    elif method == 'CMA'
+        pass
+    elif method == 'CMA':
         _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         es = cma.CMAEvolutionStrategy(parameters_initial, 0.999,
                                       {'verb_disp': 1, 'maxfevals': 1000, 'bounds': [lower_bounds, upper_bounds]})
@@ -18,11 +17,9 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', options):
         parameters = res.xbest
         
     elif method == 'ADAM':
-
-
+        pass
     elif method == 'GA':
-
-
+        pass
     else:
         raise ModuleNotFoundError('This is not a defined minimization method')
 
