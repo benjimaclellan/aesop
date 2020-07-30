@@ -23,7 +23,7 @@ class AdditiveNoise(object):
 
         :param sample_num: number of noise samples to provide (should match sample number of signals to which noise is applied)
         :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (if noise_type='relative', this parameter is OSNR in dB. If absolute, this param is std dev of Gaussian)
+        :param noise_param: scaling parameter for noise (if noise_type='relative', this parameter is OSNR in dB. If absolute, this param is average noise power)
         :param noise_filter: None for now
         :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled 
         :param noise_on: True if the noise of the object is to be applied, False otherwise
@@ -76,6 +76,9 @@ class AdditiveNoise(object):
         if (self._sample_num is not None):
             noise = np.random.normal(scale=1, size=(self.sample_num, 2)).view(dtype='complex')
             mean_noise_power = np.mean(power_(noise))
+            if (noise_type == 'absolute'):
+                noise_scaling = np.sqrt(noise_param / mean_noise_power) # set average power to equal noise_param
+                noise = noise * noise_scaling
         else:
             noise = None
             mean_noise_power = None
@@ -115,7 +118,7 @@ class AdditiveNoise(object):
                 scaling_factor = (mean_signal_power / noise['mean_noise_power'] / noise['noise_param'])**0.5
                 total_noise = total_noise + noise['noise_vector'] * scaling_factor
             else:
-                total_noise = total_noise + noise['noise_vector'] * noise['noise_param']
+                total_noise = total_noise + noise['noise_vector'] # noise vector already scaled according to noise param
 
         return signal + total_noise
     
@@ -143,6 +146,9 @@ class AdditiveNoise(object):
         for noise_source in self.noise_sources:
             noise = np.random.normal(scale=1, size=(self._sample_num, 2)).view(dtype='complex')
             mean_noise_power = np.mean(power_(noise))
+            if (noise_source['noise_type'] == 'absolute'):
+                noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param
+                noise = noise * noise_scaling
             noise_source['noise_vector'] = noise
             noise_source['mean_noise_power'] = mean_noise_power
     

@@ -4,8 +4,10 @@ from autograd import grad
 
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
+from problems.example.assets.functions import power_
 
-SKIP_GRAPHICAL_TEST = False
+
+SKIP_GRAPHICAL_TEST = True
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +40,13 @@ def test_incorrect_distribution():
 def test_incorrect_noise_type():
     with pytest.raises(ValueError):
         AdditiveNoise(noise_type='transcendent')
+    
+
+def test_absolute_noise_power(propagator):
+    noise = AdditiveNoise(noise_param=1, seed=0, noise_type='absolute')
+    signal = np.zeros(30).reshape((30, 1))
+    noisy_signal = noise.add_noise_to_propagation(signal)
+    assert np.isclose(np.mean(power_(noisy_signal)), 1)
 
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
