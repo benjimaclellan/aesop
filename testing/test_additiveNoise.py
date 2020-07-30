@@ -94,7 +94,7 @@ def test_absolute_vs_relative(signal, propagator):
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_noise_disactivation(signal, propagator):
     noise = AdditiveNoise(noise_param=4, seed=0)
-    noise.display_noisy_signal(signal, propagator=propagator) # should show pure signal
+    noise.display_noisy_signal(signal, propagator=propagator) # should show noisy signal
     noise.display_noise(signal, propagator=propagator)
     noise.noise_on = False
     noise.display_noise(signal, propagator=propagator) # should show nothing
