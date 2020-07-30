@@ -21,6 +21,9 @@ class TestFunction(object):
         self.name = name
 
         self.function = function
+        self.x_range = x_range
+        self.y_range = y_range
+
         self.X = X
         self.Y = Y
         self.Z = Z

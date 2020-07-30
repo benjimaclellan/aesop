@@ -46,21 +46,24 @@ def scale_units(ax, unit='', axes=['x']):
 
         return get_data, set_data, get_label, set_label
 
-    for axis in axes:
-        line = ax.lines[0]
-        get_data, set_data, get_label, set_label = pass_function_handles(ax, line, axis)
-
-        data = get_data()
-        multiplier, prefix = scale(data)  # always changes based on first line plotted (could cause issues)
-
-        for line in ax.lines:
+    if ax.lines:
+        for axis in axes:
+            line = ax.lines[0]
             get_data, set_data, get_label, set_label = pass_function_handles(ax, line, axis)
+
             data = get_data()
-            set_data(data / 10 ** multiplier)
+            multiplier, prefix = scale(data)  # always changes based on first line plotted (could cause issues)
 
-        label = get_label()
-        set_label(label + ' ({}{})'.format(prefix, unit))
-        ax.relim()
-        ax.autoscale_view()
+            for line in ax.lines:
+                get_data, set_data, get_label, set_label = pass_function_handles(ax, line, axis)
+                data = get_data()
+                set_data(data / 10 ** multiplier)
 
-    return multiplier, prefix
+            label = get_label()
+            set_label(label + ' ({}{})'.format(prefix, unit))
+            ax.relim()
+            ax.autoscale_view()
+
+        return multiplier, prefix
+    else:
+        return

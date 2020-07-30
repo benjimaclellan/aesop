@@ -16,7 +16,6 @@ import config.config as configuration
 
 from problems.example.evaluator import Evaluator
 from problems.example.graph import Graph
-from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 

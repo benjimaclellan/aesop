@@ -3,6 +3,7 @@
 """
 
 import autograd.numpy as np
+from autograd import grad, hessian
 
 import networkx as nx
 import copy
@@ -46,7 +47,37 @@ class Graph(GraphParent):
 
         self._propagator_saves = {}
 
+        # initialize variables to store function handles for grad & hess
+        self.func = None
+        self.grad = None
+        self.hess = None
         return
+
+    def function_wrapper(self, propagator, evaluator, exclude_locked=True):
+        """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
+
+        def _function(_parameters, _graph, _propagator, _evaluator, _node_edge_index, _parameter_index):
+            _graph.distribute_parameters_from_list(_parameters, _node_edge_index, _parameter_index)
+            _graph.propagate(_propagator)
+            score = _evaluator.evaluate_graph(_graph, _propagator)
+            return score
+
+        info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
+                                                                exclude_locked=exclude_locked)
+
+        func = lambda parameters: _function(parameters, self, propagator, evaluator,
+                                            info['node_edge_index'], info['parameter_index'])
+        return func
+
+
+    def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
+        self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
+        self.grad = grad(self.func)
+
+        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        self.hess = lambda parameters: hess_tmp(np.array(parameters))
+        return
+
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))
@@ -258,6 +289,7 @@ class Graph(GraphParent):
             axi.legend()
         ax[0].set_xlabel('Time')
         ax[1].set_xlabel('Frequency')
+
         scale_units(ax[0], unit='s', axes=['x'])
         scale_units(ax[1], unit='Hz', axes=['x'])
         return
@@ -271,11 +303,10 @@ class Graph(GraphParent):
         :return:
         """
 
-        pos = self.optical_system_layout()
+        # pos = self.optical_system_layout()
 
         if ax is None:
             fig, ax = plt.subplots(1,1)
-        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
 
 
         str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
@@ -286,8 +317,8 @@ class Graph(GraphParent):
                     size=7, va='top',
                     bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
 
-        # nx.draw_planar(self)
-
+        # nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
+        nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=0.5)
         return
 
 
@@ -369,6 +400,11 @@ class Graph(GraphParent):
     def assert_number_of_edges(self):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
         """
+        # check for loops
+        print(nx.algorithms.recursive_simple_cycles(self))
+        if nx.algorithms.recursive_simple_cycles(self):
+            raise RuntimeError('There are loops in the topology')
+
         for node in self.nodes:
             number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
             self.nodes[node]['model'].assert_number_of_edges(number_input_edges, number_output_edges)
@@ -504,7 +540,8 @@ class Graph(GraphParent):
 
         attributes = ['parameters', 'lower_bounds', 'upper_bounds']
 
-        model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=True,
+        model_attributes = self.extract_attributes_to_list_experimental(attributes,
+                                                                        get_location_indices=True,
                                                                         exclude_locked=exclude_locked)
 
         parameters = model_attributes['parameters']
