@@ -95,8 +95,6 @@ class PhaseModulator(SinglePath):
         return [state1]
 
 
-
-
 @register_node_types_all
 class WaveShaper(SinglePath):
     """
@@ -167,6 +165,7 @@ class WaveShaper(SinglePath):
 
         return [state]
 
+
 @register_node_types_all
 class DelayLine(SinglePath):
     """
@@ -229,3 +228,58 @@ class DelayLine(SinglePath):
             self.transform = None
 
         return [ifft_(field_short, propagator.dt)]
+
+
+@register_node_types_all
+class EDFA(SinglePath):
+    """
+    EDFA modelled as follows:
+
+    ---------------g(f), the small-signal gain---------------
+    
+    In the following equations, f = peak frequency - actual frequency
+    g(f) = g_max * exp(-f^2/Beta)
+    With Beta = d^2/(ln(10^(G_f / 10))),
+    d = max distance between peak wavelength and the edge of the band,
+    Gf = gain flatness in dB,
+
+    Such that, as expected, g(d) = g_min
+
+    --------------- G(f), the true gain---------------
+    Defined according to this model:
+    https://www.researchgate.net/publication/3289918_Simple_black_box_model_for_erbium-doped_fiber_amplifiers [1]
+
+    TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
+    """
+    def __init__(self, max_small_signal=30, peak_wl=1550e-9, band=(1530e-9, 1565e-9), P_out_max=20,
+                 gain_flatness=1.5, alpha=1):
+        """
+
+        :param max_small_signal: maximum small signal gain, in dB (assumed to be at band center)
+        :param peak_wl: peak wavelength of the EDFA where max amplification occurs, in m (max amplification there)
+        :param band: (min wavelength, max_wavelength), in m
+        :param P_out_max: maximum output power, in dBm
+        :param gain_flatness : gain flatness, in dB (Gmax(dB) - Gmin(dB))
+        :param alpha : parameter alpha, as defined in [1] (default value of 1 seems reasonable)
+        """
+        pass
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
+        """
+        """
+        # TODO: deal with the transform shtick
+        state = states[0]
+        pass
+        return state
+    
+    def _gain(self, state):
+        """
+        """
+        # P_in = average state power
+        # return self.small_signal / (1 + (self.small_signal * P_in / self.P_max)**self.alpha)
+        return 0
+    
+    @property
+    def _small_signal_gain(self):
+        pass
+        return 0
