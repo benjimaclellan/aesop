@@ -174,6 +174,7 @@ class Graph(GraphParent):
             axi.legend()
         ax[0].set_xlabel('Time')
         ax[1].set_xlabel('Frequency')
+
         scale_units(ax[0], unit='s', axes=['x'])
         scale_units(ax[1], unit='Hz', axes=['x'])
         return
@@ -187,11 +188,10 @@ class Graph(GraphParent):
         :return:
         """
 
-        pos = self.optical_system_layout()
+        # pos = self.optical_system_layout()
 
         if ax is None:
             fig, ax = plt.subplots(1,1)
-        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
 
 
         str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
@@ -202,8 +202,8 @@ class Graph(GraphParent):
                     size=7, va='top',
                     bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
 
-        # nx.draw_planar(self)
-
+        # nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
+        nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=0.5)
         return
 
 
@@ -285,6 +285,11 @@ class Graph(GraphParent):
     def assert_number_of_edges(self):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
         """
+        # check for loops
+        print(nx.algorithms.recursive_simple_cycles(self))
+        if nx.algorithms.recursive_simple_cycles(self):
+            raise RuntimeError('There are loops in the topology')
+
         for node in self.nodes:
             number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
             self.nodes[node]['model'].assert_number_of_edges(number_input_edges, number_output_edges)

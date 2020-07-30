@@ -6,8 +6,6 @@
 
 import matplotlib.pyplot as plt
 
-from config.config import np
-
 from pint import UnitRegistry
 unit = UnitRegistry()
 
