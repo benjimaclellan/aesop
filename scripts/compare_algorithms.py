@@ -51,20 +51,21 @@ if __name__ == "__main__":
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     #%%
-    graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
-    x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-
-    methods = ["L-BFGS", "ADAM", "GA", "CMA", "L-BFGS+GA"]
-    method = methods[1]
+    methods = ["L-BFGS", "ADAM", "GA", "CMA", "L-BFGS+GA", "ADAM+GA"]
     n_runs = 10
     comparison_results = {}
     for method in methods:
         comparison_results[method] = {'time': [], 'score': []}
 
     for run in range(n_runs):
+        print("\n\tRun iteration: {}".format(run))
         for method in methods:
             t1 = time.time()
+
+            graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
+            x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
             graph, x, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=False)
+
             t2 = time.time()
 
             comparison_results[method]['time'].append(t2-t1)
@@ -87,13 +88,12 @@ if __name__ == "__main__":
 
     fig = plt.figure()
     graph.draw()
-
-    graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
-    graph.propagate(propagator, save_transforms=False)
-    state = graph.measure_propagator(-1)
-    fig, ax = plt.subplots(2, 1)
-    ax[0].plot(propagator.t, np.power(np.abs(state), 2))
-
+    #
+    # graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+    # graph.propagate(propagator, save_transforms=False)
+    # state = graph.measure_propagator(-1)
+    # fig, ax = plt.subplots(2, 1)
+    # ax[0].plot(propagator.t, np.power(np.abs(state), 2))
     # #%%
     # n_runs = 10
     # logs_ga, logs_rs = [], []

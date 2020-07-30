@@ -108,6 +108,7 @@ class WaveShaper(SinglePath):
         number_of_bins = 5
         self._number_of_bins = number_of_bins
         self.frequency_bin_width = 12e9
+        self.extinction_ratio = 10 **( -35 / 10)
 
         #TODO: add test to make sure (at initialization that all these variables are the same length)
         # Then: also add one at runtime that ensure the .parameters variable is the same length
@@ -116,7 +117,7 @@ class WaveShaper(SinglePath):
         self.default_parameters = [1] * number_of_bins + [0] * number_of_bins
 
         self.upper_bounds = [1] * number_of_bins + [2*np.pi] * number_of_bins
-        self.lower_bounds = [0] * number_of_bins + [0] * number_of_bins
+        self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0] * number_of_bins
         self.data_types = 2 * number_of_bins * ['float']
         self.step_sizes = [None] * number_of_bins + [None] * number_of_bins
         self.parameter_imprecisions = [1] * number_of_bins + [2*np.pi] * number_of_bins
@@ -149,8 +150,8 @@ class WaveShaper(SinglePath):
         right = propagator.n_samples - np.ceil((propagator.n_samples - amp1.shape[0]) / 2).astype('int')
 
         # we will pad amp1 and phase1 with zeros so they are the correct size
-        pad_left = np.zeros((left, 1))
-        pad_right = np.zeros((N - right, 1))
+        pad_left = np.ones((left, 1)) * self.extinction_ratio
+        pad_right = np.ones((N - right, 1)) * self.extinction_ratio
 
         # Concatenate the arrays together
         # We cannot use array assignment as it is not supported by autograd

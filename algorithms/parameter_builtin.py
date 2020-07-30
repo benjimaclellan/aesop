@@ -59,6 +59,18 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
         return graph, x, graph.func(x), res
 
+    if method == 'ADAM+GA':
+        print("Parameter optimization: GA + ADAM algorithm")
+        x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.9,
+                                                   rate_crx=0.9, verbose=verbose)
+
+        x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), graph.grad, np.array(x0),
+                                          convergence_thresh_abs=0.00085, callback=None,
+                                          num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
+                                          eps=10 ** -8, m=None, v=None, verbose=verbose)
+        res = {"iterations": num_iters}
+        graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+        return graph, x, graph.func(x), res
 
     elif method == 'GA':
         print("Parameter optimization: GA algorithm")
@@ -136,10 +148,6 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
 #
 def parameters_genetic_algorithm(graph, n_generations = 25, n_population = 25, rate_mut = 0.9, rate_crx = 0.9, verbose=False):
     # hyper-parameters, will later be added as function arguments to change dynamically
-    # n_generations = 25
-    # n_population = 64
-    # rate_mut = 0.9
-    # rate_crx = 0.9
     crossover = crossover_singlepoint
     mutation_operator = 'uniform'
     mut_kwargs = {}
