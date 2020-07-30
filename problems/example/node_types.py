@@ -20,7 +20,7 @@ class Input(NodeTypeParent):
         self._node_type = "input node"
 
         self._range_input_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
-        self._range_output_edges = (1, 4)  # minimum, maximum number of input edges, may be changed in children
+        self._range_output_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
 
 
 @register_node_types
@@ -35,7 +35,7 @@ class Output(NodeTypeParent):
         super().__init__(**kwargs)
         self._node_type = "output node"
 
-        self._range_input_edges = (1, 3)  # minimum, maximum number of input edges, may be changed in children
+        self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
         self._range_output_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
 
         return

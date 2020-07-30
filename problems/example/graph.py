@@ -217,18 +217,12 @@ class Graph(GraphParent):
         return [node for node in self.nodes if not self.out_edges(node)][0]  # finds node with no outgoing edges
 
     def propagate(self, propagator, save_transforms=False):
-        # if self._deep_copy:
-        #     return self._propagate_deepcopy(propagator)
-        # return self._propagate_limit_deepcopy(propagator)
-        return self._propagate_no_deepcopy(propagator, save_transforms=save_transforms)
-
-    def _propagate_no_deepcopy(self, propagator, save_transforms=False):
-        """
+        """"
         Uses no deepcopy functionality - hopefully avoiding issues with autograd.
         Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
         """
 
-        self._propagator_saves = {}  # will save each propagator here ##TODO make sure this is not saving the same object in multiple places somehow (it doesn't seem like it though)
+        self._propagator_saves = {}  # will save each propagator here
 
         for node in self.propagation_order:  # loop through nodes in the prescribed, physical order
             if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly

@@ -16,14 +16,11 @@ class NodeType(object):
 
         self.parameter = self.default_parameters
 
-        # TODO: this also feels a little hacky, but makes the front-end potentially easier to work with
-        # TODO: should this be here? or is this bad practice
+        # sets the parameters from a list passed in at construction. must be a list with length of number_of_parameters, in the correct order
         if 'parameters' in kwargs:  # sets parameters based only on the order they are given in the list
             self._parameters = kwargs['parameters']
-
+        # set parameters by name, can selectively set parameters (don't need to set all at construction, inherits the defaults if not passed in)
         elif 'parameters_from_name' in kwargs:  # sets parameters based on a dictionary of name/value pairs
-            assert len(self.parameter_names) == self.number_of_parameters
-            self._parameters = [None] * self.number_of_parameters
             for (parameter_name, parameter_value) in kwargs['parameters_from_name'].items():
                 self.set_parameter_from_name(parameter_name, parameter_value)
 

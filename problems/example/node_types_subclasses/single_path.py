@@ -230,7 +230,7 @@ class DelayLine(SinglePath):
         return [ifft_(field_short, propagator.dt)]
 
 
-@register_node_types_all
+# @register_node_types_all
 class EDFA(SinglePath):
     """
     EDFA modelled as follows:

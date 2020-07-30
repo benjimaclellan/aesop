@@ -31,6 +31,13 @@ class VariablePowerSplitter(MultiPath):
         return
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
-        self.set_parameters_as_attr()
-        state = sum(states)  # TODO NEED TO FIX THIS CAUSE THIS IS DEFINITELY NOT LEGIT
-        return [state] * num_outputs
+        coupling_ratio = self.parameters[0]
+        if (num_inputs == 1) and (num_outputs == 2):
+            state = states[0]
+            return [(coupling_ratio) * state, (1-coupling_ratio) * state * np.exp(1j * np.pi/2)]
+
+        elif (num_inputs == 2) and (num_outputs == 1):
+            return [states[0] + states[1] * np.exp(1j * np.pi / 2)]
+
+        else:
+            raise ValueError("Not implemented yet: splitters should only be 2x1 or 1x2 for simplicity")

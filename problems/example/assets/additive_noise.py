@@ -8,7 +8,7 @@ TODO: change frequencyrep to be normalized like the matlab code
 TODO: can we create different copies of the class for threadsafe-ness purposes? Think about potential parallelization (one class per graph?)
 """
 
-class AdditiveNoise():
+class AdditiveNoise(object):
     """
     Additive noise is noise modelled as: <total signal>(t) = <pure signal>(t) + <noise>(t)
 

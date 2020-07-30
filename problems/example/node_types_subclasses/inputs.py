@@ -98,10 +98,8 @@ class ContinuousWaveLaser(Input):
         self.parameters = self.default_parameters
 
         super().__init__(**kwargs)
-        
-        self.noise_model = AdditiveNoise(noise_param=self.parameters[2]) 
 
-
+        self.noise_model = AdditiveNoise(noise_param=self.parameters[2])
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         self.set_parameters_as_attr()
