@@ -76,6 +76,7 @@ class PhaseModulator(SinglePath):
         self.parameter_names = ['depth', 'frequency']
 
         super().__init__(**kwargs)
+
         return
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators

@@ -35,9 +35,9 @@ class VariablePowerSplitter(MultiPath):
         if (num_inputs == 1) and (num_outputs == 2):
             state = states[0]
             return [(coupling_ratio) * state, (1-coupling_ratio) * state * np.exp(1j * np.pi/2)]
-
         elif (num_inputs == 2) and (num_outputs == 1):
             return [states[0] + states[1] * np.exp(1j * np.pi / 2)]
-
+        elif (num_inputs == 1) and (num_outputs == 1):
+            return states
         else:
             raise ValueError("Not implemented yet: splitters should only be 2x1 or 1x2 for simplicity")

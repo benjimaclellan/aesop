@@ -14,7 +14,7 @@ class NodeType(object):
     def __init__(self, **kwargs):
         super().__init__()
 
-        self.parameter = self.default_parameters
+        self._parameters = self.default_parameters
 
         # sets the parameters from a list passed in at construction. must be a list with length of number_of_parameters, in the correct order
         if 'parameters' in kwargs:  # sets parameters based only on the order they are given in the list

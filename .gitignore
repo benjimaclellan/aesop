@@ -68,3 +68,5 @@ asope/results/
 .idea/*.xml
 
 asope/venv/bin/
+
+scripts/outcmaes/

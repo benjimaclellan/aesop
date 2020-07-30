@@ -91,6 +91,7 @@ if __name__ == "__main__":
             model_names = ['{}'.format(node) for node in graph.nodes]
             graph.draw(ax=ax2[0], labels=dict(zip(graph.nodes, model_names)))
             ax2[1].plot(propagator.t, np.power(np.abs(state), 2))
+            ax2[1].set_ylim([0,1])
             if not animate:
                 plt.show()
                 plt.pause(0.25)
@@ -101,5 +102,5 @@ if __name__ == "__main__":
         anim.save(r"C:\Users\benjamin\Documents\Communication - Papers\thesis\figs\dr_strange.gif", writer='imagemagick', fps=30, dpi=100)
 
     elif plot and not animate:
-        for i in range(10):
+        for i in range(100):
             animate_func(i, graph, evaluator, propagator, fig=fig2)
