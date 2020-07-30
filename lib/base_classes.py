@@ -23,7 +23,6 @@ class NodeType(object):
         elif 'parameters_from_name' in kwargs:  # sets parameters based on a dictionary of name/value pairs
             for (parameter_name, parameter_value) in kwargs['parameters_from_name'].items():
                 self.set_parameter_from_name(parameter_name, parameter_value)
-
         else:
             self._parameters = self.default_parameters
 
