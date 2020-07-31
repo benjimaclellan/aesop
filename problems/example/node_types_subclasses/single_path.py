@@ -251,18 +251,33 @@ class EDFA(SinglePath):
 
     TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
     """
-    def __init__(self, max_small_signal=30, peak_wl=1550e-9, band=(1530e-9, 1565e-9), P_out_max=20,
-                 gain_flatness=1.5, alpha=1):
+    def __init__(self, max_small_signal=30, peak_wl=1550e-9, band_lower=1530e-9, band_upper=1565e-9, P_out_max=20,
+                 gain_flatness=1.5, alpha=1, **kwargs):
         """
+        Possible values to include in kwargs
 
         :param max_small_signal: maximum small signal gain, in dB (assumed to be at band center)
         :param peak_wl: peak wavelength of the EDFA where max amplification occurs, in m (max amplification there)
-        :param band: (min wavelength, max_wavelength), in m
+        :param band_lower: min wavelength, in m
+        :param band_upper: max wavelength, in m
         :param P_out_max: maximum output power, in dBm
         :param gain_flatness : gain flatness, in dB (Gmax(dB) - Gmin(dB))
         :param alpha : parameter alpha, as defined in [1] (default value of 1 seems reasonable)
         """
-        pass
+        self.node_lock = False
+
+        self.number_of_parameters = 6
+        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 15, 1.5]
+        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0]
+        self.data_types = ['float'] * self.number_of_parameters
+        self.step_sizes = [None] * self.number_of_parameters
+        self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1, 1, 0.1] # placeholders, I don't really know
+        self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, None, None] # no dB unit exists in registry
+        self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
+        self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_out_max', 'gain_flatness_dB', 'alpha']
+        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1]
+        super.__init__(**kwargs)
+
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
@@ -280,6 +295,31 @@ class EDFA(SinglePath):
         return 0
     
     @property
-    def _small_signal_gain(self):
-        pass
-        return 0
+    def _small_signal_gain(self, propagator):
+        """
+        From above...
+        ---------------g(f), the small-signal gain---------------
+            
+            In the following equations, f = peak frequency - actual frequency
+            g(f) = g_max * exp(-f^2/Beta)
+            With Beta = d^2/(ln(10^(G_f / 10))),
+            d = max distance between peak wavelength and the edge of the band,
+            Gf = gain flatness in dB,
+
+            Such that, as expected, g(d) = g_min
+        """
+        all_params = self._get_all_params()
+        central_freq = 1 / all_params['peak_wl']
+        d = np.max(all_params['band_upper'] - all_params['peak_wl'], all_params['peak_wl'] - all_params['band_lower'])
+        beta = d**2 / (np.log(10**(all_params['gain_flatness_dB'] / 10)))
+        f = ifft_shift_(np.abs(propagator.f) - central_freq)
+
+        return all_params['max_small_signal_gain_dB'] * np.exp(-1 * np.power(f, 2) / beta)
+
+
+    def _get_all_params(self):
+        param_dict = {}
+        for (name, val) in zip(self.parameter_names, self.parameters):
+            param_dict[name] = val
+        
+        return param_dict
