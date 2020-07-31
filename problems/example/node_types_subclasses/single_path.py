@@ -251,8 +251,7 @@ class EDFA(SinglePath):
 
     TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
     """
-    def __init__(self, max_small_signal=30, peak_wl=1550e-9, band_lower=1530e-9, band_upper=1565e-9, P_out_max=20,
-                 gain_flatness=1.5, alpha=1, **kwargs):
+    def __init__(self, **kwargs):
         """
         Possible values to include in kwargs
 
@@ -276,25 +275,29 @@ class EDFA(SinglePath):
         self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
         self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_out_max', 'gain_flatness_dB', 'alpha']
         self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1]
-        super.__init__(**kwargs)
+        super().__init__(**kwargs)
 
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
         # TODO: deal with the transform shtick
+
         state = states[0]
-        pass
-        return state
+        state_f = fft_(state, propagator.dt)
+        return [ifft_(self._gain(state, propagator) * state_f, propagator.dt)]
     
-    def _gain(self, state):
+    def _gain(self, state, propagator):
         """
+        Gain is defined as in [1], G = g / (1 + (g * P_in / P_max)^alpha), with g = small signal gain, G is true gain
         """
-        # P_in = average state power
-        # return self.small_signal / (1 + (self.small_signal * P_in / self.P_max)**self.alpha)
-        return 0
+        params = self._all_params # TODO: maybe refactor this, not the most efficient I think
+
+        g = self._small_signal_gain(propagator)
+        P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
+
+        return g / (1 + (g * P_in / params['P_out_max'])**params['alpha'])
     
-    @property
     def _small_signal_gain(self, propagator):
         """
         From above...
@@ -303,21 +306,53 @@ class EDFA(SinglePath):
             In the following equations, f = peak frequency - actual frequency
             g(f) = g_max * exp(-f^2/Beta)
             With Beta = d^2/(ln(10^(G_f / 10))),
-            d = max distance between peak wavelength and the edge of the band,
+            d = max difference in frequency between the centre of the band and the edge,
             Gf = gain flatness in dB,
 
             Such that, as expected, g(d) = g_min
         """
-        all_params = self._get_all_params()
-        central_freq = 1 / all_params['peak_wl']
-        d = np.max(all_params['band_upper'] - all_params['peak_wl'], all_params['peak_wl'] - all_params['band_lower'])
-        beta = d**2 / (np.log(10**(all_params['gain_flatness_dB'] / 10)))
-        f = ifft_shift_(np.abs(propagator.f) - central_freq)
+        params = self._all_params
 
-        return all_params['max_small_signal_gain_dB'] * np.exp(-1 * np.power(f, 2) / beta)
+        central_freq = propagator.speed_of_light / params['peak_wl']
+        lower_freq = propagator.speed_of_light / params['band_upper']
+        upper_freq = propagator.speed_of_light / params['band_lower']
+        d = np.maximum(central_freq - lower_freq, upper_freq - central_freq)
 
+        beta = d**2 / (np.log(10**(params['gain_flatness_dB'] / 10)))
+        f = ifft_shift_(np.abs(propagator.f + propagator.central_frequency) - central_freq) # central freq is the actual center, even though the propagator.f vector is centered at 0
+        g = 10**(params['max_small_signal_gain_dB'] / 10)
 
-    def _get_all_params(self):
+        return g * np.exp(-1 * np.power(f, 2) / beta)    
+
+    def display_small_signal_gain(self, propagator):
+        params = self._all_params
+        _, ax = plt.subplots()
+        gain = self._small_signal_gain(propagator)
+        ax.plot(propagator.f, np.fft.fftshift(gain, axes=0))
+        plt.title(f"Small signal gain\
+            \ngain: {params['max_small_signal_gain_dB']} dB \
+            \npeak: {params['peak_wl']* 1e9} nm \
+            \nband: {params['band_lower'] * 1e9}-{params['band_upper'] * 1e9} nm \
+            \ngain flatness: {params['gain_flatness_dB']} dB")
+        plt.show()
+    
+    def display_gain(self, states, propagator):
+        params = self._all_params
+        _, ax = plt.subplots()
+        for i, state in enumerate(states):
+            gain = self._gain(state, propagator)
+            ax.plot(propagator.f, np.fft.fftshift(gain, axes=0), label=f'power: {np.mean(power_(state))}')
+        
+        ax.legend()
+        plt.title(f"Gain\
+            \ngain: {params['max_small_signal_gain_dB']} dB \
+            \npeak: {params['peak_wl']* 1e9} nm \
+            \nband: {params['band_lower'] * 1e9}-{params['band_upper'] * 1e9} nm \
+            \ngain flatness: {params['gain_flatness_dB']} dB")
+        plt.show() 
+
+    @property
+    def _all_params(self):
         param_dict = {}
         for (name, val) in zip(self.parameter_names, self.parameters):
             param_dict[name] = val
