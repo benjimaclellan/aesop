@@ -48,8 +48,8 @@ def principle_main():
 
     # %%
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    print("evaluator target rf shape: {}".format(evaluator.target_rf.shape))
-    print("evaluator scale array shape: {}".format(evaluator.target_rf.shape))
+    print("evaluator target rf shape: {}".format(evaluator.target_f.shape))
+    print("evaluator scale array shape: {}".format(evaluator.target_f.shape))
     evaluator.evaluate_graph(graph, propagator)
 
     # %%

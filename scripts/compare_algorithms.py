@@ -88,64 +88,9 @@ if __name__ == "__main__":
 
     fig = plt.figure()
     graph.draw()
-    #
+
     # graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
     # graph.propagate(propagator, save_transforms=False)
     # state = graph.measure_propagator(-1)
     # fig, ax = plt.subplots(2, 1)
     # ax[0].plot(propagator.t, np.power(np.abs(state), 2))
-    # #%%
-    # n_runs = 10
-    # logs_ga, logs_rs = [], []
-    # params_ga, params_rs = [], []
-    # scores_ga, scores_rs = [], []
-    #
-    # t_start = time.time()
-    # for run in range(n_runs):
-    #     print('\nStarting random search number {}'.format(run))
-    #     parameters_rs, score_rs, log_rs = parameters_random_search(graph, propagator, evaluator)
-    #     logs_rs.append(log_rs)
-    #     params_rs.append(parameters_rs)
-    #     scores_rs.append(score_rs)
-    # t_rs = time.time() - t_start
-    # print('Time for {} random search is {} s | {} s average per run'.format(n_runs, t_rs, t_rs/n_runs))
-    #
-    # t_start = time.time()
-    # for run in range(n_runs):
-    #     print('\nStarting genetic algorithm number {}'.format(run))
-    #     parameters_ga, score_ga, log_ga = parameters_genetic_algorithm(graph, propagator, evaluator)
-    #     logs_ga.append(log_ga)
-    #     params_ga.append(parameters_ga)
-    #     scores_ga.append(score_ga)
-    # t_ga = time.time() - t_start
-    # print('Time for {} genetic algorithm is {} s | {} s average per run'.format(n_runs, t_ga, t_ga / n_runs))
-    #
-    # #%% we'll add HoF as a column
-    # for log in logs_rs + logs_ga:
-    #     log['hof'] = log['min']
-    #     for loc in range(len(log)):
-    #         log.loc[loc, 'hof'] = min(log.loc[:loc, 'min'])
-    #
-    #
-    # #%%
-    # styles = {  'min':{'ls':'-', 'alpha':1},
-    #             'avg':{'ls':'--', 'alpha':1},
-    #             'hof':{'ls':':', 'alpha':1} }
-    #
-    # fig, ax = plt.subplots(1,1)
-    # for log in logs_rs:
-    #     line_min_rs, = ax.plot(log['gen'], log['min'], color=sns.color_palette('Blues_r')[0], **styles['min'])
-    #     line_avg_rs, = ax.plot(log['gen'], log['avg'], color=sns.color_palette('Blues_r')[1], **styles['avg'])
-    #     line_hof_rs, = ax.plot(log['gen'], log['hof'], color=sns.color_palette('Blues_r')[2], **styles['hof'])
-    #
-    # for log in logs_ga:
-    #     line_min_ga, = ax.plot(log['gen'], log['min'], color=sns.color_palette('Greens_r')[0], **styles['min'])
-    #     line_avg_ga, = ax.plot(log['gen'], log['avg'], color=sns.color_palette('Greens_r')[1], **styles['avg'])
-    #     line_hof_ga, = ax.plot(log['gen'], log['hof'], color=sns.color_palette('Greens_r')[2], **styles['hof'])
-    #
-    # ax.legend([line_min_ga, line_avg_ga, line_hof_ga, line_min_rs, line_avg_rs, line_hof_rs],
-    #           ['GA Min', 'GA Avg', 'GA HoF', 'RS Min', 'RS Avg', 'RS HoF'])
-    #
-    # ax.set(xlabel='Generation', ylabel='Evaluation Score')
-    # plt.show()
-    # plt.savefig(os.path.join(configuration.LOG_DIRECTORY, '2020_04_14__randomsearch_vs_geneticalgorithm_parametersonly.pdf'))

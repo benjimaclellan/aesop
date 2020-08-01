@@ -66,13 +66,13 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 2
         self.default_parameters = [1, 12e9]
 
-        self.upper_bounds = [20, 12e9]
-        self.lower_bounds = [0, 1e9]
+        self.upper_bounds = [20, 24e9]
+        self.lower_bounds = [0, 6e9]
         self.data_types = ['float', 'float']
-        self.step_sizes = [None, 1e9]
+        self.step_sizes = [None, 6e9]
         self.parameter_imprecisions = [1, 1]
         self.parameter_units = [unit.rad, unit.Hz]
-        self.parameter_locks = [False, True]
+        self.parameter_locks = [False, False]
         self.parameter_names = ['depth', 'frequency']
 
         super().__init__(**kwargs)
@@ -105,7 +105,7 @@ class WaveShaper(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        number_of_bins = 5
+        number_of_bins = 9
         self._number_of_bins = number_of_bins
         self.frequency_bin_width = 12e9
         self.extinction_ratio = 10 **( -35 / 10)

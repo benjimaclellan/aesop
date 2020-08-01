@@ -25,12 +25,12 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
 
     if method == 'L-BFGS+GA':
         print("Parameter optimization: L-BFGS + GA algorithm")
-        x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.9,
-                                                   rate_crx=0.9, verbose=verbose)
+        x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.8,
+                                                   rate_crx=0.8, verbose=verbose)
 
         res = scipy.optimize.minimize(graph.func, x, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 1000},
+                                      options={'disp': verbose, 'maxiter': 50},
                                       jac=graph.grad)
         graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
         x = res.x

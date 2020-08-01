@@ -33,8 +33,14 @@ class Evolver(object):
         # print('The score here is {}'.format(score))
         return graph
 
-    def random_graph(self, graph, evaluator):
+    def random_graph(self, graph, evaluator, propagator):
         N_EVOLUTIONS = 10
         for n in range(N_EVOLUTIONS):
-            graph = self.evolve_graph(graph, evaluator)
+            try:
+                graph_tmp = self.evolve_graph(graph, evaluator, propagator)
+                graph_tmp.assert_number_of_edges()
+                graph = graph_tmp
+            except:
+                continue
+
         return graph
