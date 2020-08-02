@@ -157,4 +157,3 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 #         scale_units(ax, unit='s', axes=['x'])
 #         plt.show()
 #         return
-

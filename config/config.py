@@ -19,4 +19,5 @@ EVOLUTION_OPERATORS = dict()
 NODE_TYPES = dict()
 NODE_TYPES_ALL = dict()
 
-LOG_DIRECTORY = r"C:\Users\benjamin\Documents\INRS - Projects\asope\logs"
+# LOG_DIRECTORY = os.get
+# LOG_DIRECTORY = r"C:\Users\benjamin\Documents\INRS - Projects\asope\logs"
