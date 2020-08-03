@@ -14,7 +14,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
     _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
     if method == 'L-BFGS':
-        print("Parameter optimization: L-BFGS algorithm")
+        if verbose: print("Parameter optimization: L-BFGS algorithm")
         res = scipy.optimize.minimize(graph.func, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
                                       options={'disp': verbose, 'maxiter': 1000},
@@ -24,7 +24,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         return graph, x, graph.func(x), res
 
     if method == 'L-BFGS+GA':
-        print("Parameter optimization: L-BFGS + GA algorithm")
+        if verbose: print("Parameter optimization: L-BFGS + GA algorithm")
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.8,
                                                    rate_crx=0.8, verbose=verbose)
 
@@ -38,7 +38,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
 
     elif method == 'CMA':
         # raise NotImplementedError("CMA is not implemented yet")
-        print("Parameter optimization: CMA algorithm")
+        if verbose: print("Parameter optimization: CMA algorithm")
 
         _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         es = cma.CMAEvolutionStrategy(x0, 0.999,
@@ -50,7 +50,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         return graph, x, graph.func(x), res
         
     elif method == 'ADAM':
-        print("Parameter optimization: ADAM algorithm")
+        if verbose: print("Parameter optimization: ADAM algorithm")
         x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), graph.grad, np.array(x0),
                                           convergence_thresh_abs=0.00085, callback=None,
                                           num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
@@ -60,7 +60,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         return graph, x, graph.func(x), res
 
     if method == 'ADAM+GA':
-        print("Parameter optimization: GA + ADAM algorithm")
+        if verbose: print("Parameter optimization: GA + ADAM algorithm")
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.9,
                                                    rate_crx=0.9, verbose=verbose)
 
@@ -73,7 +73,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         return graph, x, graph.func(x), res
 
     elif method == 'GA':
-        print("Parameter optimization: GA algorithm")
+        if verbose: print("Parameter optimization: GA algorithm")
 
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.9,
                                                    rate_crx=0.9,verbose=verbose)

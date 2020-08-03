@@ -21,6 +21,7 @@ from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
@@ -35,16 +36,15 @@ from algorithms.parameter_builtin import parameters_optimize
 # np.random.seed(0)
 plt.close('all')
 if __name__ == "__main__":
-    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
-    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    propagator = Propagator(window_t = 100e-9, n_samples = 2**14, central_wl=1.55e-6)
+    evaluator = PulseRepetition(propagator)
     evolver = Evolver()
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             1:PhaseModulator(),
-             2:WaveShaper(),
+    nodes = {0:PulsedLaser(parameters_from_name={'pulse_shape':'gaussian', 'pulse_width':1e-9,'peak_power':1,
+                                                 't_rep':20e-9, 'central_wl':1.55e-6, 'train':True}),
+             1:CorningFiber(parameters=[0]),
              -1:MeasurementDevice()}
     edges = [(0,1),
-             (1,2),
-             (2,-1)]
+             (1,-1)]
 
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()
@@ -55,15 +55,15 @@ if __name__ == "__main__":
 
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
     x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    graph, x, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=False)
+    graph, x, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=True)
 
     fig = plt.figure()
     graph.draw()
 
-    graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+    # graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
     graph.propagate(propagator, save_transforms=False)
     state = graph.measure_propagator(-1)
     fig, ax = plt.subplots(2, 1)
     ax[0].plot(propagator.t, np.power(np.abs(state), 2))
-    print('Score {}\nParameters {}'.format(score, x))
+    # print('Score {}\nParameters {}'.format(score, x))
     evaluator.compare(graph, propagator)

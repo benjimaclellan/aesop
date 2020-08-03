@@ -24,7 +24,7 @@ class CorningFiber(SinglePath):
         self.number_of_parameters = 1
         self.default_parameters = [1]
 
-        self.upper_bounds = [1000]
+        self.upper_bounds = [10e3]
         self.lower_bounds = [0]
         self.data_types = ['float']
         self.step_sizes = [None]
@@ -33,7 +33,7 @@ class CorningFiber(SinglePath):
         self.parameter_locks = [False]
         self.parameter_names = ['length']
 
-        self.beta = 1e-23
+        self.beta = 1e-20
 
         super().__init__(**kwargs)
         return
@@ -69,7 +69,7 @@ class PhaseModulator(SinglePath):
         self.upper_bounds = [20, 24e9]
         self.lower_bounds = [0, 6e9]
         self.data_types = ['float', 'float']
-        self.step_sizes = [None, 6e9]
+        self.step_sizes = [None, 1e9]
         self.parameter_imprecisions = [1, 1]
         self.parameter_units = [unit.rad, unit.Hz]
         self.parameter_locks = [False, False]

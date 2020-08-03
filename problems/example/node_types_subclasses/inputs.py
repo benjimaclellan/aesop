@@ -8,17 +8,10 @@ from pint import UnitRegistry
 unit = UnitRegistry()
 
 from ..assets.decorators import register_node_types_all
-from ..assets.functions import power_, psd_
+from ..assets.functions import power_, psd_, get_pulse_train
 from ..assets.additive_noise import AdditiveNoise
 
 from ..node_types import Input
-
-
-def sech(t, offset, width):
-    return 1/np.cosh((t + offset) / width, dtype='complex')
-
-def gaussian(t, offset, width):
-    return np.exp(-0.5 * (np.power((t + offset) / width, 2)), dtype='complex')
 
 @register_node_types_all
 class PulsedLaser(Input):
@@ -40,39 +33,18 @@ class PulsedLaser(Input):
         self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train']
 
         self.default_parameters = ['gaussian', 10e-9, 1, 1e-7, 1.55e-6, True]
-
         self.parameters = self.default_parameters
-
         super().__init__(**kwargs)
         return
 
-
-
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         self.set_parameters_as_attr()
-
-        n_pulses = int(np.ceil(propagator.window_t / self._t_rep))
-
-        width = self._pulse_width /np.sqrt(2)*np.log(2)  # check the scaling between envelope FWHM and power FWHM for Gaussian
-
-        # create initial train of Gaussian pulses
-        if self._pulse_shape == 'gaussian':
-            pulse_function = gaussian
-        elif self._pulse_shape == 'sech':
-            pulse_function = sech
-        else:
-            raise AttributeError("This is not a valid pulse shape")
-
-        state = pulse_function(propagator.t, 0, width)
-        if self._train:
-            for i_pulse in list(range(-1, -(n_pulses // 2 + 1), -1)) + list( range(1, n_pulses // 2 + 1, +1)):  # fill in all pulses except central one
-                state += pulse_function(propagator.t, propagator.window_t * (i_pulse / n_pulses), width)
+        # width = self._pulse_width /np.sqrt(2)*np.log(2)  # check the scaling between envelope FWHM and power FWHM for Gaussian
+        pulse_train = get_pulse_train(propagator.t, self._t_rep, self._pulse_width, pulse_shape=self._pulse_shape)
 
         # scale by peak_power power
-        state *= np.sqrt(self._peak_power)
-
+        state = pulse_train * np.sqrt(self._peak_power)
         return [state]
-
 
 
 @register_node_types_all

@@ -20,7 +20,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
         self.target_harmonic = 12e9  # target pattern repetition in Hz
 
-        self.target = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.5) + 1)
+        self.target = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
 
         self.target_f = np.fft.fft(self.target, axis=0)
         self.target_rf = rfft(self.target)
@@ -59,7 +59,6 @@ class RadioFrequencyWaveformGeneration(Evaluator):
     def similarity_l2_norm(x_, y_):
         return np.sum(np.power(x_ - y_, 2))
 
-
     def waveform_temporal_similarity(self, state, propagator):
         generated = power_(state)
         shifted = self.shift_function(generated, propagator)
@@ -74,12 +73,10 @@ class RadioFrequencyWaveformGeneration(Evaluator):
             return state_power # no phase shift in this case, and it'll break my lovely gradient otherwise (bit of a hack but...)
         
         phase = np.angle(state_rf[self.target_harmonic_ind] / self.target_f[self.target_harmonic_ind])
-
         shift = phase / (self.target_harmonic * propagator.dt)
         state_rf *= np.exp(-1j * shift * self.scale_array)
 
         shifted = np.abs(np.fft.ifft(state_rf, axis=0))
-
         return shifted
 
 

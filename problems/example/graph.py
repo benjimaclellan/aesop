@@ -3,7 +3,7 @@
 """
 
 import autograd.numpy as np
-from autograd import grad, hessian
+from autograd import grad, hessian, jacobian, elementwise_grad
 
 import networkx as nx
 import copy
@@ -73,7 +73,6 @@ class Graph(GraphParent):
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
-
         hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
         self.hess = lambda parameters: hess_tmp(np.array(parameters))
         return
