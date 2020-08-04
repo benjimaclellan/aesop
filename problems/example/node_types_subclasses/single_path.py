@@ -230,7 +230,7 @@ class DelayLine(SinglePath):
         return [ifft_(field_short, propagator.dt)]
 
 
-# @register_node_types_all
+@register_node_types_all
 class EDFA(SinglePath):
     """
     EDFA modelled as follows:
@@ -251,7 +251,7 @@ class EDFA(SinglePath):
 
     TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
     """
-    def __init__(self, **kwargs):
+    def __init__(self, small_signal_gain=None, **kwargs):
         """
         Possible values to include in kwargs
 
@@ -276,29 +276,35 @@ class EDFA(SinglePath):
         self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_out_max', 'gain_flatness_dB', 'alpha']
         self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1]
         super().__init__(**kwargs)
+        self._small_signal_gain = None
 
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
-        # TODO: deal with the transform shtick
-
         state = states[0]
         state_f = fft_(state, propagator.dt)
-        return [ifft_(self._gain(state, propagator) * state_f, propagator.dt)]
+        gain = self._gain(state, propagator)
+
+        if save_transforms:
+            self.transform = (('f', 10 * np.log(ifft_shift_(gain)), 'gain (dB)'),)
+
+        return [ifft_(gain * state_f, propagator.dt)]
     
     def _gain(self, state, propagator):
         """
         Gain is defined as in [1], G = g / (1 + (g * P_in / P_max)^alpha), with g = small signal gain, G is true gain
         """
+        if self._small_signal_gain is None or propagator.n_samples != self._small_signal_gain.shape[0]:
+            self._small_signal_gain = self._get_small_signal_gain(propagator)
+
         params = self._all_params # TODO: maybe refactor this, not the most efficient I think
 
-        g = self._small_signal_gain(propagator)
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
-        return g / (1 + (g * P_in / params['P_out_max'])**params['alpha'])
+        return self._small_signal_gain / (1 + (self._small_signal_gain * P_in / params['P_out_max'])**params['alpha'])
     
-    def _small_signal_gain(self, propagator):
+    def _get_small_signal_gain(self, propagator):
         """
         From above...
         ---------------g(f), the small-signal gain---------------
@@ -327,7 +333,7 @@ class EDFA(SinglePath):
     def display_small_signal_gain(self, propagator):
         params = self._all_params
         _, ax = plt.subplots()
-        gain = self._small_signal_gain(propagator)
+        gain = self._get_small_signal_gain(propagator)
         ax.plot(propagator.f, np.fft.fftshift(gain, axes=0))
         plt.title(f"Small signal gain\
             \ngain: {params['max_small_signal_gain_dB']} dB \

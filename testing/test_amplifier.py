@@ -54,3 +54,9 @@ def test_gain(propagator, edfa):
 def test_propagate(propagator, amp_graph):
     amp_graph.propagate(propagator)
     amp_graph.inspect_state(propagator)
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_transform_visualisation(propagator, amp_graph):
+    amp_graph.propagate(propagator, save_transforms=True)
+    amp_graph.visualize_transforms([0, 1, 2], propagator)

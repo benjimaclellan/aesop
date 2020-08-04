@@ -285,6 +285,8 @@ class Graph(GraphParent):
 
         scale_units(ax[0], unit='s', axes=['x'])
         scale_units(ax[1], unit='Hz', axes=['x'])
+
+        plt.show()
         return
 
     def draw(self, ax=None, labels=None):
