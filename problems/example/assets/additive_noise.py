@@ -33,7 +33,7 @@ class AdditiveNoise():
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
                               (3) noise_type is not 'relative' or 'absolute'
         """
-        self._sample_num = None # defined the first time that noise is added to the propagation
+        self._propagator = None # defined the first time that noise is added to the propagation
     
         if (noise_filter is not None):
             raise ValueError('Noise filter options not yet implemented, object must be None')
@@ -44,7 +44,6 @@ class AdditiveNoise():
         self.noise_sources = []
 
         # create noise distribution
-        self._sample_num = None
         self.add_noise_source(distribution=distribution, noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type)
 
         self.noise_on = noise_on
@@ -73,8 +72,8 @@ class AdditiveNoise():
         if (noise_filter is not None):
             raise ValueError('Noise filter options not yet implemented, object must be None')
 
-        if (self._sample_num is not None):
-            noise = np.random.normal(scale=1, size=(self.sample_num, 2)).view(dtype='complex')
+        if (self.propagator is not None):
+            noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
             mean_noise_power = np.mean(power_(noise))
             if (noise_type == 'absolute'):
                 noise_scaling = np.sqrt(noise_param / mean_noise_power) # set average power to equal noise_param
@@ -95,20 +94,18 @@ class AdditiveNoise():
                  }
         self.noise_sources.append(source)
     
-    def add_noise_to_propagation(self, signal):
+    def add_noise_to_propagation(self, signal, propagator):
         """
         Adds noise to the input state, and returns the noisy state
         
         :param signal: the pre-noise state (IS MODIFIED BY THE FUNCTION)
         :return: the state including noise
         """   
-        if (not self.noise_on or not AdditiveNoise.simulate_with_noise): # TODO: move this ahead in the code such that we don't set sample num 
+        if (not self.noise_on or not AdditiveNoise.simulate_with_noise):
             return signal
    
-        if (self._sample_num is None):
-            self.sample_num = signal.shape[0]
-        elif (self.sample_num != signal.shape[0]):
-            raise ValueError(f'signal length is {signal.shape[0]} much match sample_num {self.sample_num}')
+        if (self.propagator is None or propagator is not self.propagator): # we avoid resampling the noise when the propagator hasn't changed, for efficiency
+            self.propagator = propagator
 
         total_noise = np.zeros(signal.shape, dtype='complex')
         mean_signal_power = np.mean(power_(signal))
@@ -123,28 +120,26 @@ class AdditiveNoise():
         return signal + total_noise
     
     @property
-    def sample_num(self):
-        if (self._sample_num is None):
-            raise ValueError('No sample num set yet')
-        return self._sample_num
+    def propagator(self):
+        return self._propagator
     
-    @sample_num.setter
-    def sample_num(self, n):
-        self._sample_num = n
+    @propagator.setter
+    def propagator(self, propagator):
+        self._propagator = propagator
         self.resample_noise(seed=self._seed)
     
     def resample_noise(self, seed=None):
         if (not AdditiveNoise.simulate_with_noise): # do not bother
             return
 
-        if (self._sample_num is None):
-            raise ValueError("no sample number has been set")
+        if (self._propagator is None):
+            raise ValueError("no propagator has been set")
 
         if (seed is not None):
             np.random.seed(seed)
 
         for noise_source in self.noise_sources:
-            noise = np.random.normal(scale=1, size=(self._sample_num, 2)).view(dtype='complex')
+            noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
             mean_noise_power = np.mean(power_(noise))
             if (noise_source['noise_type'] == 'absolute'):
                 noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param
@@ -175,20 +170,12 @@ class AdditiveNoise():
 
         signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
 
-        noisy_signal = self.add_noise_to_propagation(signal)
+        noisy_signal = self.add_noise_to_propagation(signal, propagator)
         if (propagator is None): # use arbitrary scale
-            t = np.linspace(-1, 1, num=self.sample_num)
-            f = t
-            dt = 1
-            df = 1
-        else:
-            t = propagator.t
-            f = propagator.f
-            dt = propagator.dt 
-            df = propagator.df
+            raise ValueError('propagator cannot be None')
 
-        ax[0].plot(t, power_(noisy_signal), label='time domain')
-        ax[1].plot(f, 10 * np.log10(psd_(noisy_signal, dt, df)), label='freq domain')
+        ax[0].plot(propagator.t, power_(noisy_signal), label='time domain')
+        ax[1].plot(propagator.f, 10 * np.log10(psd_(noisy_signal, propagator.dt, propagator.df)), label='freq domain')
         ax[0].legend()
         ax[1].legend()
         plt.title('Noisy signal')
@@ -203,23 +190,14 @@ class AdditiveNoise():
         #TODO: fix up the axes a bit but tbh I just want to see the shape
         _, ax = plt.subplots(2, 1)
 
-        mutated_signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
-
-        noise_vector = self.add_noise_to_propagation(mutated_signal) - signal
-
         if (propagator is None): # use arbitrary scale
-            t = np.linspace(-1, 1, num=self.sample_num)
-            f = t
-            dt = 1
-            df = 1
-        else:
-            t = propagator.t
-            f = propagator.f
-            dt = propagator.dt 
-            df = propagator.df
+            raise ValueError('propagator needs a value!')
+
+        mutated_signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
+        noise_vector = self.add_noise_to_propagation(mutated_signal, propagator) - signal
     
-        ax[0].plot(t, power_(noise_vector), label='time domain')
-        ax[1].plot(f, 10 * np.log10(psd_(noise_vector, dt, df)), label='freq domain (log)')
+        ax[0].plot(propagator.t, power_(noise_vector), label='time domain')
+        ax[1].plot(propagator.f, 10 * np.log10(psd_(noise_vector, propagator.dt, propagator.df)), label='freq domain (log)')
         ax[0].legend()
         ax[1].legend()
         plt.title('Total noise')
@@ -231,36 +209,20 @@ class AdditiveNoise():
 
         Since no input vector is provided, outputs are displayed as if all noise source options were absolute
 
-        If self._sample_num is None, will display plot for 1000 datapoints
+        Raises exception if propagator is None
         """
         #TODO: fix up the axes a bit but tbh I just want to see the shape
-
-        display_only_sample = False
-        if (self._sample_num is None):
-            self.sample_num = 1000
-            display_only_sample = True
     
         _, ax = plt.subplots(2, 1)
 
-        if (propagator is None): # use arbitrary scale
-            t = np.linspace(-1, 1, num=self.sample_num)
-            f = t
-            dt = 1
-            df = 1
-        else:
-            t = propagator.t
-            f = propagator.f
-            dt = propagator.dt 
-            df = propagator.df
-
+        if (self.propagator is None or self._propagator is not propagator):
+            self.propagator = propagator
+    
         for noise in self.noise_sources:
             noise_param = noise['noise_param']
-            noise_vector = noise['noise_vector'] * 10**(-1 * noise['noise_param'] / 10)
-            ax[0].plot(t, power_(noise_vector), label=f'time domain, param: {noise_param}')
-            ax[1].plot(f, psd_(noise_vector, dt, df), label=f'freq domain, param: {noise_param}')
-        
-        if (display_only_sample): # we only want to remove the sample number if we set it ourselves at the top of the method
-            self._sample_num = None
+            noise_vector = noise['noise_vector'] / noise['noise_param']**0.5 # will make it proportional to those relative vals
+            ax[0].plot(propagator.t, power_(noise_vector), label=f'time domain, param: {noise_param}')
+            ax[1].plot(propagator.f, psd_(noise_vector, propagator.dt, propagator.df), label=f'freq domain, param: {noise_param}')
 
         ax[0].legend()
         ax[1].legend()

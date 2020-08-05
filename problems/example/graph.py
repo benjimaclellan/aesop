@@ -235,7 +235,7 @@ class Graph(GraphParent):
                         # add noise to propagation
                         noise_model = self.edges[edge]['model'].noise_model
                         if (noise_model is not None):
-                            signal = noise_model.add_noise_to_propagation(signal)
+                            signal = noise_model.add_noise_to_propagation(signal, propagator)
 
                         tmp_states += signal
                     else:
@@ -248,7 +248,7 @@ class Graph(GraphParent):
             noise_model = self.nodes[node]['model'].noise_model
             if (noise_model is not None):
                 for i in range(len(states)):
-                    states[i] = noise_model.add_noise_to_propagation(states[i])
+                    states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
 
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
                 self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)

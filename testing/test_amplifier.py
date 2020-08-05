@@ -9,7 +9,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper
 
 
-SKIP_GRAPHICAL_TEST = False
+SKIP_GRAPHICAL_TEST = True
 
 
 @pytest.fixture(scope='function')

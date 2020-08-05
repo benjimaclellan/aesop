@@ -277,6 +277,7 @@ class EDFA(SinglePath):
         self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1]
         super().__init__(**kwargs)
         self._small_signal_gain = None
+        self._all_params = None
 
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
@@ -298,7 +299,7 @@ class EDFA(SinglePath):
         if self._small_signal_gain is None or propagator.n_samples != self._small_signal_gain.shape[0]:
             self._small_signal_gain = self._get_small_signal_gain(propagator)
 
-        params = self._all_params # TODO: maybe refactor this, not the most efficient I think
+        params = self.all_params # TODO: maybe refactor this, not the most efficient I think
 
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
@@ -317,7 +318,7 @@ class EDFA(SinglePath):
 
             Such that, as expected, g(d) = g_min
         """
-        params = self._all_params
+        params = self.all_params
 
         central_freq = propagator.speed_of_light / params['peak_wl']
         lower_freq = propagator.speed_of_light / params['band_upper']
@@ -331,7 +332,7 @@ class EDFA(SinglePath):
         return g * np.exp(-1 * np.power(f, 2) / beta)    
 
     def display_small_signal_gain(self, propagator):
-        params = self._all_params
+        params = self.all_params
         _, ax = plt.subplots()
         gain = self._get_small_signal_gain(propagator)
         ax.plot(propagator.f, np.fft.fftshift(gain, axes=0))
@@ -343,7 +344,7 @@ class EDFA(SinglePath):
         plt.show()
     
     def display_gain(self, states, propagator):
-        params = self._all_params
+        params = self.all_params
         _, ax = plt.subplots()
         for i, state in enumerate(states):
             gain = self._gain(state, propagator)
@@ -358,9 +359,11 @@ class EDFA(SinglePath):
         plt.show() 
 
     @property
-    def _all_params(self):
-        param_dict = {}
-        for (name, val) in zip(self.parameter_names, self.parameters):
-            param_dict[name] = val
+    def all_params(self):
+        if self._all_params is None:
+            param_dict = {}
+            for (name, val) in zip(self.parameter_names, self.parameters):
+                param_dict[name] = val
+            self._all_params = param_dict
         
-        return param_dict
+        return self._all_params
