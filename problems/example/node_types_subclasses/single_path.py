@@ -326,7 +326,7 @@ class EDFA(SinglePath):
         d = np.maximum(central_freq - lower_freq, upper_freq - central_freq)
 
         beta = d**2 / (np.log(10**(params['gain_flatness_dB'] / 10)))
-        f = ifft_shift_(np.abs(propagator.f + propagator.central_frequency) - central_freq) # central freq is the actual center, even though the propagator.f vector is centered at 0
+        f = ifft_shift_(propagator.f + propagator.central_frequency - central_freq) # central freq is the actual center, even though the propagator.f vector is centered at 0
         g = 10**(params['max_small_signal_gain_dB'] / 10)
 
         return g * np.exp(-1 * np.power(f, 2) / beta)    

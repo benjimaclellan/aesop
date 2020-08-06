@@ -60,3 +60,13 @@ def test_propagate(propagator, amp_graph):
 def test_transform_visualisation(propagator, amp_graph):
     amp_graph.propagate(propagator, save_transforms=True)
     amp_graph.visualize_transforms([0, 1, 2], propagator)
+
+@pytest.mark.skip
+def test_gain_flatness():
+    assert False 
+    # TODO: verify that the gain flatness is indeed what I expect
+
+@pytest.mark.skip
+def test_static_vs_obj_runtime_filter():
+    assert False 
+    # TODO: do
