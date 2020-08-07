@@ -5,7 +5,7 @@ from problems.example.assets.propagator import Propagator
 from problems.example.assets.filter import AmplitudeFilter
 
 
-SKIP_GRAPHICAL_TEST = False
+SKIP_GRAPHICAL_TEST = True
 
 
 @pytest.fixture(scope='function')

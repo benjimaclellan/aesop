@@ -2,6 +2,7 @@
 
 """
 import matplotlib.pyplot as plt
+from scipy.constants import Planck, speed_of_light
 
 from pint import UnitRegistry
 unit = UnitRegistry()
@@ -11,6 +12,8 @@ from ..node_types import SinglePath
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_
+from ..assets.additive_noise import AdditiveNoise
+
 
 @register_node_types_all
 class CorningFiber(SinglePath):
@@ -266,24 +269,34 @@ class EDFA(SinglePath):
         self.node_lock = False
 
         self.number_of_parameters = 6
-        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 15, 1.5]
-        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0]
+        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 15, 1.5, 30]
+        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0, 3]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
-        self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1, 1, 0.1] # placeholders, I don't really know
-        self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, None, None] # no dB unit exists in registry
+        self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1, 1, 0.1, 1] # placeholders, I don't really know
+        self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, None, None, None] # no dB unit exists in registry
         self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
-        self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_out_max', 'gain_flatness_dB', 'alpha']
-        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1]
+        self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_out_max', 'gain_flatness_dB', 'alpha', 'max_noise_fig_dB']
+        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1, 5]
         super().__init__(**kwargs)
         self._small_signal_gain = None
         self._all_params = None
+        self.noise_model = AdditiveNoise(noise_type='edfa ASE', edfa=self)
+
 
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
         state = states[0]
+        # ------------ TODO: remove this  blatant break in the system ----------------
+        P_in = np.mean(power_(state))
+        print(f'P_in is this haha {P_in}')
+        if (P_in > self.all_params['P_out_max']):
+            print('hello world?')
+            scaling = np.sqrt(self.all_params / P_in)
+            state = state * scaling
+        # ----------------------------------------------------------------------------
         state_f = fft_(state, propagator.dt)
         gain = self._gain(state, propagator)
 
@@ -292,6 +305,31 @@ class EDFA(SinglePath):
 
         return [ifft_(gain * state_f, propagator.dt)]
     
+    def get_ASE(self, signal_in, propagator):
+        """
+        Returns spectral density of ASE as P_ase = (G * F - 1) * h * v
+
+        (1) https://perso.telecom-paristech.fr/gallion/documents/free_downloads_pdf/PG_revues/PG_R66.pdf
+        (2) http://notes-application.abcelectronique.com/018/18-27242.pdf
+
+        Removed factor of 2 from (1) because our signal does not care about polarization
+
+        Return ASE shape, ASE total power (this is so that the noise is still randomized rather than deterministic)
+        """
+        P_ase = (self._gain(signal_in, propagator) * self._noise_factor(signal_in, propagator) - 1) * Planck * np.abs(propagator.f + propagator.central_frequency)
+        _, ax = plt.subplots(3)
+        ax[0].plot(propagator.f, P_ase)
+        ax[0].title.set_text('P_ase')
+        ax[1].plot(propagator.f, self._gain(signal_in, propagator))
+        ax[1].title.set_text('Gain')
+        ax[2].plot(propagator.f, self._gain(signal_in, propagator) * self._noise_factor(signal_in, propagator) - 1)
+        ax[2].title.set_text('GF - 1')
+        plt.title(f'get ASE method, noise factor: {self._noise_factor(signal_in, propagator)}')
+        plt.show()
+        total_power = np.sum(P_ase)
+
+        return P_ase, total_power
+    
     def _gain(self, state, propagator):
         """
         Gain is defined as in [1], G = g / (1 + (g * P_in / P_max)^alpha), with g = small signal gain, G is true gain
@@ -299,12 +337,25 @@ class EDFA(SinglePath):
         if self._small_signal_gain is None or propagator.n_samples != self._small_signal_gain.shape[0]:
             self._small_signal_gain = self._get_small_signal_gain(propagator)
 
-        params = self.all_params # TODO: maybe refactor this, not the most efficient I think
-
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
-        return self._small_signal_gain / (1 + (self._small_signal_gain * P_in / params['P_out_max'])**params['alpha'])
+        if P_in > self.all_params['P_out_max']:
+            raise ValueError(f"input signal {P_in} is greater than max output signal {self.all_params['P_out_max']}")
+
+        return self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self.all_params['P_out_max'])**self.all_params['alpha'])
     
+    def _noise_factor(self, state, propagator):
+        """
+        TODO: implement fancy noise factor explained here (or decide whether it's worth it: it wouldn't be given by specs)
+        F = F_0 + k1 * exp(k2 (G_0(dB) - G(dB)))
+
+        F = noise factor
+        F_0 = small signal noise factor
+        k1, k2 are exponents. k2 = 0.2, for simplicity, k1 is deduced from the desired 'max' NF (at 3 dB)
+        """
+        NF_max = self.all_params['max_noise_fig_dB']
+        return 10**(NF_max / 10)
+
     def _get_small_signal_gain(self, propagator):
         """
         From above...
@@ -320,9 +371,9 @@ class EDFA(SinglePath):
         """
         params = self.all_params
 
-        central_freq = propagator.speed_of_light / params['peak_wl']
-        lower_freq = propagator.speed_of_light / params['band_upper']
-        upper_freq = propagator.speed_of_light / params['band_lower']
+        central_freq = speed_of_light / params['peak_wl']
+        lower_freq = speed_of_light / params['band_upper']
+        upper_freq = speed_of_light / params['band_lower']
         d = np.maximum(central_freq - lower_freq, upper_freq - central_freq)
 
         beta = d**2 / (np.log(10**(params['gain_flatness_dB'] / 10)))
@@ -347,6 +398,14 @@ class EDFA(SinglePath):
         params = self.all_params
         _, ax = plt.subplots()
         for i, state in enumerate(states):
+            # ------------ TODO: remove this  blatant break in the system ----------------
+            P_in = np.mean(power_(state))
+            if (P_in > self.all_params['P_out_max']):
+                print('hello world?')
+                scaling = np.sqrt(self.all_params / P_in)
+                state = state * scaling
+            # ----------------------------------------------------------------------------
+
             gain = self._gain(state, propagator)
             ax.plot(propagator.f, np.fft.fftshift(gain, axes=0), label=f'power: {np.mean(power_(state))}')
         
@@ -356,8 +415,8 @@ class EDFA(SinglePath):
             \npeak: {params['peak_wl']* 1e9} nm \
             \nband: {params['band_lower'] * 1e9}-{params['band_upper'] * 1e9} nm \
             \ngain flatness: {params['gain_flatness_dB']} dB")
-        plt.show() 
-
+        plt.show()
+    
     @property
     def all_params(self):
         if self._all_params is None:

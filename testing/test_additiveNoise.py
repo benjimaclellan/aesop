@@ -43,7 +43,7 @@ def test_incorrect_noise_type():
     
 
 def test_absolute_noise_power(propagator):
-    noise = AdditiveNoise(noise_param=1, seed=0, noise_type='absolute')
+    noise = AdditiveNoise(noise_param=1, seed=0, noise_type='absolute power')
     signal = np.zeros(propagator.n_samples).reshape((propagator.n_samples, 1))
     noisy_signal = noise.add_noise_to_propagation(signal, propagator)
     assert np.isclose(np.mean(power_(noisy_signal)), 1)
@@ -94,9 +94,9 @@ def test_absolute_vs_relative(signal, propagator):
     noise.display_noise(signal2, propagator=propagator) # noise expected to have 4x larger amplitude
 
     # absolute: test against two input vectors and confirm magnitude doesn't change
-    noise = AdditiveNoise(noise_param=2, seed=0, noise_type='absolute')
+    noise = AdditiveNoise(noise_param=2, seed=0, noise_type='absolute power')
     noise.display_noise(signal, propagator=propagator)
-    noise = AdditiveNoise(noise_param=2, seed=0, noise_type='absolute')
+    noise = AdditiveNoise(noise_param=2, seed=0, noise_type='absolute power')
     noise.display_noise(signal2, propagator=propagator) # noise expected to have same amplitude
 
 
@@ -183,7 +183,7 @@ def test_autograd_convergence(signal, propagator):
     TOTAL_ITERATIONS = 1
 
     grad_sum = np.zeros((signal.shape[0], 1), dtype='complex')
-    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute')
+    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute power')
     noise.add_noise_to_propagation(np.copy(signal), propagator)
 
     for i in range(TOTAL_ITERATIONS):
@@ -210,7 +210,7 @@ def test_autograd_convergence(signal, propagator):
 
 def test_autograd_gain_signal_absolute(propagator):
     signal = np.zeros((propagator.n_samples, 1), dtype='complex')
-    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute')
+    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute power')
     noise.add_noise_to_propagation(signal, propagator)
 
     noise.resample_noise(seed=0)
@@ -234,7 +234,7 @@ def test_autograd_gain_signal_relative(propagator):
     GAIN = 8
 
     signal = np.ones((propagator.n_samples, 1), dtype='complex')
-    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='relative')
+    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='osnr')
     noise.add_noise_to_propagation(signal, propagator)
 
     noise.resample_noise(seed=0)

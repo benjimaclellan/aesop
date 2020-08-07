@@ -1,7 +1,7 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 
-from .functions import fft_, power_, psd_
+from .functions import fft_, ifft_, power_, psd_
 
 """
 TODO: change frequencyrep to be normalized like the matlab code
@@ -17,26 +17,23 @@ class AdditiveNoise():
 
     simulate_with_noise = True
 
-    def __init__(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='relative', noise_on=True, seed=None):
+    def __init__(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr', edfa=None, noise_on=True, seed=None):
         """
         Creates an noise object with the described properties
 
         :param sample_num: number of noise samples to provide (should match sample number of signals to which noise is applied)
         :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (if noise_type='relative', this parameter is OSNR in dB. If absolute, this param is average noise power)
+        :param noise_param: scaling parameter for noise (if noise_type='osnr', this parameter is OSNR in dB. If 'absolute power', this param is average noise power)
         :param noise_filter: None for now
-        :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled 
+        :param noise_type: 'osnr', 'absolute power', or 'edfa ASE'
         :param noise_on: True if the noise of the object is to be applied, False otherwise
                          Note that the noise can also be turned off for the whole class (upon which this variable has no effect)
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
 
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
-                              (3) noise_type is not 'relative' or 'absolute'
+                              (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE'
         """
         self._propagator = None # defined the first time that noise is added to the propagation
-    
-        if (noise_filter is not None):
-            raise ValueError('Noise filter options not yet implemented, object must be None')
         
         self._seed = seed # can't actually seed it now because we have no idea what random calls will come between initialization and the first call to add_noise_to_propagate
     
@@ -44,30 +41,31 @@ class AdditiveNoise():
         self.noise_sources = []
 
         # create noise distribution
-        self.add_noise_source(distribution=distribution, noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type)
+        self.add_noise_source(distribution=distribution, noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type, edfa=edfa)
 
         self.noise_on = noise_on
     
-    def add_noise_source(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='relative'):
+    def add_noise_source(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr', edfa=None):
         """
         Adds a noise source to the AdditiveNoise object (all future calls to add_noise_to_propagation will also include this source)
         WARNING: all noise sources should probably be added at once (and non-concurrently please, this is not threadsafe yet) so that seeding actually makes results predictable
                  We will seed ONCE when initializing the noise sources, so if you have an external random call, might make it harder to track down the precise noise vectors 
 
         :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (if noise_type='relative', this parameter is OSNR in dB. If absolute, this param is std dev of Gaussian)
+        :param noise_param: scaling parameter for noise (if noise_type='osnr', this parameter is OSNR in dB. If 'absolute power', this is the total power of noise. 
+                            If noise_type 'edfa ASE' in internal EDFA params are used
         :param noise_filter: None for now
-        :param noise_type: 'relative' or 'absolute'. If relative, noise is scaled
+        :param noise_type: 'osnr', 'absolute power', 'edfa ASE'
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
     
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
-                              (3) noise_type is not 'relative' or 'absolute'
+                              (3) noise_type is not 'osnr' or 'absolute power' or 'edfa ASE'
         """
         if (distribution != 'gaussian'):
             raise ValueError(f"{distribution} distribution not supported. Only 'gaussian' is supported at this time")
         
-        if (noise_type != 'relative' and noise_type != 'absolute'):
-            raise ValueError('Noise type must be relative or absolute')
+        if (noise_type != 'osnr' and noise_type != 'absolute power' and noise_type != 'edfa ASE'):
+            raise ValueError(f'Noise type must be osnr, absolute power, edfa ASE. {noise_type} is not valid')
         
         if (noise_filter is not None):
             raise ValueError('Noise filter options not yet implemented, object must be None')
@@ -75,14 +73,14 @@ class AdditiveNoise():
         if (self.propagator is not None):
             noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
             mean_noise_power = np.mean(power_(noise))
-            if (noise_type == 'absolute'):
+            if (noise_type == 'absolute power'):
                 noise_scaling = np.sqrt(noise_param / mean_noise_power) # set average power to equal noise_param
-                noise = noise * noise_scaling
+                noise = noise * noise_scaling                
         else:
             noise = None
             mean_noise_power = None
         
-        if (noise_type == 'relative'):
+        if (noise_type == 'osnr'):
             noise_param = 10**(noise_param / 10) # convert OSNR(dB) to OSNR(ratio)
 
         source = {'distribution': distribution,
@@ -92,6 +90,9 @@ class AdditiveNoise():
                   'noise_vector': noise,
                   'mean_noise_power': mean_noise_power
                  }
+        if (noise_type == 'edfa ASE'):
+            source['edfa'] = edfa
+
         self.noise_sources.append(source)
     
     def add_noise_to_propagation(self, signal, propagator):
@@ -111,11 +112,22 @@ class AdditiveNoise():
         mean_signal_power = np.mean(power_(signal))
 
         for noise in self.noise_sources:
-            if noise['noise_type'] == 'relative':
+            if noise['noise_type'] == 'osnr':
                 scaling_factor = (mean_signal_power / noise['mean_noise_power'] / noise['noise_param'])**0.5
                 total_noise = total_noise + noise['noise_vector'] * scaling_factor
-            else:
+            elif noise['noise_type'] == 'absolute power':
                 total_noise = total_noise + noise['noise_vector'] # noise vector already scaled according to noise param
+            elif noise['noise_type'] == 'edfa ASE':
+                ASE_shape, ASE_power = noise['edfa'].get_ASE(signal, propagator)
+                filtered_noise = ifft_(fft_(signal, propagator.dt) * np.sqrt(ASE_shape), propagator.dt) # square root is because we want the shape to be for the power
+                scaling_factor = np.sqrt(ASE_power / power_(filtered_noise))
+                print(f'ASE_power: {ASE_power}')
+                print(f'ASE shape: {ASE_shape}')
+                print(f'filtered power: {power_(filtered_noise)}')
+                print(f'scaling factor: {scaling_factor}')
+                total_noise = total_noise + filtered_noise * scaling_factor
+            else:
+                raise ValueError(f"Noise type {noise['noise_type']} invalid")
 
         return signal + total_noise
     
@@ -140,8 +152,10 @@ class AdditiveNoise():
 
         for noise_source in self.noise_sources:
             noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
+            if noise_source['filter'] is not None:
+                noise = noise_source['filter'].get_filtered_time(noise)
             mean_noise_power = np.mean(power_(noise))
-            if (noise_source['noise_type'] == 'absolute'):
+            if (noise_source['noise_type'] == 'absolute power'):
                 noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param
                 noise = noise * noise_scaling
             noise_source['noise_vector'] = noise
@@ -207,7 +221,7 @@ class AdditiveNoise():
         """
         Displays plots the power of individual noise contributions in the time and frequency domains
 
-        Since no input vector is provided, outputs are displayed as if all noise source options were absolute
+        Since no input vector is provided, outputs are displayed as if all noise source options were absolute power
 
         Raises exception if propagator is None
         """
