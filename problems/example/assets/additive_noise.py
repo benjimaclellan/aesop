@@ -118,13 +118,9 @@ class AdditiveNoise():
             elif noise['noise_type'] == 'absolute power':
                 total_noise = total_noise + noise['noise_vector'] # noise vector already scaled according to noise param
             elif noise['noise_type'] == 'edfa ASE':
-                ASE_shape, ASE_power = noise['edfa'].get_ASE(signal, propagator)
-                filtered_noise = ifft_(fft_(signal, propagator.dt) * np.sqrt(ASE_shape), propagator.dt) # square root is because we want the shape to be for the power
-                scaling_factor = np.sqrt(ASE_power / power_(filtered_noise))
-                print(f'ASE_power: {ASE_power}')
-                print(f'ASE shape: {ASE_shape}')
-                print(f'filtered power: {power_(filtered_noise)}')
-                print(f'scaling factor: {scaling_factor}')
+                ASE_shape, ASE_power = noise['edfa'].get_ASE(propagator)
+                filtered_noise = ifft_(fft_(noise['noise_vector'], propagator.dt) * np.sqrt(ASE_shape), propagator.dt) # square root is because we want the shape to be for the power
+                scaling_factor = np.sqrt(ASE_power / np.mean(power_(filtered_noise)))
                 total_noise = total_noise + filtered_noise * scaling_factor
             else:
                 raise ValueError(f"Noise type {noise['noise_type']} invalid")

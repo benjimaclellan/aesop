@@ -283,30 +283,30 @@ class EDFA(SinglePath):
         self._all_params = None
         self.noise_model = AdditiveNoise(noise_type='edfa ASE', edfa=self)
 
+        # save for noise propagation
+        self._last_gain = None
+        self._last_noise_factor = None
+
 
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
         state = states[0]
-        # ------------ TODO: remove this  blatant break in the system ----------------
-        P_in = np.mean(power_(state))
-        print(f'P_in is this haha {P_in}')
-        if (P_in > self.all_params['P_out_max']):
-            print('hello world?')
-            scaling = np.sqrt(self.all_params / P_in)
-            state = state * scaling
-        # ----------------------------------------------------------------------------
+
         state_f = fft_(state, propagator.dt)
+
         gain = self._gain(state, propagator)
+        _ = self._noise_factor(state, propagator) # saves it for the noise call
 
         if save_transforms:
             self.transform = (('f', 10 * np.log(ifft_shift_(gain)), 'gain (dB)'),)
 
         return [ifft_(gain * state_f, propagator.dt)]
     
-    def get_ASE(self, signal_in, propagator):
+    def get_ASE(self, propagator):
         """
+        NOTE: this method must be called after the corresponding propagate call. 
         Returns spectral density of ASE as P_ase = (G * F - 1) * h * v
 
         (1) https://perso.telecom-paristech.fr/gallion/documents/free_downloads_pdf/PG_revues/PG_R66.pdf
@@ -316,17 +316,8 @@ class EDFA(SinglePath):
 
         Return ASE shape, ASE total power (this is so that the noise is still randomized rather than deterministic)
         """
-        P_ase = (self._gain(signal_in, propagator) * self._noise_factor(signal_in, propagator) - 1) * Planck * np.abs(propagator.f + propagator.central_frequency)
-        _, ax = plt.subplots(3)
-        ax[0].plot(propagator.f, P_ase)
-        ax[0].title.set_text('P_ase')
-        ax[1].plot(propagator.f, self._gain(signal_in, propagator))
-        ax[1].title.set_text('Gain')
-        ax[2].plot(propagator.f, self._gain(signal_in, propagator) * self._noise_factor(signal_in, propagator) - 1)
-        ax[2].title.set_text('GF - 1')
-        plt.title(f'get ASE method, noise factor: {self._noise_factor(signal_in, propagator)}')
-        plt.show()
-        total_power = np.sum(P_ase)
+        P_ase = (self._last_gain * self._last_noise_factor - 1) * Planck * np.abs(propagator.f + propagator.central_frequency)
+        total_power = np.sum(P_ase) * propagator.df
 
         return P_ase, total_power
     
@@ -342,7 +333,9 @@ class EDFA(SinglePath):
         if P_in > self.all_params['P_out_max']:
             raise ValueError(f"input signal {P_in} is greater than max output signal {self.all_params['P_out_max']}")
 
-        return self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self.all_params['P_out_max'])**self.all_params['alpha'])
+        self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self.all_params['P_out_max'])**self.all_params['alpha'])
+
+        return self._last_gain
     
     def _noise_factor(self, state, propagator):
         """
@@ -354,7 +347,8 @@ class EDFA(SinglePath):
         k1, k2 are exponents. k2 = 0.2, for simplicity, k1 is deduced from the desired 'max' NF (at 3 dB)
         """
         NF_max = self.all_params['max_noise_fig_dB']
-        return 10**(NF_max / 10)
+        self._last_noise_factor = 10**(NF_max / 10)
+        return self._last_noise_factor
 
     def _get_small_signal_gain(self, propagator):
         """
@@ -397,15 +391,7 @@ class EDFA(SinglePath):
     def display_gain(self, states, propagator):
         params = self.all_params
         _, ax = plt.subplots()
-        for i, state in enumerate(states):
-            # ------------ TODO: remove this  blatant break in the system ----------------
-            P_in = np.mean(power_(state))
-            if (P_in > self.all_params['P_out_max']):
-                print('hello world?')
-                scaling = np.sqrt(self.all_params / P_in)
-                state = state * scaling
-            # ----------------------------------------------------------------------------
-
+        for _, state in enumerate(states):
             gain = self._gain(state, propagator)
             ax.plot(propagator.f, np.fft.fftshift(gain, axes=0), label=f'power: {np.mean(power_(state))}')
         
