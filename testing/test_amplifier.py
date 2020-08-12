@@ -10,10 +10,11 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper
 
-from problems.example.assets.functions import power_, ifft_shift_
+from problems.example.assets.functions import power_, ifft_shift_, fft_
 
+# TODO: figure out why noise levels seem too low?
 
-SKIP_GRAPHICAL_TEST = True
+SKIP_GRAPHICAL_TEST = False
 
 def get_amp_graph(**kwargs):
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
@@ -51,8 +52,8 @@ def test_small_signal(propagator, edfa):
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_gain(propagator, edfa):
     states = []
-    for i in range(-9, -1):
-        states.append(np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 10**(i/2))
+    for i in range(-9, -2):
+        states.append(np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 10**(i/2.1))
     edfa.display_gain(states, propagator)
 
 
@@ -60,7 +61,6 @@ def test_gain(propagator, edfa):
 def test_propagate(propagator, amp_graph):
     amp_graph.propagate(propagator)
     amp_graph.inspect_state(propagator)
-    assert False
 
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
@@ -69,7 +69,7 @@ def test_transform_visualisation(propagator, amp_graph):
     amp_graph.visualize_transforms([0, 1, 2], propagator)
 
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_gain_flatness(edfa, propagator):
     # max diff in dB should be 1.5 dB, i.e. from 1000 to x = 10^(-1.5/10) * 1000 = 707.9
     # corresponds to EDFA default params
@@ -165,7 +165,7 @@ def test_increasing_noise_figures(propagator):
     plt.show()
 
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_increasing_power_max(propagator):
     # test with increasing max power, and confirm that ASE increases with noise figure
     # larger P_max => larger gain => greater ASE
@@ -179,6 +179,21 @@ def test_increasing_power_max(propagator):
         ax.plot(propagator.t, power_(output), label=f'P_out_max {i} W')
     ax.legend()
     plt.title('ASE noise, by max output power')
+    plt.show()
+
+
+def test_dB_plots(propagator):
+    edfa_params = {'max_noise_fig_dB': 3.5, 'max_small_signal_gain_dB': 40, 'P_out_max':1}
+    graph = get_amp_graph(**edfa_params)
+    ASE = graph.get_output_noise(propagator, save_transforms=True)
+    gain = graph.nodes[1]['model'].transform[0][1] # nab the transform, which is gain
+
+    _, ax = plt.subplots()
+    ax.plot(propagator.f, 10 * np.log10(np.fft.fftshift(fft_(ASE, propagator.dt))), label='ASE')
+    ax.plot(propagator.f, gain, label='gain')
+    ax.legend()
+
+    plt.title(f'ASE and gain, with max noise fig 3.5, max small signal gain 40')
     plt.show()
 
 

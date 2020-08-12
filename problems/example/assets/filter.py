@@ -109,6 +109,8 @@ class AmplitudeFilter():
     def get_filter(propagator, shape='exponential of square', **shape_params):
         if shape == 'exponential of square':
             return AmplitudeFilter._exp_of_square(propagator, **shape_params)
+        elif shape == '3dB_lowpass':
+            return AmplitudeFilter._3dB_lowpass(propagator, **shape_params)
         elif shape == 'gaussian':
             return AmplitudeFilter._gaussian(propagator, **shape_params)
         elif shape == 'longpass':
@@ -148,5 +150,8 @@ class AmplitudeFilter():
         # return AmplitudeFilter._longpass(propagator, transition_wl=transition_wl_small, slope=slope) * \
         #        AmplitudeFilter._shortpass(propagator, transition_wl=transition_wl_large, slope=slope)
     
+    @staticmethod
+    def _3dB_lowpass(propagator, transition_f=1e9):
+        pass
 
 

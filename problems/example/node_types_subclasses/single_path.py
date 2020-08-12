@@ -269,15 +269,15 @@ class EDFA(SinglePath):
         self.node_lock = False
 
         self.number_of_parameters = 6
-        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 15, 1.5, 30]
-        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0, 3]
+        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 10, 15, 1.5, 30]
+        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0, 0, 3]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
-        self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1, 1, 0.1, 1] # placeholders, I don't really know
-        self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, None, None, None] # no dB unit exists in registry
+        self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
+        self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, unit.W, None, None, None] # no dB unit exists in registry
         self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
-        self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_out_max', 'gain_flatness_dB', 'alpha', 'max_noise_fig_dB']
-        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.1, 1.5, 1, 5]
+        self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_in_max', 'P_out_max', 'gain_flatness_dB', 'alpha', 'max_noise_fig_dB']
+        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1, 5]
         super().__init__(**kwargs)
         self._small_signal_gain = None
         self._all_params = None
@@ -300,7 +300,7 @@ class EDFA(SinglePath):
         _ = self._noise_factor(state, propagator) # saves it for the noise call
 
         if save_transforms:
-            self.transform = (('f', 10 * np.log(ifft_shift_(gain)), 'gain (dB)'),)
+            self.transform = (('f', 10 * np.log10(ifft_shift_(gain)), 'gain (dB)'),)
 
         return [ifft_(gain * state_f, propagator.dt)]
     
@@ -311,6 +311,9 @@ class EDFA(SinglePath):
 
         (1) https://perso.telecom-paristech.fr/gallion/documents/free_downloads_pdf/PG_revues/PG_R66.pdf
         (2) http://notes-application.abcelectronique.com/018/18-27242.pdf
+        (3) https://www.hft.tu-berlin.de/fileadmin/fg154/ONT/Skript/ENG-Ver/EDFA.pdf
+
+        Note that we want to take into account the bandwidth only of the detector used to characterise
 
         Removed factor of 2 from (1) because our signal does not care about polarization
 
@@ -330,7 +333,7 @@ class EDFA(SinglePath):
 
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
-        if P_in > self.all_params['P_out_max']:
+        if P_in > self.all_params['P_in_max']:
             raise ValueError(f"input signal {P_in} is greater than max output signal {self.all_params['P_out_max']}")
 
         self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self.all_params['P_out_max'])**self.all_params['alpha'])
@@ -402,13 +405,3 @@ class EDFA(SinglePath):
             \nband: {params['band_lower'] * 1e9}-{params['band_upper'] * 1e9} nm \
             \ngain flatness: {params['gain_flatness_dB']} dB")
         plt.show()
-    
-    @property
-    def all_params(self):
-        if self._all_params is None:
-            param_dict = {}
-            for (name, val) in zip(self.parameter_names, self.parameters):
-                param_dict[name] = val
-            self._all_params = param_dict
-        
-        return self._all_params
