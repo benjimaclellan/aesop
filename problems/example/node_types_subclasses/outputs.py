@@ -11,6 +11,7 @@ from ..node_types import Output
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, power_
+from problems.example.assets.filter import Filter
 
 @register_node_types_all
 class MeasurementDevice(Output):
@@ -53,6 +54,9 @@ class Photodiode(Output):
     https://www.thorlabs.com/newgrouppage9.cfm?objectgroup_id=285 (for the bandwidth getting methods)
     """
     def __init__(self, **kwargs):
+        """
+        Uses butterworth filter of provided degree
+        """
         self.node_lock = True
 
         self.number_of_parameters = 6
@@ -66,8 +70,11 @@ class Photodiode(Output):
         self.parameter_imprecisions = [None] * self.number_of_parameters
         self.parameter_units = [unit.A / unit.W, unit.Hz, None, unit.A, unit.W, unit.ohm]
         self.parameter_locks = [True] * self.number_of_parameters
-        self.parameter_names = ['responsivity', 'bandwith', 'bandwidth shape', 'max_photocurrent', 'max_power_in', 'load_resistance']
-        self.default_parameters = [0.5, 100e9, '3dB_lowpass', 3e-3, 40e-3, 50] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
+        self.parameter_names = ['responsivity', 'bandwidth', 'filter_order', 'max_photocurrent', 'max_power_in', 'load_resistance']
+        self.default_parameters = [0.5, 100e9, 2, 3e-3, 40e-3, 50] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
+
+        super().__init__(**kwargs)
+        self.filter = Filter(shape='butterworth lowpass', transition_f=self.all_params['bandwidth'], dc_gain=1, order=self.all_params['filter_order'])
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
         """
@@ -79,8 +86,9 @@ class Photodiode(Output):
         
         power_in = power_(state) # ok so this is the power input 
         voltage = self.all_params['responsivity'] * power_in * self.all_params['load_resistance']
-        
-        # TODO: apply electronic bandwidth
+        voltage = self.filter.get_filtered_time(voltage, propagator)
+
+        # TODO: implement save_transforms
 
         return [voltage]
 

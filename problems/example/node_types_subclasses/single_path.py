@@ -280,7 +280,6 @@ class EDFA(SinglePath):
         self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1, 5]
         super().__init__(**kwargs)
         self._small_signal_gain = None
-        self._all_params = None
         self.noise_model = AdditiveNoise(noise_type='edfa ASE', edfa=self)
 
         # save for noise propagation

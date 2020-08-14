@@ -7,7 +7,7 @@ from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper
 
 from problems.example.assets.functions import power_, ifft_shift_, fft_
@@ -184,3 +184,35 @@ def test_noise_figure_consistent(edfa, propagator):
     # 1. Get ASE power
     # 2. Check that F(v) = P_ase / (hvG) + 1 / G, with P_ase being spectral density of ASE is approx valid (plot both)
     pass
+
+# -------------------------------- Testing Photodiode -----------------------------------------
+
+def get_laser_photodiode_graph(**kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: Photodiode(parameters_from_name=kwargs)
+            }
+
+    edges = [(0, 1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+
+@pytest.fixture(scope='function')
+def photodiode():
+    return Photodiode()
+
+
+@pytest.fixture(scope='function')
+def photodiode_graph():
+    return get_laser_photodiode_graph()
+
+
+def test_photodiode_basic(propagator, photodiode_graph):
+    # tests the original graph with laser noise  enabled
+    photodiode_graph.propagate(propagator)
+    photodiode_graph.inspect_state(propagator, freq_log_scale=True)
+    photodiode_graph.display_noise_contributions(propagator, node=0) # after laser, unfiltered by photodiode
+    photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
+
