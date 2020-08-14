@@ -196,11 +196,12 @@ class Graph(GraphParent):
     def display_noise_contributions(self, propagator, node=None):
         noisy = self.get_output_signal(propagator, node=node)
         noiseless = self.get_output_signal_pure(propagator, node=node)
+        noise = self.get_output_noise(propagator, node=node)
         fig, ax = plt.subplots(2, 1)
         linestyles = ['-', ':', ':']
         labels = ['noisy', 'noiseless', 'noise']
         noisy_max = np.max(psd_(noisy, propagator.dt, propagator.df))
-        for (state, line, label) in zip([noisy, noiseless, noisy - noiseless], linestyles, labels):
+        for (state, line, label) in zip([noisy, noiseless, noise], linestyles, labels):
             ax[0].plot(propagator.t, power_(state), ls=line, label=label)
             psd = psd_(state, propagator.dt, propagator.df)
             ax[1].plot(propagator.f, 10 * np.log10(psd/noisy_max), ls=line, label=label)

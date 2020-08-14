@@ -8,7 +8,7 @@ TODO: compare the object based method execution speed (Averaged) against the sta
 TODO: consider using the matlab bandpass rather than the sigmoids
 """
 
-class AmplitudeFilter():
+class Filter():
     """
     AmplitudeFilter class: supports both static methods and an object which can save presets
     Applies amplitude filter to input vectors. Note that the filter is always normalized to one (for now)
@@ -18,11 +18,11 @@ class AmplitudeFilter():
     Resources:
     https://www.edmundoptics.com/knowledge-center/application-notes/optics/optical-filters/
     """
-    def __init__(self, shape='exponential of square', **shape_params):
+    def __init__(self, shape='butterworth lowpass', **shape_params):
         """
         Initializes amplitude only filter with a given parametrised shape.
 
-        :param shape: 'exponential of square', 'gaussian', 'longpass', 'bandpass', 'shortpass'
+        :param shape: 'exponential of square', 'gaussian', 'longpass', 'bandpass', 'shortpass', 'butterworth lowpass'
         :param **shape_params: any parameters required for the shape
             exponential of square: f(x) = exp(-f^2/beta), shape_params = central_wl_rel, FWHM
             gaussian: shape_params = central_wl_rel (i.e. c / mean_freq), std_dev_wl
@@ -55,13 +55,18 @@ class AmplitudeFilter():
         return ifft_(output, propagator.dt)
     
     def display_filter(self, propagator):
-        _, ax = plt.subplots()
+        _, ax = plt.subplots(2, 1)
         
         if self.propagator is None or self.propagator is not propagator:
             self.propagator = propagator
     
-        ax.plot(propagator.f + propagator.central_frequency, ifft_shift_(self.filter))
-        plt.xlabel('Frequency (Hz)')
+        ax[0].plot(propagator.f, ifft_shift_(np.abs(self.filter)))
+        ax[0].set_xlabel('Frequency (Hz)')
+        ax[0].set_ylabel('Filter amplitude')
+
+        ax[1].plot(propagator.f, ifft_shift_(np.angle(self.filter)))
+        ax[1].set_xlabel('Frequency (Hz)')
+        ax[1].set_ylabel('Filter phase')
         plt.title(f'Filter {self.shape}')
         plt.show()
     
@@ -72,8 +77,8 @@ class AmplitudeFilter():
         _, ax = plt.subplots(2, 1)
         ax[0].plot(propagator.t, state, label='unfiltered')
         ax[0].plot(propagator.t, filtered_time, label='filtered')
-        ax[1].plot(propagator.f + propagator.central_frequency, fft_(state, propagator.dt), label='unfiltered')
-        ax[1].plot(propagator.f + propagator.central_frequency, ifft_shift_(filtered_freq), label='filtered')
+        ax[1].plot(propagator.f, fft_(state, propagator.dt), label='unfiltered')
+        ax[1].plot(propagator.f, ifft_shift_(filtered_freq), label='filtered')
         ax[0].set_xlabel('time (s)')
         ax[1].set_ylabel('frequency (Hz)')
         plt.title(f'Filter {self.shape}')
@@ -91,34 +96,34 @@ class AmplitudeFilter():
     @property
     def filter(self):
         if self._filter is None:
-            self._filter = AmplitudeFilter.get_filter(self.propagator, self.shape, **self.shape_params)
+            self._filter = Filter.get_filter(self.propagator, self.shape, **self.shape_params)
         
         return self._filter
     
     @staticmethod
     def get_filtered_freq_static(state_rf, propagator, shape='exponential of square', **shape_params):
-        return state_rf * AmplitudeFilter.get_filter(propagator, shape=shape, **shape_params)
+        return state_rf * Filter.get_filter(propagator, shape=shape, **shape_params)
 
     @staticmethod
     def get_filtered_time_static(state, propagator, shape='exponential of square', **shape_params):
         state_rf = fft_(state, propagator.dt)
-        output = state_rf * AmplitudeFilter.get_filter(propagator, shape=shape, **shape_params)
+        output = state_rf * Filter.get_filter(propagator, shape=shape, **shape_params)
         return ifft_(output, propagator.dt)
 
     @staticmethod
-    def get_filter(propagator, shape='exponential of square', **shape_params):
+    def get_filter(propagator, shape='butterworth lowpass', **shape_params):
         if shape == 'exponential of square':
-            return AmplitudeFilter._exp_of_square(propagator, **shape_params)
-        elif shape == '3dB_lowpass':
-            return AmplitudeFilter._3dB_lowpass(propagator, **shape_params)
+            return Filter._exp_of_square(propagator, **shape_params)
+        elif shape == 'butterworth lowpass':
+            return Filter._butterworth_lowpass(propagator, **shape_params)
         elif shape == 'gaussian':
-            return AmplitudeFilter._gaussian(propagator, **shape_params)
+            return Filter._gaussian(propagator, **shape_params)
         elif shape == 'longpass':
-            return AmplitudeFilter._longpass(propagator, **shape_params)
+            return Filter._longpass(propagator, **shape_params)
         elif shape == 'shortpass':
-            return AmplitudeFilter._shortpass(propagator, **shape_params)
+            return Filter._shortpass(propagator, **shape_params)
         elif shape == 'bandpass':
-            return AmplitudeFilter._bandpass(propagator, **shape_params)
+            return Filter._bandpass(propagator, **shape_params)
         else:
             raise ValueError(f'{shape} filter type not implemented!')
 
@@ -147,11 +152,28 @@ class AmplitudeFilter():
     @staticmethod
     def _bandpass(propagator, transition_wl_small=-20e-9, transition_wl_large=20e-9, slope=15e-9):
         raise ValueError('bandpass not yet implemented')
-        # return AmplitudeFilter._longpass(propagator, transition_wl=transition_wl_small, slope=slope) * \
-        #        AmplitudeFilter._shortpass(propagator, transition_wl=transition_wl_large, slope=slope)
     
     @staticmethod
-    def _3dB_lowpass(propagator, transition_f=1e9):
-        pass
+    def _butterworth_lowpass(propagator, transition_f=1e9, dc_gain=1, order=2):
+        return ifft_shift_(dc_gain / Filter._butterworth_polynomial(1j * propagator.f / transition_f, order))
+    
+    @staticmethod
+    def _butterworth_polynomial(s, n):
+        if n < 0:
+            raise ValueError(f'Order of the polynomial >= 0, cannot be {n}')
+        
+        product = 1
+        max_num = n // 2
+        if n % 2 != 0:
+            product = s + 1
+            max_num = (n - 1) // 2
+        
+        for k in range(1, max_num + 1):
+            product = product * (s**2 - 2 * s * np.cos((2 * k + n - 1) / (2 * n) * np.pi) + 1)
+        
+        return product
+
+
+
 
 

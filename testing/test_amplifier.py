@@ -12,9 +12,9 @@ from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper
 
 from problems.example.assets.functions import power_, ifft_shift_, fft_
 
-# TODO: figure out why noise levels seem too low?
+# TODO: figure out why noise levels seem too low? WATCH OUT FOR NORMALIZATION!!
 
-SKIP_GRAPHICAL_TEST = False
+SKIP_GRAPHICAL_TEST = True
 
 def get_amp_graph(**kwargs):
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
@@ -28,6 +28,7 @@ def get_amp_graph(**kwargs):
     graph = Graph(nodes, edges, propagate_on_edges=True)
     graph.assert_number_of_edges()
     return graph
+
 
 @pytest.fixture(scope='function')
 def propagator():
@@ -46,11 +47,12 @@ def amp_graph():
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_small_signal(propagator, edfa):
-    edfa.display_small_signal_gain(propagator)
+    edfa.display_small_signal_gain()
 
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_gain(propagator, edfa):
+    # gain is flat across frequencies, because the carrier frequency does not change
     states = []
     for i in range(-9, -2):
         states.append(np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 10**(i/2.1))
@@ -60,36 +62,13 @@ def test_gain(propagator, edfa):
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_propagate(propagator, amp_graph):
     amp_graph.propagate(propagator)
-    amp_graph.inspect_state(propagator)
+    amp_graph.inspect_state(propagator, freq_log_scale=True)
 
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_transform_visualisation(propagator, amp_graph):
     amp_graph.propagate(propagator, save_transforms=True)
     amp_graph.visualize_transforms([0, 1, 2], propagator)
-
-
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
-def test_gain_flatness(edfa, propagator):
-    # max diff in dB should be 1.5 dB, i.e. from 1000 to x = 10^(-1.5/10) * 1000 = 707.9
-    # corresponds to EDFA default params
-    peak_freq = speed_of_light / 1550e-9
-    freq_low = speed_of_light / 1565e-9
-    freq_high = speed_of_light / 1520e-9
-
-    small_signal = ifft_shift_(edfa._get_small_signal_gain(propagator))
-    line0_x = np.array([freq_low - propagator.central_frequency, freq_low - propagator.central_frequency])
-    line1_x = np.array([freq_high - propagator.central_frequency, freq_high - propagator.central_frequency])
-    line2_x = np.array([peak_freq - propagator.central_frequency, peak_freq - propagator.central_frequency])
-    line_y = [0, 1000]
-
-    _, ax = plt.subplots()
-    ax.plot(propagator.f, small_signal)
-    ax.plot(line0_x, line_y)
-    ax.plot(line1_x, line_y)
-    ax.plot(line2_x, line_y)
-    plt.title('Small signal gain, with lines at the band edges')
-    plt.show()
 
 
 @pytest.mark.skip
@@ -117,6 +96,8 @@ def test_noise_basic1(propagator):
     graph.propagate(propagator)
     graph.inspect_state(propagator)
     graph.display_noise_contributions(propagator)
+
+
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_increasing_noise_small_gain(propagator):
@@ -182,6 +163,7 @@ def test_increasing_power_max(propagator):
     plt.show()
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_dB_plots(propagator):
     edfa_params = {'max_noise_fig_dB': 3.5, 'max_small_signal_gain_dB': 40, 'P_out_max':1}
     graph = get_amp_graph(**edfa_params)
