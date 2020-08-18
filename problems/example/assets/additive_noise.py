@@ -1,5 +1,6 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
+from scipy.constants import elementary_charge
 
 from .functions import fft_, ifft_, power_, psd_
 
@@ -66,9 +67,9 @@ class AdditiveNoise():
         
         if (noise_type != 'osnr' and noise_type != 'absolute power' and noise_type != 'edfa ASE' and noise_type != 'rms constant' and noise_type != 'shot'):
             raise ValueError(f'Noise type must be osnr, absolute power, edfa ASE, rms constant, shot. {noise_type} is not valid')
-        
-        if (noise_filter is not None):
-            raise ValueError('Noise filter options not yet implemented, object must be None')
+
+        if (noise_type == 'shot' and noise_filter is None):
+            raise ValueError(f'Shot noise requires noise filter')
 
         if (self.propagator is not None):
             noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
@@ -91,7 +92,8 @@ class AdditiveNoise():
                   'filter' : noise_filter,
                   'noise_type': noise_type,
                   'noise_vector': noise,
-                  'mean_noise_power': mean_noise_power
+                  'mean_noise_power': mean_noise_power,
+                  'filter': noise_filter
                  }
         if (noise_type == 'edfa ASE'):
             source['edfa'] = edfa
@@ -119,10 +121,28 @@ class AdditiveNoise():
                 scaling_factor = (mean_signal_power / noise['mean_noise_power'] / noise['noise_param'])**0.5
                 total_noise = total_noise + noise['noise_vector'] * scaling_factor
             elif noise['noise_type'] == 'absolute power' or noise['noise_type'] == 'rms constant':
+                print(f"rms constant (or maybe abs power...) noise power: {np.mean(power_(noise['noise_vector']))}")
                 total_noise = total_noise + noise['noise_vector'] # noise vector already scaled according to noise param
             elif noise['noise_type'] == 'shot': # v_rms^2 = 2qBR^2(I_d + I_p), I_rms^2 = 2qB(I_d + I_p)
-                scaling_factor = np.sqrt((noise['noise_param'][0] * (np.mean(signal) + noise['noise_param'][1])) / mean_signal_power)
-                total_noise = total_noise + noise['noise_vector'] * scaling_factor
+                # simulation technique 1: correct power but mayhaps incorrect noise distribution
+                noise_vector = noise['filter'].get_filtered_time(noise['noise_vector'], propagator)
+                scaling_factor = np.sqrt((noise['noise_param'][0] * np.mean(np.abs(signal)) + noise['noise_param'][1]) / np.mean(power_(noise_vector)))
+                total_noise = total_noise + noise_vector * scaling_factor
+                # for debugging only
+                print(f'average shot noise power: {np.mean(power_(noise_vector * scaling_factor))}')
+                psd_new_noise = psd_(noise_vector * scaling_factor, propagator.dt, propagator.df)
+                print(f'psd: {psd_new_noise}')
+                print(f'psd max: {np.max(psd_new_noise)}')
+                _, ax = plt.subplots()
+                ax.plot(propagator.f, psd_new_noise)
+
+                # simulation technique 2: seems better for noise distribution shape, but somehow total power is far off
+                # fft_filter =  np.sqrt(propagator.df * (noise['noise_param'][0] * np.mean(np.abs(signal)) + noise['noise_param'][1]) * noise['filter'].filter)
+                # filtered_noise = ifft_(fft_filter * fft_(noise['noise_vector'], propagator.dt), propagator.dt)
+                # print(f'filtered noise \n: {filtered_noise}')
+                # print(f'mean signal voltage: {np.mean(np.abs(signal))}')
+                # print(f'filtered noise average power: {np.mean(power_(filtered_noise))}')
+                # total_noise = total_noise + filtered_noise
             elif noise['noise_type'] == 'edfa ASE':
                 ASE_power = noise['edfa'].get_ASE(propagator)
                 scaling_factor = np.sqrt(ASE_power / np.mean(power_(noise['noise_vector'])))
@@ -154,7 +174,7 @@ class AdditiveNoise():
         for noise_source in self.noise_sources:
             noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
             if noise_source['filter'] is not None:
-                noise = noise_source['filter'].get_filtered_time(noise)
+                noise = noise_source['filter'].get_filtered_time(noise, self.propagator)
             mean_noise_power = np.mean(power_(noise))
             if (noise_source['noise_type'] == 'absolute power'):
                 noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param

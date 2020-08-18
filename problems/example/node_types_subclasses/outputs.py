@@ -83,12 +83,17 @@ class Photodiode(Output):
         self.filter = Filter(shape='butterworth lowpass', transition_f=self.all_params['bandwidth'], dc_gain=1, order=self.all_params['filter_order'])
 
         # noise applies onto voltage (could also add it to current, but chose not to)
+        
         # Johnson noise = sqrt(4kTBR), from: https://www.thorlabs.com/images/TabImages/Photodetector_Lab.pdf
         self.noise_model = AdditiveNoise(noise_type='rms constant',
                                          noise_param=np.sqrt(4 * Boltzmann * self.all_params['temp_K'] * \
                                                              self.all_params['bandwidth'] * self.all_params['load_resistance'])) # Johnson noise, assumed to be white and Gaussian
-        self.noise_model.add_noise_source(noise_type='shot', # slope of shot noise is 2qBR^2
-                                          noise_param=(2 * elementary_charge * self.all_params['bandwidth'] * self.all_params['load_resistance']**2, self.all_params['dark_current']))
+        slope_shot = 2 * elementary_charge * self.all_params['bandwidth'] * self.all_params['load_resistance']**2
+        # slope_shot = elementary_charge * self.all_params['load_resistance']**2
+        # electronic shot noise
+        self.noise_model.add_noise_source(noise_type='shot', # slope of shot noise is 2qBR^2 with respect to mean current
+                                          noise_filter=self.filter,
+                                          noise_param=(slope_shot / self.all_params['load_resistance'], slope_shot * self.all_params['dark_current']))
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
         """
