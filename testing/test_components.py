@@ -210,7 +210,16 @@ def photodiode_graph():
 
 
 def test_photodiode_basic(propagator, photodiode_graph):
-    # tests the original graph with laser noise  enabled
+    # tests the original graph with laser noise enabled
+    photodiode_graph.propagate(propagator)
+    photodiode_graph.inspect_state(propagator, freq_log_scale=True)
+    photodiode_graph.display_noise_contributions(propagator, node=0) # after laser, unfiltered by photodiode
+    photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
+
+
+def test_photodiode_no_input_noise(propagator, photodiode_graph):
+    # tests the original graph with laser noise enabled
+    photodiode_graph.nodes[0]['model'].noise_model.noise_on = False
     photodiode_graph.propagate(propagator)
     photodiode_graph.inspect_state(propagator, freq_log_scale=True)
     photodiode_graph.display_noise_contributions(propagator, node=0) # after laser, unfiltered by photodiode

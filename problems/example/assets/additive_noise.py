@@ -31,7 +31,7 @@ class AdditiveNoise():
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
 
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
-                              (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE'
+                              (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms constant', 'shot'
         """
         self._propagator = None # defined the first time that noise is added to the propagation
         
@@ -55,17 +55,17 @@ class AdditiveNoise():
         :param noise_param: scaling parameter for noise (if noise_type='osnr', this parameter is OSNR in dB. If 'absolute power', this is the total power of noise. 
                             If noise_type 'edfa ASE' in internal EDFA params are used
         :param noise_filter: None for now
-        :param noise_type: 'osnr', 'absolute power', 'edfa ASE'
+        :param noise_type: 'osnr', 'absolute power', 'edfa ASE', 'rms constant', 'shot'
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
     
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
-                              (3) noise_type is not 'osnr' or 'absolute power' or 'edfa ASE'
+                              (3) noise_type is not 'osnr' or 'absolute power' or 'edfa ASE' or 'rms constant' or 'shot'
         """
         if (distribution != 'gaussian'):
             raise ValueError(f"{distribution} distribution not supported. Only 'gaussian' is supported at this time")
         
-        if (noise_type != 'osnr' and noise_type != 'absolute power' and noise_type != 'edfa ASE'):
-            raise ValueError(f'Noise type must be osnr, absolute power, edfa ASE. {noise_type} is not valid')
+        if (noise_type != 'osnr' and noise_type != 'absolute power' and noise_type != 'edfa ASE' and noise_type != 'rms constant' and noise_type != 'shot'):
+            raise ValueError(f'Noise type must be osnr, absolute power, edfa ASE, rms constant, shot. {noise_type} is not valid')
         
         if (noise_filter is not None):
             raise ValueError('Noise filter options not yet implemented, object must be None')
@@ -75,7 +75,10 @@ class AdditiveNoise():
             mean_noise_power = np.mean(power_(noise))
             if (noise_type == 'absolute power'):
                 noise_scaling = np.sqrt(noise_param / mean_noise_power) # set average power to equal noise_param
-                noise = noise * noise_scaling                
+                noise = noise * noise_scaling
+            if (noise_type == 'rms constant'):
+                noise_scaling = noise_param / np.sqrt(mean_noise_power) # technically mean noise power here is voltage squared but whatever, it works out mathematically
+                noise = noise * noise_scaling         
         else:
             noise = None
             mean_noise_power = None
@@ -115,8 +118,11 @@ class AdditiveNoise():
             if noise['noise_type'] == 'osnr':
                 scaling_factor = (mean_signal_power / noise['mean_noise_power'] / noise['noise_param'])**0.5
                 total_noise = total_noise + noise['noise_vector'] * scaling_factor
-            elif noise['noise_type'] == 'absolute power':
+            elif noise['noise_type'] == 'absolute power' or noise['noise_type'] == 'rms constant':
                 total_noise = total_noise + noise['noise_vector'] # noise vector already scaled according to noise param
+            elif noise['noise_type'] == 'shot': # v_rms^2 = 2qBR^2(I_d + I_p), I_rms^2 = 2qB(I_d + I_p)
+                scaling_factor = np.sqrt((noise['noise_param'][0] * (np.mean(signal) + noise['noise_param'][1])) / mean_signal_power)
+                total_noise = total_noise + noise['noise_vector'] * scaling_factor
             elif noise['noise_type'] == 'edfa ASE':
                 ASE_power = noise['edfa'].get_ASE(propagator)
                 scaling_factor = np.sqrt(ASE_power / np.mean(power_(noise['noise_vector'])))
@@ -152,6 +158,9 @@ class AdditiveNoise():
             mean_noise_power = np.mean(power_(noise))
             if (noise_source['noise_type'] == 'absolute power'):
                 noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param
+                noise = noise * noise_scaling
+            if (noise_source['noise_type'] == 'rms constant'):
+                noise_scaling = noise_source['noise_param'] / np.sqrt(np.mean(power_(noise)))
                 noise = noise * noise_scaling
             noise_source['noise_vector'] = noise
             noise_source['mean_noise_power'] = mean_noise_power
