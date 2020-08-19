@@ -178,7 +178,7 @@ def test_dB_plots(propagator):
     plt.title(f'ASE and gain, with max noise fig 3.5, max small signal gain 40')
     plt.show()
 
-
+@pytest.mark.skip
 def test_noise_figure_consistent(edfa, propagator):
     # test that the noise figure just about lines up with expected (by doing the reverse calculation)
     # 1. Get ASE power
@@ -208,7 +208,7 @@ def photodiode():
 def photodiode_graph():
     return get_laser_photodiode_graph()
 
-
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_photodiode_basic(propagator, photodiode_graph):
     # tests the original graph with laser noise enabled
     photodiode_graph.propagate(propagator)
@@ -217,7 +217,7 @@ def test_photodiode_basic(propagator, photodiode_graph):
     photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
     assert False
 
-
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_photodiode_no_input_noise(propagator, photodiode_graph):
     # tests the original graph with laser noise enabled
     photodiode_graph.nodes[0]['model'].noise_model.noise_on = False
@@ -226,4 +226,51 @@ def test_photodiode_no_input_noise(propagator, photodiode_graph):
     photodiode_graph.display_noise_contributions(propagator, node=0) # after laser, unfiltered by photodiode
     photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
     assert False
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_photodiode_saturation(propagator, photodiode_graph):
+    # TODO: confirm noise behaviour is expected
+    _, ax = plt.subplots()
+    # RMS powers
+    P_total = []
+    P_signal = []
+    P_noise = []
+    P_in = []
+    # expected voltage cutoff when P_in = 6e-3 (default: I_d = R_d * P_in, with R_d = 0.5, I_d_max = 3e-3)
+    # this should be at voltage = 3e-3 A * 50 Ohms = 0.15 V 
+    for i in range(0, 100):
+        P_in.append(i * 1e-4)
+        photodiode_graph.nodes[0]['model'].parameters[0] = i*1e-4 # set different max powers for laser
+        P_total.append(np.sqrt(np.mean(power_(photodiode_graph.get_output_signal(propagator)))))
+        P_signal.append(np.sqrt(np.mean(power_(photodiode_graph.get_output_signal_pure(propagator)))))
+        P_noise.append(np.sqrt(np.mean(power_(photodiode_graph.get_output_noise(propagator)))))
+    
+    ax.plot(np.array(P_in), np.array(P_total), label='total RMS voltage')
+    ax.plot(np.array(P_in), np.array(P_signal), label='pure signal RMS voltage')
+    ax.plot(np.array(P_in), np.array(P_noise), label='noise RMS voltage')
+    ax.legend()
+    ax.set_xlabel('Power in (W)')
+    ax.set_ylabel('RMS voltage (V)')
+    plt.title('Photodetector RMS voltage v. power in')
+    plt.show()
+
+
+# ---------------- random test ----------------------
+@pytest.mark.skip
+def test_lorentzian():
+    f = np.linspace(-100, 100, num=2000)
+    # HWHM = 1
+    _, ax = plt.subplots(2, 1)
+    for HWHM in [0.01, 0.5, 5, 10]:
+        state_rf = 1 / np.pi * HWHM / ((f**2) + HWHM**2)
+        state = np.fft.ifft(np.fft.ifftshift(state_rf))
+
+        ax[0].plot(f, state, label=f'{HWHM}')
+        ax[1].plot(f, state_rf, label=f'{HWHM}')
+    
+    ax[0].legend()
+    ax[1].legend()
+    plt.title('Lorentzian test')
+    plt.show()
 

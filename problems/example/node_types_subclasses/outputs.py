@@ -2,7 +2,6 @@
 
 """
 
-import matplotlib.pyplot as plt
 import autograd.numpy as np
 from scipy.constants import Boltzmann, elementary_charge
 from pint import UnitRegistry
@@ -65,19 +64,19 @@ class Photodiode(Output):
         """
         self.node_lock = True
 
-        self.number_of_parameters = 8
-        self.lower_bounds = [0, 1e9, 1, 0, 0, 0, 0, 0]
-        self.upper_bounds = [1, 200e9, 20, 0.1, 0.1, 1e3, 320, 1e-6]
+        self.number_of_parameters = 7
+        self.lower_bounds = [0, 1e9, 1, 0, 0, 0, 0]
+        self.upper_bounds = [1, 200e9, 20, 0.1, 1e3, 320, 1e-6]
         
         self.data_types = ['float'] * self.number_of_parameters
         
         self.step_sizes = [None] * self.number_of_parameters
         self.step_sizes[2] = 1 # order of filter must be integer
         self.parameter_imprecisions = [None] * self.number_of_parameters
-        self.parameter_units = [unit.A / unit.W, unit.Hz, None, unit.A, unit.W, unit.ohm, unit.kelvin, unit.A]
+        self.parameter_units = [unit.A / unit.W, unit.Hz, None, unit.A, unit.ohm, unit.kelvin, unit.A]
         self.parameter_locks = [True] * self.number_of_parameters
-        self.parameter_names = ['responsivity', 'bandwidth', 'filter_order', 'max_photocurrent', 'max_power_in', 'load_resistance', 'temp_K', 'dark_current']
-        self.default_parameters = [0.5, 100e9, 2, 3e-3, 40e-3, 50, 293, 5e-9] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
+        self.parameter_names = ['responsivity', 'bandwidth', 'filter_order', 'max_photocurrent', 'load_resistance', 'temp_K', 'dark_current']
+        self.default_parameters = [0.5, 100e9, 2, 3e-3, 50, 293, 5e-9] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
 
         super().__init__(**kwargs)
         self.filter = Filter(shape='butterworth lowpass', transition_f=self.all_params['bandwidth'], dc_gain=1, order=self.all_params['filter_order'])
@@ -104,16 +103,22 @@ class Photodiode(Output):
             state = state + states[i]
         
         power_in = power_(state) # ok so this is the power input 
-        voltage = self.all_params['responsivity'] * power_in * self.all_params['load_resistance']
+        voltage = self.get_photocurrent(power_in) * self.all_params['load_resistance']
         voltage = self.filter.get_filtered_time(voltage, propagator)
 
         # TODO: implement save_transforms
 
         # TODO: add noise
 
-        # TODO: clip voltage to max possible voltage (or max photocurrent) (gotta do this in a differentiable way though)
-
         return [voltage]
+    
+    def get_photocurrent(self, P_in):
+        """
+        Function saturates out at max_photocurrent
+        """
+        a = self.all_params['responsivity'] / self.all_params['max_photocurrent']
+        p = 15
+        return self.all_params['max_photocurrent'] * a * P_in / np.power(1 + np.power(np.abs(a * P_in), p), 1 / p)
 
     @staticmethod
     def get_bandwidth_from_riseTimeResponse(t):
