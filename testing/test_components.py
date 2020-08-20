@@ -217,8 +217,9 @@ def test_photodiode_basic(propagator, photodiode_graph):
     photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
     assert False
 
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_photodiode_no_input_noise(propagator, photodiode_graph):
+    np.random.seed(1)
     # tests the original graph with laser noise enabled
     photodiode_graph.nodes[0]['model'].noise_model.noise_on = False
     photodiode_graph.propagate(propagator)
@@ -273,4 +274,17 @@ def test_lorentzian():
     ax[1].legend()
     plt.title('Lorentzian test')
     plt.show()
+
+def test_parseval(propagator):
+    # https://www.mathworks.com/matlabcentral/answers/15770-scaling-the-fft-and-the-ifft
+    # basically, our choice for fft_ and ifft_ normalization makes the INTEGRAL under the two curves equal
+    signal = np.cos(2 * np.pi * 50e9 * propagator.t)
+    energy_signal = np.sum(power_(signal)) * propagator.dt
+    print(f'signal energy: {energy_signal}')
+    signal_rf = fft_(signal, propagator.dt)
+    energy_signal_rf = np.sum(power_(signal_rf)) * propagator.df
+    print(f'signal_rf energy: {energy_signal_rf}')
+
+    np.isclose(energy_signal, energy_signal_rf)
+
 

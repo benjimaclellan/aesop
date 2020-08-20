@@ -8,7 +8,7 @@ from pint import UnitRegistry
 unit = UnitRegistry()
 
 from ..assets.decorators import register_node_types_all
-from ..assets.functions import power_, psd_
+from ..assets.functions import power_, psd_, ifft_, ifft_shift_
 from ..assets.additive_noise import AdditiveNoise
 
 from ..node_types import Input
@@ -99,9 +99,17 @@ class ContinuousWaveLaser(Input):
 
         super().__init__(**kwargs)
 
-        self.noise_model = AdditiveNoise(noise_param=self.parameters[2])
+        self.noise_model = AdditiveNoise(noise_param=self.all_params['osnr_dB'])
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         self.set_parameters_as_attr()
+        # if (self.noise_model.noise_sources and AdditiveNoise.simulate_with_noise):
+        #     # TODO: this is not the most elegant thing, see if we can refactor...
+        #     state_rf = self.state_rf_linewidth()
+        #     state = ifft_(state_rf)
+        # else:
         state = np.sqrt(self._peak_power) * np.ones_like(states[0])
         return [state]
+    
+    # def state_rf_linewidth(self):
+    #     pass
