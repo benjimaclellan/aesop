@@ -122,47 +122,13 @@ class AdditiveNoise():
                 scaling_factor = (mean_signal_power / noise['mean_noise_power'] / noise['noise_param'])**0.5
                 total_noise = total_noise + noise['noise_vector'] * scaling_factor
             elif noise['noise_type'] == 'absolute power' or noise['noise_type'] == 'rms constant':
-                print(f"rms constant (or maybe abs power...) noise power: {np.mean(power_(noise['noise_vector']))}")
                 total_noise = total_noise + noise['noise_vector'] # noise vector already scaled according to noise param
             elif noise['noise_type'] == 'shot': # v_rms^2 = 2qBR^2(I_d + I_p), I_rms^2 = 2qB(I_d + I_p)
-                """
-                # simulation technique 1: correct power but mayhaps incorrect noise distribution
-                noise_vector = noise['filter'].get_filtered_time(noise['noise_vector'], propagator)
-                scaling_factor = np.sqrt((noise['noise_param'][0] * np.mean(np.abs(signal)) + noise['noise_param'][1]) / np.mean(power_(noise_vector)))
-                total_noise = total_noise + noise_vector * scaling_factor
-                # for debugging only TODO: remove
-                # print(f'average shot noise power: {np.mean(power_(noise_vector * scaling_factor))}')
-                # psd_new_noise = psd_(noise_vector * scaling_factor, propagator.dt, propagator.df)
-                # print(f'psd: {psd_new_noise}')
-                # print(f'psd max: {np.max(psd_new_noise)}')
-                # _, ax = plt.subplots()
-                # ax.plot(propagator.f, psd_new_noise)
-                """
-                
-                """
-                # simulation technique 2: seems better for noise distribution shape, but somehow total power is far off
-                fft_filter =  np.sqrt(noise['noise_param'][0] * np.mean(np.abs(signal)) + noise['noise_param'][1]) # * noise['filter'].filter)
-                # fft_filter =  np.sqrt(propagator.df * (noise['noise_param'][0] * np.mean(np.abs(signal)) + noise['noise_param'][1]) * noise['filter'].filter)
-                print(f'fft_filter: {fft_filter}')
-                print(f'df: {propagator.df}')
-                print(f'frequency range: {propagator.df * propagator.n_samples}')
-                print(f"pre filter noise \n: {noise['noise_vector']}")
-
-                filtered_noise = ifft_(fft_filter * fft_(noise['noise_vector'], propagator.dt), propagator.dt)
-                
-                print(f'filtered noise \n: {filtered_noise}')
-                print(f'std dev noise: {np.std(np.abs(filtered_noise))}')
-                print(f'psd: {psd_(filtered_noise, propagator.dt, propagator.df)}')
-                print(f'psd mean: {np.mean(psd_(filtered_noise, propagator.dt, propagator.df))}')
-                """
-                print(f'Nominal bandwidth (two sided): {200e9}')
-                print(f"Effective bandwidth: {np.sum(np.abs(noise['filter'].filter)) * propagator.df}")
                 target_squared_rms = (noise['noise_param'][0] * np.mean(np.abs(signal)) + noise['noise_param'][1]) * np.sum(np.abs(noise['filter'].filter)) * propagator.df
                 scaling_factor = np.sqrt(target_squared_rms / np.mean(power_(noise['noise_vector'])))
 
                 total_noise = total_noise + scaling_factor * noise['noise_vector']
-                print(f"rms power squared: {np.mean(power_(scaling_factor * noise['noise_vector']))}")
-            elif noise['noise_type'] == 'edfa ASE':
+=            elif noise['noise_type'] == 'edfa ASE':
                 ASE_power = noise['edfa'].get_ASE(propagator)
                 scaling_factor = np.sqrt(ASE_power / np.mean(power_(noise['noise_vector'])))
                 total_noise = total_noise + noise['noise_vector'] * scaling_factor
