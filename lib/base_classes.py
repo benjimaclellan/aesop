@@ -33,16 +33,6 @@ class NodeType(object):
     @property
     def parameters(self):
         return self._parameters
-        
-    @property
-    def all_params(self):
-        if self._all_params is None:
-            param_dict = {}
-            for (name, val) in zip(self.parameter_names, self.parameters):
-                param_dict[name] = val
-            self._all_params = param_dict
-        
-        return self._all_params
 
     def set_parameters(self, parameters):
         self._parameters = parameters

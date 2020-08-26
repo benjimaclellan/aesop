@@ -2,7 +2,7 @@ import autograd.numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import elementary_charge
 
-from .functions import fft_, ifft_, power_, psd_
+from .functions import fft_, ifft_, power_, psd_, ifft_shift_
 
 """
 TODO: change frequencyrep to be normalized like the matlab code
@@ -62,11 +62,11 @@ class AdditiveNoise():
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
                               (3) noise_type is not 'osnr' or 'absolute power' or 'edfa ASE' or 'rms constant' or 'shot'
         """
-        print('making a new noise object!')
         if (distribution != 'gaussian'):
             raise ValueError(f"{distribution} distribution not supported. Only 'gaussian' is supported at this time")
         
-        if (noise_type != 'osnr' and noise_type != 'absolute power' and noise_type != 'edfa ASE' and noise_type != 'rms constant' and noise_type != 'shot'):
+        if (noise_type != 'osnr' and noise_type != 'absolute power' and noise_type != 'edfa ASE' and \
+            noise_type != 'rms constant' and noise_type != 'shot' and noise_type != 'FWHM linewidth'):
             raise ValueError(f'Noise type must be osnr, absolute power, edfa ASE, rms constant, shot. {noise_type} is not valid')
 
         if (noise_type == 'shot' and noise_filter is None):
@@ -80,7 +80,11 @@ class AdditiveNoise():
                 noise = noise * noise_scaling
             if (noise_type == 'rms constant'):
                 noise_scaling = noise_param / np.sqrt(mean_noise_power) # technically mean noise power here is voltage squared but whatever, it works out mathematically
-                noise = noise * noise_scaling         
+                noise = noise * noise_scaling
+            if (noise_type == 'FWHM linewidth'):
+                expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f))
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator)
+                noise = ifft_(phase_noise, self.propagator.dt)
         else:
             noise = None
             mean_noise_power = None
@@ -128,10 +132,13 @@ class AdditiveNoise():
                 scaling_factor = np.sqrt(target_squared_rms / np.mean(power_(noise['noise_vector'])))
 
                 total_noise = total_noise + scaling_factor * noise['noise_vector']
-=            elif noise['noise_type'] == 'edfa ASE':
-                ASE_power = noise['edfa'].get_ASE(propagator)
-                scaling_factor = np.sqrt(ASE_power / np.mean(power_(noise['noise_vector'])))
-                total_noise = total_noise + noise['noise_vector'] * scaling_factor
+            elif noise['noise_type'] == 'edfa ASE':
+                ASE_expected_amplitude = noise['edfa'].get_ASE_filter(propagator) * np.sqrt(propagator.dt / propagator.df) # the sqrt(dt/df) is due to the discrete nature of things 
+                ASE_noise = ifft_(noise['noise_vector'] / np.sqrt(2) * ASE_expected_amplitude, propagator.dt)
+                total_noise = total_noise + ASE_noise
+            elif noise['noise_type'] == 'FWHM linewidth':
+                # unlike the other noise options, this one changes the signal rather than adds to the total noise
+                signal = signal * noise['noise_vector']
             else:
                 raise ValueError(f"Noise type {noise['noise_type']} invalid")
 
@@ -160,15 +167,19 @@ class AdditiveNoise():
             noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
             if noise_source['filter'] is not None:
                 noise = noise_source['filter'].get_filtered_time(noise, self.propagator)
-            mean_noise_power = np.mean(power_(noise))
+            
             if (noise_source['noise_type'] == 'absolute power'):
                 noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param
                 noise = noise * noise_scaling
-            if (noise_source['noise_type'] == 'rms constant'):
+            elif (noise_source['noise_type'] == 'rms constant'):
                 noise_scaling = noise_source['noise_param'] / np.sqrt(np.mean(power_(noise)))
                 noise = noise * noise_scaling
+            elif (noise_source['noise_type'] == 'FWHM linewidth'):
+                expected_phase_noise_amplitude = np.sqrt((noise_source['noise_param'] / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f))
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator)
+                noise = ifft_(phase_noise, self.propagator.dt)
             noise_source['noise_vector'] = noise
-            noise_source['mean_noise_power'] = mean_noise_power
+            noise_source['mean_noise_power'] = np.mean(power_(noise)) # TODO: remind self what this is for...
     
     @staticmethod
     def get_OSNR(signal, noise, in_dB=True):
@@ -180,6 +191,12 @@ class AdditiveNoise():
             return osnr
 
         return 10 * np.log10(osnr)
+    
+    @staticmethod
+    def _get_real_noise_signal_freq(propagator):
+        single_side_noise = np.random.normal(scale=1, size=(propagator.n_samples // 2, 2)).view(dtype='complex')
+        double_side_noise = np.concatenate((single_side_noise, np.flip(np.conj(single_side_noise))))
+        return double_side_noise
 
 # ------------------------------------------------- Visualisation methods, to help with debugging ----------------------------------------
     def display_noisy_signal(self, signal, propagator=None):

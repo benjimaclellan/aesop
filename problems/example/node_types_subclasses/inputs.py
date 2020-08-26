@@ -84,32 +84,26 @@ class ContinuousWaveLaser(Input):
         self.node_lock = False
 
         self.number_of_parameters = 3
-        self.default_parameters = [1, 1.55e-6, 55] # default OSNR from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
+        self.default_parameters = [1, 1.55e-6, 55, 0.1e3] # default OSNR and linewidth from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 
-        self.upper_bounds = [2, 1.54e-6, 200] # upper bound for osnr randomly set
-        self.lower_bounds = [0, 1.56e-6, 1]
-        self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, None, None]
-        self.parameter_imprecisions = [0.1, 0.01e-6, 0]
-        self.parameter_units = [unit.W, unit.m, None] # TODO: check whether we should use dB instead of None
-        self.parameter_locks = [True, True, True]
-        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB']
+        self.upper_bounds = [2, 1.54e-6, 200, 1e6] # upper bound for osnr randomly set
+        self.lower_bounds = [0, 1.56e-6, 1, 0]
+        self.data_types = ['float', 'float', 'float', 'float']
+        self.step_sizes = [None, None, None, None]
+        self.parameter_imprecisions = [0.1, 0.01e-6, 0, 0]
+        self.parameter_units = [unit.W, unit.m, None, unit.Hz] # TODO: check whether we should use dB instead of None
+        self.parameter_locks = [True, True, True, True]
+        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB', 'FWHM linewidth']
 
         self.parameters = self.default_parameters
 
         super().__init__(**kwargs)
+        self.set_parameters_as_attr()
 
-        self.noise_model = AdditiveNoise(noise_param=self.all_params['osnr_dB'])
+        # TODO: integrate both together
+        # self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self.all_params['FWHM linewidth'])
+        self.noise_model = AdditiveNoise(noise_param=self._osnr_dB)
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
-        self.set_parameters_as_attr()
-        # if (self.noise_model.noise_sources and AdditiveNoise.simulate_with_noise):
-        #     # TODO: this is not the most elegant thing, see if we can refactor...
-        #     state_rf = self.state_rf_linewidth()
-        #     state = ifft_(state_rf)
-        # else:
         state = np.sqrt(self._peak_power) * np.ones_like(states[0])
         return [state]
-    
-    # def state_rf_linewidth(self):
-    #     pass

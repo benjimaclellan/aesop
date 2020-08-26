@@ -286,22 +286,27 @@ class EDFA(SinglePath):
         self._last_gain = None
         self._last_noise_factor = None
 
+        #
+        self.set_parameters_as_attr()
+
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
+        print(f'average power in: {np.mean(power_(states[0]))}')
         state = states[0]
 
         state_f = fft_(state, propagator.dt)
 
         gain = self._gain(state, propagator)
-        _ = self._noise_factor(state, propagator) # saves it for the noise call
+        print(f'(max, avg) gain is: {np.max(gain), np.mean(gain)}')
+        self._noise_factor(state, propagator) # saves it for the noise call
 
         if save_transforms:
-            self.transform = (('f', 10 * np.log10(ifft_shift_(gain)), 'gain (dB)'),)
+            self.transform = (('f', 10 * np.log10(ifft_shift_(np.sqrt(gain))), 'gain (dB)'),)
 
-        return [ifft_(gain * state_f, propagator.dt)]
+        return [ifft_(np.sqrt(gain) * state_f, propagator.dt)] # sqrt of gain, because gain is a ratio of power, not amplitude
     
-    def get_ASE(self, propagator):
+    def get_ASE_filter(self, propagator):
         """
         NOTE: this method must be called after the corresponding propagate call. 
         Returns spectral density of ASE as P_ase = (G * F - 1) * h * v
@@ -317,13 +322,19 @@ class EDFA(SinglePath):
         Return ASE shape, ASE total power (this is so that the noise is still randomized rather than deterministic)
         Assume the bandwidth of the detector used to find the noise figure is
         """
-        lower_freq = speed_of_light / self.all_params['band_upper']
-        upper_freq = speed_of_light / self.all_params['band_lower']
+        expected_power_dist = Planck * (ifft_shift_(propagator.f) + propagator.central_frequency) / 2 * \
+            (self._last_noise_factor * self._last_gain - 1) * propagator.df
+
+        return np.sqrt(expected_power_dist)
+        """
+        lower_freq = speed_of_light / self._band_upper
+        upper_freq = speed_of_light / self._band_lower
     
         P_ase = (self._last_gain * self._last_noise_factor - 1) * Planck * propagator.central_frequency
         power_ase = np.sum(P_ase) * (upper_freq - lower_freq)
 
         return power_ase
+        """
     
     def _gain(self, state, propagator):
         """
@@ -334,12 +345,12 @@ class EDFA(SinglePath):
 
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
-        if P_in > self.all_params['P_in_max']:
-            raise ValueError(f"input signal {P_in} is greater than max output signal {self.all_params['P_out_max']}")
+        if P_in > self._P_in_max:
+            raise ValueError(f'input signal {P_in} is greater than max input signal {self._P_in_max}')
 
-        self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self.all_params['P_out_max'])**self.all_params['alpha']) 
+        self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self._P_out_max)**self._alpha) 
 
-        return self._last_gain * np.ones_like(propagator.f)
+        return self._last_gain
     
     def _noise_factor(self, state, propagator):
         """
@@ -350,7 +361,7 @@ class EDFA(SinglePath):
         F_0 = small signal noise factor
         k1, k2 are exponents. k2 = 0.2, for simplicity, k1 is deduced from the desired 'max' NF (at 3 dB)
         """
-        NF_max = self.all_params['max_noise_fig_dB']
+        NF_max = self._max_noise_fig_dB
         self._last_noise_factor = 10**(NF_max / 10)
         return self._last_noise_factor
 
@@ -366,13 +377,18 @@ class EDFA(SinglePath):
             Gf = gain flatness in dB,
 
             Such that, as expected, g(d) = g_min
-        """
-        return EDFA._calculate_small_signal_gain(self.all_params['peak_wl'],
-                                                 propagator.central_frequency,
-                                                 self.all_params['band_upper'],
-                                                 self.all_params['band_lower'],
-                                                 self.all_params['gain_flatness_dB'],
-                                                 self.all_params['max_small_signal_gain_dB'])
+        """        
+        central_freq = speed_of_light / self._peak_wl
+        lower_freq = speed_of_light / self._band_upper
+        upper_freq = speed_of_light / self._band_lower
+        d = np.maximum(central_freq - lower_freq, upper_freq - central_freq)
+
+        beta = d**2 / (np.log(10**(self._gain_flatness_dB / 10)))
+        g = 10**(self._max_small_signal_gain_dB / 10)
+        f = (ifft_shift_(propagator.f) + propagator.central_frequency) - central_freq
+
+        return g * np.exp(-1 * np.power(f, 2) / beta)
+
 
     @staticmethod
     def _calculate_small_signal_gain(peak_wl, signal_central_freq, band_upper, band_lower, gain_flatness, peak_small_signal_gain):
@@ -391,24 +407,23 @@ class EDFA(SinglePath):
     def display_small_signal_gain(self):
         _, ax = plt.subplots()
         wavelengths = [i*1e-9 for i in range(1520, 1565)]
-        gain = np.array([self._calculate_small_signal_gain(self.all_params['peak_wl'],
+        gain = np.array([self._calculate_small_signal_gain(self._peak_wl,
                                                            speed_of_light / w,
-                                                           self.all_params['band_upper'],
-                                                           self.all_params['band_lower'],
-                                                           self.all_params['gain_flatness_dB'],
-                                                           self.all_params['max_small_signal_gain_dB']) for w in wavelengths])
+                                                           self._band_upper,
+                                                           self._band_lower,
+                                                           self._gain_flatness_dB,
+                                                           self._max_small_signal_gain_dB) for w in wavelengths])
         ax.plot(np.array(wavelengths) * 1e9, gain)
         ax.set_xlabel('wavelength (nm)')
         ax.set_ylabel('gain (ratio)')
         plt.title(f"Small signal gain vs. wavelength \
-            \ngain: {self.all_params['max_small_signal_gain_dB']} dB \
-            \npeak: {self.all_params['peak_wl']* 1e9} nm \
-            \nband: {self.all_params['band_lower'] * 1e9}-{self.all_params['band_upper'] * 1e9} nm \
-            \ngain flatness: {self.all_params['gain_flatness_dB']} dB")
+            \ngain: {self._max_small_signal_gain_dB} dB \
+            \npeak: {self._peak_wl * 1e9} nm \
+            \nband: {self._band_lower * 1e9}-{self._band_upper * 1e9} nm \
+            \ngain flatness: {self._gain_flatness_dB} dB")
         plt.show()
     
     def display_gain(self, states, propagator):
-        params = self.all_params
         _, ax = plt.subplots()
         for _, state in enumerate(states):
             gain = self._gain(state, propagator)
@@ -416,8 +431,8 @@ class EDFA(SinglePath):
         
         ax.legend()
         plt.title(f"Gain\
-            \ngain: {params['max_small_signal_gain_dB']} dB \
-            \npeak: {params['peak_wl']* 1e9} nm \
-            \nband: {params['band_lower'] * 1e9}-{params['band_upper'] * 1e9} nm \
-            \ngain flatness: {params['gain_flatness_dB']} dB")
+            \ngain: {self._max_small_signal_gain_dB} dB \
+            \npeak: {self._peak_wl* 1e9} nm \
+            \nband: {self._band_lower * 1e9}-{self._band_upper * 1e9} nm \
+            \ngain flatness: {self._gain_flatness_dB} dB")
         plt.show()

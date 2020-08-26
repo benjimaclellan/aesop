@@ -1,6 +1,7 @@
 import autograd.numpy as np
 import pytest
 from autograd import grad
+import matplotlib.pyplot as plt
 
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
@@ -252,3 +253,24 @@ def test_autograd_gain_signal_relative(propagator):
     noise_sum = np.sum(noise.add_noise_to_propagation(signal, propagator) - signal).astype(dtype='float')
     print(f"noise_sum: {noise_sum}")
     assert np.isclose(gradient_at_G[0], noise_sum)
+
+def test_real_signal_generation_freq(propagator):
+    real_signal = AdditiveNoise._get_real_noise_signal_freq(propagator)
+    pos = real_signal[0:propagator.n_samples // 2]
+    neg = np.flip(real_signal[propagator.n_samples // 2:])
+    assert np.allclose(np.abs(pos), np.abs(neg))
+    assert np.allclose(np.angle(pos), - 1 * np.angle(neg))
+    
+    if not SKIP_GRAPHICAL_TEST:
+        start = propagator.n_samples // 2 - 100
+        stop = propagator.n_samples // 2 + 101
+
+        _, ax = plt.subplots(2, 1)
+        ax[0].plot(propagator.f[start:stop], power_(np.fft.fftshift(real_signal))[start:stop])
+        ax[0].set_ylabel('Noise power')
+        ax[0].set_xlabel('Frequency (Hz)')
+        ax[1].plot(propagator.f[start:stop], np.angle(np.fft.fftshift(real_signal))[start:stop])
+        ax[1].set_ylabel('Noise phase')
+        ax[1].set_xlabel('Frequency (Hz)')
+
+        plt.show()

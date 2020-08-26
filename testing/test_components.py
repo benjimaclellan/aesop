@@ -5,10 +5,11 @@ from scipy.constants import speed_of_light
 
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
+from problems.example.assets.additive_noise import AdditiveNoise
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper
+from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
 
 from problems.example.assets.functions import power_, ifft_shift_, fft_
 
@@ -24,6 +25,24 @@ def get_amp_graph(**kwargs):
 
     edges = [(0, 1),
              (1, 2)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+
+def get_amp_graph_2(**kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             2: WaveShaper(),
+             3: EDFA(parameters_from_name=kwargs),
+             4: MeasurementDevice()
+            }
+
+    edges = [(0, 1),
+             (1, 2),
+             (2, 3), 
+             (3, 4)]
 
     graph = Graph(nodes, edges, propagate_on_edges=True)
     graph.assert_number_of_edges()
@@ -61,6 +80,16 @@ def test_gain(propagator, edfa):
 
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_propagate(propagator, amp_graph):
+    amp_graph.propagate(propagator)
+    amp_graph.inspect_state(propagator, freq_log_scale=True)
+    amp_graph.nodes[0]['model'].noise_model.noise_on = False
+    amp_graph.propagate(propagator)
+    amp_graph.inspect_state(propagator, freq_log_scale=True)
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_propagate2(propagator):
+    amp_graph = get_amp_graph_2()
     amp_graph.propagate(propagator)
     amp_graph.inspect_state(propagator, freq_log_scale=True)
 
@@ -217,7 +246,7 @@ def test_photodiode_basic(propagator, photodiode_graph):
     photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
     assert False
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_photodiode_no_input_noise(propagator, photodiode_graph):
     np.random.seed(1)
     # tests the original graph with laser noise enabled
@@ -275,6 +304,7 @@ def test_lorentzian():
     plt.title('Lorentzian test')
     plt.show()
 
+@pytest.mark.skip
 def test_parseval(propagator):
     # https://www.mathworks.com/matlabcentral/answers/15770-scaling-the-fft-and-the-ifft
     # basically, our choice for fft_ and ifft_ normalization makes the INTEGRAL under the two curves equal
@@ -287,4 +317,30 @@ def test_parseval(propagator):
 
     np.isclose(energy_signal, energy_signal_rf)
 
+@pytest.mark.skip
+def test_avg_normal(propagator):
+    normal_dist = np.random.normal(scale=1, size=(propagator.n_samples, 2)).view(dtype='complex')
+    print(np.mean(power_(normal_dist)))
+    assert np.isclose(np.mean(power_(normal_dist / np.sqrt(2))), 1)
 
+# -------------------------------- Testing Laser linewidth -----------------------------------------
+@pytest.fixture(scope='function')
+def laser_graph():
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: MeasurementDevice()
+            }
+
+    edges = [(0, 1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_linewidth(laser_graph, propagator):
+    np.random.seed(100)
+    for i in range(3):
+        laser_graph.propagate(propagator)
+        laser_graph.inspect_state(propagator, freq_log_scale=True)
+        laser_graph.display_noise_contributions(propagator, node=0)
+        laser_graph.resample_all_noise(seed=i)

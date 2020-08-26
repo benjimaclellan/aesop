@@ -79,20 +79,22 @@ class Photodiode(Output):
         self.default_parameters = [0.5, 100e9, 2, 3e-3, 50, 293, 5e-9] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
 
         super().__init__(**kwargs)
-        self.filter = Filter(shape='butterworth lowpass', transition_f=self.all_params['bandwidth'], dc_gain=1, order=self.all_params['filter_order'])
+        self.set_parameters_as_attr()
+
+        self.filter = Filter(shape='butterworth lowpass', transition_f=self._bandwidth, dc_gain=1, order=self._filter_order)
 
         # noise applies onto voltage (could also add it to current, but chose not to)
         
         # Johnson noise = sqrt(4kTBR), from: https://www.thorlabs.com/images/TabImages/Photodetector_Lab.pdf
         self.noise_model = AdditiveNoise(noise_type='rms constant',
                                          noise_filter = self.filter,
-                                         noise_param=np.sqrt(4 * Boltzmann * self.all_params['temp_K'] * \
-                                                             self.all_params['bandwidth'] * self.all_params['load_resistance'])) # Johnson noise, assumed to be white and Gaussian
-        slope_shot = elementary_charge * self.all_params['load_resistance']**2
+                                         noise_param=np.sqrt(4 * Boltzmann * self._temp_K * \
+                                                             self._bandwidth * self._load_resistance)) # Johnson noise, assumed to be white and Gaussian
+        slope_shot = elementary_charge * self._load_resistance**2
         # electronic shot noise
         self.noise_model.add_noise_source(noise_type='shot', # slope of shot noise is 2qBR^2 with respect to mean current
                                           noise_filter=self.filter,
-                                          noise_param=(slope_shot / self.all_params['load_resistance'], slope_shot * self.all_params['dark_current']))
+                                          noise_param=(slope_shot / self._load_resistance, slope_shot * self._dark_current))
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
         """
@@ -103,7 +105,7 @@ class Photodiode(Output):
             state = state + states[i]
         
         power_in = power_(state) # ok so this is the power input 
-        voltage = self.get_photocurrent(power_in) * self.all_params['load_resistance']
+        voltage = self.get_photocurrent(power_in) * self._load_resistance
         voltage = self.filter.get_filtered_time(voltage, propagator)
 
         # TODO: implement save_transforms
@@ -116,9 +118,9 @@ class Photodiode(Output):
         """
         Function saturates out at max_photocurrent
         """
-        a = self.all_params['responsivity'] / self.all_params['max_photocurrent']
+        a = self._responsivity / self._max_photocurrent
         p = 15
-        return self.all_params['max_photocurrent'] * a * P_in / np.power(1 + np.power(np.abs(a * P_in), p), 1 / p)
+        return self._max_photocurrent * a * P_in / np.power(1 + np.power(np.abs(a * P_in), p), 1 / p)
 
     @staticmethod
     def get_bandwidth_from_riseTimeResponse(t):
