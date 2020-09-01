@@ -23,7 +23,7 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False):
+    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, coupling_efficiency=1):
         """
         """
         super().__init__()
@@ -46,6 +46,10 @@ class Graph(GraphParent):
         self._propagation_order = None
 
         self._propagator_saves = {}
+
+        self.coupling_efficiency = coupling_efficiency
+        if coupling_efficiency < 0 or coupling_efficiency > 1:
+            raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
 
         # initialize variables to store function handles for grad & hess
         self.func = None
@@ -257,7 +261,7 @@ class Graph(GraphParent):
                     states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
 
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-                self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
+                self._propagator_saves[edge] = [np.sqrt(self.coupling_efficiency) * state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
 
             self._propagator_saves[node] = states
 

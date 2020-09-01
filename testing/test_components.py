@@ -398,7 +398,7 @@ def get_laser_graph(linewidth):
     return graph
 
 
-def get_standard_graph(linewidth):
+def get_standard_graph(linewidth, coupling_eff=1):
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20, 'FWHM_linewidth':linewidth}),
              1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
              2: WaveShaper(),
@@ -409,11 +409,11 @@ def get_standard_graph(linewidth):
              (1, 2),
              (2, 3)]
 
-    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph = Graph(nodes, edges, propagate_on_edges=True, coupling_efficiency=coupling_eff)
     graph.assert_number_of_edges()
     return graph
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_linewidth(propagator):
     np.random.seed(100)
 
@@ -439,7 +439,7 @@ def test_linewidth(propagator):
         plt.show()
 
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_linewidth_effects(propagator):
     np.random.seed(100)
 
@@ -450,3 +450,39 @@ def test_linewidth_effects(propagator):
         osnr = AdditiveNoise.get_OSNR(laser_graph.get_output_signal_pure(propagator), laser_graph.get_output_noise(propagator))
         laser_graph.display_noise_contributions(propagator, node=0, title=f'osnr: {osnr}, linewidth: {2 * 10**j} GHz')
 
+# ------------------------------------ Test coupling efficiency ------------------------------
+def phase_modulator_graph(coupling_eff):
+    nodes = {0: ContinuousWaveLaser(peak_power=1, osnr_dB=2000, linewidth=1), # minimal noise in here, so the system will be mostly noise free
+             1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             2: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             3: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             4: MeasurementDevice()
+            }
+
+    edges = [(0, 1),
+             (1, 2),
+             (2, 3),
+             (3, 4)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True, coupling_efficiency=coupling_eff)
+    graph.assert_number_of_edges()
+    return graph
+
+
+def test_coupling_efficiency(propagator):
+    for e in [0.9, 0.7, 0.5]:
+        graph = phase_modulator_graph(e)
+        graph.propagate(propagator)
+        if not SKIP_GRAPHICAL_TEST:
+            graph.inspect_state(propagator)
+        
+        output_power = power_(graph.measure_propagator(graph.get_output_node()))
+        assert np.isclose(np.mean(output_power), e**(len(graph.nodes) - 1), atol=1e-3), f'mean power: {np.mean(output_power)}, expected power: { e**(len(graph.nodes) - 1)}'
+
+
+# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_coupling_efficiency_std_graph(propagator):
+    for e in [0.96, 0.9, 0.85]:
+        graph = get_standard_graph(1, coupling_eff=e)
+        graph.propagate(propagator)
+        graph.inspect_state(propagator)
