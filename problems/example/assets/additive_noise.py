@@ -18,21 +18,23 @@ class AdditiveNoise():
 
     simulate_with_noise = True
 
-    def __init__(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr', edfa=None, noise_on=True, seed=None):
+    def __init__(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr', noise_on=True, seed=None):
         """
         Creates an noise object with the described properties
 
-        :param sample_num: number of noise samples to provide (should match sample number of signals to which noise is applied)
-        :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (if noise_type='osnr', this parameter is OSNR in dB. If 'absolute power', this param is average noise power)
-        :param noise_filter: None for now
-        :param noise_type: 'osnr', 'absolute power', or 'edfa ASE'
+        :param distribution: type of noise distribution. Only Gaussian is supported at this time
+        :param noise_param: noise parameter (significance depends on noise type)
+        :param noise_filter: filter to apply on AWGN to get desired spectral shape (describes only shape, not amplitude)
+        :param noise_type: 'osnr' (noise_param = OSNR in dB), 'absolute power' (noise_param = average power in Watts),
+                           'edfa ASE' (noise_param = edfa object), 'rms constant' (noise_param = rms value of signal),
+                           'shot' (noise_param[0] = slope of noise (with respect to input power), noise_param[1] = intercept of noise)
+                           'FWHM linewdith' (noise_param = FWHM linewidth)
         :param noise_on: True if the noise of the object is to be applied, False otherwise
                          Note that the noise can also be turned off for the whole class (upon which this variable has no effect)
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
 
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
-                              (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms constant', 'shot'
+                              (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms constant', 'shot', 'FWHM linewidth'
         """
         self._propagator = None # defined the first time that noise is added to the propagation
         
@@ -42,25 +44,26 @@ class AdditiveNoise():
         self.noise_sources = []
 
         # create noise distribution
-        self.add_noise_source(distribution=distribution, noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type, edfa=edfa)
+        self.add_noise_source(distribution=distribution, noise_param=noise_param, noise_filter=noise_filter, noise_type=noise_type)
 
         self.noise_on = noise_on
     
-    def add_noise_source(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr', edfa=None):
+    def add_noise_source(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr'):
         """
         Adds a noise source to the AdditiveNoise object (all future calls to add_noise_to_propagation will also include this source)
         WARNING: all noise sources should probably be added at once (and non-concurrently please, this is not threadsafe yet) so that seeding actually makes results predictable
                  We will seed ONCE when initializing the noise sources, so if you have an external random call, might make it harder to track down the precise noise vectors 
 
-        :param distribution: type of noise distribution. ONLY GAUSSIAN IS SUPPORTED AT THIS TIME
-        :param noise_param: scaling parameter for noise (if noise_type='osnr', this parameter is OSNR in dB. If 'absolute power', this is the total power of noise. 
-                            If noise_type 'edfa ASE' in internal EDFA params are used
-        :param noise_filter: None for now
-        :param noise_type: 'osnr', 'absolute power', 'edfa ASE', 'rms constant', 'shot'
-        :param seed: seed with which np.random can generate the pseudorandom noise vectors
-    
+        :param distribution: type of noise distribution. Only Gaussian is supported at this time
+        :param noise_param: noise parameter (significance depends on noise type)
+        :param noise_filter: filter to apply on AWGN to get desired spectral shape (describes only shape, not amplitude)
+        :param noise_type: 'osnr' (noise_param = OSNR in dB), 'absolute power' (noise_param = average power in Watts),
+                           'edfa ASE' (noise_param = edfa object), 'rms constant' (noise_param = rms value of signal),
+                           'shot' (noise_param[0] = slope of noise (with respect to input power), noise_param[1] = intercept of noise)
+                           'FWHM linewdith' (noise_param = FWHM linewidth)
+
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
-                              (3) noise_type is not 'osnr' or 'absolute power' or 'edfa ASE' or 'rms constant' or 'shot'
+                              (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms constant', 'shot', 'FWHM linewidth'
         """
         if (distribution != 'gaussian'):
             raise ValueError(f"{distribution} distribution not supported. Only 'gaussian' is supported at this time")
@@ -82,9 +85,9 @@ class AdditiveNoise():
                 noise_scaling = noise_param / np.sqrt(mean_noise_power) # technically mean noise power here is voltage squared but whatever, it works out mathematically
                 noise = noise * noise_scaling
             if (noise_type == 'FWHM linewidth'):
-                expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f))
-                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator)
-                noise = ifft_(phase_noise, self.propagator.dt)
+                expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+                noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
         else:
             noise = None
             mean_noise_power = None
@@ -100,8 +103,6 @@ class AdditiveNoise():
                   'mean_noise_power': mean_noise_power,
                   'filter': noise_filter
                  }
-        if (noise_type == 'edfa ASE'):
-            source['edfa'] = edfa
 
         self.noise_sources.append(source)
     
@@ -109,7 +110,7 @@ class AdditiveNoise():
         """
         Adds noise to the input state, and returns the noisy state
         
-        :param signal: the pre-noise state (IS MODIFIED BY THE FUNCTION)
+        :param signal: the pre-noise state
         :return: the state including noise
         """   
         if (not self.noise_on or not AdditiveNoise.simulate_with_noise):
@@ -133,7 +134,7 @@ class AdditiveNoise():
 
                 total_noise = total_noise + scaling_factor * noise['noise_vector']
             elif noise['noise_type'] == 'edfa ASE':
-                ASE_expected_amplitude = noise['edfa'].get_ASE_filter(propagator) * np.sqrt(propagator.dt / propagator.df) # the sqrt(dt/df) is due to the discrete nature of things 
+                ASE_expected_amplitude = noise['noise_param'].get_ASE_filter(propagator) * np.sqrt(propagator.dt / propagator.df) # the sqrt(dt/df) is due to the discrete nature of things 
                 ASE_noise = ifft_(noise['noise_vector'] / np.sqrt(2) * ASE_expected_amplitude, propagator.dt)
                 total_noise = total_noise + ASE_noise
             elif noise['noise_type'] == 'FWHM linewidth':
@@ -175,9 +176,11 @@ class AdditiveNoise():
                 noise_scaling = noise_source['noise_param'] / np.sqrt(np.mean(power_(noise)))
                 noise = noise * noise_scaling
             elif (noise_source['noise_type'] == 'FWHM linewidth'):
-                expected_phase_noise_amplitude = np.sqrt((noise_source['noise_param'] / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f))
-                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator)
-                noise = ifft_(phase_noise, self.propagator.dt)
+                h0 = noise_source['noise_param'] / np.pi
+                expected_phase_noise_amplitude = np.sqrt((noise_source['noise_param'] / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+                noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
+
             noise_source['noise_vector'] = noise
             noise_source['mean_noise_power'] = np.mean(power_(noise)) # TODO: remind self what this is for...
     
@@ -194,9 +197,9 @@ class AdditiveNoise():
     
     @staticmethod
     def _get_real_noise_signal_freq(propagator):
-        single_side_noise = np.random.normal(scale=1, size=(propagator.n_samples // 2, 2)).view(dtype='complex')
-        double_side_noise = np.concatenate((single_side_noise, np.flip(np.conj(single_side_noise))))
-        return double_side_noise
+        time_noise = np.random.normal(scale=1, size=(propagator.n_samples, 1))
+        freq_noise = np.fft.fft(time_noise, axis=0)
+        return freq_noise
 
 # ------------------------------------------------- Visualisation methods, to help with debugging ----------------------------------------
     def display_noisy_signal(self, signal, propagator=None):

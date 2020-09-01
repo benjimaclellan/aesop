@@ -280,7 +280,7 @@ class EDFA(SinglePath):
         self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1, 5]
         super().__init__(**kwargs)
         self._small_signal_gain = None
-        self.noise_model = AdditiveNoise(noise_type='edfa ASE', edfa=self)
+        self.noise_model = AdditiveNoise(noise_type='edfa ASE', noise_param=self)
 
         # save for noise propagation
         self._last_gain = None
@@ -292,13 +292,12 @@ class EDFA(SinglePath):
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
-        print(f'average power in: {np.mean(power_(states[0]))}')
         state = states[0]
 
         state_f = fft_(state, propagator.dt)
 
         gain = self._gain(state, propagator)
-        print(f'(max, avg) gain is: {np.max(gain), np.mean(gain)}')
+
         self._noise_factor(state, propagator) # saves it for the noise call
 
         if save_transforms:
@@ -326,16 +325,8 @@ class EDFA(SinglePath):
             (self._last_noise_factor * self._last_gain - 1) * propagator.df
 
         return np.sqrt(expected_power_dist)
-        """
-        lower_freq = speed_of_light / self._band_upper
-        upper_freq = speed_of_light / self._band_lower
-    
-        P_ase = (self._last_gain * self._last_noise_factor - 1) * Planck * propagator.central_frequency
-        power_ase = np.sum(P_ase) * (upper_freq - lower_freq)
 
-        return power_ase
-        """
-    
+
     def _gain(self, state, propagator):
         """
         Gain is defined as in [1], G = g / (1 + (g * P_in / P_max)^alpha), with g = small signal gain, G is true gain
@@ -430,9 +421,14 @@ class EDFA(SinglePath):
             ax.plot(propagator.f, np.fft.fftshift(gain, axes=0), label=f'power: {np.mean(power_(state))}')
         
         ax.legend()
-        plt.title(f"Gain\
-            \ngain: {self._max_small_signal_gain_dB} dB \
-            \npeak: {self._peak_wl* 1e9} nm \
-            \nband: {self._band_lower * 1e9}-{self._band_upper * 1e9} nm \
-            \ngain flatness: {self._gain_flatness_dB} dB")
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Gain (ratio)')
+        plt.title('Gain, as function of offset frequency and input power')
+        
+        # plt.title(f"Gain\
+        #     \ngain: {self._max_small_signal_gain_dB} dB \
+        #     \npeak: {self._peak_wl* 1e9} nm \
+        #     \nband: {self._band_lower * 1e9}-{self._band_upper * 1e9} nm \
+        #     \ngain flatness: {self._gain_flatness_dB} dB \
+        #     \nmax power: {self._P_out_max}")
         plt.show()

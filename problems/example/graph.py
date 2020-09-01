@@ -193,7 +193,7 @@ class Graph(GraphParent):
                 if (noise_model is not None):
                     noise_model.resample_noise()
     
-    def display_noise_contributions(self, propagator, node=None):
+    def display_noise_contributions(self, propagator, node=None, title=''):
         noisy = self.get_output_signal(propagator, node=node)
         noiseless = self.get_output_signal_pure(propagator, node=node)
         noise = self.get_output_noise(propagator, node=node)
@@ -203,11 +203,16 @@ class Graph(GraphParent):
         noisy_max = np.max(psd_(noisy, propagator.dt, propagator.df))
         for (state, line, label) in zip([noisy, noiseless, noise], linestyles, labels):
             ax[0].plot(propagator.t, power_(state), ls=line, label=label)
+            ax[0].set_xlabel('time (s)')
+            ax[0].set_ylabel('power (W)')
             psd = psd_(state, propagator.dt, propagator.df)
             ax[1].plot(propagator.f, 10 * np.log10(psd/noisy_max), ls=line, label=label)
-        
+            ax[1].set_xlabel('frequency (Hz)')
+            ax[1].set_ylabel('Normalized PSD (dB)') 
+
         ax[0].legend()
         ax[1].legend()
+        plt.title(title)
         plt.show()
 
     def get_output_node(self):
@@ -576,13 +581,13 @@ class Graph(GraphParent):
         for cnt, node in enumerate(reversed(self.propagation_order)):
             state = self.measure_propagator(node)
             line = {'ls':next(linestyles), 'lw':3}
-            ax[0].plot(propagator.t, power_(state), label=node, **line)
+            ax[0].plot(propagator.t, power_(state), label=self.nodes[node]['model'].__class__.__name__, **line)
             psd = psd_(state, propagator.dt, propagator.df)
             if freq_log_scale:
                 ax[1].plot(propagator.f, 10 * np.log10(psd/np.max(psd)), **line)
             else:
-                ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
-
+                # ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
+                ax[1].plot(propagator.f, psd/np.max(psd), **line)
         ax[0].legend()
         plt.show()
 

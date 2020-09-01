@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_
+from problems.example.assets.functions import power_, ifft_
 
 
 SKIP_GRAPHICAL_TEST = True
@@ -254,12 +254,9 @@ def test_autograd_gain_signal_relative(propagator):
     print(f"noise_sum: {noise_sum}")
     assert np.isclose(gradient_at_G[0], noise_sum)
 
+
 def test_real_signal_generation_freq(propagator):
     real_signal = AdditiveNoise._get_real_noise_signal_freq(propagator)
-    pos = real_signal[0:propagator.n_samples // 2]
-    neg = np.flip(real_signal[propagator.n_samples // 2:])
-    assert np.allclose(np.abs(pos), np.abs(neg))
-    assert np.allclose(np.angle(pos), - 1 * np.angle(neg))
     
     if not SKIP_GRAPHICAL_TEST:
         start = propagator.n_samples // 2 - 100
@@ -274,3 +271,5 @@ def test_real_signal_generation_freq(propagator):
         ax[1].set_xlabel('Frequency (Hz)')
 
         plt.show()
+
+    assert np.allclose(np.imag(np.fft.ifft(real_signal, axis=0)), np.zeros_like(real_signal), atol=1e-12)

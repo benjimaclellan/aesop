@@ -91,6 +91,7 @@ class Photodiode(Output):
                                          noise_param=np.sqrt(4 * Boltzmann * self._temp_K * \
                                                              self._bandwidth * self._load_resistance)) # Johnson noise, assumed to be white and Gaussian
         slope_shot = elementary_charge * self._load_resistance**2
+
         # electronic shot noise
         self.noise_model.add_noise_source(noise_type='shot', # slope of shot noise is 2qBR^2 with respect to mean current
                                           noise_filter=self.filter,

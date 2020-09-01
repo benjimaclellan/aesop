@@ -20,7 +20,7 @@ class Filter():
     """
     def __init__(self, shape='butterworth lowpass', **shape_params):
         """
-        Initializes amplitude only filter with a given parametrised shape.
+        Initializes filter with a given parametrised shape.
 
         :param shape: 'exponential of square', 'gaussian', 'longpass', 'bandpass', 'shortpass', 'butterworth lowpass'
         :param **shape_params: any parameters required for the shape

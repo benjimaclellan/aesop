@@ -93,7 +93,7 @@ class ContinuousWaveLaser(Input):
         self.parameter_imprecisions = [0.1, 0.01e-6, 0, 0]
         self.parameter_units = [unit.W, unit.m, None, unit.Hz] # TODO: check whether we should use dB instead of None
         self.parameter_locks = [True, True, True, True]
-        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB', 'FWHM linewidth']
+        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB', 'FWHM_linewidth']
 
         self.parameters = self.default_parameters
 
@@ -101,8 +101,8 @@ class ContinuousWaveLaser(Input):
         self.set_parameters_as_attr()
 
         # TODO: integrate both together
-        # self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self.all_params['FWHM linewidth'])
-        self.noise_model = AdditiveNoise(noise_param=self._osnr_dB)
+        self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
+        self.noise_model.add_noise_source(noise_param=self._osnr_dB)
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         state = np.sqrt(self._peak_power) * np.ones_like(states[0])
