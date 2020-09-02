@@ -16,14 +16,14 @@ class PulseRepetition(Evaluator):
     def __init__(self, propagator, **kwargs):
         super().__init__(**kwargs)
 
-        self.target_pulse_rep_t = 10e-9  # target pattern repetition time in s
-        self.target_pulse_width = 1e-9 # pulse width in s
+        self.target_pulse_rep_t = 5e-9  # target pattern repetition time in s
+        self.target_pulse_width = 0.1e-9 # pulse width in s
         self.target_pulse_rep_f = 1/self.target_pulse_rep_t  # target reprate in Hz
 
         self.target = 0.5 * power_(get_pulse_train(propagator.t, self.target_pulse_rep_t, self.target_pulse_width, pulse_shape='gaussian'))
 
         self.target_f = np.fft.fft(self.target, axis=0)
-        # self.target_rf = rfft(self.target)
+        self.target_rf = np.fft.rfft(self.target, axis=0)
 
         self.scale_array = (np.fft.fftshift(
             np.linspace(0, len(self.target_f) - 1, len(self.target_f))) / propagator.n_samples).reshape(
@@ -46,6 +46,7 @@ class PulseRepetition(Evaluator):
         overlap = self.waveform_temporal_similarity(state, propagator)
 
         score = overlap * (power_loss_approx)
+
         return score
 
     @staticmethod
@@ -64,7 +65,10 @@ class PulseRepetition(Evaluator):
         generated = power_(state)
         shifted = self.shift_function(generated, propagator)
         similarity_func = self.similarity_l2_norm
-        similarity = similarity_func(shifted, self.target)
+        similarity = -np.abs(np.fft.rfft(generated, axis=0))[self.target_harmonic_ind]
+        # similarity = similarity_func(np.abs(np.fft.rfft(generated, axis=0)), np.abs(self.target_rf))
+        # similarity = similarity_func(shifted, self.target)
+        # similarity = similarity_func(generated, self.target)
         return similarity
 
     def shift_function(self, state_power, propagator):

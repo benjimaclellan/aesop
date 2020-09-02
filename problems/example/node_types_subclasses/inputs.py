@@ -31,6 +31,7 @@ class PulsedLaser(Input):
         self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None]
         self.parameter_locked = [True, True, True, True, True, True]
         self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train']
+        self.parameter_symbols =[r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
 
         self.default_parameters = ['gaussian', 10e-9, 1, 1e-7, 1.55e-6, True]
         self.parameters = self.default_parameters
@@ -66,7 +67,7 @@ class ContinuousWaveLaser(Input):
         self.parameter_units = [unit.W, unit.m, None] # TODO: check whether we should use dB instead of None
         self.parameter_locks = [True, True, True]
         self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB']
-
+        self.parameter_symbols = [r"$x_P$", r"$x_\lambda$", r"$x_{SNR}$"]
         self.parameters = self.default_parameters
 
         super().__init__(**kwargs)

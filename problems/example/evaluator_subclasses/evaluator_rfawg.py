@@ -44,7 +44,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
         overlap = self.waveform_temporal_similarity(state, propagator)
 
-        score = overlap * (power_loss_approx)
+        score = overlap #* (power_loss_approx)
         return score
 
     @staticmethod

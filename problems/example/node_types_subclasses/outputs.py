@@ -24,6 +24,7 @@ class MeasurementDevice(Output):
         self.parameter_units = []
         self.parameter_locks = []
         self.parameter_names = []
+        self.parameter_symbols = []
 
         self.default_parameters = []
 

@@ -24,7 +24,7 @@ class CorningFiber(SinglePath):
         self.number_of_parameters = 1
         self.default_parameters = [1]
 
-        self.upper_bounds = [10e3]
+        self.upper_bounds = [1000e3]
         self.lower_bounds = [0]
         self.data_types = ['float']
         self.step_sizes = [None]
@@ -32,7 +32,7 @@ class CorningFiber(SinglePath):
         self.parameter_units = [unit.m]
         self.parameter_locks = [False]
         self.parameter_names = ['length']
-
+        self.parameter_symbols = [r"$x_\beta$"]
         self.beta = 1e-20
 
         super().__init__(**kwargs)
@@ -63,18 +63,18 @@ class PhaseModulator(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        self.number_of_parameters = 2
-        self.default_parameters = [1, 12e9]
+        self.number_of_parameters = 3
+        self.default_parameters = [1, 12e9, 0]
 
-        self.upper_bounds = [20, 24e9]
-        self.lower_bounds = [0, 6e9]
-        self.data_types = ['float', 'float']
-        self.step_sizes = [None, 1e9]
-        self.parameter_imprecisions = [1, 1]
-        self.parameter_units = [unit.rad, unit.Hz]
-        self.parameter_locks = [False, False]
-        self.parameter_names = ['depth', 'frequency']
-
+        self.upper_bounds = [2*np.pi, 12e9, 2*np.pi]
+        self.lower_bounds = [0, 12e9, 0]
+        self.data_types = ['float', 'float', 'float']
+        self.step_sizes = [None, 1e9, None]
+        self.parameter_imprecisions = [1, 1, 0.1]
+        self.parameter_units = [unit.rad, unit.Hz, unit.rad]
+        self.parameter_locks = [False, False, False]
+        self.parameter_names = ['depth', 'frequency', 'shift']
+        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$"]
         super().__init__(**kwargs)
 
         return
@@ -120,11 +120,14 @@ class WaveShaper(SinglePath):
         self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0] * number_of_bins
         self.data_types = 2 * number_of_bins * ['float']
         self.step_sizes = [None] * number_of_bins + [None] * number_of_bins
-        self.parameter_imprecisions = [1] * number_of_bins + [2*np.pi] * number_of_bins
+        self.parameter_imprecisions = [0.1] * number_of_bins + [0.1 * 2 * np.pi] * number_of_bins
         self.parameter_units = [None] * number_of_bins + [unit.rad] * number_of_bins
         self.parameter_locks = 2 * self.number_of_parameters * [False]
         self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bins)] + \
                                ['phase{}'.format(ind) for ind in range(number_of_bins)]
+        self.parameter_symbols = [r"$x_{a_{"+f"{ind}"+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)] + \
+                                 [r"$x_{a_{"+f"{ind}"+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)]
+
 
         super().__init__(**kwargs)
         return
@@ -184,6 +187,7 @@ class DelayLine(SinglePath):
         self.parameter_units = [None] * self.number_of_parameters
         self.parameter_locks = [False] * self.number_of_parameters
         self.parameter_names = ['coupling_ratio{}'.format(ind) for ind in range(self.number_of_parameters)]
+        self.parameter_symbols = [r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
 
         self._n = 1.444
         self._delays = [2**k * 1e-12 for k in range(0, self.number_of_parameters)]
@@ -204,7 +208,6 @@ class DelayLine(SinglePath):
 
         field_short_tmp = np.zeros_like(field_short)
 
-        ## TODO fix the fft, ifft functions
         for (coupling_ratio, delay) in zip(coupling_ratios, self._delays):
             length = (propagator.speed_of_light / self._n) * delay
             beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light

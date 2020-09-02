@@ -26,7 +26,7 @@ class VariablePowerSplitter(MultiPath):
         self.parameter_locks = [False]
         self.parameter_names = ['coupling_ratio']
         self.default_parameters = [0.5]
-
+        self.parameter_symbols = [r"$x_r$"]
         super().__init__(**kwargs)
         return
 

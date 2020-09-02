@@ -65,16 +65,21 @@ class Graph(GraphParent):
         info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
                                                                 exclude_locked=exclude_locked)
 
-        func = lambda parameters: _function(parameters, self, propagator, evaluator,
-                                            info['node_edge_index'], info['parameter_index'])
+        def func(parameters):
+            return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
+        # func = lambda parameters: _function(parameters, self, propagator, evaluator,
+        #                                     info['node_edge_index'], info['parameter_index'])
+
         return func
 
 
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
-        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
-        self.hess = lambda parameters: hess_tmp(np.array(parameters))
+        # hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        def hess_tmp(parameters):
+            return hessian(self.func)(np.array(parameters))
+        self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
         return
 
 
@@ -287,7 +292,7 @@ class Graph(GraphParent):
         scale_units(ax[1], unit='Hz', axes=['x'])
         return
 
-    def draw(self, ax=None, labels=None):
+    def draw(self, ax=None, labels=None, legend=False):
         """
         custom plotting function to more closely resemble schematic diagrams
 
@@ -301,17 +306,24 @@ class Graph(GraphParent):
         if ax is None:
             fig, ax = plt.subplots(1,1)
 
+        if legend:
+            if labels is None:
+                str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
+            else:
+                str = "\n".join(['{}:{}'.format(labels[node], self.nodes[node]['name']) for node in self.nodes])
 
-        str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
+            ax.annotate(str,
+                        xy=(0.02, 0.98), xytext=(0.02, 0.98), xycoords='axes fraction',
+                        textcoords='offset points',
+                        size=7, va='top',
+                        bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
 
-        ax.annotate(str,
-                    xy=(0.02, 0.98), xytext=(0.02, 0.98), xycoords='axes fraction',
-                    textcoords='offset points',
-                    size=7, va='top',
-                    bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
+        source = [node for node in self.nodes if self.get_in_degree(node) == 0]
 
-        # nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
-        nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=0.5)
+        pos = nx.planar_layout(self)#, pos=fixed_positions, fixed = fixed_positions.keys())
+        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='lightgrey')
+
+        # nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=1.0)
         return
 
 
