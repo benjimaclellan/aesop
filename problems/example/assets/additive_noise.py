@@ -74,18 +74,8 @@ class AdditiveNoise():
             raise ValueError(f'Noise type must be in {AdditiveNoise.supported_noise_types}. {noise_type} is not valid')
 
         if (self.propagator is not None):
-            noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
+            noise = self._get_noise_vector(noise_filter, noise_type, noise_param)
             mean_noise_power = np.mean(power_(noise))
-            if (noise_type == 'absolute power'):
-                noise_scaling = np.sqrt(noise_param / mean_noise_power) # set average power to equal noise_param
-                noise = noise * noise_scaling
-            if (noise_type == 'rms'):
-                noise_scaling = noise_param / np.sqrt(mean_noise_power) # technically mean noise power here is voltage squared but whatever, it works out mathematically
-                noise = noise * noise_scaling
-            if (noise_type == 'FWHM linewidth'):
-                expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
-                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
-                noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
         else:
             noise = None
             mean_noise_power = None
@@ -174,23 +164,34 @@ class AdditiveNoise():
             np.random.seed(seed)
 
         for noise_source in self.noise_sources:
-            noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
-            if noise_source['filter'] is not None:
-                noise = noise_source['filter'].get_filtered_time(noise, self.propagator)
-            
-            if (noise_source['noise_type'] == 'absolute power'):
-                noise_scaling = np.sqrt(noise_source['noise_param'] / np.mean(power_(noise))) # set average power to equal noise_param
-                noise = noise * noise_scaling
-            elif (noise_source['noise_type'] == 'rms'):
-                noise_scaling = noise_source['noise_param'] / np.sqrt(np.mean(power_(noise)))
-                noise = noise * noise_scaling
-            elif (noise_source['noise_type'] == 'FWHM linewidth'):
-                expected_phase_noise_amplitude = np.sqrt((noise_source['noise_param'] / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
-                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
-                noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
+            noise_source['noise_vector'] = self._get_noise_vector(noise_source['filter'], noise_source['noise_type'], noise_source['noise_param'])
+            noise_source['mean_noise_power'] = np.mean(power_(noise_source['noise_vector']))
+    
+    def _get_noise_vector(self, noise_filter, noise_type, noise_param):
+        """
+        Retrieve a noise vector with appropriate scaling (if scaling is independent of input vector: otherwise scaling occurs at a later stage)
 
-            noise_source['noise_vector'] = noise
-            noise_source['mean_noise_power'] = np.mean(power_(noise)) # TODO: remind self what this is for...
+        :param noise_filter: the filter to apply to noise prior to scaling
+        :noise_type: as described in the constructor docstring
+        :noise_param: as described in the constructor docstring
+
+        :return: a correctly shaped (and potentially correctly scaled) vector
+        """
+        noise = np.random.normal(scale=1, size=(self.propagator.n_samples, 2)).view(dtype='complex')
+        if noise_filter is not None:
+            noise = noise_filter.get_filtered_time(noise, self.propagator)
+
+        if (noise_type == 'absolute power'):
+            noise_scaling = np.sqrt(noise_param / np.mean(power_(noise))) # set average power to equal noise_param
+            noise = noise * noise_scaling
+        elif (noise_type == 'rms'):
+            noise_scaling = noise_param / np.sqrt(np.mean(power_(noise)))
+            noise = noise * noise_scaling
+        elif (noise_type == 'FWHM linewidth'):
+            expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
+            phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+            noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
+        return noise
     
     @staticmethod
     def get_OSNR(signal, noise, in_dB=True):
@@ -219,70 +220,64 @@ class AdditiveNoise():
         return freq_noise
 
 # ------------------------------------------------- Visualisation methods, to help with debugging ----------------------------------------
-    def display_noisy_signal(self, signal, propagator=None):
+    def display_noisy_signal(self, signal, propagator):
         """
         Displays plots the noisy signal power in the time and frequency domains
 
         Note that signal WILL set sample_num value, but the vector signal WILL NOT be modified
         """
-        #TODO: fix up the axes a bit but tbh I just want to see the shape
         _, ax = plt.subplots(2, 1)
 
-        signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
-
         noisy_signal = self.add_noise_to_propagation(signal, propagator)
-        if (propagator is None): # use arbitrary scale
-            raise ValueError('propagator cannot be None')
 
-        ax[0].plot(propagator.t, power_(noisy_signal), label='time domain')
-        ax[1].plot(propagator.f, 10 * np.log10(psd_(noisy_signal, propagator.dt, propagator.df)), label='freq domain')
+        ax[0].plot(propagator.t, ifft_shift_(power_(noisy_signal)), label='time domain')
+        psd = psd_(noisy_signal, propagator.dt, propagator.df)
+        psd_log = 10 * np.log10(psd / np.max(psd))
+        ax[1].plot(propagator.f, psd_log, label='freq domain')
         ax[0].legend()
         ax[1].legend()
         plt.title('Noisy signal')
         plt.show()
     
-    def display_noise(self, signal, propagator=None):
+    def display_noise(self, signal, propagator):
         """
         Displays plots the noise power in the time and frequency domains
 
         Note that signal WILL set sample_num value, but the vector signal WILL NOT be modified
         """
-        #TODO: fix up the axes a bit but tbh I just want to see the shape
         _, ax = plt.subplots(2, 1)
 
-        if (propagator is None): # use arbitrary scale
-            raise ValueError('propagator needs a value!')
-
-        mutated_signal = np.copy(signal) # for ease of testing, we don't want to have to furnish multiple input signal objects
-        noise_vector = self.add_noise_to_propagation(mutated_signal, propagator) - signal
+        noise_vector = self.add_noise_to_propagation(signal, propagator) - signal
     
-        ax[0].plot(propagator.t, power_(noise_vector), label='time domain')
-        ax[1].plot(propagator.f, 10 * np.log10(psd_(noise_vector, propagator.dt, propagator.df)), label='freq domain (log)')
+        ax[0].plot(propagator.t, ifft_shift_(power_(noise_vector)), label='time domain')
+        psd = psd_(noise_vector, propagator.dt, propagator.df)
+        psd_log =  10 * np.log10(psd / np.max(psd))
+        ax[1].plot(propagator.f, psd_log, label='freq domain (log)')
         ax[0].legend()
         ax[1].legend()
         plt.title('Total noise')
         plt.show()
 
-    def display_noise_sources_absolute(self, propagator=None):
+    def display_noise_sources_absolute(self, propagator):
         """
         Displays plots the power of individual noise contributions in the time and frequency domains
 
         Since no input vector is provided, outputs are displayed as if all noise source options were absolute power
 
         Raises exception if propagator is None
-        """
-        #TODO: fix up the axes a bit but tbh I just want to see the shape
-    
+        """    
         _, ax = plt.subplots(2, 1)
 
-        if (self.propagator is None or self._propagator is not propagator):
+        if (self.propagator is None):
             self.propagator = propagator
-    
+
+        normalization = max([np.max(psd_(noise['noise_vector'], propagator.dt, propagator.df)) for noise in self.noise_sources])
+
         for noise in self.noise_sources:
             noise_param = noise['noise_param']
-            noise_vector = noise['noise_vector'] / noise['noise_param']**0.5 # will make it proportional to those relative vals
+            noise_vector = noise['noise_vector'] 
             ax[0].plot(propagator.t, power_(noise_vector), label=f'time domain, param: {noise_param}')
-            ax[1].plot(propagator.f, psd_(noise_vector, propagator.dt, propagator.df), label=f'freq domain, param: {noise_param}')
+            ax[1].plot(propagator.f, 10 * np.log10(psd_(noise_vector, propagator.dt, propagator.df) / normalization), label=f'freq domain, param: {noise_param}')
 
         ax[0].legend()
         ax[1].legend()

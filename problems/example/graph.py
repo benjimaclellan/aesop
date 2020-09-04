@@ -590,8 +590,7 @@ class Graph(GraphParent):
             if freq_log_scale:
                 ax[1].plot(propagator.f, 10 * np.log10(psd/np.max(psd)), **line)
             else:
-                # ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
-                ax[1].plot(propagator.f, psd/np.max(psd), **line)
+                ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
         ax[0].legend()
         plt.show()
 

@@ -35,13 +35,6 @@ def signal(propagator):
     return np.sin(2 * np.pi / 1e-9 * propagator.t) + 1j*0 # we just really want a visible signal that's not constant power so *shrugs*
 
 
-
-def display_time_freq(noise, signal, propagator):
-    noise.display_noisy_signal(signal, propagator=propagator)
-    noise.display_noise(signal, propagator=propagator)
-    noise.display_noise_sources_absolute(propagator=propagator)
-
-
 @pytest.mark.AdditiveNoise
 def test_incorrect_distribution():
     with pytest.raises(ValueError):
@@ -60,8 +53,9 @@ def test_osnr(signal, propagator):
         noise = AdditiveNoise(noise_type='osnr', noise_param=i, seed=0)
 
         if (not SKIP_GRAPHICAL_TEST):
-            display_time_freq(noise, signal, propagator)
-    
+            noise.display_noisy_signal(signal, propagator)
+            noise.display_noise(signal, propagator)
+
         noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
         assert np.isclose(AdditiveNoise.get_OSNR(signal, noise_total), i)
 
@@ -80,41 +74,39 @@ def test_absolute_noise_power(propagator, signal):
 
 @pytest.mark.AdditiveNoise
 def test_multiple_noise_sources_add_before_use(signal, propagator):
-    noise = AdditiveNoise(noise_type='absolute power', noise_param=2, seed=0)
-    noise.add_noise_source(noise_type='absolute power', noise_param=4) 
-    noise.add_noise_source(noise_type='absolute power', noise_param=8)
-    noise.add_noise_source(noise_type='absolute power', noise_param=16)
+    noise = AdditiveNoise(noise_type='absolute power', noise_param=16, seed=0)
+    noise.add_noise_source(noise_type='absolute power', noise_param=8) 
+    noise.add_noise_source(noise_type='absolute power', noise_param=4)
+    noise.add_noise_source(noise_type='absolute power', noise_param=2)
     
     if not SKIP_GRAPHICAL_TEST:
-        noise.display_noisy_signal(signal, propagator=propagator)
-        noise.display_noise(signal, propagator=propagator)
-        noise.display_noise_sources_absolute(propagator=propagator)
+        noise.display_noisy_signal(signal, propagator)
+        noise.display_noise(signal, propagator)
+        noise.display_noise_sources_absolute(propagator)
 
     noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
 
     # there might be noise interference so we allow a larger tolerance
-    assert np.isclose(np.mean(power_(noise_total)), 2 + 4 + 8 + 16, atol=1) 
+    assert np.isclose(np.mean(power_(noise_total)), 2 + 4 + 8 + 16, atol=1)
 
 
 @pytest.mark.AdditiveNoise
 def test_multiple_noise_sources_add_after_use(signal, propagator):
-    noise = AdditiveNoise(noise_type='absolute power', noise_param=2, seed=0)
+    noise = AdditiveNoise(noise_type='absolute power', noise_param=16, seed=0)
     
     if not SKIP_GRAPHICAL_TEST:
         noise.display_noisy_signal(signal, propagator=propagator)
-        noise.display_noise(signal, propagator=propagator)
         noise.display_noise_sources_absolute(propagator=propagator)
 
     noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
-    assert np.isclose(np.mean(power_(noise_total)), 2)
+    assert np.isclose(np.mean(power_(noise_total)), 16)
 
-    noise.add_noise_source(noise_type='absolute power', noise_param=4) 
-    noise.add_noise_source(noise_type='absolute power', noise_param=8)
-    noise.add_noise_source(noise_type='absolute power', noise_param=16)
+    noise.add_noise_source(noise_type='absolute power', noise_param=8) 
+    noise.add_noise_source(noise_type='absolute power', noise_param=4)
+    noise.add_noise_source(noise_type='absolute power', noise_param=2)
     
     if not SKIP_GRAPHICAL_TEST:
         noise.display_noisy_signal(signal, propagator=propagator)
-        noise.display_noise(signal, propagator=propagator)
         noise.display_noise_sources_absolute(propagator=propagator)
 
     noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
