@@ -7,6 +7,11 @@ from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import power_, ifft_
 
+from problems.example.graph import Graph
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
+from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
+
 """
 This document is intended to unite verification of noise into one document
 
@@ -16,7 +21,6 @@ SKIP_GRAPHICAL_TEST = True
 
 
 # ----------------- General Fixtures ---------------------------
-
 
 @pytest.fixture(scope='function')
 def propagator():
@@ -192,6 +196,30 @@ def test_resampling(signal, propagator):
     output2 = noise.add_noise_to_propagation(signal, propagator)
 
     assert not np.allclose(output1, output2)
+
+# ----------------- CW Laser tests ---------------------
+
+def get_laser_only_graph(peak_power=1e-3, osnr_dB=55):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': peak_power, 'central_wl': 1.55e-6, 'osnr_dB':osnr_dB}),
+             1: MeasurementDevice()
+            }
+
+    edges = [(0, 1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+@pytest.mark.CWL
+def test_peak_power(propagator):
+    """
+    Check that peak power averages out correctly (with moderate noise)
+    """
+    for i in range(5):
+        graph = get_laser_only_graph(peak_power=10**(-1 * i))
+        graph.propagate(propagator)
+        output = graph.measure_propagator(graph.get_output_node())
+        assert np.isclose(np.mean(power_(output)), 10**(-1 * i), atol=1e-3)
 
 # ---------------------------------- AUTOGRAD TEST SLUSH PILE FOR NOW --------------------------------------
 def gain_sum_no_noise(signal):
