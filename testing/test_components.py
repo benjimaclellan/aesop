@@ -480,7 +480,7 @@ def test_coupling_efficiency(propagator):
         assert np.isclose(np.mean(output_power), e**(len(graph.nodes) - 1), atol=1e-3), f'mean power: {np.mean(output_power)}, expected power: { e**(len(graph.nodes) - 1)}'
 
 
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_coupling_efficiency_std_graph(propagator):
     for e in [0.96, 0.9, 0.85]:
         graph = get_standard_graph(1, coupling_eff=e)

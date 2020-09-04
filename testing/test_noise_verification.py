@@ -7,13 +7,15 @@ from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import power_, ifft_
 
+"""
+This document is intended to unite verification of noise into one document
 
+Each test should (ideally) be run without a graphical component
+"""
 SKIP_GRAPHICAL_TEST = True
 
 
-@pytest.fixture(autouse=True)
-def setup():
-    AdditiveNoise.simulate_with_noise = True
+# ----------------- General Fixtures ---------------------------
 
 
 @pytest.fixture(scope='function')
@@ -21,100 +23,134 @@ def propagator():
     return Propagator(window_t=1e-9, n_samples=2**14, central_wl=1.55e-6)
 
 
+@pytest.fixture(autouse=True)
+def setup():
+    AdditiveNoise.simulate_with_noise = True
+
+
+# ----------------- Basic AdditiveNoise class tests ---------------------
+
 @pytest.fixture(scope='function')
 def signal(propagator):
     return np.sin(2 * np.pi / 1e-9 * propagator.t) + 1j*0 # we just really want a visible signal that's not constant power so *shrugs*
 
 
+
 def display_time_freq(noise, signal, propagator):
-    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     noise.display_noisy_signal(signal, propagator=propagator)
     noise.display_noise(signal, propagator=propagator)
     noise.display_noise_sources_absolute(propagator=propagator)
 
 
+@pytest.mark.AdditiveNoise
 def test_incorrect_distribution():
     with pytest.raises(ValueError):
         AdditiveNoise(distribution='lorentzian')
 
 
+@pytest.mark.AdditiveNoise
 def test_incorrect_noise_type():
     with pytest.raises(ValueError):
         AdditiveNoise(noise_type='transcendent')
-    
 
-def test_absolute_noise_power(propagator):
+
+@pytest.mark.AdditiveNoise
+def test_osnr(signal, propagator):
+    for i in [1, 5, 10, 32]:
+        noise = AdditiveNoise(noise_type='osnr', noise_param=i, seed=0)
+
+        if (not SKIP_GRAPHICAL_TEST):
+            display_time_freq(noise, signal, propagator)
+    
+        noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+        assert np.isclose(AdditiveNoise.get_OSNR(signal, noise_total), i)
+
+
+@pytest.mark.AdditiveNoise
+def test_absolute_noise_power(propagator, signal):
     noise = AdditiveNoise(noise_param=1, seed=0, noise_type='absolute power')
-    signal = np.zeros(propagator.n_samples).reshape((propagator.n_samples, 1))
-    noisy_signal = noise.add_noise_to_propagation(signal, propagator)
+    
+    zero_signal = np.zeros(propagator.n_samples).reshape((propagator.n_samples, 1))
+    noisy_signal = noise.add_noise_to_propagation(zero_signal, propagator)
     assert np.isclose(np.mean(power_(noisy_signal)), 1)
 
-
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
-def test_display_timeFreq(signal, propagator):
-    # noise param = 1
-    noise1 = AdditiveNoise(noise_param=1, seed=0)
-    display_time_freq(noise1, signal, propagator)
-
-    # noise param = 5
-    noise5 = AdditiveNoise(noise_param=5, seed=0)
-    display_time_freq(noise5, signal, propagator)
-
-    # noise param = 10
-    noise10 = AdditiveNoise(noise_param=10, seed=0)
-    display_time_freq(noise10, signal, propagator)
-
-    # noise param = 32
-    noise32 = AdditiveNoise(noise_param=32, seed=0)
-    display_time_freq(noise32, signal, propagator)
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+    assert np.isclose(np.mean(power_(noise_total)), 1)
 
 
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
-def test_multiple_noise_sources(signal, propagator):
-    noise = AdditiveNoise(noise_param=2, seed=0)
-    noise.display_noisy_signal(signal, propagator=propagator)
-    noise.display_noise(signal, propagator=propagator)
-
-    noise.add_noise_source(noise_param=4) # relative noises
-    noise.add_noise_source(noise_param=8)
-    noise.add_noise_source(noise_param=16)
+@pytest.mark.AdditiveNoise
+def test_multiple_noise_sources_add_before_use(signal, propagator):
+    noise = AdditiveNoise(noise_type='absolute power', noise_param=2, seed=0)
+    noise.add_noise_source(noise_type='absolute power', noise_param=4) 
+    noise.add_noise_source(noise_type='absolute power', noise_param=8)
+    noise.add_noise_source(noise_type='absolute power', noise_param=16)
     
-    noise.display_noisy_signal(signal, propagator=propagator)
-    noise.display_noise(signal, propagator=propagator)
-    noise.display_noise_sources_absolute(propagator=propagator)
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator)
+        noise.display_noise(signal, propagator=propagator)
+        noise.display_noise_sources_absolute(propagator=propagator)
+
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+
+    # there might be noise interference so we allow a larger tolerance
+    assert np.isclose(np.mean(power_(noise_total)), 2 + 4 + 8 + 16, atol=1) 
 
 
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
-def test_absolute_vs_relative(signal, propagator):
-    signal2 = 2 * np.copy(signal)
+@pytest.mark.AdditiveNoise
+def test_multiple_noise_sources_add_after_use(signal, propagator):
+    noise = AdditiveNoise(noise_type='absolute power', noise_param=2, seed=0)
+    
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator)
+        noise.display_noise(signal, propagator=propagator)
+        noise.display_noise_sources_absolute(propagator=propagator)
 
-    # relative: test against two input vectors and confirm magnitude scales
-    noise = AdditiveNoise(noise_param=2, seed=0)
-    noise.display_noise(signal, propagator=propagator)
-    noise = AdditiveNoise(noise_param=2, seed=0)
-    noise.display_noise(signal2, propagator=propagator) # noise expected to have 4x larger amplitude
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+    assert np.isclose(np.mean(power_(noise_total)), 2)
 
-    # absolute: test against two input vectors and confirm magnitude doesn't change
-    noise = AdditiveNoise(noise_param=2, seed=0, noise_type='absolute power')
-    noise.display_noise(signal, propagator=propagator)
-    noise = AdditiveNoise(noise_param=2, seed=0, noise_type='absolute power')
-    noise.display_noise(signal2, propagator=propagator) # noise expected to have same amplitude
+    noise.add_noise_source(noise_type='absolute power', noise_param=4) 
+    noise.add_noise_source(noise_type='absolute power', noise_param=8)
+    noise.add_noise_source(noise_type='absolute power', noise_param=16)
+    
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator)
+        noise.display_noise(signal, propagator=propagator)
+        noise.display_noise_sources_absolute(propagator=propagator)
+
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+
+    # there might be noise interference so we allow a larger tolerance
+    assert np.isclose(np.mean(power_(noise_total)), 2 + 4 + 8 + 16, atol=1) 
 
 
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.AdditiveNoise
 def test_noise_disactivation(signal, propagator):
     noise = AdditiveNoise(noise_param=4, seed=0)
-    noise.display_noisy_signal(signal, propagator=propagator) # should show noisy signal
-    noise.display_noise(signal, propagator=propagator)
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator) # should show noisy signal
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+    assert not np.isclose(np.mean(noise_total), 0)
+
     noise.noise_on = False
-    noise.display_noise(signal, propagator=propagator) # should show nothing
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator) # should show noisy signal
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+    assert np.allclose(noise_total, 0)
+   
     noise.noise_on = True
-    noise.display_noise(signal, propagator=propagator) # should be back to the start
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator) # should show noisy signal
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+    assert not np.isclose(np.mean(noise_total), 0)
+
     AdditiveNoise.simulate_with_noise = False
-    noise.display_noisy_signal(signal, propagator=propagator) # should show pure signal
-    noise.display_noise(signal, propagator=propagator) # should show nothing
+    if not SKIP_GRAPHICAL_TEST:
+        noise.display_noisy_signal(signal, propagator=propagator) # should show pure signal
+    noise_total = noise.add_noise_to_propagation(signal, propagator) - signal
+    assert np.allclose(noise_total, 0)
+  
 
-
+@pytest.mark.AdditiveNoise
 def test_incompatible_signal_shapes(signal, propagator):
     noise = AdditiveNoise()
     noise.add_noise_to_propagation(signal, propagator)
@@ -122,7 +158,50 @@ def test_incompatible_signal_shapes(signal, propagator):
         noise.add_noise_to_propagation(signal[0:100], propagator)
 
 
-# test autograd capabilities
+@pytest.mark.AdditiveNoise
+def test_real_signal_generation_freq(propagator):
+    real_signal = AdditiveNoise._get_real_noise_signal_freq(propagator)
+    
+    if not SKIP_GRAPHICAL_TEST:
+        start = propagator.n_samples // 2 - 100
+        stop = propagator.n_samples // 2 + 101
+
+        _, ax = plt.subplots(2, 1)
+        ax[0].plot(propagator.f[start:stop], power_(np.fft.fftshift(real_signal))[start:stop])
+        ax[0].set_ylabel('Noise power')
+        ax[0].set_xlabel('Frequency (Hz)')
+        ax[1].plot(propagator.f[start:stop], np.angle(np.fft.fftshift(real_signal))[start:stop])
+        ax[1].set_ylabel('Noise phase')
+        ax[1].set_xlabel('Frequency (Hz)')
+
+        plt.show()
+
+    assert np.allclose(np.imag(np.fft.ifft(real_signal, axis=0)), 0, atol=1e-12)
+
+
+@pytest.mark.AdditiveNoise
+def test_seeding(signal, propagator):
+    noise1 = AdditiveNoise(noise_type='absolute power', seed=101)
+    noise2 = AdditiveNoise(noise_type='absolute power', seed=3030)
+    
+    output1 = noise1.add_noise_to_propagation(signal, propagator)
+    output2 = noise2.add_noise_to_propagation(signal, propagator)
+
+    assert not np.allclose(output1, output2)
+
+
+@pytest.mark.AdditiveNoise
+def test_resampling(signal, propagator):
+    noise = AdditiveNoise(noise_type='absolute power', seed=0)
+    
+    output1 = noise.add_noise_to_propagation(signal, propagator)
+    
+    noise.resample_noise(seed=1)
+    output2 = noise.add_noise_to_propagation(signal, propagator)
+
+    assert not np.allclose(output1, output2)
+
+# ---------------------------------- AUTOGRAD TEST SLUSH PILE FOR NOW --------------------------------------
 def gain_sum_no_noise(signal):
     return np.sum(np.abs(5 * signal))
 
@@ -209,6 +288,7 @@ def test_autograd_convergence(signal, propagator):
     assert False
 
 
+@pytest.mark.skip
 def test_autograd_gain_signal_absolute(propagator):
     signal = np.zeros((propagator.n_samples, 1), dtype='complex')
     noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute power')
@@ -231,6 +311,7 @@ def test_autograd_gain_signal_absolute(propagator):
     assert np.isclose(gradient_at_G[0], noise_sum)
 
 
+@pytest.mark.skip
 def test_autograd_gain_signal_relative(propagator):
     GAIN = 8
 
@@ -253,23 +334,3 @@ def test_autograd_gain_signal_relative(propagator):
     noise_sum = np.sum(noise.add_noise_to_propagation(signal, propagator) - signal).astype(dtype='float')
     print(f"noise_sum: {noise_sum}")
     assert np.isclose(gradient_at_G[0], noise_sum)
-
-
-def test_real_signal_generation_freq(propagator):
-    real_signal = AdditiveNoise._get_real_noise_signal_freq(propagator)
-    
-    if not SKIP_GRAPHICAL_TEST:
-        start = propagator.n_samples // 2 - 100
-        stop = propagator.n_samples // 2 + 101
-
-        _, ax = plt.subplots(2, 1)
-        ax[0].plot(propagator.f[start:stop], power_(np.fft.fftshift(real_signal))[start:stop])
-        ax[0].set_ylabel('Noise power')
-        ax[0].set_xlabel('Frequency (Hz)')
-        ax[1].plot(propagator.f[start:stop], np.angle(np.fft.fftshift(real_signal))[start:stop])
-        ax[1].set_ylabel('Noise phase')
-        ax[1].set_xlabel('Frequency (Hz)')
-
-        plt.show()
-
-    assert np.allclose(np.imag(np.fft.ifft(real_signal, axis=0)), np.zeros_like(real_signal), atol=1e-12)
