@@ -386,16 +386,6 @@ def test_avg_normal(propagator):
     assert np.isclose(np.mean(power_(normal_dist / np.sqrt(2))), 1)
 
 # -------------------------------- Testing Laser linewidth -----------------------------------------
-def get_laser_graph(linewidth):
-    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6, 'osnr_dB':20, 'FWHM_linewidth':linewidth}),
-             1: MeasurementDevice()
-            }
-
-    edges = [(0, 1)]
-
-    graph = Graph(nodes, edges, propagate_on_edges=True)
-    graph.assert_number_of_edges()
-    return graph
 
 
 def get_standard_graph(linewidth, coupling_eff=1):
@@ -413,42 +403,7 @@ def get_standard_graph(linewidth, coupling_eff=1):
     graph.assert_number_of_edges()
     return graph
 
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
-def test_linewidth(propagator):
-    np.random.seed(100)
 
-    N = 100
-
-    for j in range(3):
-        print(j)
-        laser_graph = get_laser_graph(2e9 * 10**j)
-        average_state = np.zeros(propagator.n_samples, dtype='complex').reshape((propagator.n_samples, 1))
-
-        for i in range(N):
-            laser_graph.propagate(propagator)
-            average_state += laser_graph.measure_propagator(node=1)
-            if (i == 0):
-                laser_graph.inspect_state(propagator)
-            laser_graph.resample_all_noise(seed=i)
-
-        average_state /= N
-        _, ax = plt.subplots(2, 1)
-        ax[0].plot(propagator.t, power_(average_state))
-        ax[1].plot(propagator.f, psd_(average_state, propagator.dt, propagator.df))
-        plt.title('Average linewidth results')
-        plt.show()
-
-
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
-def test_linewidth_effects(propagator):
-    np.random.seed(100)
-
-    for j in range(3):
-        laser_graph = get_standard_graph(2e9 * 10**j)
-        laser_graph.propagate(propagator)
-        laser_graph.inspect_state(propagator) # , freq_log_scale=True)
-        osnr = AdditiveNoise.get_OSNR(laser_graph.get_output_signal_pure(propagator), laser_graph.get_output_noise(propagator))
-        laser_graph.display_noise_contributions(propagator, node=0, title=f'osnr: {osnr}, linewidth: {2 * 10**j} GHz')
 
 # ------------------------------------ Test coupling efficiency ------------------------------
 def phase_modulator_graph(coupling_eff):

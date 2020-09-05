@@ -199,8 +199,8 @@ def test_resampling(signal, propagator):
 
 # ----------------- CW Laser tests ---------------------
 
-def get_laser_only_graph(peak_power=1e-3, osnr_dB=55):
-    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': peak_power, 'central_wl': 1.55e-6, 'osnr_dB':osnr_dB}),
+def get_laser_only_graph(peak_power=1e-3, osnr_dB=55, linewidth=1e3):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': peak_power, 'central_wl': 1.55e-6, 'osnr_dB':osnr_dB, 'FWHM_linewidth':linewidth}),
              1: MeasurementDevice()
             }
 
@@ -220,6 +220,91 @@ def test_peak_power(propagator):
         graph.propagate(propagator)
         output = graph.measure_propagator(graph.get_output_node())
         assert np.isclose(np.mean(power_(output)), 10**(-1 * i), atol=1e-3)
+
+
+@pytest.mark.CWL 
+def test_zero_linewidth(propagator):
+    """
+    Check that zero linewidth and very large osnr gives us essentially an ideal graph
+    (i.e. confirm that in the limit of noise disappearing, the behaviour is as expected)
+    """
+    graph = get_laser_only_graph(osnr_dB=1000, linewidth=0)
+    graph.propagate(propagator)
+    output1 = graph.measure_propagator(graph.get_output_node())
+    if not SKIP_GRAPHICAL_TEST:
+        graph.inspect_state(propagator, freq_log_scale=True)
+    
+    AdditiveNoise.simulate_with_noise = False
+    graph.propagate(propagator)
+    output2 = graph.measure_propagator(graph.get_output_node())
+
+    if not SKIP_GRAPHICAL_TEST:
+        graph.inspect_state(propagator, freq_log_scale=False)
+    
+    assert np.allclose(output1, output2), f'output1: {output1}, output2: {output2}'
+
+
+@pytest.mark.CWL 
+def test_osnr_with_zero_linewidth(propagator):
+    for i in range(20, 55, 5):
+        graph = get_laser_only_graph(osnr_dB=i, linewidth=0)
+        if not SKIP_GRAPHICAL_TEST:
+            graph.propagate(propagator)
+            graph.inspect_state(propagator, freq_log_scale=True)
+
+        osnr = AdditiveNoise.get_OSNR(graph.get_output_signal_pure(propagator),
+                                      graph.get_output_noise(propagator))
+        
+        assert np.isclose(osnr, i)
+
+
+@pytest.mark.CWL 
+def test_linewidth_with_osnr(propagator):
+    # TODO: refactor this test to have a non-graphical test
+    for i in [1e9, 5e9, 10e9, 50e9, 100e9]:
+        graph = get_laser_only_graph(osnr_dB=1000, linewidth=i)
+        if not SKIP_GRAPHICAL_TEST:
+            graph.propagate(propagator)
+            graph.inspect_state(propagator)
+
+# ------------------- out of commission laser test
+@pytest.mark.skip
+def test_linewidth(propagator):
+    np.random.seed(100)
+
+    N = 100
+
+    for j in range(3):
+        print(j)
+        laser_graph = get_laser_only_graph(linewidth=2e9 * 10**j)
+        average_state = np.zeros(propagator.n_samples, dtype='complex').reshape((propagator.n_samples, 1))
+
+        for i in range(N):
+            laser_graph.propagate(propagator)
+            average_state += laser_graph.measure_propagator(node=1)
+            if (i == 0):
+                laser_graph.inspect_state(propagator)
+            laser_graph.resample_all_noise(seed=i)
+
+        average_state /= N
+        _, ax = plt.subplots(2, 1)
+        ax[0].plot(propagator.t, power_(average_state))
+        ax[1].plot(propagator.f, psd_(average_state, propagator.dt, propagator.df))
+        plt.title('Average linewidth results')
+        plt.show()
+
+
+@pytest.mark.skip
+def test_linewidth_effects(propagator):
+    np.random.seed(100)
+
+    for j in range(3):
+        laser_graph = get_standard_graph(2e9 * 10**j)
+        laser_graph.propagate(propagator)
+        laser_graph.inspect_state(propagator) # , freq_log_scale=True)
+        osnr = AdditiveNoise.get_OSNR(laser_graph.get_output_signal_pure(propagator), laser_graph.get_output_noise(propagator))
+        laser_graph.display_noise_contributions(propagator, node=0, title=f'osnr: {osnr}, linewidth: {2 * 10**j} GHz')
+
 
 # ---------------------------------- AUTOGRAD TEST SLUSH PILE FOR NOW --------------------------------------
 def gain_sum_no_noise(signal):
