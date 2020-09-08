@@ -8,7 +8,7 @@ from pint import UnitRegistry
 unit = UnitRegistry()
 
 from ..assets.decorators import register_node_types_all
-from ..assets.functions import power_, psd_, get_pulse_train
+from ..assets.functions import power_, psd_, ifft_, ifft_shift_, get_pulse_train
 from ..assets.additive_noise import AdditiveNoise
 
 from ..node_types import Input
@@ -72,24 +72,27 @@ class ContinuousWaveLaser(Input):
         self.node_lock = False
         self.node_acronym = 'CW'
         self.number_of_parameters = 3
-        self.default_parameters = [1, 1.55e-6, 55] # default OSNR from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
+        self.default_parameters = [1, 1.55e-6, 55, 0.1e3] # default OSNR and linewidth from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 
-        self.upper_bounds = [2, 1.54e-6, 200] # upper bound for osnr randomly set
-        self.lower_bounds = [0, 1.56e-6, 1]
-        self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, None, None]
-        self.parameter_imprecisions = [0.1, 0.01e-6, 0]
-        self.parameter_units = [unit.W, unit.m, None] # TODO: check whether we should use dB instead of None
-        self.parameter_locks = [True, True, True]
-        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB']
-        self.parameter_symbols = [r"$x_P$", r"$x_\lambda$", r"$x_{SNR}$"]
+        self.upper_bounds = [2, 1.54e-6, 200, 1e6] # upper bound for osnr randomly set
+        self.lower_bounds = [0, 1.56e-6, 1, 0]
+        self.data_types = ['float', 'float', 'float', 'float']
+        self.step_sizes = [None, None, None, None]
+        self.parameter_imprecisions = [0.1, 0.01e-6, 0, 0]
+        self.parameter_units = [unit.W, unit.m, None, unit.Hz] # TODO: check whether we should use dB instead of None
+        self.parameter_locks = [True, True, True, True]
+        self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB', 'FWHM_linewidth']
+
+        self.parameter_symbols = [r"$x_P$", r"$x_\lambda$", r"$x_{SNR}$", r"$x_{FWHM}$"]
         self.parameters = self.default_parameters
 
         super().__init__(**kwargs)
+        self.set_parameters_as_attr()
 
-        self.noise_model = AdditiveNoise(noise_param=self.parameters[2])
+        # TODO: integrate both together
+        self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
+        self.noise_model.add_noise_source(noise_param=self._osnr_dB)
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
-        self.set_parameters_as_attr()
         state = np.sqrt(self._peak_power) * np.ones_like(states[0])
         return [state]

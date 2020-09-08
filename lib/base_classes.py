@@ -28,6 +28,7 @@ class NodeType(object):
 
         self.transform = None  # this is a variable which will store a visual representation of the transformation
         self.noise_model = None
+        self._all_params = None
 
     @property
     def parameters(self):

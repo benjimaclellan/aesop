@@ -23,7 +23,7 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False):
+    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, coupling_efficiency=1):
         """
         """
         super().__init__()
@@ -47,11 +47,14 @@ class Graph(GraphParent):
 
         self._propagator_saves = {}
 
+        self.coupling_efficiency = coupling_efficiency
+        if coupling_efficiency < 0 or coupling_efficiency > 1:
+            raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
+
         # initialize variables to store function handles for grad & hess
         self.func = None
         self.grad = None
         self.hess = None
-        return
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
@@ -198,20 +201,26 @@ class Graph(GraphParent):
                 if (noise_model is not None):
                     noise_model.resample_noise()
     
-    def display_noise_contributions(self, propagator, node=None):
+    def display_noise_contributions(self, propagator, node=None, title=''):
         noisy = self.get_output_signal(propagator, node=node)
         noiseless = self.get_output_signal_pure(propagator, node=node)
+        noise = self.get_output_noise(propagator, node=node)
         fig, ax = plt.subplots(2, 1)
         linestyles = ['-', ':', ':']
         labels = ['noisy', 'noiseless', 'noise']
         noisy_max = np.max(psd_(noisy, propagator.dt, propagator.df))
-        for (state, line, label) in zip([noisy, noiseless, noisy - noiseless], linestyles, labels):
+        for (state, line, label) in zip([noisy, noiseless, noise], linestyles, labels):
             ax[0].plot(propagator.t, power_(state), ls=line, label=label)
+            ax[0].set_xlabel('time (s)')
+            ax[0].set_ylabel('power (W)')
             psd = psd_(state, propagator.dt, propagator.df)
             ax[1].plot(propagator.f, 10 * np.log10(psd/noisy_max), ls=line, label=label)
-        
+            ax[1].set_xlabel('frequency (Hz)')
+            ax[1].set_ylabel('Normalized PSD (dB)') 
+
         ax[0].legend()
         ax[1].legend()
+        plt.title(title)
         plt.show()
 
     def get_output_node(self):
@@ -240,7 +249,7 @@ class Graph(GraphParent):
                         # add noise to propagation
                         noise_model = self.edges[edge]['model'].noise_model
                         if (noise_model is not None):
-                            signal = noise_model.add_noise_to_propagation(signal)
+                            signal = noise_model.add_noise_to_propagation(signal, propagator)
 
                         tmp_states += signal
                     else:
@@ -253,10 +262,10 @@ class Graph(GraphParent):
             noise_model = self.nodes[node]['model'].noise_model
             if (noise_model is not None):
                 for i in range(len(states)):
-                    states[i] = noise_model.add_noise_to_propagation(states[i])
+                    states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
 
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-                self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
+                self._propagator_saves[edge] = [np.sqrt(self.coupling_efficiency) * state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
 
             self._propagator_saves[node] = states
 
@@ -290,6 +299,8 @@ class Graph(GraphParent):
 
         scale_units(ax[0], unit='s', axes=['x'])
         scale_units(ax[1], unit='Hz', axes=['x'])
+
+        plt.show()
         return
 
     def draw(self, ax=None, labels=None, legend=False):
@@ -585,13 +596,12 @@ class Graph(GraphParent):
         for cnt, node in enumerate(reversed(self.propagation_order)):
             state = self.measure_propagator(node)
             line = {'ls':next(linestyles), 'lw':3}
-            ax[0].plot(propagator.t, power_(state), label=node, **line)
+            ax[0].plot(propagator.t, power_(state), label=self.nodes[node]['model'].__class__.__name__, **line)
             psd = psd_(state, propagator.dt, propagator.df)
             if freq_log_scale:
                 ax[1].plot(propagator.f, 10 * np.log10(psd/np.max(psd)), **line)
             else:
                 ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
-
         ax[0].legend()
         plt.show()
 
