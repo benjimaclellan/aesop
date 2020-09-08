@@ -20,7 +20,7 @@ class PulsedLaser(Input):
 
     def __init__(self, **kwargs):
         self.node_lock = True
-
+        self.node_acronym = 'PL'
         self.number_of_parameters = 6
 
         self.upper_bounds = [None] * self.number_of_parameters
@@ -41,10 +41,25 @@ class PulsedLaser(Input):
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         self.set_parameters_as_attr()
         # width = self._pulse_width /np.sqrt(2)*np.log(2)  # check the scaling between envelope FWHM and power FWHM for Gaussian
-        pulse_train = get_pulse_train(propagator.t, self._t_rep, self._pulse_width, pulse_shape=self._pulse_shape)
 
-        # scale by peak_power power
-        state = pulse_train * np.sqrt(self._peak_power)
+        def sech(t, width):
+            return 1 / np.cosh(t / width, dtype='complex')
+
+        def gaussian(t, width):
+            return np.exp(-0.5 * (np.power(t / width, 2)), dtype='complex')
+
+
+        if self._pulse_shape == 'gaussian':
+            pulse = gaussian(propagator.t, self._pulse_width)
+        elif self._pulse_shape == 'sech':
+            pulse = sech(propagator.t, self._pulse_width)
+
+        if self._train:
+            pulse_train = get_pulse_train(propagator.t, self._t_rep, pulse)
+            state = pulse_train * np.sqrt(self._peak_power)
+        else:
+            state = pulse * np.sqrt(self._peak_power)
+
         return [state]
 
 
@@ -55,7 +70,7 @@ class ContinuousWaveLaser(Input):
 
     def __init__(self, **kwargs):
         self.node_lock = False
-
+        self.node_acronym = 'CW'
         self.number_of_parameters = 3
         self.default_parameters = [1, 1.55e-6, 55] # default OSNR from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 

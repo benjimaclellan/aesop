@@ -20,6 +20,7 @@ class CorningFiber(SinglePath):
 
     def __init__(self, **kwargs):
         self.node_lock = False
+        self.node_acronym = 'DF'
 
         self.number_of_parameters = 1
         self.default_parameters = [1]
@@ -62,6 +63,7 @@ class PhaseModulator(SinglePath):
 
     def __init__(self, **kwargs):
         self.node_lock = False
+        self.node_acronym = 'PM'
 
         self.number_of_parameters = 3
         self.default_parameters = [1, 12e9, 0]
@@ -104,6 +106,7 @@ class WaveShaper(SinglePath):
 
     def __init__(self, **kwargs):
         self.node_lock = False
+        self.node_acronym = 'WS'
 
         number_of_bins = 9
         self._number_of_bins = number_of_bins
@@ -125,8 +128,8 @@ class WaveShaper(SinglePath):
         self.parameter_locks = 2 * self.number_of_parameters * [False]
         self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bins)] + \
                                ['phase{}'.format(ind) for ind in range(number_of_bins)]
-        self.parameter_symbols = [r"$x_{a_{"+f"{ind}"+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)] + \
-                                 [r"$x_{a_{"+f"{ind}"+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)]
+        self.parameter_symbols = [r"$x_{a_{"+"{:+d}".format(ind)+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)] + \
+                                 [r"$x_{\phi_{"+"{:+d}".format(ind)+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)]
 
 
         super().__init__(**kwargs)
@@ -177,6 +180,7 @@ class DelayLine(SinglePath):
     """
     def __init__(self, **kwargs):
         self.node_lock = False
+        self.node_acronym = 'DL'
 
         self.number_of_parameters = 8
         self.upper_bounds = [1] * self.number_of_parameters

@@ -153,7 +153,7 @@ class SwapNode(EvolutionOperators):
             return False
 
 
-# @register_evolution_operators
+@register_evolution_operators
 class AddInterferometer(EvolutionOperators):
 
     def __init__(self, **attr):

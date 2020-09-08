@@ -15,6 +15,7 @@ from ..assets.decorators import register_node_types_all
 class VariablePowerSplitter(MultiPath):
     def __init__(self, **kwargs):
         self.node_lock = False
+        self.node_acronym = 'BS'
 
         self.number_of_parameters = 1
         self.upper_bounds = [1]

@@ -31,7 +31,7 @@ class Evolver(object):
         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
         # score = evaluator.evaluate_graph(graph, propagator)
         # print('The score here is {}'.format(score))
-        return graph
+        return graph, evo_op_choice
 
     def random_graph(self, graph, evaluator, propagator):
         N_EVOLUTIONS = 10
