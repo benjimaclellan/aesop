@@ -24,7 +24,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
+from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine, ProgrammableFilter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_builtin import parameters_optimize
@@ -38,9 +38,9 @@ if __name__ == "__main__":
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     evolver = Evolver()
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             1:PhaseModulator(),
-             2:WaveShaper(),
+    nodes = {0:PulsedLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
+             1:ProgrammableFilter(),
+             2:CorningFiber(),
              -1:MeasurementDevice()}
     edges = [(0,1),
              (1,2),

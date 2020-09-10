@@ -3,6 +3,7 @@
 """
 import matplotlib.pyplot as plt
 from scipy.constants import Planck, speed_of_light
+from math import factorial
 
 from pint import UnitRegistry
 unit = UnitRegistry()
@@ -37,7 +38,7 @@ class CorningFiber(SinglePath):
         self.parameter_locks = [False]
         self.parameter_names = ['length']
         self.parameter_symbols = [r"$x_\beta$"]
-        self.beta = 1e-20
+        self.beta = 1e-23
 
         super().__init__(**kwargs)
         return
@@ -441,3 +442,84 @@ class EDFA(SinglePath):
         #     \ngain flatness: {self._gain_flatness_dB} dB \
         #     \nmax power: {self._P_out_max}")
         plt.show()
+
+
+@register_node_types_all
+class ProgrammableFilter(SinglePath):
+    def __init__(self, **kwargs):
+        self.node_lock = False
+        self.node_acronym = 'PF'
+
+        number_of_bases = 10
+        self._number_of_bases = number_of_bases
+        self.band_width = 30e9
+        self.extinction_ratio = 10 ** (-35 / 10)
+
+        self.number_of_parameters = 2 * number_of_bases
+
+        self.default_parameters = [1] * number_of_bases + [0] * number_of_bases
+
+        self.upper_bounds = [1] * number_of_bases + [2 * np.pi] * number_of_bases
+        self.lower_bounds = [0] * number_of_bases + [0] * number_of_bases
+        self.data_types = 2 * number_of_bases * ['float']
+        self.step_sizes = [None] * number_of_bases + [None] * number_of_bases
+        self.parameter_imprecisions = [0.1] * number_of_bases + [0.1 * 2 * np.pi] * number_of_bases
+        self.parameter_units = [None] * number_of_bases + [unit.rad] * number_of_bases
+        self.parameter_locks = 2 * self.number_of_parameters * [False]
+        self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bases)] + \
+                               ['phase{}'.format(ind) for ind in range(number_of_bases)]
+        self.parameter_symbols = [r"$x_{b_{" + "{:+d}".format(ind) + r"}}$" for ind in
+                                  range(-(number_of_bases - 1) // 2, (number_of_bases - 1) // 2 + 1)] + \
+                                 [r"$x_{p_{" + "{:+d}".format(ind) + r"}}$" for ind in
+                                  range(-(number_of_bases - 1) // 2, (number_of_bases - 1) // 2 + 1)]
+
+        super().__init__(**kwargs)
+        return
+
+    @staticmethod
+    def bernstein(t, i=0, n=0):
+        b = (factorial(n) / (factorial(i) * factorial(n - i))) * np.power(t, i) * np.power(1 - t, n - i)
+        return b
+
+    def get_waveform(self, t, coeffs):
+        y = np.zeros_like(t)
+        for m, coeff in enumerate(coeffs):
+            y += coeff * self.bernstein(t, i=m, n=len(coeffs) - 1)
+        return y
+
+    # def get_waveform(self, t, coeffs):
+    #     y = np.zeros_like(t)
+    #     for m, coeff in enumerate(coeffs):
+    #         y += coeff * np.cos(2 * np.pi * t * m + coeff)
+    #     return y
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+
+        # Slice at into the first half (amp) and last half (phase)
+        bernstein_amp_coeffs = self.parameters[:self._number_of_bases]
+        bernstein_phase_coeffs = self.parameters[self._number_of_bases:]
+
+        bw_int = int(round(self.band_width/2/propagator.df))
+
+        mask = np.zeros_like(propagator.f)
+        mask[np.abs(propagator.f) <= self.band_width / 2] = 1
+
+        f_shifted = np.expand_dims(np.linspace(-propagator.n_samples / 2 - bw_int,
+                                 propagator.n_samples / 2 - bw_int,
+                                 propagator.n_samples) / (2 * bw_int) + 1, 1)
+
+        amplitude_mask = self.get_waveform(f_shifted, bernstein_amp_coeffs) * mask
+        phase_mask = self.get_waveform(f_shifted, bernstein_phase_coeffs) * mask
+
+        # amplitude_mask = np.power(amplitude_mask, 4)
+        # phase_mask = np.power(phase_mask, 2)/(2*np.pi)**2
+
+        state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt),
+                      propagator.dt)
+
+        if save_transforms:
+            self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
+        else:
+            self.transform = None
+        return [state]
