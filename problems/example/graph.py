@@ -274,6 +274,21 @@ class Graph(GraphParent):
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
 
+    def visualize_transforms_dof(self, ax, propagator, dof='f', label_verbose=1):
+        for node in self.nodes():
+            if self.nodes[node]['model'].transform is not None:
+                for _, (dof_i, transform, label) in enumerate(self.nodes[node]['model'].transform):
+                    if label_verbose == 0:
+                        label_str = '{}'.format(label)
+                    else:
+                        label_str = 'Node {} | {} | {}'.format(node, self.nodes[node]['name'], label)
+
+                    if (dof_i == dof) and (dof=='t'):
+                        ax.plot(propagator.t, transform/np.max(transform), label=label_str)
+                    elif (dof_i == dof) and (dof=='f'):
+                        ax.plot(propagator.f, transform/np.max(transform), label=label_str)
+            ax.legend()
+
     def visualize_transforms(self, nodes_to_visualize, propagator):
         """
         each node's propagate function (if applicable) can save the transformations (as functions of t or f) into the class variable

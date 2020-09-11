@@ -1,8 +1,6 @@
 import numpy as np
 import multiprocess as mp
-
-
-#%% scaling units in plots
+import dill
 
 def worker(x):
     return x * x
@@ -12,7 +10,11 @@ def parallel(n_cores, input_args):
         res = pool.map(worker, input_args)
     return res
 
+def save_graph(graph, filename):
+    
+    return
 
+#%% scaling units in plots
 def scale_units(ax, unit='', axes=['x']):
     def scale(data):
         prefixes = {18: r"E",

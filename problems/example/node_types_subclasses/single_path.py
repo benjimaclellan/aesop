@@ -72,10 +72,10 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 3
         self.default_parameters = [1, 12e9, 0]
 
-        self.upper_bounds = [2*np.pi, 12e9, 2*np.pi]
-        self.lower_bounds = [0, 12e9, 0]
+        self.upper_bounds = [2*np.pi, 48e9, 2*np.pi]
+        self.lower_bounds = [0, 2e9, 0]
         self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, 1e9, None]
+        self.step_sizes = [None, 2e9, None]
         self.parameter_imprecisions = [1, 1, 0.1]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad]
         self.parameter_locks = [False, False, False]

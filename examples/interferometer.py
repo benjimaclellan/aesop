@@ -66,20 +66,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # graph, x, score, log, propagator, evaluator = \
-    main()
-
-    # pd.set_option('display.max_columns', None)
-    # print(log)
-    # #%%
-    # fig, ax = plt.subplots(1,1)
-    # ax.plot(log.time, log.score)
-    # xmin, xmax = np.min(log.time[log.method == 'L-BFGS']), np.max(log.time[log.method == 'L-BFGS'])
-    #
-    # # ax.annotate(s='test', xy=(xmin/max(log.time), 0.5), transform=ax.transAxes)
-    # ax.annotate('testing123', xy=(0.5, 0.5), xytext=(0.5, 0.5))
-    # ax.axvspan(xmin, xmax, transform=ax.transAxes, **{'color': 'grey', 'alpha': 0.2})
-    # # ax.axhline(0.5, xmin, xmax, transform=ax.transAxes, **{'color': 'grey', 'alpha': 1.0})
-    # ax.set(xlabel='CPU time (s)', ylabel='Evaluation score (a.u.)',
-    #        xlim=(np.min(log.time), np.max(log.time)))
-
+    graph, x, score, log, propagator, evaluator = main()
