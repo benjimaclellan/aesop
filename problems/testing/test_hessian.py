@@ -26,7 +26,6 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.parameter_builtin import parameters_minimize
 from algorithms.parameter_random_search import parameters_random_search
 from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 

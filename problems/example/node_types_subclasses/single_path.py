@@ -263,7 +263,7 @@ class EDFA(SinglePath):
 
     TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
     """
-    def __init__(self, small_signal_gain=None, **kwargs):
+    def __init__(self, **kwargs):
         """
         Possible values to include in kwargs
 
