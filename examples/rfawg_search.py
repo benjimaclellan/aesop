@@ -36,6 +36,7 @@ from algorithms.topology_random_search import topology_random_search
 plt.close('all')
 if __name__ == '__main__':
     io = InputOutput(directory='results/testing_topology', verbose=True)
+    io.save_machine_metadata()
 
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)

@@ -107,7 +107,7 @@ class InputOutput(object):
         filepath = metadata_path.joinpath('metadata.json')
         if self.verbose: print(f'Saving machine metadata to {filepath}')
         with open(filepath, 'w') as file:
-            json.dump(metadata, file)
+            json.dump(metadata, file, indent=2)
         return
 
     @staticmethod
