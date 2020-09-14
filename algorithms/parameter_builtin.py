@@ -220,7 +220,6 @@ def parameters_genetic_algorithm(graph, n_generations = 25, n_population = 25, r
                 #         mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use
                 #         child = mutation(child, mutant)
                 population.append((None, child))
-        # TODO: multiprocessing done here
         for child_i in range(np.floor(rate_mut * n_population).astype('int')):
             parent = [parent for (score, parent) in tuple(random.sample(population, 1))][0]
             mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use

@@ -432,7 +432,6 @@ class Graph(GraphParent):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
         """
         # check for loops
-        print(nx.algorithms.recursive_simple_cycles(self))
         if nx.algorithms.recursive_simple_cycles(self):
             raise RuntimeError('There are loops in the topology')
 
@@ -638,6 +637,14 @@ class Graph(GraphParent):
                 parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
             parameters.append(parameter)
         return parameters
+
+
+    def get_graph_info(self):
+        nodes = list(self.nodes)
+        edges = list(self.edges)
+        models = [self.nodes[node]['model'].node_acronym for node in self.nodes]
+        model_edges = [(self.nodes[i]['model'].node_acronym, self.nodes[j]['model'].node_acronym) for (i, j, _) in self.edges]
+        return nodes, edges, models, model_edges
 
 
 #%% Sampling functions for mutation operations on parameters

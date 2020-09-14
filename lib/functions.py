@@ -21,6 +21,19 @@ def parallel(n_cores, input_args):
 class InputOutput(object):
     """
     Class object for saving/loading files, collecting metadata of batches, etc.
+
+    Examples of use:
+        io = InputOutput(directory='results', verbose=True)
+        io = InputOutput(directory=r'C://path/to/results', verbose=True)
+
+        io.init_save_dir(sub_path='test', unique_id=False)
+        io.save_graph(graph, 'subdir1/test_graph.pkl')
+
+        io.save_machine_metadata(sub_path='test')
+
+        io.init_load_dir(sub_path='test')
+        graph_load = io.load_graph('subdir1/test_graph.pkl')
+
     """
     def __init__(self, directory='results', verbose=True):
         """

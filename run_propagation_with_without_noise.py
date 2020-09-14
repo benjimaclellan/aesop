@@ -26,10 +26,10 @@ graph.assert_number_of_edges()
 # run with noise on
 AdditiveNoise.simulate_with_noise = True # this is set by default, but line is included for completeness
 graph.propagate(propagator)
-graph.inspect_state(propagator, freq_log_scale=True)
+# graph.inspect_state(propagator, freq_log_scale=True)
 graph.display_noise_contributions(propagator) # always shows the noise, regardless of external settings
 
-# run with noise off
-AdditiveNoise.simulate_with_noise = False # this is set by default, but line is included for completeness
-graph.propagate(propagator)
-graph.inspect_state(propagator, freq_log_scale=True)
+# # run with noise off
+# AdditiveNoise.simulate_with_noise = False # this is set by default, but line is included for completeness
+# graph.propagate(propagator)
+# graph.inspect_state(propagator, freq_log_scale=True)

@@ -29,7 +29,7 @@ class CorningFiber(SinglePath):
         self.number_of_parameters = 1
         self.default_parameters = [1]
 
-        self.upper_bounds = [1000e3]
+        self.upper_bounds = [100e3]
         self.lower_bounds = [0]
         self.data_types = ['float']
         self.step_sizes = [None]
@@ -38,7 +38,8 @@ class CorningFiber(SinglePath):
         self.parameter_locks = [False]
         self.parameter_names = ['length']
         self.parameter_symbols = [r"$x_\beta$"]
-        self.beta = 1e-23
+        self.beta = 1e-26
+        self._n = 1.44
 
         super().__init__(**kwargs)
         return
@@ -47,14 +48,16 @@ class CorningFiber(SinglePath):
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
-        dispersion = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
+        b2 = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
+
+        b1 = length * self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
         if save_transforms:
-            self.transform = (('f', dispersion, 'dispersion'),)
+            self.transform = (('f', b1, 'b1'), ('f', b2, 'b2'),)
         else:
             self.transform = None
 
-        state = ifft_( ifft_shift_(np.exp(-1j * dispersion), ax=0) * fft_(state, propagator.dt), propagator.dt)
+        state = ifft_( ifft_shift_(np.exp(1j * (b1 + b2)), ax=0) * fft_(state, propagator.dt), propagator.dt)
         return [state]
 
 
@@ -243,7 +246,7 @@ class DelayLine(SinglePath):
         return [ifft_(field_short, propagator.dt)]
 
 
-@register_node_types_all
+#@register_node_types_all
 class EDFA(SinglePath):
     """
     EDFA modelled as follows:
