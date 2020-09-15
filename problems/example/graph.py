@@ -23,7 +23,7 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False):
+    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, coupling_efficiency=1):
         """
         """
         super().__init__()
@@ -47,11 +47,14 @@ class Graph(GraphParent):
 
         self._propagator_saves = {}
 
+        self.coupling_efficiency = coupling_efficiency
+        if coupling_efficiency < 0 or coupling_efficiency > 1:
+            raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
+
         # initialize variables to store function handles for grad & hess
         self.func = None
         self.grad = None
         self.hess = None
-        return
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
@@ -65,16 +68,21 @@ class Graph(GraphParent):
         info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
                                                                 exclude_locked=exclude_locked)
 
-        func = lambda parameters: _function(parameters, self, propagator, evaluator,
-                                            info['node_edge_index'], info['parameter_index'])
+        def func(parameters):
+            return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
+        # func = lambda parameters: _function(parameters, self, propagator, evaluator,
+        #                                     info['node_edge_index'], info['parameter_index'])
+
         return func
 
 
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
-        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
-        self.hess = lambda parameters: hess_tmp(np.array(parameters))
+        # hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        def hess_tmp(parameters):
+            return hessian(self.func)(np.array(parameters))
+        self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
         return
 
 
@@ -193,20 +201,26 @@ class Graph(GraphParent):
                 if (noise_model is not None):
                     noise_model.resample_noise()
     
-    def display_noise_contributions(self, propagator, node=None):
+    def display_noise_contributions(self, propagator, node=None, title=''):
         noisy = self.get_output_signal(propagator, node=node)
         noiseless = self.get_output_signal_pure(propagator, node=node)
+        noise = self.get_output_noise(propagator, node=node)
         fig, ax = plt.subplots(2, 1)
         linestyles = ['-', ':', ':']
         labels = ['noisy', 'noiseless', 'noise']
         noisy_max = np.max(psd_(noisy, propagator.dt, propagator.df))
-        for (state, line, label) in zip([noisy, noiseless, noisy - noiseless], linestyles, labels):
+        for (state, line, label) in zip([noisy, noiseless, noise], linestyles, labels):
             ax[0].plot(propagator.t, power_(state), ls=line, label=label)
+            ax[0].set_xlabel('time (s)')
+            ax[0].set_ylabel('power (W)')
             psd = psd_(state, propagator.dt, propagator.df)
             ax[1].plot(propagator.f, 10 * np.log10(psd/noisy_max), ls=line, label=label)
-        
+            ax[1].set_xlabel('frequency (Hz)')
+            ax[1].set_ylabel('Normalized PSD (dB)') 
+
         ax[0].legend()
         ax[1].legend()
+        plt.title(title)
         plt.show()
 
     def get_output_node(self):
@@ -235,7 +249,7 @@ class Graph(GraphParent):
                         # add noise to propagation
                         noise_model = self.edges[edge]['model'].noise_model
                         if (noise_model is not None):
-                            signal = noise_model.add_noise_to_propagation(signal)
+                            signal = noise_model.add_noise_to_propagation(signal, propagator)
 
                         tmp_states += signal
                     else:
@@ -248,10 +262,10 @@ class Graph(GraphParent):
             noise_model = self.nodes[node]['model'].noise_model
             if (noise_model is not None):
                 for i in range(len(states)):
-                    states[i] = noise_model.add_noise_to_propagation(states[i])
+                    states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
 
             for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-                self._propagator_saves[edge] = [state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
+                self._propagator_saves[edge] = [np.sqrt(self.coupling_efficiency) * state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
 
             self._propagator_saves[node] = states
 
@@ -259,6 +273,21 @@ class Graph(GraphParent):
 
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
+
+    def visualize_transforms_dof(self, ax, propagator, dof='f', label_verbose=1):
+        for node in self.nodes():
+            if self.nodes[node]['model'].transform is not None:
+                for _, (dof_i, transform, label) in enumerate(self.nodes[node]['model'].transform):
+                    if label_verbose == 0:
+                        label_str = '{}'.format(label)
+                    else:
+                        label_str = 'Node {} | {} | {}'.format(node, self.nodes[node]['name'], label)
+
+                    if (dof_i == dof) and (dof=='t'):
+                        ax.plot(propagator.t, transform/np.max(transform), label=label_str)
+                    elif (dof_i == dof) and (dof=='f'):
+                        ax.plot(propagator.f, transform/np.max(transform), label=label_str)
+            ax.legend()
 
     def visualize_transforms(self, nodes_to_visualize, propagator):
         """
@@ -285,9 +314,11 @@ class Graph(GraphParent):
 
         scale_units(ax[0], unit='s', axes=['x'])
         scale_units(ax[1], unit='Hz', axes=['x'])
+
+        plt.show()
         return
 
-    def draw(self, ax=None, labels=None):
+    def draw(self, ax=None, labels=None, legend=False):
         """
         custom plotting function to more closely resemble schematic diagrams
 
@@ -301,17 +332,24 @@ class Graph(GraphParent):
         if ax is None:
             fig, ax = plt.subplots(1,1)
 
+        if legend:
+            if labels is None:
+                str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
+            else:
+                str = "\n".join(['{}:{}'.format(labels[node], self.nodes[node]['name']) for node in self.nodes])
 
-        str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
+            ax.annotate(str,
+                        xy=(0.02, 0.98), xytext=(0.02, 0.98), xycoords='axes fraction',
+                        textcoords='offset points',
+                        size=7, va='top',
+                        bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
 
-        ax.annotate(str,
-                    xy=(0.02, 0.98), xytext=(0.02, 0.98), xycoords='axes fraction',
-                    textcoords='offset points',
-                    size=7, va='top',
-                    bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
+        source = [node for node in self.nodes if self.get_in_degree(node) == 0]
 
-        # nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=0.5)
-        nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=0.5)
+        pos = nx.planar_layout(self)#, pos=fixed_positions, fixed = fixed_positions.keys())
+        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='lightgrey')
+
+        # nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=1.0)
         return
 
 
@@ -394,7 +432,6 @@ class Graph(GraphParent):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
         """
         # check for loops
-        print(nx.algorithms.recursive_simple_cycles(self))
         if nx.algorithms.recursive_simple_cycles(self):
             raise RuntimeError('There are loops in the topology')
 
@@ -573,13 +610,12 @@ class Graph(GraphParent):
         for cnt, node in enumerate(reversed(self.propagation_order)):
             state = self.measure_propagator(node)
             line = {'ls':next(linestyles), 'lw':3}
-            ax[0].plot(propagator.t, power_(state), label=node, **line)
+            ax[0].plot(propagator.t, power_(state), label=self.nodes[node]['model'].__class__.__name__, **line)
             psd = psd_(state, propagator.dt, propagator.df)
             if freq_log_scale:
                 ax[1].plot(propagator.f, 10 * np.log10(psd/np.max(psd)), **line)
             else:
                 ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
-
         ax[0].legend()
         plt.show()
 
@@ -601,6 +637,14 @@ class Graph(GraphParent):
                 parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
             parameters.append(parameter)
         return parameters
+
+
+    def get_graph_info(self):
+        nodes = list(self.nodes)
+        edges = list(self.edges)
+        models = [self.nodes[node]['model'].node_acronym for node in self.nodes]
+        model_edges = [(self.nodes[i]['model'].node_acronym, self.nodes[j]['model'].node_acronym) for (i, j, _) in self.edges]
+        return nodes, edges, models, model_edges
 
 
 #%% Sampling functions for mutation operations on parameters

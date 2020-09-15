@@ -1,8 +1,13 @@
 import numpy as np
 import multiprocess as mp
+import dill
+import random
+import string
+from datetime import date
+import os
+from pathlib import Path, PurePath
 
-
-#%% scaling units in plots
+import platform, socket, re, uuid, json, psutil, logging
 
 def worker(x):
     return x * x
@@ -13,6 +18,117 @@ def parallel(n_cores, input_args):
     return res
 
 
+class InputOutput(object):
+    """
+    Class object for saving/loading files, collecting metadata of batches, etc.
+
+    Examples of use:
+        io = InputOutput(directory='results', verbose=True)
+        io = InputOutput(directory=r'C://path/to/results', verbose=True)
+
+        io.init_save_dir(sub_path='test', unique_id=False)
+        io.save_graph(graph, 'subdir1/test_graph.pkl')
+
+        io.save_machine_metadata(sub_path='test')
+
+        io.init_load_dir(sub_path='test')
+        graph_load = io.load_graph('subdir1/test_graph.pkl')
+
+    """
+    def __init__(self, directory='results', verbose=True):
+        """
+
+        :param directory: string, relative or absolute. if relative, will set parent saving directory to asope/results
+        :param verbose: boolean flag to print status of not
+        """
+        self.verbose = verbose
+        if os.path.isabs(directory):
+            path = Path(directory)
+        else:
+            path = Path(os.getcwd()).parent.joinpath(directory)
+
+        self.path = path
+        self.save_path = self.path
+        self.load_path = self.path
+        return
+
+    def save_graph(self, graph, filename):
+        filepath = self.save_path.joinpath(filename)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.verbose: print(f'Saving graph to {filepath}')
+
+        with open(filepath, 'wb') as file:
+            dill.dump(graph, file)
+        return
+
+    def load_graph(self, filename):
+        filepath = self.load_path.joinpath(filename)
+        if self.verbose: print(f'Loading graph from {filepath}')
+        with open(filepath, 'rb') as file:
+            graph = dill.load(file)
+        return graph
+
+    @staticmethod
+    def unique_id():
+        return r"{}_{}".format(date.today().strftime("%Y%m%d"),''.join(random.choice(string.hexdigits) for _ in range(4)))
+
+    def init_save_dir(self, sub_path='data', unique_id=True):
+        if sub_path is not None:
+            if unique_id:
+                curr_dir = r"{}_{}".format(self.unique_id(), sub_path)
+            else:
+                curr_dir = sub_path
+            self.save_path = self.path.joinpath(curr_dir)
+        else:
+            self.save_path = self.path
+
+        self.save_path.mkdir(parents=True, exist_ok=True)
+        return
+
+    def init_load_dir(self, sub_path):
+        if sub_path is not None:
+            self.load_path = self.path.joinpath(sub_path)
+        else:
+            self.load_path = self.path
+
+        if not os.path.exists(self.load_path):
+            raise FileExistsError("The directory to load from does not exist")
+        return
+
+    def save_machine_metadata(self, sub_path=None):
+        if sub_path is not None:
+            metadata_path = self.path.joinpath(sub_path)
+        else:
+            metadata_path = self.path
+        metadata = self.get_machine_metadata()
+        metadata_path.mkdir(parents=True, exist_ok=True)
+
+        filepath = metadata_path.joinpath('metadata.json')
+        if self.verbose: print(f'Saving machine metadata to {filepath}')
+        with open(filepath, 'w') as file:
+            json.dump(metadata, file, indent=2)
+        return
+
+    @staticmethod
+    def get_machine_metadata():
+        try:
+            metadata = dict()
+            metadata['platform'] = platform.system()
+            metadata['platform-release'] = platform.release()
+            metadata['platform-version'] = platform.version()
+            metadata['architecture'] = platform.machine()
+            metadata['hostname'] = socket.gethostname()
+            metadata['ip-address'] = socket.gethostbyname(socket.gethostname())
+            metadata['mac-address'] = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+            metadata['processor'] = platform.processor()
+            metadata['ram'] = str(round(psutil.virtual_memory().total / (1024.0 ** 3))) + " GB"
+            metadata['cpu-count'] = mp.cpu_count()
+            return metadata
+        except Exception as e:
+            logging.exception(e)
+
+#%% scaling units in plots
 def scale_units(ax, unit='', axes=['x']):
     def scale(data):
         prefixes = {18: r"E",

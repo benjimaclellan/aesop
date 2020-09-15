@@ -5,36 +5,74 @@ import autograd.numpy as np
 import random
 from .assets.functions import logbook_update, logbook_initialize
 import copy
+import time
+import pandas as pd
+import itertools
 
 """
 """
+LOG = []
+ITER = itertools.count(0,1)
 
 #  default use a minimizing function
 def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs):
     _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
+
+    def callback(xk):
+        LOG.append({'iter':next(ITER), 'score':graph.func(xk)})
+        return
+
+
     if method == 'L-BFGS':
         if verbose: print("Parameter optimization: L-BFGS algorithm")
+        t1 = time.process_time()
         res = scipy.optimize.minimize(graph.func, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 1000},
+                                      options={'disp': verbose, 'maxiter': 50},
+                                      callback=callback,
                                       jac=graph.grad)
+        t2 = time.process_time()
         graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
         x = res.x
-        return graph, x, graph.func(x), res
+
+        log = pd.DataFrame(LOG)
+        log['time'] = log['iter']/np.max(log['iter']) * (t2-t1)
+        return graph, x, graph.func(x), log
 
     if method == 'L-BFGS+GA':
         if verbose: print("Parameter optimization: L-BFGS + GA algorithm")
+
+        t1 = time.process_time()
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.8,
                                                    rate_crx=0.8, verbose=verbose)
+        t2 = time.process_time()
+        print(log)
+        total_log = pd.DataFrame(columns=['iter','time','score'])
+        total_log['iter'] = log['gen']
+        total_log['score'] = log['min']
+        total_log['time'] = log['gen']/np.max(log['gen']) * (t2 - t1)
+        total_log['method'] = 'GA'
 
+
+
+        t1 = time.process_time()
         res = scipy.optimize.minimize(graph.func, x, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
                                       options={'disp': verbose, 'maxiter': 50},
+                                      callback=callback,
                                       jac=graph.grad)
+        t2 = time.process_time()
+        log = pd.DataFrame(LOG)
+        log['time'] = log['iter'] / np.max(log['iter']) * (t2 - t1) + total_log['time'].iloc[-1]
+        log['method'] = 'L-BFGS'
+
+        print(total_log['time'].iloc[-1])
+        total_log = pd.concat([total_log, log])
+
         graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
         x = res.x
-        return graph, x, graph.func(x), res
+        return graph, x, graph.func(x), total_log
 
     elif method == 'CMA':
         # raise NotImplementedError("CMA is not implemented yet")
@@ -182,7 +220,6 @@ def parameters_genetic_algorithm(graph, n_generations = 25, n_population = 25, r
                 #         mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use
                 #         child = mutation(child, mutant)
                 population.append((None, child))
-        # TODO: multiprocessing done here
         for child_i in range(np.floor(rate_mut * n_population).astype('int')):
             parent = [parent for (score, parent) in tuple(random.sample(population, 1))][0]
             mutant = graph.sample_parameters_to_list()  # this is a completely random individual which we can use

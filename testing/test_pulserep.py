@@ -25,7 +25,7 @@ from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepeti
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
+from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine, ProgrammableFilter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_builtin import parameters_optimize
@@ -37,14 +37,15 @@ from algorithms.parameter_builtin import parameters_optimize
 plt.close('all')
 if __name__ == "__main__":
     propagator = Propagator(window_t = 100e-9, n_samples = 2**14, central_wl=1.55e-6)
-    evaluator = PulseRepetition(propagator)
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
     evolver = Evolver()
-    nodes = {0:PulsedLaser(parameters_from_name={'pulse_shape':'gaussian', 'pulse_width':1e-9,'peak_power':1,
-                                                 't_rep':20e-9, 'central_wl':1.55e-6, 'train':True}),
-             1:CorningFiber(parameters=[0]),
-             -1:MeasurementDevice()}
-    edges = [(0,1),
-             (1,-1)]
+    nodes = {0: PulsedLaser(parameters_from_name={'pulse_shape':'gaussian', 'pulse_width':10e-12,'peak_power':1,
+                                                 't_rep':10e-9, 'central_wl':1.55e-6, 'train':True}),
+             # 1: ProgrammableFilter(parameters=2*50*[1]),
+             1: ProgrammableFilter(parameters=list(np.random.rand(10)) + list(4*np.pi*np.random.rand(10))),
+             2: CorningFiber(parameters=[10]),
+            -1: MeasurementDevice()}
+    edges = [(0,1), (1,2), (2,-1)]
 
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()
@@ -53,17 +54,19 @@ if __name__ == "__main__":
     #%%
     method = 'L-BFGS+GA'
 
-    graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
-    x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    graph, x, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=True)
+    # graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
+    # x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+    # graph, x, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=True)
 
     fig = plt.figure()
     graph.draw()
 
     # graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
-    graph.propagate(propagator, save_transforms=False)
+    graph.propagate(propagator, save_transforms=True)
     state = graph.measure_propagator(-1)
+
     fig, ax = plt.subplots(2, 1)
-    ax[0].plot(propagator.t, np.power(np.abs(state), 2))
-    # print('Score {}\nParameters {}'.format(score, x))
-    evaluator.compare(graph, propagator)
+    ax[0].plot(propagator.t, power_(state))
+    ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df))
+
+    graph.visualize_transforms(graph.nodes, propagator)

@@ -138,7 +138,7 @@ def get_individual_score(graph, propagator, evaluator, individual_params, node_e
 def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
                              n_population=64, rate_mut=0.9, rate_crx=0.9, noise=True,
                              crossover=crossover_singlepoint, mutation_operator_dist='uniform',
-                             resample_per_individual=False, resample_period_gen=1, resample_period_optimization=1,
+                             resample_per_individual=False, resample_period_gen=1, resample_period_batch=1,
                              optimize_top_X=0, optimization_batch_size=10, optimization_batch_num=25, verbose=False):
     """
     Genetic algorithm for tuning parameters in a set topology. Parametrised version
@@ -158,7 +158,7 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
                                     Then, resample_period_gen and resample_perod_Adam are ignored (since resampling occurs at most frequent possible interval)
                                     If False, resample_period_gen or resample_period_Adam govern resampling rate
     :param resample_period_gen: Period of resampling, in generations. If negative, never resample. Ignored if resample_per_individual is True
-    :param resample_period_optimization: Period of resampling per gradient optimization batch
+    :param resample_period_batch: Period of resampling per gradient optimization batch
 
     :param optimize_top_X: if 0, acts as a regular GA. Else, executes Adam gradient descent on the top x elements each generation
     :param optimization_batch_size: batch size for each round of optimization (if optimize_top_X > 0)
@@ -219,7 +219,7 @@ def tuning_genetic_algorithm(graph, propagator, evaluator, n_generations=25,
             tuned_pop, adam_log = tuning_adam_gradient_descent(graph, propagator, evaluator, noise=noise,
                                                         n_pop=optimize_top_X, pop=population[0:optimize_top_X],
                                                         resample_per_individual=resample_per_individual,
-                                                        resample_period=resample_period_optimization,
+                                                        resample_period=resample_period_batch,
                                                         n_batches=optimization_batch_num,
                                                         batch_size=optimization_batch_size)
             adam_logs.append(adam_log)

@@ -4,6 +4,7 @@
 import networkx
 import warnings
 import autograd.numpy as np
+import uuid
 
 class NodeType(object):
     """Parent class for node-type
@@ -26,8 +27,13 @@ class NodeType(object):
         else:
             self._parameters = self.default_parameters
 
+
+        self.parameters_uuid = [uuid.uuid4() for i in range(self.number_of_parameters)] # unique id for each parameter for various purposes
+
+
         self.transform = None  # this is a variable which will store a visual representation of the transformation
         self.noise_model = None
+        self._all_params = None
 
     @property
     def parameters(self):

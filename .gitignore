@@ -69,4 +69,8 @@ asope/results/
 
 asope/venv/bin/
 
+results/
+
 scripts/outcmaes/
+
+interactive/.ipynb_checkpoints/

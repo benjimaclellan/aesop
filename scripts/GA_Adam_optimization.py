@@ -251,7 +251,7 @@ def get_noise_setting_benchmark():
     noise (individual sampling).
     """
     # # no noise
-    # generate_data_GA_Adam_comparison(with_noise=False, qualifier_str='_noNoise')
+    generate_data_GA_Adam_comparison(with_noise=False, qualifier_str='_noNoise')
 
     # with noise (no resampling)
     generate_data_GA_Adam_comparison(with_noise=True, resample_per_individual=False,
