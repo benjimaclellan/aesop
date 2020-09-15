@@ -79,7 +79,7 @@ class InputOutput(object):
     def unique_id():
         return r"{}_{}".format(date.today().strftime("%Y%m%d"),''.join(random.choice(string.hexdigits) for _ in range(4)))
 
-    def init_save_dir(self, sub_path='data', unique_id=True):
+    def init_save_dir(self, sub_path=None, unique_id=True):
         if sub_path is not None:
             if unique_id:
                 curr_dir = r"{}_{}".format(self.unique_id(), sub_path)
@@ -87,7 +87,10 @@ class InputOutput(object):
                 curr_dir = sub_path
             self.save_path = self.path.joinpath(curr_dir)
         else:
-            self.save_path = self.path
+            if unique_id:
+                self.save_path = self.path.joinpath(self.unique_id())
+            else:
+                self.save_path = self.path
 
         self.save_path.mkdir(parents=True, exist_ok=True)
         return
@@ -104,7 +107,10 @@ class InputOutput(object):
 
     def save_machine_metadata(self, sub_path=None):
         if sub_path is not None:
-            metadata_path = self.path.joinpath(sub_path)
+            if os.path.isabs(sub_path):
+                metadata_path = sub_path
+            else:
+                metadata_path = self.path.joinpath(sub_path)
         else:
             metadata_path = self.path
         metadata = self.get_machine_metadata()
