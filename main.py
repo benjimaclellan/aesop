@@ -1,35 +1,26 @@
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-import networkx as nx
-import itertools
-import random
-import os
 import time
 import autograd.numpy as np
 
 import config.config as configuration
 
-from problems.example.evaluator import Evaluator
 from problems.example.graph import Graph
 # from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
 ### TODO: for each model, we could prepare the function once at the beginning (especially for locked models)
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
 
-from algorithms.parameter_builtin import parameters_minimize
-from algorithms.parameter_random_search import parameters_random_search
 from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 
-from lib.analysis.hessian import get_hessian, get_scaled_hessian, plot_eigenvectors, lha_analysis
+from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 
 if True:
     np.random.seed(0)

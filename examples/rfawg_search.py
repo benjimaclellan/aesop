@@ -35,23 +35,23 @@ from algorithms.topology_random_search import topology_random_search
 
 plt.close('all')
 if __name__ == '__main__':
-    io = InputOutput(directory='results/testing_topology', verbose=True)
+    io = InputOutput(directory='testing_topology', verbose=True)
     io.save_machine_metadata()
 
-    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
-    evaluator = RadioFrequencyWaveformGeneration(propagator)
-    evolver = Evolver()
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             1:PhaseModulator(),
-             2:WaveShaper(),
-             -1:MeasurementDevice()}
-    edges = [(0,1),(1,2),(2,-1)]
-
-    graph = Graph(nodes, edges, propagate_on_edges = False)
-    graph.assert_number_of_edges()
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-
-    graph, score, log = topology_random_search(graph, propagator, evaluator, evolver, io, multiprocess=True)
+    # propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
+    # evaluator = RadioFrequencyWaveformGeneration(propagator)
+    # evolver = Evolver()
+    # nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
+    #          1:PhaseModulator(),
+    #          2:WaveShaper(),
+    #          -1:MeasurementDevice()}
+    # edges = [(0,1),(1,2),(2,-1)]
+    #
+    # graph = Graph(nodes, edges, propagate_on_edges = False)
+    # graph.assert_number_of_edges()
+    # graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+    #
+    # graph, score, log = topology_random_search(graph, propagator, evaluator, evolver, io, multiprocess=True)
 
     # print(graph.get_graph_info())
     # if False:

@@ -6,7 +6,7 @@ import random
 import warnings
 import time
 
-from lib.analysis.hessian import function_wrapper
+from lib.hessian import function_wrapper
 from .assets.functions import logbook_update, logbook_initialize
 
 from problems.example.assets.additive_noise import AdditiveNoise

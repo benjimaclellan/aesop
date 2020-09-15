@@ -30,7 +30,7 @@ from algorithms.parameter_random_search import parameters_random_search
 from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 import cma
 
-from lib.analysis.hessian import get_hessian, get_scaled_hessian, plot_eigenvectors, lha_analysis
+from lib.hessian import get_hessian, get_scaled_hessian, plot_eigenvectors, lha_analysis
 
 # if True:
 #     np.random.seed(0)

@@ -35,17 +35,23 @@ class InputOutput(object):
         graph_load = io.load_graph('subdir1/test_graph.pkl')
 
     """
-    def __init__(self, directory='results', verbose=True):
+    def __init__(self, directory=None, verbose=True):
         """
 
-        :param directory: string, relative or absolute. if relative, will set parent saving directory to asope/results
+        :param directory: string, relative or absolute. if relative, will set parent saving directory to folder called 'asope_results' at the same level as asope
         :param verbose: boolean flag to print status of not
         """
+        default_path = 'asope_data'
+
         self.verbose = verbose
-        if os.path.isabs(directory):
-            path = Path(directory)
+        if directory is not None:
+            assert type(directory) is str
+            if os.path.isabs(directory):
+                path = Path(directory)
+            else:
+                path = Path(os.getcwd()).parent.parent.joinpath(default_path, directory)
         else:
-            path = Path(os.getcwd()).parent.joinpath(directory)
+            path = Path(os.getcwd()).parent.parent.joinpath(default_path)
 
         self.path = path
         self.save_path = self.path

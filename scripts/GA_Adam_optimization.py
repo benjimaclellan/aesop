@@ -8,7 +8,7 @@ import pandas as pd
 import time
 
 from algorithms.parameter_optimization_utils import tuning_genetic_algorithm, tuning_adam_gradient_descent, get_individual_score, adam_bounded, get_initial_population, adam_function_wrapper
-from lib.analysis.hessian import function_wrapper
+from lib.hessian import function_wrapper
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
