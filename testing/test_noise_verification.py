@@ -688,3 +688,15 @@ def test_autograd_gain_signal_relative(propagator):
     noise_sum = np.sum(noise.add_noise_to_propagation(signal, propagator) - signal).astype(dtype='float')
     print(f"noise_sum: {noise_sum}")
     assert np.isclose(gradient_at_G[0], noise_sum)
+
+
+# ----------------- Miscellaneous tests ---------------------
+@pytest.mark.misc
+def test_phase_noise_interpolation(propagator):
+    noise_test_points = [(10, -78), (1e3, -102), (10e3, -110), (20e3, -113), (1e6, -124)]
+    phase_psd = AdditiveNoise._get_phase_psd_from_points(propagator, noise_test_points, 1)
+
+    _, ax = plt.subplots()
+    ax.plot(propagator.f, phase_psd)
+    plt.show()
+    assert False

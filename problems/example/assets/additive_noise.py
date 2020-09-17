@@ -1,6 +1,7 @@
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import elementary_charge
+from scipy import interpolate
 
 from .functions import fft_, ifft_, power_, psd_, ifft_shift_
 
@@ -218,6 +219,39 @@ class AdditiveNoise():
         time_noise = np.random.normal(scale=1, size=(propagator.n_samples, 1))
         freq_noise = np.fft.fft(time_noise, axis=0)
         return freq_noise
+
+    @staticmethod
+    def _get_phase_psd_from_points(propagator, phase_psd_points, reference_power):
+        """
+        Returns an array of the phase PSD given some psd points
+
+        :param phase_psd_points: list of tuples (offset in Hz, phase noise in dBc/Hz)
+        """
+        one_sided_offsets = np.concatenate((np.array([point[0] for point in phase_psd_points]), propagator.f[propagator.n_samples - 1]))
+        one_sided_dBc_per_Hz = np.array([point[1] for point in phase_psd_points] + [-130]) # TODO: change placeholder
+        one_sided_W_per_Hz = AdditiveNoise._dBc_to_power(one_sided_dBc_per_Hz, reference_power)
+        print(f'one sided offsets: \n{one_sided_offsets}')
+        print(f'one sided dBc/Hz: \n{one_sided_dBc_per_Hz}')
+        print(f'one sided W/Hz: \n{one_sided_W_per_Hz}')
+        offsets = np.concatenate((-1 * np.flip(one_sided_offsets), one_sided_offsets))
+        print(f'offsets: \n{offsets}')
+        W_per_Hz = np.concatenate((np.flip(one_sided_W_per_Hz), one_sided_W_per_Hz))
+        print(f'W/Hz: \n{power_per_hz}')
+        f = interpolate.interp1d(offsets, dBc_per_Hz)
+
+        return f(propagator.f)
+
+
+    @staticmethod
+    def _dBc_to_power(dBc, reference_power):
+        """
+        Return power of a waveband in Watts from its dBc based on reference power reference_power
+
+        :param dBc: decibels relative to the carrier
+        :param reference power: carrier / reference signal power. This is usually total signal power
+        """
+        return 10**(dBc / 10) * reference_power
+
 
 # ------------------------------------------------- Visualisation methods, to help with debugging ----------------------------------------
     def display_noisy_signal(self, signal, propagator):

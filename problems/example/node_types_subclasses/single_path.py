@@ -81,6 +81,7 @@ class PhaseModulator(SinglePath):
         self.parameter_names = ['depth', 'frequency', 'shift']
         self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$"]
         super().__init__(**kwargs)
+        self.noise_model = AdditiveNoise()
 
         return
 
