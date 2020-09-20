@@ -29,19 +29,19 @@ from algorithms.topology_random_search import topology_random_search
 
 plt.close('all')
 if __name__ == '__main__':
-    io = InputOutput(directory='20200915__testing_topology_search', verbose=True)
+    io = InputOutput(directory='testing', verbose=True)
 
-    io.init_save_dir(sub_path='batch_test', unique_id=True)
+    io.init_save_dir(sub_path='run', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     evolver = Evolver()
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             1:PhaseModulator(),
-             2:WaveShaper(),
+             # 1:PhaseModulator(),
+             # 2:WaveShaper(),
              -1:MeasurementDevice()}
-    edges = [(0,1),(1,2),(2,-1)]
+    edges = [(0,-1)]
 
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()

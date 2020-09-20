@@ -13,8 +13,7 @@ def logbook_update(generation, population, log, log_metrics, runtime=-1, verbose
     for metric, func in log_metrics.items():
         tmp_log[metric] = func(scores)
     log.loc[generation] = tmp_log
-    if verbose:
-        print(tmp_log)
+    if verbose: print(tmp_log)
 
 
 def logbook_initialize():

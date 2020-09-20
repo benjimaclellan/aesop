@@ -12,16 +12,40 @@ from .assets.functions import logbook_update, logbook_initialize
 
 from .parameter_builtin import parameters_optimize
 
+def init_hof(n_hof):
+    hof = [(None, None) for i in range(n_hof)]
+    return hof
+
+def update_hof(hof, population, verbose=False):
+    for ind_i, (score, ind) in enumerate(population):
+        for hof_j, (hof_score, hof_ind) in enumerate(hof):
+            if hof_score is None:
+                hof.insert(hof_j, (score, ind))
+                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                hof.pop()
+                break
+
+            if score < hof_score:
+                hof.insert(hof_j, (score, ind))
+                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                hof.pop()
+                break
+    return hof
 
 
 def topology_random_search(graph, propagator, evaluator, evolver, io, multiprocess=False):
-    n_generations = 2
-    n_population = mp.cpu_count()
-    # n_hof = 4
-    verbose = True
-    hof = (None, None)
+    ga_opts = {'n_generations':6,
+               'n_population':2*mp.cpu_count(),
+               'n_hof':4,
+               'verbose':True,
+               'multiprocess':multiprocess}
+    hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
-    save_all_graphs = True
+    save_all_graphs = False
+
+    io.save_json(ga_opts, 'ga_opts.json')
+    for (object_filename, object_to_save) in zip(('propagator', 'evaluator', 'evolver'), (propagator, evaluator, evolver)):
+        io.save_object(object_to_save=object_to_save, filename=f"{object_filename}.pkl")
 
     _, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
     if multiprocess:
@@ -29,14 +53,14 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, multiproce
         print('Starting multiprocessing with {} CPUs'.format(mp.cpu_count()))
 
     population = []
-    for individual in range(n_population):
+    for individual in range(ga_opts['n_population']):
         population.append((None, copy.deepcopy(graph)))
 
-    for generation in range(n_generations):
+    for generation in range(ga_opts['n_generations']):
         print('Generation {}'.format(generation))
+
         # pass in a list, each element is a list, consisting of
         args = [(evolver, graph, evaluator, propagator) for (score, graph) in population]
-
         if multiprocess:
             population = pool.map(parameters_optimize_multiprocess, args)
         else:
@@ -46,20 +70,27 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, multiproce
 
         # save all graphs if desired
         if save_all_graphs:
-            for i, (_, graph_i) in enumerate(population):
-                io.save_graph(graph=graph_i, filename=f"gen{generation}_{i}.pkl")
+            for i, (score, graph) in enumerate(population):
+                graph.score = score
+                io.save_object(object_to_save=graph, filename=f"graph_gen{generation}_{i}.pkl")
 
-        # logbook_update(generation, population, log, log_metrics, verbose=verbose)
+        logbook_update(generation, population, log, log_metrics, verbose=ga_opts['verbose'])
 
-        # update HoF status
-        if hof[0] is None:
-            hof = population[0]  # set hof for the first time
-        elif population[0][0] < hof[0]:
-            hof = population[0]  # set hof to best of this generation if it is better thant he existing hof
+        hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose'])
 
-    graph = hof[1]
-    score = hof[0]
-    return graph, score, log
+    fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
+    for i, (score, graph) in enumerate(hof):
+        graph.score = score
+        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
+
+        state = graph.measure_propagator(-1)
+        graph.draw(ax=axs[i,0], legend=True)
+        axs[i,1].plot(propagator.t, evaluator.target, label='Target')
+        axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+
+    io.save_fig(fig=fig, filename='halloffame.pdf')
+
+    return hof[1], hof[0], log
 
 
 def parameters_optimize_multiprocess(args):

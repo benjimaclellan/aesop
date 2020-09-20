@@ -56,6 +56,8 @@ class Graph(GraphParent):
         self.grad = None
         self.hess = None
 
+        self.score = None
+
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
 

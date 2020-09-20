@@ -27,12 +27,12 @@ class InputOutput(object):
         io = InputOutput(directory=r'C://path/to/results', verbose=True)
 
         io.init_save_dir(sub_path='test', unique_id=False)
-        io.save_graph(graph, 'subdir1/test_graph.pkl')
+        io.save_object(graph, 'subdir1/test_graph.pkl')
 
         io.save_machine_metadata(sub_path='test')
 
         io.init_load_dir(sub_path='test')
-        graph_load = io.load_graph('subdir1/test_graph.pkl')
+        graph_load = io.load_object('subdir1/test_graph.pkl')
 
     """
     def __init__(self, directory=None, verbose=True):
@@ -58,22 +58,22 @@ class InputOutput(object):
         self.load_path = self.path
         return
 
-    def save_graph(self, graph, filename):
+    def save_object(self, object_to_save, filename):
         filepath = self.save_path.joinpath(filename)
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
         if self.verbose: print(f'Saving graph to {filepath}')
 
         with open(filepath, 'wb') as file:
-            dill.dump(graph, file)
+            dill.dump(object_to_save, file)
         return
 
-    def load_graph(self, filename):
+    def load_object(self, filename):
         filepath = self.load_path.joinpath(filename)
         if self.verbose: print(f'Loading graph from {filepath}')
         with open(filepath, 'rb') as file:
-            graph = dill.load(file)
-        return graph
+            object_to_load = dill.load(file)
+        return object_to_load
 
     @staticmethod
     def unique_id():
@@ -121,6 +121,28 @@ class InputOutput(object):
         with open(filepath, 'w') as file:
             json.dump(metadata, file, indent=2)
         return
+
+    def load_json(self, filename):
+        filepath = self.load_path.joinpath(filename)
+        if self.verbose: print(f'Loading JSON from {filepath}')
+        with open(filepath, 'rb') as file:
+            dictionary = json.load(file)
+        return dictionary
+
+    def save_json(self, dictionary, filename):
+        filepath = self.save_path.joinpath(filename)
+        if self.verbose: print(f'Saving JSON to {filepath}')
+        with open(filepath, 'w') as file:
+            json.dump(dictionary, file, indent=2)
+        return
+
+    def save_fig(self, fig, filename):
+        filepath = self.save_path.joinpath(filename)
+        if self.verbose: print(f'Saving figure to {filepath}')
+        kwargs = {'dpi': 150, 'transparent': False}
+        fig.savefig(filepath, bbox_inches='tight', **kwargs)
+        return
+
 
     @staticmethod
     def get_machine_metadata():
