@@ -16,7 +16,7 @@ if __name__ == '__main__':
     directory = None
     # directory = input()
     if not directory:
-        directory = r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\testing\20200919_6Dcf_run'
+        directory = r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\testing\20200920_3D9f_run'
     io = InputOutput(directory=directory, verbose=True)
     io.init_load_dir(sub_path=None)
 

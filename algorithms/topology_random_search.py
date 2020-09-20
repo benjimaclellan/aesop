@@ -33,12 +33,7 @@ def update_hof(hof, population, verbose=False):
     return hof
 
 
-def topology_random_search(graph, propagator, evaluator, evolver, io, multiprocess=False):
-    ga_opts = {'n_generations':6,
-               'n_population':2*mp.cpu_count(),
-               'n_hof':4,
-               'verbose':True,
-               'multiprocess':multiprocess}
+def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
     hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
     save_all_graphs = False
@@ -48,7 +43,7 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, multiproce
         io.save_object(object_to_save=object_to_save, filename=f"{object_filename}.pkl")
 
     _, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    if multiprocess:
+    if ga_opts['multiprocess']:
         pool = mp.Pool(mp.cpu_count())
         print('Starting multiprocessing with {} CPUs'.format(mp.cpu_count()))
 
@@ -61,7 +56,7 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, multiproce
 
         # pass in a list, each element is a list, consisting of
         args = [(evolver, graph, evaluator, propagator) for (score, graph) in population]
-        if multiprocess:
+        if ga_opts['multiprocess']:
             population = pool.map(parameters_optimize_multiprocess, args)
         else:
             population = list(map(parameters_optimize_multiprocess, args))
@@ -72,6 +67,7 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, multiproce
         if save_all_graphs:
             for i, (score, graph) in enumerate(population):
                 graph.score = score
+                graph.clear_propagation()
                 io.save_object(object_to_save=graph, filename=f"graph_gen{generation}_{i}.pkl")
 
         logbook_update(generation, population, log, log_metrics, verbose=ga_opts['verbose'])
@@ -81,6 +77,7 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, multiproce
     fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
     for i, (score, graph) in enumerate(hof):
         graph.score = score
+        graph.clear_propagation()
         io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
 
         state = graph.measure_propagator(-1)

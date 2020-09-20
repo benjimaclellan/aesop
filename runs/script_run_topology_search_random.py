@@ -7,7 +7,7 @@ sys.path.append('..')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-
+import multiprocess as mp
 import config.config as config
 
 from lib.functions import InputOutput
@@ -34,6 +34,12 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path='run', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
+    ga_opts = {'n_generations': 5,
+               'n_population': 2 * mp.cpu_count(),
+               'n_hof': 6,
+               'verbose': True,
+               'multiprocess': True}
+
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     evolver = Evolver()
@@ -47,4 +53,4 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    graph, score, log = topology_random_search(graph, propagator, evaluator, evolver, io, multiprocess=True)
+    graph, score, log = topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts)
