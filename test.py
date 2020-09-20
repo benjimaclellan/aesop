@@ -4,22 +4,12 @@ import unittest
 import matplotlib.pyplot as plt
 plt.style.use(r"config/plot-style.mplstyle")
 
-import networkx as nx
-import itertools
-import autograd.numpy as np
-
 import config.config as configuration
 
 from problems.example.node_types import Input
 from problems.example.evaluator import Evaluator
 from problems.example.graph import Graph
-from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
-
-from problems.example.node_types_subclasses.inputs import PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber
-from problems.example.node_types_subclasses.multi_path import PhaseModulator
 
 
 class Test(unittest.TestCase):
@@ -32,9 +22,6 @@ class Test(unittest.TestCase):
                 print('\tTesting {} node'.format(node_name))
             print('\n')
         return
-
-
-
 
 if __name__ == "__main__":
     unittest.main()

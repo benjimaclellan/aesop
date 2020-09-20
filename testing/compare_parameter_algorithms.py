@@ -1,11 +1,5 @@
 
 import matplotlib.pyplot as plt
-import seaborn as sns
-import networkx as nx
-import itertools
-import random
-import os
-import time
 import autograd.numpy as np
 
 import config.config as configuration

@@ -1,8 +1,6 @@
 """
 Random search for parameters for benchmarking
 """
-
-import numpy as np
 from .assets.functions import logbook_update, logbook_initialize
 
 def parameters_random_search(graph, propagator, evaluator):

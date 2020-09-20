@@ -2,14 +2,7 @@
 import sys
 sys.path.append('..')
 
-import networkx as nx
-import itertools
-import os
-import random
-import time
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import seaborn as sns
 import autograd.numpy as np
 
 import config.config as configuration

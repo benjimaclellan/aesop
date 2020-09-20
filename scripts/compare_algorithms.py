@@ -2,14 +2,8 @@
 import sys
 sys.path.append('..')
 
-import networkx as nx
-import itertools
-import os
-import random
 import time
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import seaborn as sns
 import autograd.numpy as np
 
 import config.config as configuration
@@ -28,11 +22,7 @@ from problems.example.node_types_subclasses.single_path import CorningFiber, Pha
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_builtin import parameters_optimize
-# from algorithms.parameter_random_search import parameters_random_search
-# from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 
-
-# np.random.seed(0)
 plt.close('all')
 if __name__ == "__main__":
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)

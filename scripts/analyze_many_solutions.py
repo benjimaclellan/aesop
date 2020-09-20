@@ -2,22 +2,15 @@
 import sys
 sys.path.append('..')
 
-import networkx as nx
-import itertools
 import os
-import random
 import time
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pickle
-import autograd.numpy as np
 
 import config.config as configuration
 
 from problems.example.evaluator import Evaluator
 from problems.example.graph import Graph
-from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
@@ -28,12 +21,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.parameter_builtin import parameters_minimize
-from algorithms.parameter_random_search import parameters_random_search
 from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
-
-
-# np.random.seed(0)
 
 if __name__ == "__main__":
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)

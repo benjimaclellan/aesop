@@ -5,8 +5,6 @@ import sys
 sys.path.append('..')
 
 import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
 import psutil
 
 import config.config as config

@@ -7,12 +7,9 @@ import autograd.numpy as np
 import config.config as configuration
 
 from problems.example.graph import Graph
-# from problems.example.evolution_operators import EvolutionOperators
 from problems.example.assets.propagator import Propagator
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-
-### TODO: for each model, we could prepare the function once at the beginning (especially for locked models)
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice

@@ -2,8 +2,6 @@
 """
 
 import networkx
-import warnings
-import autograd.numpy as np
 import uuid
 
 class NodeType(object):

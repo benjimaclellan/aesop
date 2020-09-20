@@ -3,7 +3,6 @@ Random search for topology for benchmarking
 """
 
 import numpy as np
-import datetime
 import matplotlib.pyplot as plt
 import copy
 import ray
