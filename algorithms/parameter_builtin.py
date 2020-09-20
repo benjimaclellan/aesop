@@ -47,7 +47,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.8,
                                                    rate_crx=0.8, verbose=verbose)
         t2 = time.process_time()
-        print(log)
+        # print(log)
         total_log = pd.DataFrame(columns=['iter','time','score'])
         total_log['iter'] = log['gen']
         total_log['score'] = log['min']
@@ -67,7 +67,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, **kwargs
         log['time'] = log['iter'] / np.max(log['iter']) * (t2 - t1) + total_log['time'].iloc[-1]
         log['method'] = 'L-BFGS'
 
-        print(total_log['time'].iloc[-1])
+        # print(total_log['time'].iloc[-1])
         total_log = pd.concat([total_log, log])
 
         graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)

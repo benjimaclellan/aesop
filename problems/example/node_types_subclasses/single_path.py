@@ -30,7 +30,7 @@ class CorningFiber(SinglePath):
         self.default_parameters = [1]
 
         self.upper_bounds = [100e3]
-        self.lower_bounds = [0]
+        self.lower_bounds = [0.01]
         self.data_types = ['float']
         self.step_sizes = [None]
         self.parameter_imprecisions = [1]
@@ -43,7 +43,7 @@ class CorningFiber(SinglePath):
 
         super().__init__(**kwargs)
         return
-
+    #TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
     # TODO : check this, and every other model for correctness (so far its been about logic flow)
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
@@ -76,7 +76,7 @@ class PhaseModulator(SinglePath):
         self.default_parameters = [1, 12e9, 0]
 
         self.upper_bounds = [2*np.pi, 48e9, 2*np.pi]
-        self.lower_bounds = [0, 2e9, 0]
+        self.lower_bounds = [0.001, 2e9, 0.01]
         self.data_types = ['float', 'float', 'float']
         self.step_sizes = [None, 2e9, None]
         self.parameter_imprecisions = [1, 1, 0.1]
@@ -190,8 +190,8 @@ class DelayLine(SinglePath):
         self.node_acronym = 'DL'
 
         self.number_of_parameters = 8
-        self.upper_bounds = [1] * self.number_of_parameters
-        self.lower_bounds = [0] * self.number_of_parameters
+        self.upper_bounds = [0.99] * self.number_of_parameters
+        self.lower_bounds = [0.01] * self.number_of_parameters
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [0.01] * self.number_of_parameters

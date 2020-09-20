@@ -25,10 +25,6 @@ if __name__ == '__main__':
     evaluator = io.load_object('evaluator.pkl')
     evolver = io.load_object('evolver.pkl')
 
-    # for gen in range(ga_opts['n_generations']):
-    #     for ind in range(ga_opts['n_population']):
-    #         graph = io.load_object(f'graph_gen{gen}_{ind}.pkl')
-
     for i in range(ga_opts['n_hof']):
         graph = io.load_object(f'graph_hof{i}.pkl')
         parameters, *_ = graph.extract_parameters_to_list()

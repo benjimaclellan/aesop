@@ -7,7 +7,8 @@ sys.path.append('..')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-import multiprocess as mp
+import psutil
+
 import config.config as config
 
 from lib.functions import InputOutput
@@ -31,23 +32,23 @@ plt.close('all')
 if __name__ == '__main__':
     io = InputOutput(directory='testing', verbose=True)
 
-    io.init_save_dir(sub_path='run', unique_id=True)
+    io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 5,
-               'n_population': 2 * mp.cpu_count(),
-               'n_hof': 6,
+    ga_opts = {'n_generations': 2,
+               'n_population': psutil.cpu_count(),
+               'n_hof': 2,
                'verbose': True,
-               'multiprocess': True}
+               'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     evolver = Evolver()
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             # 1:PhaseModulator(),
-             # 2:WaveShaper(),
+             1:PhaseModulator(),
+             2:WaveShaper(),
              -1:MeasurementDevice()}
-    edges = [(0,-1)]
+    edges = [(0,1),(1,2),(2,-1)]
 
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()

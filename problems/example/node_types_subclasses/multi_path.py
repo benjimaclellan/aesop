@@ -18,8 +18,8 @@ class VariablePowerSplitter(MultiPath):
         self.node_acronym = 'BS'
 
         self.number_of_parameters = 1
-        self.upper_bounds = [1]
-        self.lower_bounds = [0]
+        self.upper_bounds = [0.9]
+        self.lower_bounds = [0.1]
         self.data_types = ['float']
         self.step_sizes = [None]
         self.parameter_imprecisions = [1]
