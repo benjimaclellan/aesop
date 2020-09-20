@@ -1,9 +1,19 @@
 """
 Test of topology optimization routines
 """
-import sys
-sys.path.append('..')
 
+# place main ASOPE directory on the path which will be accessed by all ray workers
+import sys
+import pathlib
+import os
+import platform
+
+parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
+sep = ';' if platform.system() == 'Windows' else ':'
+os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
+sys.path.append(parent_dir)
+
+# various imports
 import matplotlib.pyplot as plt
 import psutil
 

@@ -37,6 +37,9 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     ray.init(num_cpus=ga_opts['num_cpus'], include_dashboard=False, ignore_reinit_error=True)
+    assert ray.is_initialized() == True
+    print(ray.is_initialized())
+
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # save the objects for analysis later
@@ -90,9 +93,11 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):
+    import sys
+    print(sys.path)
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
     x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    print([graph.nodes[node]['model'].__class__ for node in graph.nodes])
+    # print([graph.nodes[node]['model'].__class__ for node in graph.nodes])
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
     graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
     return score, graph
