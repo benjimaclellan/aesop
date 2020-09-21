@@ -75,4 +75,4 @@ if __name__ == '__main__':
     ax.set(xlabel='Generation', ylabel='Cost')
     ax.legend()
 
-    io.save_fig(fig, 'topology_log.pdf')
+    io.save_fig(fig, 'topology_log.png')

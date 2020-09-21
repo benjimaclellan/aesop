@@ -35,6 +35,8 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
     hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
 
+    update_population = update_population_topology_random  # set which update rule to use
+
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], include_dashboard=False, ignore_reinit_error=True)
 
@@ -49,26 +51,11 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
     for individual in range(ga_opts['n_population']):
         population.append((None, copy.deepcopy(graph)))
 
-    t1 = time.process_time()
+    t1 = time.time()
     for generation in range(ga_opts['n_generations']):
-        print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.process_time()-t1}s')
+        print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
-        # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
-        for i, (score, graph_individual) in enumerate(population):
-            while True:
-                graph_tmp, evo_op_choice = evolver.evolve_graph(graph_individual, evaluator, propagator)
-                x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-                try:
-                    graph_tmp.assert_number_of_edges()
-                except:
-                    continue
-                
-                if len(x0) == 0:
-                    continue
-                else:
-                    graph = graph_tmp
-                    break
-            population[i] = (None, graph)
+        population = update_population(population, evolver, evaluator, propagator)
 
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(graph, evaluator_id, propagator_id) for (_, graph) in population])
@@ -78,7 +65,7 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
 
         # update logbook and hall of fame
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose'])
-        logbook_update(generation, population, log, log_metrics, time=(time.process_time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
+        logbook_update(generation, population, log, log_metrics, time=(time.time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
     # save a figure which quickly demonstrates the results of the run as a .pdf files
     fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
@@ -92,16 +79,36 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
         axs[i,1].plot(propagator.t, evaluator.target, label='Target')
         axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
 
-    io.save_fig(fig=fig, filename='halloffame.pdf')
+    io.save_fig(fig=fig, filename='halloffame.png')
     io.save_object(log, 'log.pkl')
     return hof[1], hof[0], log
+
+
+
+def update_population_topology_random(population, evolver, evaluator, propagator, **hyperparameters):
+    # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
+    for i, (score, graph_individual) in enumerate(population):
+        while True:
+            graph_tmp, evo_op_choice = evolver.evolve_graph(graph_individual, evaluator, propagator)
+            x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+            try:
+                graph_tmp.assert_number_of_edges()
+            except:
+                continue
+
+            if len(x0) == 0:
+                continue
+            else:
+                graph = graph_tmp
+                break
+        population[i] = (None, graph)
+    return population
 
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
     x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    # print([graph.nodes[node]['model'].__class__ for node in graph.nodes])
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
     graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
     return score, graph

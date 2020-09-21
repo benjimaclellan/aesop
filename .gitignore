@@ -74,3 +74,5 @@ results/
 scripts/outcmaes/
 
 interactive/.ipynb_checkpoints/
+/.vscode/
+/.ipynb_checkpoints/
