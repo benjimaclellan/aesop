@@ -30,8 +30,8 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.parameter_builtin import parameters_optimize
-from algorithms.topology_random_search import topology_random_search
+from algorithms.parameter_optimization import parameters_optimize
+from algorithms.topology_optimization import topology_random_search
 
 # np.random.seed(0)
 plt.close('all')

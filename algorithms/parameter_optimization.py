@@ -3,7 +3,7 @@ import scipy.optimize
 import cma
 import autograd.numpy as np
 import random
-from .assets.functions import logbook_update, logbook_initialize
+from algorithms.functions import logbook_update, logbook_initialize
 import copy
 import time
 import pandas as pd

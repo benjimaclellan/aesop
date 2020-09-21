@@ -21,8 +21,6 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
-
 if __name__ == "__main__":
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
 

@@ -6,9 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import ray
-from .assets.functions import logbook_update, logbook_initialize
+from algorithms.functions import logbook_update, logbook_initialize
 
-from .parameter_builtin import parameters_optimize
+from .parameter_optimization import parameters_optimize
 
 def init_hof(n_hof):
     hof = [(None, None) for i in range(n_hof)]
@@ -87,10 +87,10 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
 
 def update_population_topology_random(population, evolver, evaluator, propagator, **hyperparameters):
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
-    for i, (score, graph_individual) in enumerate(population):
+    for i, (score, graph) in enumerate(population):
         while True:
-            graph_tmp, evo_op_choice = evolver.evolve_graph(graph_individual, evaluator, propagator)
-            x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator, propagator)
+            x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
             except:

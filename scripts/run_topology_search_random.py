@@ -38,7 +38,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.topology_random_search import topology_random_search
+from algorithms.topology_optimization import topology_random_search
 
 plt.close('all')
 if __name__ == '__main__':
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 5,
+    ga_opts = {'n_generations': 3,
                'n_population': psutil.cpu_count(),
                'n_hof': 3,
                'verbose': True,

@@ -21,7 +21,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.parameter_builtin import parameters_optimize
+from algorithms.parameter_optimization import parameters_optimize
 
 plt.close('all')
 if __name__ == "__main__":

@@ -19,8 +19,6 @@ from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import power_, psd_
 
-from algorithms.assets.functions import logbook_update, logbook_initialize
-
 from problems.example.assets.additive_noise import AdditiveNoise
 
 RANDOM_SEED = 58923

@@ -15,8 +15,6 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
 
-from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
-
 from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 
 if True:
