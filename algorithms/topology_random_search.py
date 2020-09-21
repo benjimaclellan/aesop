@@ -51,13 +51,18 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
 
     t1 = time.process_time()
     for generation in range(ga_opts['n_generations']):
-        print('Generation {}'.format(generation))
+        print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.process_time()-t1}s')
 
         # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
         for i, (score, graph_individual) in enumerate(population):
             while True:
                 graph_tmp, evo_op_choice = evolver.evolve_graph(graph_individual, evaluator, propagator)
                 x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+                try:
+                    graph_tmp.assert_number_of_edges()
+                except:
+                    continue
+                
                 if len(x0) == 0:
                     continue
                 else:
@@ -68,6 +73,8 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(graph, evaluator_id, propagator_id) for (_, graph) in population])
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
+        for (score, graph) in population:
+            graph.clear_propagation()
 
         # update logbook and hall of fame
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose'])
