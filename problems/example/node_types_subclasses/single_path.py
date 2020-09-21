@@ -190,8 +190,8 @@ class DelayLine(SinglePath):
         self.node_acronym = 'DL'
 
         self.number_of_parameters = 8
-        self.upper_bounds = [0.99] * self.number_of_parameters
-        self.lower_bounds = [0.01] * self.number_of_parameters
+        self.upper_bounds = [1.0] * self.number_of_parameters
+        self.lower_bounds = [0.0] * self.number_of_parameters
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [0.01] * self.number_of_parameters
@@ -204,7 +204,7 @@ class DelayLine(SinglePath):
         self._delays = [2**k * 1e-12 for k in range(0, self.number_of_parameters)]
         # [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12
 
-        self.default_parameters = [0] * self.number_of_parameters
+        self.default_parameters = [0.1] * self.number_of_parameters
 
         super().__init__(**kwargs)
         return
@@ -226,9 +226,14 @@ class DelayLine(SinglePath):
             field_short_tmp = field_short
 
             try:
-                field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
+                # field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
+                # field_long = np.exp(1j * ifft_shift_(beta * length, ax=0)) * (
+                #         1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
+                short_coupling, long_coupling = np.cos(np.pi/2 * coupling_ratio), np.sin(np.pi/2 * coupling_ratio)
+
+                field_short = (short_coupling * field_short + 1j * long_coupling * field_long)
                 field_long = np.exp(1j * ifft_shift_(beta * length, ax=0)) * (
-                        1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
+                        1j * long_coupling * field_short_tmp + short_coupling * field_long)
             except RuntimeWarning as w:
                 print(f'RuntimeWarning: {w}')
                 print(f'coupling ratios: {coupling_ratios}')

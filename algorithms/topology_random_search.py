@@ -1,7 +1,7 @@
 """
 Random search for topology for benchmarking
 """
-
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
@@ -31,14 +31,12 @@ def update_hof(hof, population, verbose=False):
     return hof
 
 
-def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
+def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_opts=None, cluster_address=None):
     hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
-    ray.init(num_cpus=ga_opts['num_cpus'], include_dashboard=False, ignore_reinit_error=True)
-    assert ray.is_initialized() == True
-    print(ray.is_initialized())
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], include_dashboard=False, ignore_reinit_error=True)
 
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
@@ -51,6 +49,7 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
     for individual in range(ga_opts['n_population']):
         population.append((None, copy.deepcopy(graph)))
 
+    t1 = time.process_time()
     for generation in range(ga_opts['n_generations']):
         print('Generation {}'.format(generation))
 
@@ -71,8 +70,8 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
 
         # update logbook and hall of fame
-        logbook_update(generation, population, log, log_metrics, verbose=ga_opts['verbose'])
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose'])
+        logbook_update(generation, population, log, log_metrics, time=(time.process_time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
     # save a figure which quickly demonstrates the results of the run as a .pdf files
     fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
@@ -87,14 +86,12 @@ def topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts):
         axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
 
     io.save_fig(fig=fig, filename='halloffame.pdf')
-
+    io.save_object(log, 'log.pkl')
     return hof[1], hof[0], log
 
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):
-    import sys
-    print(sys.path)
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
     x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
     # print([graph.nodes[node]['model'].__class__ for node in graph.nodes])
