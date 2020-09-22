@@ -6,20 +6,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import ray
-from algorithms.functions import logbook_update, logbook_initialize
 
+from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
 
+np.seterr(all='warn')
 
-def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_opts=None, cluster_address=None):
+def topology_optimization(graph, propagator, evaluator, evolver, io,
+                          ga_opts=None, update_rule='random',
+                          cluster_address=None, local_mode=False):
     hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
 
-    update_population = update_population_topology_random  # set which update rule to use
+    if update_rule == 'random':
+        update_population = update_population_topology_random  # set which update rule to use
+    else:
+        raise NotImplementedError("This topology optimization update rule is not implemented yet. current options are 'random'")
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], include_dashboard=False, ignore_reinit_error=True)
-
+    if local_mode: print(f"Running in local_mode - not running as distributed computation")
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # save the objects for analysis later
@@ -51,7 +57,6 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
     fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
     for i, (score, graph) in enumerate(hof):
         graph.score = score
-        graph.clear_propagation()
         io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
 
         state = graph.measure_propagator(-1)
@@ -104,6 +109,7 @@ def update_population_topology_random(population, evolver, evaluator, propagator
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):
+    graph.clear_propagation()
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
     x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)

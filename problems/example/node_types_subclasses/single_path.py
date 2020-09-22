@@ -124,7 +124,7 @@ class WaveShaper(SinglePath):
         # Then: also add one at runtime that ensure the .parameters variable is the same length
         self.number_of_parameters = 2 * number_of_bins
 
-        self.default_parameters = [1.0] * number_of_bins + [0.0] * number_of_bins
+        self.default_parameters = [1.0] * number_of_bins + [0.1] * number_of_bins
 
         self.upper_bounds = [1.0] * number_of_bins + [2*np.pi] * number_of_bins
         self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0.0] * number_of_bins

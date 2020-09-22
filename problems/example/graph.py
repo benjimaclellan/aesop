@@ -113,6 +113,7 @@ class Graph(GraphParent):
         return list(self.predecessors(node))
 
     def clear_propagation(self):
+        self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems
         for node in self.nodes:
             if 'states' in self.nodes[node]:
                 self.nodes[node].pop('states')

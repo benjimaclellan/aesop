@@ -17,7 +17,7 @@ if __name__ == '__main__':
     directory = None
     # directory = input()
     if not directory:
-        directory = r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\testing\20200920_3D9f_run'
+        directory = r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\testing\20200922_9fcC'
     io = InputOutput(directory=directory, verbose=True)
     io.init_load_dir(sub_path=None)
 
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     evaluator = io.load_object('evaluator.pkl')
     evolver = io.load_object('evolver.pkl')
 
-    for i in range(ga_opts['n_hof']):
+    for i in range(1):
         graph = io.load_object(f'graph_hof{i}.pkl')
         parameters, *_ = graph.extract_parameters_to_list()
         state = graph.measure_propagator(-1)

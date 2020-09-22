@@ -31,7 +31,7 @@ from problems.example.node_types_subclasses.single_path import CorningFiber, Pha
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_optimization import parameters_optimize
-from algorithms.topology_optimization import topology_random_search
+from algorithms.topology_optimization import topology_optimization
 
 # np.random.seed(0)
 plt.close('all')
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()
     t1 = time.time()
-    graph, score, log = topology_random_search(graph, propagator, evaluator, evolver, multiprocess=True)
+    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, multiprocess=True)
     t2 = time.time()
     print('Best score of {}, total time {}'.format(score, t2-t1))
     graph.assert_number_of_edges()

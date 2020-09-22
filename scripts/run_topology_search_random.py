@@ -38,7 +38,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.topology_optimization import topology_random_search
+from algorithms.topology_optimization import topology_optimization
 
 plt.close('all')
 if __name__ == '__main__':
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    graph, score, log = topology_random_search(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts)
+    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=True)
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
