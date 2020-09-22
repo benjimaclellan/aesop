@@ -10,11 +10,11 @@ import ray
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
 
-np.seterr(all='warn')
-
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           ga_opts=None, update_rule='random',
                           cluster_address=None, local_mode=False):
+    io.init_logging()
+
     hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
 
@@ -71,6 +71,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     io.save_fig(fig=fig, filename='halloffame.png')
     io.save_object(log, 'log.pkl')
+
+    io.close_logging()
     return hof[1], hof[0], log
 
 def init_hof(n_hof):

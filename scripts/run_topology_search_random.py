@@ -13,10 +13,6 @@ sep = ';' if platform.system() == 'Windows' else ':'
 os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
-# import warnings
-# warnings.filterwarnings("ignore", category=RuntimeWarning)
-# warnings.filterwarnings("ignore", category=FutureWarning)
-
 # various imports
 import matplotlib.pyplot as plt
 import psutil
@@ -43,13 +39,12 @@ from algorithms.topology_optimization import topology_optimization
 plt.close('all')
 if __name__ == '__main__':
     io = InputOutput(directory='testing', verbose=True)
-
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     ga_opts = {'n_generations': 2,
                'n_population': psutil.cpu_count(),
-               'n_hof': 3,
+               'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
@@ -64,7 +59,7 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=True)
+    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False)
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
