@@ -72,10 +72,10 @@ class ContinuousWaveLaser(Input):
         self.node_lock = False
         self.node_acronym = 'CW'
         self.number_of_parameters = 4
-        self.default_parameters = [1, 1.55e-6, 55, 0.1e3] # default OSNR and linewidth from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
+        self.default_parameters = [1.0, 1.55e-6, 55.0, 0.1e3] # default OSNR and linewidth from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 
-        self.upper_bounds = [2, 1.54e-6, 200, 1e6] # upper bound for osnr randomly set
-        self.lower_bounds = [0, 1.56e-6, 1, 0]
+        self.upper_bounds = [2.0, 1.54e-6, 200.0, 1.0e6] # upper bound for osnr randomly set
+        self.lower_bounds = [0.0, 1.56e-6, 1.0, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
         self.step_sizes = [None, None, None, None]
         self.parameter_imprecisions = [0.1, 0.01e-6, 0, 0]
@@ -95,5 +95,5 @@ class ContinuousWaveLaser(Input):
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         peak_power = self.parameters[0]
-        state = np.sqrt(peak_power) * np.ones_like(states[0])
+        state = peak_power * np.ones_like(states[0])
         return [state]

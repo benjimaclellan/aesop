@@ -13,9 +13,9 @@ sep = ';' if platform.system() == 'Windows' else ':'
 os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
-import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+# import warnings
+# warnings.filterwarnings("ignore", category=RuntimeWarning)
+# warnings.filterwarnings("ignore", category=FutureWarning)
 
 # various imports
 import matplotlib.pyplot as plt

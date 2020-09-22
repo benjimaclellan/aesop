@@ -10,26 +10,6 @@ from algorithms.functions import logbook_update, logbook_initialize
 
 from .parameter_optimization import parameters_optimize
 
-def init_hof(n_hof):
-    hof = [(None, None) for i in range(n_hof)]
-    return hof
-
-def update_hof(hof, population, verbose=False):
-    for ind_i, (score, ind) in enumerate(population):
-        for hof_j, (hof_score, hof_ind) in enumerate(hof):
-            if hof_score is None:
-                hof.insert(hof_j, (score, ind))
-                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
-                hof.pop()
-                break
-
-            if score < hof_score:
-                hof.insert(hof_j, (score, ind))
-                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
-                hof.pop()
-                break
-    return hof
-
 
 def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_opts=None, cluster_address=None):
     hof = init_hof(ga_opts['n_hof'])
@@ -83,7 +63,25 @@ def topology_random_search(graph, propagator, evaluator, evolver, io=None, ga_op
     io.save_object(log, 'log.pkl')
     return hof[1], hof[0], log
 
+def init_hof(n_hof):
+    hof = [(None, None) for i in range(n_hof)]
+    return hof
 
+def update_hof(hof, population, verbose=False):
+    for ind_i, (score, ind) in enumerate(population):
+        for hof_j, (hof_score, hof_ind) in enumerate(hof):
+            if hof_score is None:
+                hof.insert(hof_j, (score, ind))
+                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                hof.pop()
+                break
+
+            if score < hof_score:
+                hof.insert(hof_j, (score, ind))
+                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                hof.pop()
+                break
+    return hof
 
 def update_population_topology_random(population, evolver, evaluator, propagator, **hyperparameters):
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
@@ -103,7 +101,6 @@ def update_population_topology_random(population, evolver, evaluator, propagator
                 break
         population[i] = (None, graph)
     return population
-
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):

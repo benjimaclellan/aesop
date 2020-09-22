@@ -27,7 +27,7 @@ class CorningFiber(SinglePath):
         self.node_acronym = 'DF'
 
         self.number_of_parameters = 1
-        self.default_parameters = [1]
+        self.default_parameters = [1.0]
 
         self.upper_bounds = [100e3]
         self.lower_bounds = [0.01]
@@ -73,13 +73,13 @@ class PhaseModulator(SinglePath):
         self.node_acronym = 'PM'
 
         self.number_of_parameters = 3
-        self.default_parameters = [1, 12e9, 0]
+        self.default_parameters = [1.0, 12.0e9, 0.0]
 
-        self.upper_bounds = [2*np.pi, 48e9, 2*np.pi]
-        self.lower_bounds = [0.001, 2e9, 0.01]
+        self.upper_bounds = [2*np.pi, 48.0e9, 2*np.pi]
+        self.lower_bounds = [0.001, 2.0e9, 0.01]
         self.data_types = ['float', 'float', 'float']
         self.step_sizes = [None, 2e9, None]
-        self.parameter_imprecisions = [1, 1, 0.1]
+        self.parameter_imprecisions = [1.0, 1.0, 0.1]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad]
         self.parameter_locks = [False, False, False]
         self.parameter_names = ['depth', 'frequency', 'shift']
@@ -124,10 +124,10 @@ class WaveShaper(SinglePath):
         # Then: also add one at runtime that ensure the .parameters variable is the same length
         self.number_of_parameters = 2 * number_of_bins
 
-        self.default_parameters = [1] * number_of_bins + [0] * number_of_bins
+        self.default_parameters = [1.0] * number_of_bins + [0.0] * number_of_bins
 
-        self.upper_bounds = [1] * number_of_bins + [2*np.pi] * number_of_bins
-        self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0] * number_of_bins
+        self.upper_bounds = [1.0] * number_of_bins + [2*np.pi] * number_of_bins
+        self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0.0] * number_of_bins
         self.data_types = 2 * number_of_bins * ['float']
         self.step_sizes = [None] * number_of_bins + [None] * number_of_bins
         self.parameter_imprecisions = [0.1] * number_of_bins + [0.1 * 2 * np.pi] * number_of_bins
@@ -190,6 +190,9 @@ class DelayLine(SinglePath):
         self.node_acronym = 'DL'
 
         self.number_of_parameters = 8
+
+        self.default_parameters = [0.1] * self.number_of_parameters
+
         self.upper_bounds = [1.0] * self.number_of_parameters
         self.lower_bounds = [0.0] * self.number_of_parameters
         self.data_types = ['float'] * self.number_of_parameters
@@ -204,7 +207,6 @@ class DelayLine(SinglePath):
         self._delays = [2**k * 1e-12 for k in range(0, self.number_of_parameters)]
         # [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12
 
-        self.default_parameters = [0.1] * self.number_of_parameters
 
         super().__init__(**kwargs)
         return
@@ -465,10 +467,10 @@ class ProgrammableFilter(SinglePath):
 
         self.number_of_parameters = 2 * number_of_bases
 
-        self.default_parameters = [1] * number_of_bases + [0] * number_of_bases
+        self.default_parameters = [1.0] * number_of_bases + [0.0] * number_of_bases
 
-        self.upper_bounds = [1] * number_of_bases + [2 * np.pi] * number_of_bases
-        self.lower_bounds = [0] * number_of_bases + [0] * number_of_bases
+        self.upper_bounds = [1.0] * number_of_bases + [2 * np.pi] * number_of_bases
+        self.lower_bounds = [0.0] * number_of_bases + [0.0] * number_of_bases
         self.data_types = 2 * number_of_bases * ['float']
         self.step_sizes = [None] * number_of_bases + [None] * number_of_bases
         self.parameter_imprecisions = [0.1] * number_of_bases + [0.1 * 2 * np.pi] * number_of_bases

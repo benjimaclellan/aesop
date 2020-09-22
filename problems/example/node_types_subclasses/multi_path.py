@@ -31,7 +31,7 @@ class VariablePowerSplitter(MultiPath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 2, save_transforms=False):
         coupling_ratio = self.parameters[0]
         if (num_inputs == 1) and (num_outputs == 2):
             state = states[0]
