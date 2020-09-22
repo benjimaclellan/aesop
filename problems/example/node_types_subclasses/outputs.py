@@ -65,7 +65,7 @@ class Photodiode(Output):
         Uses butterworth filter of provided degree
         """
         self.node_lock = True
-
+        self.node_acronym = 'PD'
         self.number_of_parameters = 7
         self.lower_bounds = [0, 1e9, 1, 0, 0, 0, 0]
         self.upper_bounds = [1, 200e9, 20, 0.1, 1e3, 320, 1e-6]

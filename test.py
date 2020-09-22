@@ -97,6 +97,17 @@ def test_differentiability():
                     print(f"differentiability errors on model {model_class}, parameter set of {parameters_name}\n\t{error}\n")
     return
 
+# old code for checking differentiation warnings
+    # print(f"***************************This graph passed with no runtime warnings or issues!")
+    # print(f"graph models are:")
+    # for node in graph.nodes: print(f"\t{graph.nodes[node]['model'].__class__}")
+    # except (RuntimeWarning) as e:
+    #     print(f"Getting a RuntimeError in the parameter_optimize_multiprocess\n\t{e}")
+    #     print(f"graph models are:")
+    #     for node in graph.nodes: print(f"\t{graph.nodes[node]['model'].__class__}")
+    #     score = 6666
+
+
 def test_distributed_computing():
     @ray.remote
     def ray_test_function(x, const):

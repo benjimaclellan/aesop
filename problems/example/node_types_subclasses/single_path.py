@@ -287,6 +287,7 @@ class EDFA(SinglePath):
         :param alpha : parameter alpha, as defined in [1] (default value of 1 seems reasonable)
         """
         self.node_lock = False
+        self.node_acronym = 'EDFA'
 
         self.number_of_parameters = 6
         self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 10, 15, 1.5, 30]

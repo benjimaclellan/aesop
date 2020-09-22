@@ -57,6 +57,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
     for i, (score, graph) in enumerate(hof):
         graph.score = score
+
+        graph.propagate(propagator, save_transforms=False)
+        hof_i_score = evaluator.evaluate_graph(graph, propagator)
+        if score != hof_i_score: print("HOF final score calculation does not match")
+
         io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
 
         state = graph.measure_propagator(-1)
