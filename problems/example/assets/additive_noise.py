@@ -2,6 +2,7 @@ import autograd.numpy as np
 import matplotlib.pyplot as plt
 from scipy.constants import elementary_charge
 from scipy import interpolate
+from scipy.optimize import curve_fit
 
 from .functions import fft_, ifft_, power_, psd_, ifft_shift_
 
@@ -10,6 +11,14 @@ TODO: can we create different copies of the class for threadsafe-ness purposes? 
       Also consider modifying the graph class to contain the "simulate with noise" variable, such that it can be determined on a per-graph basis
       rather than for all AdditiveNoise objects at once
 """
+
+def lorentzian(xdata, HWHM):
+    return HWHM / np.pi / (np.power(xdata, 2) + np.power(HWHM, 2))
+
+
+def inverse_x_squared(xdata, c):
+    return c / np.power(xdata, 2)
+
 
 class AdditiveNoise():
     """
@@ -20,7 +29,7 @@ class AdditiveNoise():
 
     simulate_with_noise = True
     supported_noise_dist = ['gaussian']
-    supported_noise_types = ['osnr', 'absolute power', 'edfa ASE', 'rms', 'shot', 'FWHM linewidth']
+    supported_noise_types = ['osnr', 'absolute power', 'edfa ASE', 'rms', 'shot', 'FWHM linewidth', 'phase noise from linewidth']
 
     def __init__(self, distribution='gaussian', noise_param=1, noise_filter=None, noise_type='osnr', noise_on=True, seed=None):
         """
@@ -33,12 +42,13 @@ class AdditiveNoise():
                            'edfa ASE' (noise_param = edfa object), 'rms' (noise_param = rms value of signal),
                            'shot' (noise_param[0] = slope of noise (with respect to input power), noise_param[1] = intercept of noise)
                            'FWHM linewdith' (noise_param = FWHM linewidth)
+                           'phase noise from linewidth' (noise_param = FWHM linewidth). This noise acts differently, in that it's not automatically included in propagation
         :param noise_on: True if the noise of the object is to be applied, False otherwise
                          Note that the noise can also be turned off for the whole class (upon which this variable has no effect)
         :param seed: seed with which np.random can generate the pseudorandom noise vectors
 
         :raises ValueError if (1) non-gaussian distribution is requested
-                              (2) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms', 'shot', 'FWHM linewidth'
+                              (2) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms', 'shot', 'FWHM linewidth', 'phase noise from linewidth'
         """
         self._propagator = None # defined the first time that noise is added to the propagation
         
@@ -64,6 +74,7 @@ class AdditiveNoise():
                            'edfa ASE' (noise_param = edfa object), 'rms' (noise_param = rms value of signal),
                            'shot' (noise_param[0] = slope of noise (with respect to input power), noise_param[1] = intercept of noise)
                            'FWHM linewdith' (noise_param = FWHM linewidth)
+                           'phase noise from linewidth' (noise_param = FWHM linewidth). This noise acts differently, in that it's not automatically included in propagation
 
         :raises ValueError if (1) non-gaussian distribution is requested (2) someone has the audacity of asking for a filter I have yet to implement
                               (3) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms', 'shot', 'FWHM linewidth'
@@ -134,11 +145,36 @@ class AdditiveNoise():
 
             elif noise['noise_type'] == 'FWHM linewidth':
                 signal = signal * noise['noise_vector'] # unlike the other noise options, this one changes the signal rather than adds to the total noise
-
+            
+            elif noise['noise_type'] == 'phase noise from linewidth':
+                pass # phase noise can be extracted separately, is not meant to be summed into propagation
             else:
                 raise ValueError(f"Noise type {noise['noise_type']} invalid")
 
         return signal + total_noise
+    
+    def get_phase_noise(self, propagator):
+        """
+        Returns a time-domain distribution with average value centre_freq, such that a linewidth as described by the
+        FWHM linewidth noise type is applied. Assumes only one linewidth noise type in the object, and that the linewidth has a Lorentzian shape
+
+        :param centre_freq: centre frequency
+        :param propagator: propagator (length must be matched)
+
+        :returns the frequency with some variation due to linewidth
+        :raises ValueError if no FWHM linewidth noise source has been added to this AdditiveNoise object
+        """
+        if not AdditiveNoise.simulate_with_noise:
+            return np.zeros(propagator.n_samples)
+
+        if (self.propagator is None or propagator is not self.propagator): # we avoid resampling the noise when the propagator hasn't changed, for efficiency
+            self.propagator = propagator
+
+        for noise in self.noise_sources:
+            if noise['noise_type'] == 'phase noise from linewidth':  
+                return noise['noise_vector']
+        
+        raise ValueError('No FWHM linewidth noise type in this AdditiveNoise object!')
     
     @property
     def propagator(self):
@@ -192,6 +228,11 @@ class AdditiveNoise():
             expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
             phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
             noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
+        elif (noise_type == 'phase noise from linewidth'):
+            expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
+            phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+            noise = np.real(ifft_(phase_noise, self.propagator.dt))
+
         return noise
     
     @staticmethod
@@ -221,26 +262,39 @@ class AdditiveNoise():
         return freq_noise
 
     @staticmethod
-    def _get_phase_psd_from_points(propagator, phase_psd_points, reference_power):
+    def get_estimated_FWHM_linewidth_from_points(phase_psd_points):
         """
-        Returns an array of the phase PSD given some psd points
+        Returns an estimate of the FWHM linewidth, from fitting phase psd to c / f^2. This results in a Lorentzian lineshape
+
+        :param phase_psd_points: phase psd points to fit to, in dBc/Hz
+        :return estimated FWHM (assumption is that linewidth is Lorentzian)
+        """
+        # _fit_phase_psd_from_points returns the best coefficient c such that the phase matches to c/f^2
+        # c = h0/2, assuming uniform frequency spectrum (see noise simulation document)
+        # with the same assumption, FWHM linewidth is pi * h0 = 2 * pi * c
+        return AdditiveNoise._fit_phase_psd_from_points(phase_psd_points)[0] * 2 * np.pi
+
+    @staticmethod
+    def _fit_phase_psd_from_points(phase_psd_points, return_psd=False):
+        """
+        Returns an array of the phase PSD given some psd points.
+        Fits a Lorentzian function for linewidth (i.e. phase PSD is proportional to c / f^2, frequency psd is constant)
 
         :param phase_psd_points: list of tuples (offset in Hz, phase noise in dBc/Hz)
+        :param return_psd: function returns phase PSD only if True
+        :return: fit_coefficient (the c in c/f^2), psd (if return_psd = True). Note that fit coefficient is returned as array, in case we want different fitting functions later
         """
-        one_sided_offsets = np.concatenate((np.array([point[0] for point in phase_psd_points]), propagator.f[propagator.n_samples - 1]))
-        one_sided_dBc_per_Hz = np.array([point[1] for point in phase_psd_points] + [-130]) # TODO: change placeholder
-        one_sided_W_per_Hz = AdditiveNoise._dBc_to_power(one_sided_dBc_per_Hz, reference_power)
-        print(f'one sided offsets: \n{one_sided_offsets}')
-        print(f'one sided dBc/Hz: \n{one_sided_dBc_per_Hz}')
-        print(f'one sided W/Hz: \n{one_sided_W_per_Hz}')
-        offsets = np.concatenate((-1 * np.flip(one_sided_offsets), one_sided_offsets))
-        print(f'offsets: \n{offsets}')
-        W_per_Hz = np.concatenate((np.flip(one_sided_W_per_Hz), one_sided_W_per_Hz))
-        print(f'W/Hz: \n{power_per_hz}')
-        f = interpolate.interp1d(offsets, dBc_per_Hz)
+        offsets = np.array([point[0] for point in phase_psd_points])
+        offsets = np.concatenate((-1 * np.flip(offsets), offsets))
+        dBc_per_Hz = np.array([point[1] for point in phase_psd_points]) # this is L(f) in usual units
+        dBc_per_Hz = np.concatenate((np.flip(dBc_per_Hz), dBc_per_Hz))
+        phase_psd = AdditiveNoise._dBc_per_Hz_to_rad2_per_Hz(dBc_per_Hz)
 
-        return f(propagator.f)
-
+        fit_coeff, _ = curve_fit(inverse_x_squared, offsets, phase_psd)
+        
+        if return_psd:
+            return fit_coeff, phase_psd
+        return fit_coeff
 
     @staticmethod
     def _dBc_to_power(dBc, reference_power):
@@ -251,6 +305,10 @@ class AdditiveNoise():
         :param reference power: carrier / reference signal power. This is usually total signal power
         """
         return 10**(dBc / 10) * reference_power
+    
+    @staticmethod
+    def _dBc_per_Hz_to_rad2_per_Hz(dBc_per_Hz):
+        return 2 * np.power(10, dBc_per_Hz / 10)
 
 
 # ------------------------------------------------- Visualisation methods, to help with debugging ----------------------------------------

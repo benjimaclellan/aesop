@@ -61,29 +61,48 @@ class CorningFiber(SinglePath):
 @register_node_types_all
 class PhaseModulator(SinglePath):
     """
-
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, phase_noise_points=None, **kwargs):
+        # fixing this up, because phase noise points isn't a proper parameter, just a way to GET the proper param
+        if phase_noise_points is not None:
+            FWHM = AdditiveNoise.get_estimated_FWHM_linewidth_from_points(phase_noise_points)
+            if 'parameters' in kwargs:
+                kwargs['parameters'][3] = FWHM
+            elif 'parameters_from_name' in kwargs:
+                kwargs['parameters_from_name']['FWHM_linewidth'] = FWHM
+
         self.node_lock = False
         self.node_acronym = 'PM'
 
-        self.number_of_parameters = 3
-        self.default_parameters = [1, 12e9, 0]
+        self.number_of_parameters = 4
+        self.default_parameters = [1, 12e9, 0, 0]
 
-        self.upper_bounds = [2*np.pi, 12e9, 2*np.pi]
-        self.lower_bounds = [0, 12e9, 0]
-        self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, 1e9, None]
-        self.parameter_imprecisions = [1, 1, 0.1]
-        self.parameter_units = [unit.rad, unit.Hz, unit.rad]
-        self.parameter_locks = [False, False, False]
-        self.parameter_names = ['depth', 'frequency', 'shift']
-        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$"]
+        self.upper_bounds = [2*np.pi, 12e9, 2*np.pi, 1e9]
+        self.lower_bounds = [0, 12e9, 0, 0]
+        self.data_types = ['float', 'float', 'float', 'float']
+        self.step_sizes = [None, 1e9, None, None]
+        self.parameter_imprecisions = [1, 1, 0.1, 1]
+        self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
+        self.parameter_locks = [False, False, False, True]
+        self.parameter_names = ['depth', 'frequency', 'shift', 'FWHM_linewidth']
+        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$", r"$x_{FWHM}$"]
         super().__init__(**kwargs)
-        self.noise_model = AdditiveNoise()
 
-        return
+        """
+        General noise guidelines:
+        If RF signal generator phase noise characteristics are given as % error of frequency or ppm, use: "frequency ppm" noise type
+        (calculates value of % error, uses it as linewidth)
+        See: https://www.jitterlabs.com/support/calculators/ppm
+        
+        If RF signal generator phase noise characteristics are given as phase noise at offset from carrier, use 
+        (list of points (offset, dBc/Hz), which are fitted to the curve C/f^2, where C = h0/2 and FWHM = pi * h0)
+
+        Else, specify as actual linewidth "FWHM linewidth". If you want to unlock a parameter and optimize it, you SHOULD use linewidth. 
+        
+        Note: all noise metrics representation whould be FWHM linewidth, under the assumption that linewidth is Lorentzian/
+        """
+        self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
@@ -91,7 +110,7 @@ class PhaseModulator(SinglePath):
         depth = self.parameters[0]
         frequency = self.parameters[1]
 
-        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t))
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + self.noise_model.get_phase_noise(propagator)))
     
         if save_transforms:
             self.transform = (('t', transform, 'modulation'),)

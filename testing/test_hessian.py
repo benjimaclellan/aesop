@@ -8,8 +8,6 @@ import os
 import time
 import autograd.numpy as np
 
-import config.config as configuration
-
 from problems.example.evaluator import Evaluator
 from problems.example.graph import Graph
 # from problems.example.evolution_operators import EvolutionOperators
