@@ -49,6 +49,7 @@ class TeeWrapper(object):
         if self._ipy:
             self.log.close()
         else:
+            sys.stdout = self.log.terminal
             self.log.flush()
         return
 

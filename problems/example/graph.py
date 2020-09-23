@@ -72,10 +72,9 @@ class Graph(GraphParent):
         info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
                                                                 exclude_locked=exclude_locked)
 
-        def func(parameters):
-            return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
-        # func = lambda parameters: _function(parameters, self, propagator, evaluator,
-        #                                     info['node_edge_index'], info['parameter_index'])
+        # def func(parameters):
+        #     return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
+        func = lambda parameters: _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
 
         return func
 
@@ -83,10 +82,16 @@ class Graph(GraphParent):
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
-        # hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
-        def hess_tmp(parameters):
-            return hessian(self.func)(np.array(parameters))
-        self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
+        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        # def hess_tmp(parameters):
+        #     return hessian(self.func)(np.array(parameters))
+        # self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
+        self.hess = lambda parameters: hess_tmp(np.array(parameters))
+
+        attributes = self.extract_attributes_to_list_experimental(['parameter_imprecisions'])
+        parameter_imprecisions = np.expand_dims(np.array(attributes['parameter_imprecisions']), axis=1)
+        scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
+        self.scaled_hess = lambda parameters: hess_tmp(np.array(parameters)) * scale_matrix
         return
 
 
