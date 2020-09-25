@@ -288,26 +288,16 @@ class AdditiveNoise():
         offsets = np.concatenate((-1 * np.flip(offsets), offsets))
         dBc_per_Hz = np.array([point[1] for point in phase_psd_points]) # this is L(f) in usual units
         dBc_per_Hz = np.concatenate((np.flip(dBc_per_Hz), dBc_per_Hz))
-        phase_psd = AdditiveNoise._dBc_per_Hz_to_rad2_per_Hz(dBc_per_Hz)
+        phase_psd = AdditiveNoise.dBc_per_Hz_to_rad2_per_Hz(dBc_per_Hz)
 
         fit_coeff, _ = curve_fit(inverse_x_squared, offsets, phase_psd)
         
         if return_psd:
             return fit_coeff, phase_psd
         return fit_coeff
-
-    @staticmethod
-    def _dBc_to_power(dBc, reference_power):
-        """
-        Return power of a waveband in Watts from its dBc based on reference power reference_power
-
-        :param dBc: decibels relative to the carrier
-        :param reference power: carrier / reference signal power. This is usually total signal power
-        """
-        return 10**(dBc / 10) * reference_power
     
     @staticmethod
-    def _dBc_per_Hz_to_rad2_per_Hz(dBc_per_Hz):
+    def dBc_per_Hz_to_rad2_per_Hz(dBc_per_Hz):
         return 2 * np.power(10, dBc_per_Hz / 10)
 
 

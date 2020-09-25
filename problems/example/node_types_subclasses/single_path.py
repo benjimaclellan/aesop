@@ -352,7 +352,7 @@ class EDFA(SinglePath):
         """
         expected_power_dist = Planck * (ifft_shift_(propagator.f) + propagator.central_frequency) / 2 * \
             (self._last_noise_factor * self._last_gain - 1) * propagator.df
-
+        expected_power_dist = np.clip(expected_power_dist, 0, np.max(expected_power_dist))
         return np.sqrt(expected_power_dist)
 
 
@@ -369,7 +369,6 @@ class EDFA(SinglePath):
             raise ValueError(f'input signal {P_in} is greater than max input signal {self._P_in_max}')
 
         self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self._P_out_max)**self._alpha) 
-
         return self._last_gain
     
     def _noise_factor(self, state, propagator):
@@ -397,7 +396,7 @@ class EDFA(SinglePath):
             Gf = gain flatness in dB,
 
             Such that, as expected, g(d) = g_min
-        """        
+        """    
         central_freq = speed_of_light / self._peak_wl
         lower_freq = speed_of_light / self._band_upper
         upper_freq = speed_of_light / self._band_lower
@@ -426,7 +425,7 @@ class EDFA(SinglePath):
 
     def display_small_signal_gain(self):
         _, ax = plt.subplots()
-        wavelengths = [i*1e-9 for i in range(1520, 1565)]
+        wavelengths = [i*1e-9 for i in range(self._band_lower, self._band_upper)]
         gain = np.array([self._calculate_small_signal_gain(self._peak_wl,
                                                            speed_of_light / w,
                                                            self._band_upper,

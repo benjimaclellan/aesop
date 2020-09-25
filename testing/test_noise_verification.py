@@ -351,6 +351,7 @@ def test_small_signal_flatness(propagator):
             ax.set_ylabel('Small signal gain (pure ratio, not dB)')
             plt.title(f'Gain flatness {i} dB')
             plt.show()
+
         assert np.isclose(np.max(small_signal) / small_signal[target_index, 0], 10**(i/10), atol=1e-1)
 
 
