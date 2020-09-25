@@ -9,7 +9,7 @@ import matplotlib.colors as colors
 from mpl_toolkits.mplot3d import Axes3D
 
 # %% import custom modules
-from lib.analysis.hessian import hessian
+from lib.hessian import hessian
 from testing.test_functions import TestFunction
 
 

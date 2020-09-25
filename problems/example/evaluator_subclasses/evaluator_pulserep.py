@@ -1,7 +1,5 @@
 """ """
 
-import warnings
-
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 

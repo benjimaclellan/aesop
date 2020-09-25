@@ -69,4 +69,13 @@ asope/results/
 
 asope/venv/bin/
 
+results/
+
 scripts/outcmaes/
+
+interactive/.ipynb_checkpoints/
+/.vscode/
+/.idea/
+/.ipynb_checkpoints/
+
+local_scripts/

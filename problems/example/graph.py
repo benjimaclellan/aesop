@@ -8,6 +8,8 @@ from autograd import grad, hessian, jacobian, elementwise_grad
 import networkx as nx
 import copy
 import matplotlib.pyplot as plt
+import matplotlib.cbook as cb
+
 from itertools import cycle
 import warnings
 
@@ -56,6 +58,8 @@ class Graph(GraphParent):
         self.grad = None
         self.hess = None
 
+        self.score = None
+
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
 
@@ -68,10 +72,9 @@ class Graph(GraphParent):
         info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
                                                                 exclude_locked=exclude_locked)
 
-        def func(parameters):
-            return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
-        # func = lambda parameters: _function(parameters, self, propagator, evaluator,
-        #                                     info['node_edge_index'], info['parameter_index'])
+        # def func(parameters):
+        #     return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
+        func = lambda parameters: _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
 
         return func
 
@@ -79,10 +82,16 @@ class Graph(GraphParent):
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
-        # hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
-        def hess_tmp(parameters):
-            return hessian(self.func)(np.array(parameters))
-        self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
+        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        # def hess_tmp(parameters):
+        #     return hessian(self.func)(np.array(parameters))
+        # self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
+        self.hess = lambda parameters: hess_tmp(np.array(parameters))
+
+        attributes = self.extract_attributes_to_list_experimental(['parameter_imprecisions'])
+        parameter_imprecisions = np.expand_dims(np.array(attributes['parameter_imprecisions']), axis=1)
+        scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
+        self.scaled_hess = lambda parameters: hess_tmp(np.array(parameters)) * scale_matrix
         return
 
 
@@ -111,6 +120,7 @@ class Graph(GraphParent):
         return list(self.predecessors(node))
 
     def clear_propagation(self):
+        self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems
         for node in self.nodes:
             if 'states' in self.nodes[node]:
                 self.nodes[node].pop('states')
@@ -274,6 +284,21 @@ class Graph(GraphParent):
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
 
+    def visualize_transforms_dof(self, ax, propagator, dof='f', label_verbose=1):
+        for node in self.nodes():
+            if self.nodes[node]['model'].transform is not None:
+                for _, (dof_i, transform, label) in enumerate(self.nodes[node]['model'].transform):
+                    if label_verbose == 0:
+                        label_str = '{}'.format(label)
+                    else:
+                        label_str = 'Node {} | {} | {}'.format(node, self.nodes[node]['name'], label)
+
+                    if (dof_i == dof) and (dof=='t'):
+                        ax.plot(propagator.t, transform/np.max(transform), label=label_str)
+                    elif (dof_i == dof) and (dof=='f'):
+                        ax.plot(propagator.f, transform/np.max(transform), label=label_str)
+            ax.legend()
+
     def visualize_transforms(self, nodes_to_visualize, propagator):
         """
         each node's propagate function (if applicable) can save the transformations (as functions of t or f) into the class variable
@@ -303,7 +328,7 @@ class Graph(GraphParent):
         plt.show()
         return
 
-    def draw(self, ax=None, labels=None, legend=False):
+    def draw(self, ax=None, labels=None, legend=False, ignore_warnings=True):
         """
         custom plotting function to more closely resemble schematic diagrams
 
@@ -311,85 +336,20 @@ class Graph(GraphParent):
         :param labels:
         :return:
         """
-
-        # pos = self.optical_system_layout()
+        if ignore_warnings: warnings.simplefilter('ignore', category=(FutureWarning, cb.mplDeprecation))
 
         if ax is None:
             fig, ax = plt.subplots(1,1)
 
-        if legend:
-            if labels is None:
-                str = "\n".join(['{}:{}'.format(node, self.nodes[node]['name']) for node in self.nodes])
-            else:
-                str = "\n".join(['{}:{}'.format(labels[node], self.nodes[node]['name']) for node in self.nodes])
+        if labels is None:
+            labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
 
-            ax.annotate(str,
-                        xy=(0.02, 0.98), xytext=(0.02, 0.98), xycoords='axes fraction',
-                        textcoords='offset points',
-                        size=7, va='top',
-                        bbox=dict(boxstyle="round", fc=(0.9, 0.9, 0.9), ec="none"))
+        pos = nx.planar_layout(self)
+        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
 
-        source = [node for node in self.nodes if self.get_in_degree(node) == 0]
-
-        pos = nx.planar_layout(self)#, pos=fixed_positions, fixed = fixed_positions.keys())
-        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='lightgrey')
-
-        # nx.draw_kamada_kawai(self, ax=ax, labels=labels, alpha=1.0)
+        if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
         return
 
-
-    def optical_system_layout(self):
-        """
-        gives a more intuitive graph layout that matches more to experimental setup diagrams (left to right, more of a grid)
-        :return:
-        """
-        pos = {}
-        y_spacing = 1
-        x_spacing = 1
-        nodes_rem = copy.copy(self.propagation_order)
-        x_counter = 0
-        y_counter = 0
-
-        next_node = nodes_rem[0]
-
-        while len(nodes_rem) > 0:
-            node = next_node
-
-            x_pos = x_counter * x_spacing
-
-            suc = self.suc(node)
-            out_degree = self.get_out_degree(node)
-            pre = self.pre(node)
-            in_degree = self.get_in_degree(node)
-
-            if in_degree == 0:
-                x_pos = 0
-                y_pos = 2 * y_counter * y_spacing
-            elif in_degree == 1:
-                x_pos = pos[pre[0]][0] + x_spacing
-                y_pos = y_counter * y_spacing
-            elif in_degree > 1:
-                x_pos = pos[pre[0]][0] + x_spacing
-                y_pos = y_counter * y_spacing
-
-            pos[node] = [x_pos, y_pos]
-
-            nodes_rem.remove(node)
-            if not len(nodes_rem):
-                break
-
-            if out_degree == 0:
-                next_node = nodes_rem[0]
-                y_counter += 1
-                continue
-            elif out_degree == 1:
-                x_counter += 1
-                next_node = suc[0]
-            elif out_degree > 1:
-                y_counter += 1
-                next_node = suc[0]
-
-        return pos
 
     @property
     def propagation_order(self):
@@ -417,7 +377,6 @@ class Graph(GraphParent):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
         """
         # check for loops
-        print(nx.algorithms.recursive_simple_cycles(self))
         if nx.algorithms.recursive_simple_cycles(self):
             raise RuntimeError('There are loops in the topology')
 
@@ -624,6 +583,14 @@ class Graph(GraphParent):
                 parameter = uniform_sample(low=low, up=up, step=step, data_type=data_type)
             parameters.append(parameter)
         return parameters
+
+
+    def get_graph_info(self):
+        nodes = list(self.nodes)
+        edges = list(self.edges)
+        models = [self.nodes[node]['model'].node_acronym for node in self.nodes]
+        model_edges = [(self.nodes[i]['model'].node_acronym, self.nodes[j]['model'].node_acronym) for (i, j, _) in self.edges]
+        return nodes, edges, models, model_edges
 
 
 #%% Sampling functions for mutation operations on parameters

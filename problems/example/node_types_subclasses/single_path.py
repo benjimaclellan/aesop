@@ -3,6 +3,7 @@
 """
 import matplotlib.pyplot as plt
 from scipy.constants import Planck, speed_of_light
+from math import factorial
 
 from pint import UnitRegistry
 unit = UnitRegistry()
@@ -26,10 +27,10 @@ class CorningFiber(SinglePath):
         self.node_acronym = 'DF'
 
         self.number_of_parameters = 1
-        self.default_parameters = [1]
+        self.default_parameters = [1.0]
 
-        self.upper_bounds = [1000e3]
-        self.lower_bounds = [0]
+        self.upper_bounds = [100e3]
+        self.lower_bounds = [0.01]
         self.data_types = ['float']
         self.step_sizes = [None]
         self.parameter_imprecisions = [1]
@@ -37,23 +38,26 @@ class CorningFiber(SinglePath):
         self.parameter_locks = [False]
         self.parameter_names = ['length']
         self.parameter_symbols = [r"$x_\beta$"]
-        self.beta = 1e-20
+        self.beta = 1e-26
+        self._n = 1.44
 
         super().__init__(**kwargs)
         return
-
+    #TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
     # TODO : check this, and every other model for correctness (so far its been about logic flow)
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
-        dispersion = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
+        b2 = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
+
+        b1 = length * self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
         if save_transforms:
-            self.transform = (('f', dispersion, 'dispersion'),)
+            self.transform = (('f', b1, 'b1'), ('f', b2, 'b2'),)
         else:
             self.transform = None
 
-        state = ifft_( ifft_shift_(np.exp(-1j * dispersion), ax=0) * fft_(state, propagator.dt), propagator.dt)
+        state = ifft_( ifft_shift_(np.exp(1j * (b1 + b2)), ax=0) * fft_(state, propagator.dt), propagator.dt)
         return [state]
 
 
@@ -140,10 +144,10 @@ class WaveShaper(SinglePath):
         # Then: also add one at runtime that ensure the .parameters variable is the same length
         self.number_of_parameters = 2 * number_of_bins
 
-        self.default_parameters = [1] * number_of_bins + [0] * number_of_bins
+        self.default_parameters = [1.0] * number_of_bins + [0.1] * number_of_bins
 
-        self.upper_bounds = [1] * number_of_bins + [2*np.pi] * number_of_bins
-        self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0] * number_of_bins
+        self.upper_bounds = [1.0] * number_of_bins + [2*np.pi] * number_of_bins
+        self.lower_bounds = [self.extinction_ratio] * number_of_bins + [0.0] * number_of_bins
         self.data_types = 2 * number_of_bins * ['float']
         self.step_sizes = [None] * number_of_bins + [None] * number_of_bins
         self.parameter_imprecisions = [0.1] * number_of_bins + [0.1 * 2 * np.pi] * number_of_bins
@@ -206,8 +210,11 @@ class DelayLine(SinglePath):
         self.node_acronym = 'DL'
 
         self.number_of_parameters = 8
-        self.upper_bounds = [1] * self.number_of_parameters
-        self.lower_bounds = [0] * self.number_of_parameters
+
+        self.default_parameters = [0.1] * self.number_of_parameters
+
+        self.upper_bounds = [1.0] * self.number_of_parameters
+        self.lower_bounds = [0.0] * self.number_of_parameters
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [0.01] * self.number_of_parameters
@@ -220,7 +227,6 @@ class DelayLine(SinglePath):
         self._delays = [2**k * 1e-12 for k in range(0, self.number_of_parameters)]
         # [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12
 
-        self.default_parameters = [0] * self.number_of_parameters
 
         super().__init__(**kwargs)
         return
@@ -242,9 +248,14 @@ class DelayLine(SinglePath):
             field_short_tmp = field_short
 
             try:
-                field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
+                # field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
+                # field_long = np.exp(1j * ifft_shift_(beta * length, ax=0)) * (
+                #         1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
+                short_coupling, long_coupling = np.cos(np.pi/2 * coupling_ratio), np.sin(np.pi/2 * coupling_ratio)
+
+                field_short = (short_coupling * field_short + 1j * long_coupling * field_long)
                 field_long = np.exp(1j * ifft_shift_(beta * length, ax=0)) * (
-                        1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
+                        1j * long_coupling * field_short_tmp + short_coupling * field_long)
             except RuntimeWarning as w:
                 print(f'RuntimeWarning: {w}')
                 print(f'coupling ratios: {coupling_ratios}')
@@ -262,7 +273,7 @@ class DelayLine(SinglePath):
         return [ifft_(field_short, propagator.dt)]
 
 
-@register_node_types_all
+#@register_node_types_all
 class EDFA(SinglePath):
     """
     EDFA modelled as follows:
@@ -296,6 +307,7 @@ class EDFA(SinglePath):
         :param alpha : parameter alpha, as defined in [1] (default value of 1 seems reasonable)
         """
         self.node_lock = False
+        self.node_acronym = 'EDFA'
 
         self.number_of_parameters = 6
         self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 10, 15, 1.5, 30]
@@ -460,3 +472,84 @@ class EDFA(SinglePath):
         #     \ngain flatness: {self._gain_flatness_dB} dB \
         #     \nmax power: {self._P_out_max}")
         plt.show()
+
+
+@register_node_types_all
+class ProgrammableFilter(SinglePath):
+    def __init__(self, **kwargs):
+        self.node_lock = False
+        self.node_acronym = 'PF'
+
+        number_of_bases = 10
+        self._number_of_bases = number_of_bases
+        self.band_width = 30e9
+        self.extinction_ratio = 10 ** (-35 / 10)
+
+        self.number_of_parameters = 2 * number_of_bases
+
+        self.default_parameters = [1.0] * number_of_bases + [0.0] * number_of_bases
+
+        self.upper_bounds = [1.0] * number_of_bases + [2 * np.pi] * number_of_bases
+        self.lower_bounds = [0.0] * number_of_bases + [0.0] * number_of_bases
+        self.data_types = 2 * number_of_bases * ['float']
+        self.step_sizes = [None] * number_of_bases + [None] * number_of_bases
+        self.parameter_imprecisions = [0.1] * number_of_bases + [0.1 * 2 * np.pi] * number_of_bases
+        self.parameter_units = [None] * number_of_bases + [unit.rad] * number_of_bases
+        self.parameter_locks = 2 * self.number_of_parameters * [False]
+        self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bases)] + \
+                               ['phase{}'.format(ind) for ind in range(number_of_bases)]
+        self.parameter_symbols = [r"$x_{b_{" + "{:+d}".format(ind) + r"}}$" for ind in
+                                  range(-(number_of_bases - 1) // 2, (number_of_bases - 1) // 2 + 1)] + \
+                                 [r"$x_{p_{" + "{:+d}".format(ind) + r"}}$" for ind in
+                                  range(-(number_of_bases - 1) // 2, (number_of_bases - 1) // 2 + 1)]
+
+        super().__init__(**kwargs)
+        return
+
+    @staticmethod
+    def bernstein(t, i=0, n=0):
+        b = (factorial(n) / (factorial(i) * factorial(n - i))) * np.power(t, i) * np.power(1 - t, n - i)
+        return b
+
+    def get_waveform(self, t, coeffs):
+        y = np.zeros_like(t)
+        for m, coeff in enumerate(coeffs):
+            y += coeff * self.bernstein(t, i=m, n=len(coeffs) - 1)
+        return y
+
+    # def get_waveform(self, t, coeffs):
+    #     y = np.zeros_like(t)
+    #     for m, coeff in enumerate(coeffs):
+    #         y += coeff * np.cos(2 * np.pi * t * m + coeff)
+    #     return y
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+
+        # Slice at into the first half (amp) and last half (phase)
+        bernstein_amp_coeffs = self.parameters[:self._number_of_bases]
+        bernstein_phase_coeffs = self.parameters[self._number_of_bases:]
+
+        bw_int = int(round(self.band_width/2/propagator.df))
+
+        mask = np.zeros_like(propagator.f)
+        mask[np.abs(propagator.f) <= self.band_width / 2] = 1
+
+        f_shifted = np.expand_dims(np.linspace(-propagator.n_samples / 2 - bw_int,
+                                 propagator.n_samples / 2 - bw_int,
+                                 propagator.n_samples) / (2 * bw_int) + 1, 1)
+
+        amplitude_mask = self.get_waveform(f_shifted, bernstein_amp_coeffs) * mask
+        phase_mask = self.get_waveform(f_shifted, bernstein_phase_coeffs) * mask
+
+        # amplitude_mask = np.power(amplitude_mask, 4)
+        # phase_mask = np.power(phase_mask, 2)/(2*np.pi)**2
+
+        state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt),
+                      propagator.dt)
+
+        if save_transforms:
+            self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
+        else:
+            self.transform = None
+        return [state]

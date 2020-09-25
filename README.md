@@ -1,84 +1,77 @@
-# Kirby, v3.0
-Originally named ASOPE (short for _Automated Search of Optical Processing Experiments_), the updated version has the name changed to Kirby.
-Kirby is a Python package for the inverse design of optical systems, and includes custom simulation software.
+# Automated Search of Optical Processing Experiments
+ASOPE is a Python package for the inverse design of optical systems in the time-energy degree-of-freedom.
+This README is a ever-changing document - please contact the authors for current status.
 
 ## New in v.3.0
-Complete overhaul of the simulation library - which has added layers of abstraction and new extensibility, so that new simulators for other optical degrees-of-freedom
-can be added later. The following parts of the README have not been updated for v3.0.
-
+Complete overhaul of the simulation library - which has added layers of abstraction and new extensibility.
+New noise analysis, new components in the library, improved topology optimization, more methods of parameter optimization. 
 ## Getting Started
-
-This package aims to design an optical system which accomplishes an user-defined goal. 
+This package aims to design optical systems which accomplishes an user-defined goal. 
 A system is described by a set of components, connected in a specific way and with specific control variables.
-
-
-
 
 ### Prerequisites
 
-All packages needed for this software are open-source, standard Python packages. The main packages and their uses are:
-
-`deap` - Distributed Evolutionary Algorithms in Python, used for the Genetic Algorithm
+See [`requirements.txt`](../requirments.txt) for full, more up-to-date list of all dependencies.
+Major packages used are:
 
 `networkx` - Graph and network manipulation package, used for representing an experimental setup
 
 `multiprocess` - Multiprocessing in Python, used to improve computation time with the Genetic Algorithm
 
-`peakutils` - Peak detection for various evaluation, such as measuring the repetition rate of a pulse train
-
 `numpy` - Standard scientific/numerical package in Python
+
+`scipy` - Scientific computing functions, including minimization
 
 `matplotlib` - Plotting and visualization
 
-See [`requirements.txt`](../requirments.txt) for full list of all dependencies.
+`autograd` - Automatic differentiation of Python functions
 
 ### Installing
 
-Using Anaconda, a scientific computing environment for Python, is recommended. First, install the Anaconda environment for your system, [https://www.anaconda.com/distribution/](https://www.anaconda.com/distribution/). Spyder is a useful Python IDE, but the command-line interface for installing Python packages is the main use.
-
 To install the ASOPE package, clone the repository from [Github](https://github.com/) at [https://github.com/benjimaclellan/ASOPE.git](https://github.com/benjimaclellan/ASOPE.git). 
-
 All the prerequisite packages can be install from the `requirements.txt` file. 
+You can install all packages via pip, or using `pip install requirements.txt`. 
+A virtual environment is recommended.
 
-You can install all packages via pip.
+## Running with GCS
+A 16-CPU, 16 GB RAM virtual machine (VM) is reserved for use on Google Cloud Services (GCS).
+GCS charges by the second used, so please turn the VM off after running batches.
+To start, navigate to Google Cloud Console > Compute Engine > VM Instances, select the desired VM and Start. 
+If no issues arise, an external IP address will be provided which can be used to SSH into the VM.
+Click SSH to open an SSH terminal in your browser (avoids the need to set up SSH keys with your personal computer).
+The machine is running Debian 10, and has minimal programs installed.
+Git, Python, SSH, and a few other necessary tools have been installed on the instance.
+Once access to the VM is started, there should be two main folders: ~/ASOPE and  ~/asope_data.
+ASOPE stores the code repository, which uses a Git developer token to sync new commits/branches.
+Please never commit or push commits to the origin (Github) from the GCS VM. 
+The second folder, ~/asope_data, is the default storage location for ASOPE batch runs.
+To keep costs low, we use Google Data Buckets - which have almost limitless storage, but higher latency (which is not a problem here).
+The GCS project has one Data Bucket created, also called asope_data.
+This data bucket can be mounted to the VM easily - but it must be done everytime the VM is started.
+To mount the data bucket to the data folder on the VM, run 
+`gcs asope_data asope_data`
+from the `~/` folder.
+If the bucket mounts successfully, any results from the repository will automatically be added to the bucket, which can be easily explored/downloaded via the browser.
+Alternatively, SCP or other file transfer protocols can be used, though more work is needed to set them up.
 
-## Running the tests
-
-There are four main scripts which use different levels of the package.
-
-* [`asope/simulation.py`](../asope/simulation.py) 
-Simulates a defined optical source through a defined optical system. 
-Control parameters can be defined or randomly chosen within bounds. 
-No optimization occurs.
-Sensitivity analysis can be applied at the output.
-
-* [`asope/testing.py`](../asope/testing.py) 
-Scratch document for testing various things (constantly changing)
-
-* [`asope/main_paramopt.py`](../asope/main_paramopt.py) 
-Optimizes the control parameters for a defined topology, objective function, and optical source.
-
-* [`asope/main_asope.py`](../asope/main_asope.py) 
-Full ASOPE algorithm, optimizing both topology and control parameters for a given optical source and objective function.
-
-## Configuration
-
-For each optimization run, a corresponding configuration file must be used to specify various hyperparameters.
-
-
-## Known Bugs
-* Gradient descent via autograd does not currently work due to choice of step size.
-Consider a more sophisticated gradient method such as ADAM. 
-
-## Contributing
-Submit a push request to the Github repository.
+To update the code to the latest version, change directories to the repository `cd ASOPE`. 
+Here you can run `git` commands.
+Again, please don't commit or push changes from the VM.
+To hard reset the local repo to the remote (Github), run `git fetch` followed by `git reset --hard origin/branch-to-checkout`.
+You can also use `git stash` to save any changes and `git pop` them back after pulling the changes.
+Now you can run scripts with `python3 script-to-run.py` and edit with `nano script-to-edit.py`.
+If new packages are required, install with `pip3 install package-to-install`.
+Once the batch is finished running, ensure all desired data is saved in `~/asope_data` and download from the GCS Storage page, or with SCP.
+Finally, exit the SSH shell and turn off the VM instance.
 
 ## Authors
 * **Benjamin MacLellan** - [Email](benjamin.maclellan@emt.inrs.ca)
+* **Piotr Roztocki**
+* **Julie Belleville**
+* **Kaleb Ruscitti**
 
 ## License
 Please see [LICENSE.md](../LICENSE.md)
 
-## Acknowledgments
 
  

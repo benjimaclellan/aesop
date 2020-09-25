@@ -18,8 +18,8 @@ class VariablePowerSplitter(MultiPath):
         self.node_acronym = 'BS'
 
         self.number_of_parameters = 1
-        self.upper_bounds = [1]
-        self.lower_bounds = [0]
+        self.upper_bounds = [0.9]
+        self.lower_bounds = [0.1]
         self.data_types = ['float']
         self.step_sizes = [None]
         self.parameter_imprecisions = [1]
@@ -31,7 +31,7 @@ class VariablePowerSplitter(MultiPath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 2, save_transforms=False):
         coupling_ratio = self.parameters[0]
         if (num_inputs == 1) and (num_outputs == 2):
             state = states[0]

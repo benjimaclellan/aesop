@@ -1,6 +1,5 @@
 """ """
 
-import warnings
 import autograd.numpy as np
 from autograd.numpy.fft import rfft
 import scipy.signal as signal
