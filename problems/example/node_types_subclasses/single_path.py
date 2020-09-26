@@ -80,10 +80,10 @@ class PhaseModulator(SinglePath):
         self.node_acronym = 'PM'
 
         self.number_of_parameters = 4
-        self.default_parameters = [1, 12e9, 0, 0]
+        self.default_parameters = [1.0, 12e9, 0.0, 0.0]
 
         self.upper_bounds = [2*np.pi, 12e9, 2*np.pi, 1e9]
-        self.lower_bounds = [0, 12e9, 0, 0]
+        self.lower_bounds = [0.0, 12e9, 0.0, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
         self.step_sizes = [None, 1e9, None, None]
         self.parameter_imprecisions = [1, 1, 0.1, 1]
@@ -273,7 +273,7 @@ class DelayLine(SinglePath):
         return [ifft_(field_short, propagator.dt)]
 
 
-#@register_node_types_all
+@register_node_types_all
 class EDFA(SinglePath):
     """
     EDFA modelled as follows:
@@ -309,18 +309,17 @@ class EDFA(SinglePath):
         self.node_lock = False
         self.node_acronym = 'EDFA'
 
-        self.number_of_parameters = 6
-        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 10, 15, 1.5, 30]
-        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0, 0, 3]
+        self.number_of_parameters = 9
+        self.upper_bounds = [50.0, 1612e-9, 1600-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 30.0]
+        self.lower_bounds = [0.0, 1535e-9, 1530e-9, 1540e-9, 0.0, 0.0, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
         self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, unit.W, None, None, None] # no dB unit exists in registry
         self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
         self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_in_max', 'P_out_max', 'gain_flatness_dB', 'alpha', 'max_noise_fig_dB']
-        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1, 5]
+        self.default_parameters = [30.0, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1.0, 5.0]
         super().__init__(**kwargs)
-        self._small_signal_gain = None
         self.noise_model = AdditiveNoise(noise_type='edfa ASE', noise_param=self)
 
         # save for noise propagation
@@ -372,15 +371,14 @@ class EDFA(SinglePath):
         """
         Gain is defined as in [1], G = g / (1 + (g * P_in / P_max)^alpha), with g = small signal gain, G is true gain
         """
-        if self._small_signal_gain is None:
-            self._small_signal_gain = self._get_small_signal_gain(propagator)
+        small_signal_gain = self._get_small_signal_gain(propagator)
 
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
         if P_in > self._P_in_max:
             raise ValueError(f'input signal {P_in} is greater than max input signal {self._P_in_max}')
 
-        self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self._P_out_max)**self._alpha) 
+        self._last_gain = small_signal_gain / (1 + (small_signal_gain * P_in / self._P_out_max)**self._alpha) 
         return self._last_gain
     
     def _noise_factor(self, state, propagator):

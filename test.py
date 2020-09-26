@@ -28,7 +28,7 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
         propagator = Propagator(window_t=100e-12, n_samples=2 ** 14)
-        for node_type, nodes in configuration.NODE_TYPES_ALL.items():
+        for node_type, nodes in config.NODE_TYPES_ALL.items():
             print('Testing {} node-types'.format(node_type))
             for node_name, node in nodes.items():
                 tmp = node().propagate([propagator.state], propagator)
@@ -71,7 +71,11 @@ def test_differentiability():
             def test_model_propagate(parameters, parameter_inds, model, propagator):
                 for parameter, parameter_ind in zip(parameters, parameter_inds):
                     model.parameters[parameter_ind] = parameter
+                model.set_parameters_as_attr()
+                
+                propagator.state = np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 0.0001
                 states = model.propagate([propagator.state], propagator)
+
                 return np.abs(states[0])
 
             def mask_parameters_by_lock(attribute_list, parameter_locks):
@@ -81,6 +85,7 @@ def test_differentiability():
 
 
             model = model_class()
+
             function = lambda parameters: test_model_propagate(parameters, parameter_inds, model, propagator)
             gradient = autograd.elementwise_grad(function)
 
@@ -96,6 +101,62 @@ def test_differentiability():
                 except (Exception, RuntimeWarning) as error:
                     print(f"differentiability errors on model {model_class}, parameter set of {parameters_name}\n\t{error}\n")
     return
+
+
+def test_differentiability_all_params():
+    check_warnings = True
+    if check_warnings:
+        warnings.filterwarnings('error')
+        np.seterr(all='raise')
+
+    propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    for node_class, node_sub_classes in config.NODE_TYPES_ALL.items():
+        for node_sub_class, model_class in node_sub_classes.items():
+            # print(f"Testing model {model_class} in subclass {node_sub_class}")
+            def test_model_propagate(parameters, parameter_inds, model, propagator):
+                for parameter, parameter_ind in zip(parameters, parameter_inds):
+                    model.parameters[parameter_ind] = parameter
+                model.set_parameters_as_attr()
+                
+                propagator.state = np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 0.0001
+                states = model.propagate([propagator.state], propagator)
+
+                return np.abs(states[0])
+            
+            def lock_unwanted_params(model, attribute_list, unlock_index):
+                for i in range(len(attribute_list)):
+                    if i != unlock_index:
+                        model.parameter_locks[i] = True
+                    else:
+                        model.parameter_locks[i] = False
+        
+                return [attribute_list[unlock_index]]
+            
+            model = model_class()
+            function = lambda parameters: test_model_propagate(parameters, parameter_inds, model, propagator)
+            gradient = autograd.elementwise_grad(function)
+
+            for i in range(model.number_of_parameters):
+                default_parameters = lock_unwanted_params(model, model.parameters, i)
+                upper_bounds = lock_unwanted_params(model, model.upper_bounds, i)
+                lower_bounds = lock_unwanted_params(model, model.lower_bounds, i)
+                parameter_inds = lock_unwanted_params(model, list(range(model.number_of_parameters)), i)
+
+                for parameter, parameter_name in zip([default_parameters, upper_bounds, lower_bounds], ["default_parameters", "upper_bounds", "lower_bounds"]):
+                    if type(parameter[0]) is not float: # only the floats can be differentiable
+                        continue
+
+                    try:
+                        # print(f'model: {model}, param {i}')
+                        # print(function(parameter))
+                        # print(gradient(parameter))
+                        # print()
+                        function(parameter)
+                        gradient(parameter)
+                    except (Exception, RuntimeWarning) as error:
+                        print(f"differentiability errors on model {model_class}, parameter number {i}, parameter set of {parameter_name}\n\t{error}\n")
+
+
 
 # old code for checking differentiation warnings
     # print(f"***************************This graph passed with no runtime warnings or issues!")
@@ -121,5 +182,6 @@ def test_distributed_computing():
 
 if __name__ == "__main__":
     # unittest.main()
-    test_differentiability()
+    # test_differentiability()
+    test_differentiability_all_params()
     # test_distributed_computing()
