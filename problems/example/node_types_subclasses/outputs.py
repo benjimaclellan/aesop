@@ -68,7 +68,7 @@ class Photodiode(Output):
         self.node_acronym = 'PD'
         self.number_of_parameters = 7
         self.lower_bounds = [0.0, 1e9, 1, 0.0, 0.0, 273.0, 0.0]
-        self.upper_bounds = [1.0, 200e9, 20.0, 1e-4, 1e3, 320.0, 1e-6]
+        self.upper_bounds = [1.0, 200e9, 20, 1e-4, 1e3, 320.0, 1e-6]
         
         self.data_types = ['float'] * self.number_of_parameters
         
@@ -78,7 +78,7 @@ class Photodiode(Output):
         self.parameter_units = [unit.A / unit.W, unit.Hz, None, unit.A, unit.ohm, unit.kelvin, unit.A]
         self.parameter_locks = [True] * self.number_of_parameters
         self.parameter_names = ['responsivity', 'bandwidth', 'filter_order', 'max_photocurrent', 'load_resistance', 'temp_K', 'dark_current']
-        self.default_parameters = [0.5, 100e9, 2, 3e-3, 50, 293, 5e-9] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
+        self.default_parameters = [0.5, 100e9, 2, 3e-3, 50.0, 293.0, 5e-9] # all default parameters from: https://www.finisar.com/sites/default/files/downloads/xpdv412xr_ultrafast_100_ghz_photodetector_rev_a1_product_specification.pdf
 
         super().__init__(**kwargs)
         self.set_parameters_as_attr()
