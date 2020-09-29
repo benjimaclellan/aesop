@@ -165,13 +165,17 @@ def test_differentiability_graphical():
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
-            for i in range(1, model.number_of_parameters):
+            # if (model.node_acronym != 'PD'):
+            #     continue
+            for i in range(0, model.number_of_parameters):
+                model = model_class()
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
                     _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator)
+        
 
-def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, steps=5):
+def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, steps=50):
     """
-    Returns gradient vectors. One is computed with autograd, the other with np.diff (finite difference)
+    Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
     """
     print(f'model: {model.node_acronym}, param: {param_index}')
     def lock_unwanted_params(node_model, unlock_index):
@@ -183,10 +187,12 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     
     def test_function(param):
         model.parameters[param_index] = param
+        model.set_parameters_as_attr()
     
         input_state = np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 0.0001
         output = model.propagate([input_state], propagator)
-        return np.sum(np.abs(output[0]))
+
+        return np.mean(np.abs(output[0]))
     
     gradient_func = autograd.grad(test_function)
 
@@ -202,12 +208,13 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         finite_diff_gradient_output = finite_diff_gradient_output._value
     
     gradient_output = np.array([gradient_func(param_val) for param_val in param_vals])
-    print(f'grad output: {gradient_output}')
+
     _, ax = plt.subplots()
     ax.plot(param_vals, gradient_output, label='autograd derivative')
-    ax.plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative')
+    ax.plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls=':')
+    ax.plot(param_vals, function_output, label='function')
     ax.legend()
-    plt.title(f'Autograd and finite difference derivatives for param {param_index} of model {model.node_acronym}, range: {lower_limit}-{upper_limit}')
+    plt.title(f'Autograd and finite difference derivatives. Param {param_index}, model {model.node_acronym}, range {lower_limit}-{upper_limit}')
     plt.show()
 
 

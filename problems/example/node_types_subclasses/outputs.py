@@ -67,8 +67,8 @@ class Photodiode(Output):
         self.node_lock = True
         self.node_acronym = 'PD'
         self.number_of_parameters = 7
-        self.lower_bounds = [0, 1e9, 1, 0, 0, 0, 0]
-        self.upper_bounds = [1, 200e9, 20, 0.1, 1e3, 320, 1e-6]
+        self.lower_bounds = [0.0, 1e9, 1, 0.0, 0.0, 273.0, 0.0]
+        self.upper_bounds = [1.0, 200e9, 20.0, 1e-4, 1e3, 320.0, 1e-6]
         
         self.data_types = ['float'] * self.number_of_parameters
         

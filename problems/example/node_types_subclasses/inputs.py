@@ -95,5 +95,5 @@ class ContinuousWaveLaser(Input):
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         peak_power = self.parameters[0]
-        state = peak_power * np.ones_like(states[0])
+        state = np.sqrt(peak_power) * np.ones_like(states[0])
         return [state]
