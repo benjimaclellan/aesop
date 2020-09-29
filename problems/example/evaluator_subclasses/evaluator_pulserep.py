@@ -4,7 +4,7 @@ import autograd.numpy as np
 import matplotlib.pyplot as plt
 
 from ..evaluator import Evaluator
-from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_, get_pulse_train
+from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_
 from lib.functions import scale_units
 
 

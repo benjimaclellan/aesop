@@ -49,20 +49,4 @@ def rf_(power_trace, dt, ax=0):
     return np.abs(np.fft.rfft(power_trace, axis=ax))
 
 
-def get_pulse_train(t, pulse_rep_t, pulse):
-    """
-
-    :param t:
-    :param pulse_rep_t:
-    :param pulse:
-    :return:
-    """
-
-    dt = t[1] - t[0]
-    impulse_inds = np.arange(pulse_rep_t / dt * 0.5, pulse_rep_t / dt * (np.round((t[-1] - t[0]) / pulse_rep_t) + 0.5), pulse_rep_t / dt).astype('int')
-    impulses = np.zeros_like(t).astype('complex')
-    impulses[impulse_inds] = 1
-
-    pulse_train = numpy.fft.ifft(numpy.fft.fft(pulse, axis=0) * numpy.fft.fft(impulses, axis=0), axis=0)
-    return pulse_train
 
