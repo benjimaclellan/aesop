@@ -6,6 +6,7 @@ import ray
 import autograd.numpy as np
 import autograd
 import warnings
+import matplotlib.pyplot as plt
 
 import config.config as config
 
@@ -129,15 +130,18 @@ def test_differentiability_all_params():
                         model.parameter_locks[i] = True
                     else:
                         model.parameter_locks[i] = False
-        
+                
                 return [attribute_list[unlock_index]]
+
             
             model = model_class()
+
             function = lambda parameters: test_model_propagate(parameters, parameter_inds, model, propagator)
             gradient = autograd.elementwise_grad(function)
 
             for i in range(model.number_of_parameters):
-                default_parameters = lock_unwanted_params(model, model.parameters, i)
+                model = model_class()
+                default_parameters = lock_unwanted_params(model, model.default_parameters, i)
                 upper_bounds = lock_unwanted_params(model, model.upper_bounds, i)
                 lower_bounds = lock_unwanted_params(model, model.lower_bounds, i)
                 parameter_inds = lock_unwanted_params(model, list(range(model.number_of_parameters)), i)
@@ -145,16 +149,68 @@ def test_differentiability_all_params():
                 for parameter, parameter_name in zip([default_parameters, upper_bounds, lower_bounds], ["default_parameters", "upper_bounds", "lower_bounds"]):
                     if type(parameter[0]) is not float: # only the floats can be differentiable
                         continue
-
                     try:
-                        # print(f'model: {model}, param {i}')
-                        # print(function(parameter))
-                        # print(gradient(parameter))
-                        # print()
                         function(parameter)
                         gradient(parameter)
                     except (Exception, RuntimeWarning) as error:
                         print(f"differentiability errors on model {model_class}, parameter number {i}, parameter set of {parameter_name}\n\t{error}\n")
+                        parameter_list = [param._value if hasattr(param, '_value')  else param for param in model.parameters]
+                        print(f'model.parameters: {parameter_list}')
+                        print(f'parameter: {parameter}, index: {i}')
+                        print('\n\n')
+
+
+def test_differentiability_graphical():
+    propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    for _, node_sub_classes in config.NODE_TYPES_ALL.items():
+        for _, model_class in node_sub_classes.items():
+            model = model_class()
+            for i in range(1, model.number_of_parameters):
+                if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
+                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator)
+
+def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, steps=5):
+    """
+    Returns gradient vectors. One is computed with autograd, the other with np.diff (finite difference)
+    """
+    print(f'model: {model.node_acronym}, param: {param_index}')
+    def lock_unwanted_params(node_model, unlock_index):
+        for i in range(node_model.number_of_parameters):
+            if i != unlock_index:
+                node_model.parameter_locks[i] = True
+            else:
+                node_model.parameter_locks[i] = False
+    
+    def test_function(param):
+        model.parameters[param_index] = param
+    
+        input_state = np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 0.0001
+        output = model.propagate([input_state], propagator)
+        return np.sum(np.abs(output[0]))
+    
+    gradient_func = autograd.grad(test_function)
+
+    lock_unwanted_params(model, param_index)
+    model.parameters = default_vals
+
+    param_vals, delta = np.linspace(lower_limit, upper_limit, num=steps, retstep=True)
+    
+    function_output = np.array([test_function(param_val) for param_val in param_vals])
+    finite_diff_gradient_output = np.diff(function_output) / delta
+
+    if hasattr(finite_diff_gradient_output, '_value'): # if it's an arraybox object, fix it
+        finite_diff_gradient_output = finite_diff_gradient_output._value
+    
+    gradient_output = np.array([gradient_func(param_val) for param_val in param_vals])
+    print(f'grad output: {gradient_output}')
+    _, ax = plt.subplots()
+    ax.plot(param_vals, gradient_output, label='autograd derivative')
+    ax.plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative')
+    ax.legend()
+    plt.title(f'Autograd and finite difference derivatives for param {param_index} of model {model.node_acronym}, range: {lower_limit}-{upper_limit}')
+    plt.show()
+
+
 
 
 
@@ -183,5 +239,6 @@ def test_distributed_computing():
 if __name__ == "__main__":
     # unittest.main()
     # test_differentiability()
-    test_differentiability_all_params()
+    # test_differentiability_all_params()
+    test_differentiability_graphical()
     # test_distributed_computing()

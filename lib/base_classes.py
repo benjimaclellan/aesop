@@ -38,7 +38,6 @@ class NodeType(object):
         return self._parameters
 
     def set_parameters(self, parameters):
-        print('Setting params')
         self._parameters = parameters
         self.set_parameters_as_attr()
 

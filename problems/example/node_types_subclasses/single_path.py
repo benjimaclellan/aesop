@@ -310,8 +310,8 @@ class EDFA(SinglePath):
         self.node_acronym = 'EDFA'
 
         self.number_of_parameters = 9
-        self.upper_bounds = [50.0, 1612e-9, 1600-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 30.0]
-        self.lower_bounds = [0.0, 1535e-9, 1530e-9, 1540e-9, 0.0, 0.0, 0.0, 0.0, 3.0]
+        self.upper_bounds = [50.0, 1612e-9, 1600-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
+        self.lower_bounds = [0.0, 1535e-9, 1530e-9, 1540e-9, 1e-7, 1e-7, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
@@ -406,14 +406,18 @@ class EDFA(SinglePath):
             Gf = gain flatness in dB,
 
             Such that, as expected, g(d) = g_min
-        """    
+        """
+        g = 10**(self._max_small_signal_gain_dB / 10)
+        
+        if np.isclose(self._gain_flatness_dB, 0, atol=1e-12):
+            return np.ones_like(propagator.f) * g # if flatness of 0, the gain is constant over all frequencies
+    
         central_freq = speed_of_light / self._peak_wl
         lower_freq = speed_of_light / self._band_upper
         upper_freq = speed_of_light / self._band_lower
         d = np.maximum(central_freq - lower_freq, upper_freq - central_freq)
 
         beta = d**2 / (np.log(10**(self._gain_flatness_dB / 10)))
-        g = 10**(self._max_small_signal_gain_dB / 10)
         f = (ifft_shift_(propagator.f) + propagator.central_frequency) - central_freq
 
         return g * np.exp(-1 * np.power(f, 2) / beta)
