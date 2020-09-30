@@ -284,13 +284,12 @@ class WaveShaper(SinglePath):
         return [state]
 
 
-@register_node_types_all
-class DelayLine(SinglePath):
+class IntegratedSplitAndDelayLine(SinglePath):
     """
     """
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'DL'
+        self.node_acronym = 'SDL'
 
         self.number_of_parameters = 8
 
@@ -331,9 +330,6 @@ class DelayLine(SinglePath):
             field_short_tmp = field_short
 
             try:
-                # field_short = (np.sqrt(1 - coupling_ratio) * field_short + 1j * np.sqrt(coupling_ratio) * field_long)
-                # field_long = np.exp(1j * ifft_shift_(beta * length, ax=0)) * (
-                #         1j * np.sqrt(coupling_ratio) * field_short_tmp + np.sqrt(1 - coupling_ratio) * field_long)
                 short_coupling, long_coupling = np.cos(np.pi/2 * coupling_ratio), np.sin(np.pi/2 * coupling_ratio)
 
                 field_short = (short_coupling * field_short + 1j * long_coupling * field_long)
@@ -602,12 +598,6 @@ class ProgrammableFilter(SinglePath):
             y += coeff * self.bernstein(t, i=m, n=len(coeffs) - 1)
         return y
 
-    # def get_waveform(self, t, coeffs):
-    #     y = np.zeros_like(t)
-    #     for m, coeff in enumerate(coeffs):
-    #         y += coeff * np.cos(2 * np.pi * t * m + coeff)
-    #     return y
-
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
@@ -627,9 +617,6 @@ class ProgrammableFilter(SinglePath):
         amplitude_mask = self.get_waveform(f_shifted, bernstein_amp_coeffs) * mask
         phase_mask = self.get_waveform(f_shifted, bernstein_phase_coeffs) * mask
 
-        # amplitude_mask = np.power(amplitude_mask, 4)
-        # phase_mask = np.power(phase_mask, 2)/(2*np.pi)**2
-
         state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt),
                       propagator.dt)
 
@@ -637,4 +624,50 @@ class ProgrammableFilter(SinglePath):
             self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
         else:
             self.transform = None
+        return [state]
+
+
+@register_node_types_all
+class DelayLine(SinglePath):
+    """
+    """
+    def __init__(self, **kwargs):
+        self.node_lock = False
+        self.node_acronym = 'DL'
+
+        self.number_of_parameters = 1
+
+        self.default_parameters = [500.0]
+
+        self.upper_bounds = [1000.0e-12]
+        self.lower_bounds = [0.0]
+        self.data_types = ['float']
+        self.step_sizes = [None]
+        self.parameter_imprecisions = [1.0e-12]
+        self.parameter_units = [None]
+        self.parameter_locks = [False]
+        self.parameter_names = ['delay']
+        self.parameter_symbols = [r"$x_{d}$"]
+
+        self._n = 1.444
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+        delay = self.parameters[0]
+
+        length = (propagator.speed_of_light / self._n) * delay
+        beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
+
+        state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
+
+        if save_transforms:
+            transform = np.zeros_like(propagator.t).astype('float')
+            transform[(np.abs(propagator.t - (-delay))).argmin()] = 1
+            self.transform = (('t', transform, 'delay'),)
+        else:
+            self.transform = None
+
         return [state]
