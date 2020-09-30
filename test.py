@@ -17,6 +17,7 @@ from problems.example.evolver import Evolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
+from problems.example.assets.additive_noise import AdditiveNoise
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
@@ -165,15 +166,17 @@ def test_differentiability_graphical():
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
-            # if (model.node_acronym != 'PM'):
-            #     continue
+            if model.node_acronym != 'EDFA':
+                continue
             for i in range(0, model.number_of_parameters):
                 model = model_class()
+                if model.noise_model is None:
+                    continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator)
+                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='always', noise=True)
         
 
-def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
@@ -182,8 +185,10 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     If graphical_test == 'none', does not display plots
     """
     print(f'model: {model.node_acronym}, param: {param_index}')
+    AdditiveNoise.simulate_with_noise = noise
     if (lower_limit == upper_limit):
         return
+
     def lock_unwanted_params(node_model, unlock_index):
         for i in range(node_model.number_of_parameters):
             if i != unlock_index:
@@ -194,11 +199,15 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     def test_function(param):
         model.parameters[param_index] = param
         model.set_parameters_as_attr()
+        model.update_noise_model()
 
         input_state = (np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) + np.sin(2 * np.pi / propagator.window_t * propagator.t) +
                        np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.00001 
         output = model.propagate([input_state], propagator)
-        return  np.mean(np.abs(output[0])) # + np.mean(np.abs(output[0] - input_state))
+        if (model.noise_model is not None):
+            output = [model.noise_model.add_noise_to_propagation(output[0], propagator)]
+
+        return np.std(np.abs(output[0])) + np.mean(np.abs(output[0]))
     
     gradient_func = autograd.grad(test_function)
 
@@ -226,8 +235,8 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     if graphical_test == 'always' or (graphical_test == 'if failing' and not gradients_correct):
         _, ax = plt.subplots()
         ax.plot(param_vals, gradient_output, label='autograd derivative')
-        ax.plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls=':')
-        ax.plot(param_vals, function_output, label='function')
+        ax.plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls='--')
+        ax.plot(param_vals, function_output, label='function', ls=':')
         ax.legend()
         plt.title(f'Autograd and finite difference derivatives. Param {param_index}, model {model.node_acronym}, range {lower_limit}-{upper_limit}')
         plt.show()

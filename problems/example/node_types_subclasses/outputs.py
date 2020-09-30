@@ -67,8 +67,8 @@ class Photodiode(Output):
         self.node_lock = True
         self.node_acronym = 'PD'
         self.number_of_parameters = 7
-        self.lower_bounds = [0.0, 1e9, 1, 0.0, 0.0, 273.0, 0.0]
-        self.upper_bounds = [1.0, 200e9, 20, 1e-4, 1e3, 320.0, 1e-6]
+        self.lower_bounds = [0.0, 1e9, 1, 1e-5, 1.0, 273.0, 0.0]
+        self.upper_bounds = [1.0, 200e9, 20, 1e-1, 1e3, 320.0, 1e-6]
         
         self.data_types = ['float'] * self.number_of_parameters
         
@@ -84,21 +84,7 @@ class Photodiode(Output):
         self.set_parameters_as_attr()
 
         self.filter = Filter(shape='butterworth lowpass', transition_f=self._bandwidth, dc_gain=1, order=self._filter_order)
-
-        # noise applies onto voltage (could also add it to current, but chose not to)
-        
-        # Johnson noise = sqrt(4kTBR), from: https://www.thorlabs.com/images/TabImages/Photodetector_Lab.pdf
-        self.noise_model = AdditiveNoise(noise_type='rms',
-                                         noise_filter = self.filter,
-                                         noise_param=np.sqrt(4 * Boltzmann * self._temp_K * \
-                                                             self._bandwidth * self._load_resistance)) # Johnson noise, assumed to be white and Gaussian
-        slope_shot = elementary_charge * self._load_resistance**2
-
-        # electronic shot noise
-        # TODO: what's up with the factor of 2?
-        self.noise_model.add_noise_source(noise_type='shot', # slope of shot noise is 2qBR^2 with respect to mean current
-                                          noise_filter=self.filter,
-                                          noise_param=(slope_shot / self._load_resistance, slope_shot * self._dark_current))
+        self.update_noise_model()
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
         """
@@ -121,6 +107,22 @@ class Photodiode(Output):
         a = self._responsivity / self._max_photocurrent
         p = 15
         return self._max_photocurrent * a * P_in / np.power(1 + np.power(np.abs(a * P_in), p), 1 / p)
+    
+    def update_noise_model(self):
+        # noise applies onto voltage (could also add it to current, but chose not to)
+        
+        # Johnson noise = sqrt(4kTBR), from: https://www.thorlabs.com/images/TabImages/Photodetector_Lab.pdf
+        self.noise_model = AdditiveNoise(noise_type='rms',
+                                         noise_filter = self.filter,
+                                         noise_param=np.sqrt(4 * Boltzmann * self._temp_K * \
+                                                             self._bandwidth * self._load_resistance)) # Johnson noise, assumed to be white and Gaussian
+        slope_shot = elementary_charge * self._load_resistance**2
+
+        # electronic shot noise
+        # TODO: what's up with the factor of 2?
+        self.noise_model.add_noise_source(noise_type='shot', # slope of shot noise is 2qBR^2 with respect to mean current
+                                          noise_filter=self.filter,
+                                          noise_param=(slope_shot / self._load_resistance, slope_shot * self._dark_current))
 
     @staticmethod
     def get_bandwidth_from_riseTimeResponse(t):

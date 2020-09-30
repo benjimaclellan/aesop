@@ -88,12 +88,14 @@ class ContinuousWaveLaser(Input):
 
         super().__init__(**kwargs)
         self.set_parameters_as_attr()
+        self.update_noise_model()
 
-        # TODO: integrate both together
-        self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
-        self.noise_model.add_noise_source(noise_param=self._osnr_dB)
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
         peak_power = self.parameters[0]
         state = np.sqrt(peak_power) * np.ones_like(states[0])
         return [state]
+    
+    def update_noise_model(self):
+        self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
+        self.noise_model.add_noise_source(noise_type='osnr', noise_param=self._osnr_dB)

@@ -106,7 +106,7 @@ class PhaseModulator(SinglePath):
         
         Note: all noise metrics representation whould be FWHM linewidth, under the assumption that linewidth is Lorentzian/
         """
-        self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
+        self.update_noise_model()
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
@@ -123,7 +123,9 @@ class PhaseModulator(SinglePath):
 
         state1 = state * np.exp(1j * transform)
         return [state1]
-
+    
+    def update_noise_model(self):
+        self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
 
 @register_node_types_all
 class WaveShaper(SinglePath):
@@ -310,8 +312,8 @@ class EDFA(SinglePath):
         self.node_acronym = 'EDFA'
 
         self.number_of_parameters = 9
-        self.upper_bounds = [50.0, 1612e-9, 1600-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
-        self.lower_bounds = [0.0, 1535e-9, 1530e-9, 1540e-9, 1e-7, 1e-7, 0.0, 0.0, 3.0]
+        self.upper_bounds = [50.0, 1612e-9, 1600e-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
+        self.lower_bounds = [1, 1535e-9, 1530e-9, 1540e-9, 1e-7, 1e-7, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
@@ -361,11 +363,21 @@ class EDFA(SinglePath):
         Return ASE shape, ASE total power (this is so that the noise is still randomized rather than deterministic)
         Assume the bandwidth of the detector used to find the noise figure is
         """
+        FG_min1 = self._last_noise_factor * self._last_gain - 1
+        clipped_FG_min1 = FG_min1 / (1 + np.exp((-1000) * FG_min1))
         expected_power_dist = Planck * (ifft_shift_(propagator.f) + propagator.central_frequency) / 2 * \
-            (self._last_noise_factor * self._last_gain - 1) * propagator.df
-        expected_power_dist = np.clip(expected_power_dist, 0, np.max(expected_power_dist))
-        return np.sqrt(expected_power_dist)
+            clipped_FG_min1 * propagator.df
+        
+        # _, ax = plt.subplots()
+        # ax.plot(propagator.f, expected_power_dist)
+        # plt.show()
+        if np.min(expected_power_dist) < 0:
+            print(f'min: {np.min(expected_power_dist)}')
+            print(f'index: {np.where(expected_power_dist == np.min(expected_power_dist))}')
 
+        return np.sqrt(expected_power_dist)
+        # return np.ones_like(expected_power_dist)
+        # return expected_power_dist
 
     def _gain(self, state, propagator):
         """

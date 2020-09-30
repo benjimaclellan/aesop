@@ -225,13 +225,19 @@ class AdditiveNoise():
             noise_scaling = noise_param / np.sqrt(np.mean(power_(noise)))
             noise = noise * noise_scaling
         elif (noise_type == 'FWHM linewidth'):
-            expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
-            phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
-            noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
+            if (noise_param == 0): # mathematically the same without the if-else, but it stops autograd errors
+                noise = np.ones(self.propagator.n_samples).reshape(self.propagator.n_samples, 1)
+            else:
+                expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+                noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
         elif (noise_type == 'phase noise from linewidth'):
-            expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
-            phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
-            noise = np.real(ifft_(phase_noise, self.propagator.dt))
+            if (noise_param == 0):
+                noise = np.zeros(self.propagator.n_samples).reshape(self.propagator.n_samples, 1)
+            else:
+                expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+                noise = np.real(ifft_(phase_noise, self.propagator.dt))
 
         return noise
     

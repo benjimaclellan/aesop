@@ -40,6 +40,7 @@ class NodeType(object):
     def set_parameters(self, parameters):
         self._parameters = parameters
         self.set_parameters_as_attr()
+        self.update_noise_model() # TODO: maybe change this to be conditional?
 
     @parameters.setter
     def parameters(self, parameters):
@@ -87,6 +88,9 @@ class NodeType(object):
                 raise Warning('Settings for this parameter are not all added to the class. This could cause errors.'
                               'Please check that all node-type attributes are correctly set.')
         return
+    
+    def update_noise_model(self):
+        pass
 
 
 class Evaluator(object):
