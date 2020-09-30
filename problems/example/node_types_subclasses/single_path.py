@@ -363,21 +363,11 @@ class EDFA(SinglePath):
         Return ASE shape, ASE total power (this is so that the noise is still randomized rather than deterministic)
         Assume the bandwidth of the detector used to find the noise figure is
         """
-        FG_min1 = self._last_noise_factor * self._last_gain - 1
-        clipped_FG_min1 = FG_min1 / (1 + np.exp((-1000) * FG_min1))
+        FG = self._last_noise_factor * self._last_gain # properly should be FG - 1, if we account for signal shot, but this is very close except at low G
         expected_power_dist = Planck * (ifft_shift_(propagator.f) + propagator.central_frequency) / 2 * \
-            clipped_FG_min1 * propagator.df
-        
-        # _, ax = plt.subplots()
-        # ax.plot(propagator.f, expected_power_dist)
-        # plt.show()
-        if np.min(expected_power_dist) < 0:
-            print(f'min: {np.min(expected_power_dist)}')
-            print(f'index: {np.where(expected_power_dist == np.min(expected_power_dist))}')
+            FG * propagator.df
 
         return np.sqrt(expected_power_dist)
-        # return np.ones_like(expected_power_dist)
-        # return expected_power_dist
 
     def _gain(self, state, propagator):
         """

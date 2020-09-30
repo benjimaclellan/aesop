@@ -166,8 +166,6 @@ def test_differentiability_graphical():
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
-            if model.node_acronym != 'EDFA':
-                continue
             for i in range(0, model.number_of_parameters):
                 model = model_class()
                 if model.noise_model is None:
