@@ -112,10 +112,10 @@ def test_differentiability_graphical():
             model = model_class()
             for i in range(0, model.number_of_parameters):
                 model = model_class()
-                if model.noise_model is None:
-                    continue
+                # if model.node_acronym != 'EDFA':
+                #     continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='if failing', noise=True)
+                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='always', noise=True)
         
 
 def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
@@ -126,7 +126,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     If graphical_test == 'if failing', displays all plots where the gradient and finite difference had a significant difference
     If graphical_test == 'none', does not display plots
     """
-    print(f'model: {model.node_acronym}, param: {param_index}')
+    print(f'model: {model.node_acronym}, param: {model.parameter_names[param_index]}')
     AdditiveNoise.simulate_with_noise = noise
     if (lower_limit == upper_limit):
         return
@@ -144,12 +144,12 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         model.update_noise_model()
 
         input_state = (np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) + np.sin(2 * np.pi / propagator.window_t * propagator.t) +
-                       np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.00001 
+                       np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.005 
         output = model.propagate([input_state], propagator)
         if (model.noise_model is not None):
             output = [model.noise_model.add_noise_to_propagation(output[0], propagator)]
 
-        return np.std(np.abs(output[0])) + np.mean(np.abs(output[0])) + np.std(np.angle(output[0])) * 10
+        return np.mean(np.abs(output[0])) + np.std(np.angle(output[0])) * 10 + np.std(np.abs(output[0]))
     
     gradient_func = autograd.grad(test_function)
 

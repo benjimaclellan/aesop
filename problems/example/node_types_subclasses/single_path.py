@@ -394,7 +394,7 @@ class EDFA(SinglePath):
 
         self.number_of_parameters = 9
         self.upper_bounds = [50.0, 1612e-9, 1600e-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
-        self.lower_bounds = [1, 1535e-9, 1530e-9, 1540e-9, 1e-7, 1e-7, 0.0, 0.0, 3.0]
+        self.lower_bounds = [1, 1535e-9, 1530e-9, 1540e-9, 1e-4, 1e-7, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
