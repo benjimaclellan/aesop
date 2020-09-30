@@ -43,7 +43,8 @@ class CorningFiber(SinglePath):
 
         super().__init__(**kwargs)
         return
-    #TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
+
+    # TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
     # TODO : check this, and every other model for correctness (so far its been about logic flow)
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
@@ -60,7 +61,43 @@ class CorningFiber(SinglePath):
         state = ifft_( ifft_shift_(np.exp(1j * (b1 + b2)), ax=0) * fft_(state, propagator.dt), propagator.dt)
         return [state]
 
+@register_node_types_all
+class VariableOpticalAttenuator(SinglePath):
+    """
 
+    """
+
+    def __init__(self, **kwargs):
+        self.node_lock = False
+        self.node_acronym = 'VOA'
+
+        self.number_of_parameters = 1
+        self.default_parameters = [0.0]
+
+        self.upper_bounds = [0.0]
+        self.lower_bounds = [-60.0]
+        self.data_types = ['float']
+        self.step_sizes = [None]
+        self.parameter_imprecisions = [1]
+        self.parameter_units = [unit.dB]
+        self.parameter_locks = [False]
+        self.parameter_names = ['attenuation']
+        self.parameter_symbols = [r"$x_\alpha$"]
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+        attenuation = self.parameters[0]
+
+        if save_transforms:
+            self.transform = None
+        else:
+            self.transform = None
+
+        state = state * np.exp(0.5 * attenuation)
+        return [state]
 
 @register_node_types_all
 class PhaseModulator(SinglePath):
@@ -80,13 +117,13 @@ class PhaseModulator(SinglePath):
         self.node_acronym = 'PM'
 
         self.number_of_parameters = 4
-        self.default_parameters = [1.0, 12e9, 0.0, 0.0]
+        self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
-        self.upper_bounds = [2*np.pi, 12e9, 2*np.pi, 1e9]
-        self.lower_bounds = [0.0, 12e9, 0.0, 0.0]
+        self.upper_bounds = [np.pi, 48.0e9, 2*np.pi, 1e9]
+        self.lower_bounds = [0.001, 2.0e9, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
-        self.step_sizes = [None, 1e9, None, None]
-        self.parameter_imprecisions = [1, 1, 0.1, 1]
+        self.step_sizes = [None, 2e9, None, None]
+        self.parameter_imprecisions = [1.0, 1.0, 0.1, 1.0]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
         self.parameter_locks = [False, False, False, True]
         self.parameter_names = ['depth', 'frequency', 'shift', 'FWHM_linewidth']
@@ -126,6 +163,50 @@ class PhaseModulator(SinglePath):
     
     def update_noise_model(self):
         self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
+
+@register_node_types_all
+class IntensityModulator(SinglePath):
+    """
+https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/application-reports/ixblue/introduction-to-modulator-bias-controllers.pdf
+    """
+
+    def __init__(self, **kwargs):
+        self.node_lock = False
+        self.node_acronym = 'IM'
+
+        self.number_of_parameters = 3
+        self.default_parameters = [1.0, 12.0e9, 0.0]
+
+        self.upper_bounds = [np.pi, 48.0e9, 2 * np.pi]
+        self.lower_bounds = [0.001, 2.0e9, 0.01]
+        self.data_types = ['float', 'float', 'float']
+        self.step_sizes = [None, 2e9, None]
+        self.parameter_imprecisions = [1.0, 1.0, 0.1]
+        self.parameter_units = [unit.rad, unit.Hz, unit.rad]
+        self.parameter_locks = [False, False, False]
+        self.parameter_names = ['depth', 'frequency', 'bias']
+        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_{DC}$"]
+        super().__init__(**kwargs)
+
+        return
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0,
+                  save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+
+        depth = self.parameters[0]
+        frequency = self.parameters[1]
+        bias = self.parameters[2]
+
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t)) + bias
+
+        if save_transforms:
+            self.transform = (('t', transform, 'modulation'),)
+        else:
+            self.transform = None
+        state1 = state/2.0 + state / 2.0 * np.exp(1j * transform)
+        return [state1]
+
 
 @register_node_types_all
 class WaveShaper(SinglePath):
@@ -486,7 +567,7 @@ class ProgrammableFilter(SinglePath):
 
         number_of_bases = 10
         self._number_of_bases = number_of_bases
-        self.band_width = 30e9
+        self.band_width = 5e12
         self.extinction_ratio = 10 ** (-35 / 10)
 
         self.number_of_parameters = 2 * number_of_bases

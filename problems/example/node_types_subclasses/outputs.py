@@ -74,7 +74,7 @@ class Photodiode(Output):
         
         self.step_sizes = [None] * self.number_of_parameters
         self.step_sizes[2] = 1 # order of filter must be integer
-        self.parameter_imprecisions = [None] * self.number_of_parameters
+        self.parameter_imprecisions = [1.0] * self.number_of_parameters
         self.parameter_units = [unit.A / unit.W, unit.Hz, None, unit.A, unit.ohm, unit.kelvin, unit.A]
         self.parameter_locks = [True] * self.number_of_parameters
         self.parameter_names = ['responsivity', 'bandwidth', 'filter_order', 'max_photocurrent', 'load_resistance', 'temp_K', 'dark_current']
