@@ -205,7 +205,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         if (model.noise_model is not None):
             output = [model.noise_model.add_noise_to_propagation(output[0], propagator)]
 
-        return np.std(np.abs(output[0])) + np.mean(np.abs(output[0]))
+        return np.std(np.abs(output[0])) + np.mean(np.abs(output[0])) + np.std(np.angle(output[0])) * 10
     
     gradient_func = autograd.grad(test_function)
 
@@ -231,11 +231,14 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         # print(f'gradients - finite diff gradients:\n {(gradient_output[1:-1] + gradient_output[2:]) / 2 - finite_diff_gradient_output[1:]}')
 
     if graphical_test == 'always' or (graphical_test == 'if failing' and not gradients_correct):
-        _, ax = plt.subplots()
-        ax.plot(param_vals, gradient_output, label='autograd derivative')
-        ax.plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls='--')
-        ax.plot(param_vals, function_output, label='function', ls=':')
-        ax.legend()
+        _, ax = plt.subplots(2, 1)
+        ax[1].plot(param_vals, gradient_output, label='autograd derivative')
+        ax[1].plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls='--')
+        ax[0].plot(param_vals, function_output, label='function', color='black')
+        ax[0].legend()
+        ax[0].set_ylabel('f(x)')
+        ax[1].set_ylabel('df/dx')
+        ax[1].legend()
         plt.title(f'Autograd and finite difference derivatives. Param {param_index}, model {model.node_acronym}, range {lower_limit}-{upper_limit}')
         plt.show()
 
