@@ -105,62 +105,6 @@ def test_differentiability():
     return
 
 
-def test_differentiability_all_params():
-    check_warnings = True
-    if check_warnings:
-        warnings.filterwarnings('error')
-        np.seterr(all='raise')
-
-    propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
-    for node_class, node_sub_classes in config.NODE_TYPES_ALL.items():
-        for node_sub_class, model_class in node_sub_classes.items():
-            # print(f"Testing model {model_class} in subclass {node_sub_class}")
-            def test_model_propagate(parameters, parameter_inds, model, propagator):
-                for parameter, parameter_ind in zip(parameters, parameter_inds):
-                    model.parameters[parameter_ind] = parameter
-                model.set_parameters_as_attr()
-                
-                propagator.state = np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 0.0001
-                states = model.propagate([propagator.state], propagator)
-
-                return np.abs(states[0])
-            
-            def lock_unwanted_params(model, attribute_list, unlock_index):
-                for i in range(len(attribute_list)):
-                    if i != unlock_index:
-                        model.parameter_locks[i] = True
-                    else:
-                        model.parameter_locks[i] = False
-                
-                return [attribute_list[unlock_index]]
-
-            
-            model = model_class()
-
-            function = lambda parameters: test_model_propagate(parameters, parameter_inds, model, propagator)
-            gradient = autograd.elementwise_grad(function)
-
-            for i in range(model.number_of_parameters):
-                model = model_class()
-                default_parameters = lock_unwanted_params(model, model.default_parameters, i)
-                upper_bounds = lock_unwanted_params(model, model.upper_bounds, i)
-                lower_bounds = lock_unwanted_params(model, model.lower_bounds, i)
-                parameter_inds = lock_unwanted_params(model, list(range(model.number_of_parameters)), i)
-
-                for parameter, parameter_name in zip([default_parameters, upper_bounds, lower_bounds], ["default_parameters", "upper_bounds", "lower_bounds"]):
-                    if type(parameter[0]) is not float: # only the floats can be differentiable
-                        continue
-                    try:
-                        function(parameter)
-                        gradient(parameter)
-                    except (Exception, RuntimeWarning) as error:
-                        print(f"differentiability errors on model {model_class}, parameter number {i}, parameter set of {parameter_name}\n\t{error}\n")
-                        parameter_list = [param._value if hasattr(param, '_value')  else param for param in model.parameters]
-                        print(f'model.parameters: {parameter_list}')
-                        print(f'parameter: {parameter}, index: {i}')
-                        print('\n\n')
-
-
 def test_differentiability_graphical():
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
@@ -171,7 +115,7 @@ def test_differentiability_graphical():
                 if model.noise_model is None:
                     continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='always', noise=True)
+                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='if failing', noise=True)
         
 
 def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
@@ -228,7 +172,6 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     
     if (not gradients_correct):
         print(f'Calculation mismatch, please inspect plot.')
-        # print(f'gradients - finite diff gradients:\n {(gradient_output[1:-1] + gradient_output[2:]) / 2 - finite_diff_gradient_output[1:]}')
 
     if graphical_test == 'always' or (graphical_test == 'if failing' and not gradients_correct):
         _, ax = plt.subplots(2, 1)
@@ -239,7 +182,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         ax[0].set_ylabel('f(x)')
         ax[1].set_ylabel('df/dx')
         ax[1].legend()
-        plt.title(f'Autograd and finite difference derivatives. Param {param_index}, model {model.node_acronym}, range {lower_limit}-{upper_limit}')
+        plt.title(f'Autograd and FDM derivatives. Param {model.parameter_names[param_index]}, model {model.node_acronym}, range {lower_limit}-{upper_limit}')
         plt.show()
 
 
@@ -270,6 +213,5 @@ def test_distributed_computing():
 if __name__ == "__main__":
     # unittest.main()
     # test_differentiability()
-    # test_differentiability_all_params()
     test_differentiability_graphical()
     # test_distributed_computing()
