@@ -2,13 +2,14 @@ import autograd.numpy as np
 import pytest
 from autograd import grad
 import matplotlib.pyplot as plt
+from scipy.constants import speed_of_light
 
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_, ifft_
+from problems.example.assets.functions import power_, ifft_, ifft_shift_, fft_, psd_
 
 from problems.example.graph import Graph
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
 
@@ -18,7 +19,6 @@ This document is intended to unite verification of noise into one document
 Each test should (ideally) be run without a graphical component
 """
 SKIP_GRAPHICAL_TEST = True
-
 
 # ----------------- General Fixtures ---------------------------
 
@@ -247,7 +247,7 @@ def test_zero_linewidth(propagator):
 @pytest.mark.CWL 
 def test_osnr_with_zero_linewidth(propagator):
     for i in range(20, 55, 5):
-        graph = get_laser_only_graph(osnr_dB=i, linewidth=0)
+        graph = get_laser_only_graph(peak_power=1e-3, osnr_dB=i, linewidth=0)
         if not SKIP_GRAPHICAL_TEST:
             graph.propagate(propagator)
             graph.inspect_state(propagator, freq_log_scale=True)
@@ -258,14 +258,353 @@ def test_osnr_with_zero_linewidth(propagator):
         assert np.isclose(osnr, i)
 
 
-@pytest.mark.CWL 
-def test_linewidth_with_osnr(propagator):
+@pytest.mark.CWL
+def test_linewidth_with_osnr_large(propagator):
     # TODO: refactor this test to have a non-graphical test
     for i in [1e9, 5e9, 10e9, 50e9, 100e9]:
         graph = get_laser_only_graph(osnr_dB=1000, linewidth=i)
         if not SKIP_GRAPHICAL_TEST:
             graph.propagate(propagator)
-            graph.inspect_state(propagator)
+            output = graph.measure_propagator(1)
+
+            _, ax = plt.subplots()
+            psd = psd_(output, propagator.dt, propagator.df)
+            h0 = i / np.pi
+            lineshape = 1e-3 * h0 / (np.power(propagator.f, 2) + np.power(np.pi * h0 / 2, 2)) # dt is just normalization stuff
+            ax.plot(propagator.f, psd / np.max(psd), label='psd')
+            ax.plot(propagator.f, lineshape / np.max(lineshape), label='lineshape', ls=':')
+            ax.legend()
+            plt.show()
+
+# ----------------- EDFA tests ---------------------
+def get_amp_graph(**kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: EDFA(parameters_from_name=kwargs),
+             2: MeasurementDevice()
+            }
+
+    edges = [(0, 1),
+             (1, 2)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+
+def get_amp_graph_2(**kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             2: WaveShaper(),
+             3: EDFA(parameters_from_name=kwargs),
+             4: MeasurementDevice()
+            }
+
+    edges = [(0, 1),
+             (1, 2),
+             (2, 3), 
+             (3, 4)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+
+def get_edfa(**params):
+    graph = get_amp_graph(**params)
+    return graph.nodes[1]['model']
+
+
+@pytest.mark.EDFA
+def test_small_signal_peak(propagator):
+    for i in range(20, 31):
+        param = {'max_small_signal_gain_dB':i}
+        edfa = get_edfa(**param)
+        small_signal = edfa._get_small_signal_gain(propagator)
+        if not SKIP_GRAPHICAL_TEST and i % 10 == 0:
+            _, ax = plt.subplots()
+            ax.plot(propagator.f, ifft_shift_(small_signal))
+            ax.set_xlabel('Frequency from carrier (Hz)')
+            ax.set_ylabel('Small signal gain (pure ratio, not dB)')
+            plt.title(f'Small signal gain {i} dB')
+            plt.show()
+
+        assert np.isclose(np.max(small_signal), 10**(i/10))
+
+
+@pytest.mark.EDFA
+def test_small_signal_flatness(propagator):
+    for i in range(3, 17):
+        param = {'gain_flatness_dB':i, 'band_lower':1520e-9, 'band_upper':1565e-9, 'peak_wl':1550e-9}
+        centre_freq =  speed_of_light / (1550e-9)
+        far_freq = speed_of_light / (1520e-9)
+        freq_dist = far_freq - centre_freq
+        target_index = np.round(freq_dist / propagator.df).astype(int)
+
+        edfa = get_edfa(**param)
+        small_signal = edfa._get_small_signal_gain(propagator)
+        if not SKIP_GRAPHICAL_TEST and i % 8 == 0:
+            _, ax = plt.subplots()
+            ax.plot(propagator.f, ifft_shift_(small_signal))
+            ax.plot(np.array([-freq_dist, -freq_dist]), np.array([0, np.max(small_signal)]))
+            ax.set_xlabel('Frequency from carrier (Hz)')
+            ax.set_ylabel('Small signal gain (pure ratio, not dB)')
+            plt.title(f'Gain flatness {i} dB')
+            plt.show()
+
+        assert np.isclose(np.max(small_signal) / small_signal[target_index, 0], 10**(i/10), atol=1e-1)
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.parametrize('noise_use', [False, True])
+def test_propagate(propagator, noise_use):
+    amp_graph = get_amp_graph()
+    AdditiveNoise.simulate_with_noise = noise_use
+    amp_graph.propagate(propagator)
+    amp_graph.inspect_state(propagator, freq_log_scale=True)
+    amp_graph.propagate(propagator)
+    amp_graph.inspect_state(propagator, freq_log_scale=True, title='Laser followed by amplifier output')
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.parametrize('noise_use', [False, True])
+def test_propagate2(propagator, noise_use):
+    AdditiveNoise.simulate_with_noise = noise_use
+    amp_graph = get_amp_graph_2()
+    amp_graph.propagate(propagator)
+    amp_graph.inspect_state(propagator, freq_log_scale=True)
+    amp_graph.display_noise_contributions(propagator, title='CWL -> phase modulator -> WaveShaper -> EDFA output')
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_transform_visualisation(propagator):
+    amp_graph = get_amp_graph()
+    amp_graph.propagate(propagator, save_transforms=True)
+    amp_graph.visualize_transforms([0, 1, 2], propagator)
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_small_signal(propagator, edfa):
+    edfa.display_small_signal_gain()
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_gain_curve(propagator, edfa):
+    states = []
+    for i in range(-9, -2):
+        states.append(np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * 10**(i/2.1))
+    edfa.display_gain(states, propagator)
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_gain_max(propagator, edfa):
+    states = []
+
+    power_in = np.array([1e-3 * 10**(i / 10) for i in np.arange(-40, 5, 0.1)])
+    states = [np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) * np.sqrt(P_in) for P_in in power_in]
+
+    gain_level = np.array([np.max(edfa._gain(state, propagator)) for state in states])
+
+    _, ax = plt.subplots()
+    ax.plot(10 * np.log10(power_in / (1e-3)), 10 * np.log10(gain_level))
+    ax.set_xlabel('Power in (dBm)')
+    ax.set_ylabel('Gain (dB)')
+    plt.title('Gain vs input power of EDFA')
+    plt.show()
+
+# ----------------- EDFA tests (preliminary Variability-Sensitivity Analysis) ---------------------
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_increasing_noise_small_gain(propagator):
+    # test with increasing gain values, and confirm that noise increases with gain
+    # small signal gain increases, gain increases, noise increases
+    _, ax = plt.subplots()
+    for i in range(30, 20, -1):
+        param = {'max_small_signal_gain_dB': i}
+        graph = get_amp_graph(**param)
+        graph.propagate(propagator)
+        output = graph.measure_propagator(2)
+        ax.plot(propagator.t, power_(output), label=f'small signal gain {i} dB')
+    ax.legend()
+    plt.title('Output, by small signal gain')
+    plt.show()
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_increasing_ASE_small_gain(propagator):
+    # test with increasing gain values, and confirm that noise increases with gain
+    # small signal gain increases, gain increases, noise increases
+    _, ax = plt.subplots()
+    for i in range(30, 20, -3):
+        param = {'max_small_signal_gain_dB': i}
+        graph = get_amp_graph(**param)
+        graph.nodes[0]['model'].noise_model.noise_on = False # disable laser noise, so ASE is only noise source
+        output = graph.get_output_noise(propagator)
+        ax.plot(propagator.t, power_(output), label=f'small signal gain {i} dB')
+    ax.legend()
+    plt.title('ASE noise, by small signal gain')
+    plt.show()
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_increasing_noise_figures(propagator):
+    # test with increasing noise figures, and confirm that ASE increases with noise figure
+    _, ax = plt.subplots()
+    for i in range(9, 2, -2):
+        param = {'max_noise_fig_dB': i}
+        graph = get_amp_graph(**param)
+        graph.nodes[0]['model'].noise_model.noise_on = False # disable laser noise, so ASE is only noise source
+        output = graph.get_output_noise(propagator)
+        ax.plot(propagator.t, power_(output), label=f'Noise figure {i} dB')
+    ax.legend()
+    plt.title('ASE noise, by noise figure')
+    plt.show()
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_increasing_power_max(propagator):
+    # test with increasing max power, and confirm that ASE increases with noise figure
+    # larger P_max => larger gain => greater ASE
+    _, ax = plt.subplots()
+    for i in [10, 1, 0.1]:
+        print(i)
+        param = {'P_out_max': i}
+        graph = get_amp_graph(**param)
+        graph.nodes[0]['model'].noise_model.noise_on = False # disable laser noise, so ASE is only noise source
+        output = graph.get_output_noise(propagator)
+        ax.plot(propagator.t, power_(output), label=f'P_out_max {i} W')
+    ax.legend()
+    plt.title('ASE noise, by max output power')
+    plt.show()
+
+
+@pytest.mark.EDFA
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_dB_plots(propagator):
+    edfa_params = {'max_noise_fig_dB': 3.5, 'max_small_signal_gain_dB': 40, 'P_out_max':1}
+    graph = get_amp_graph(**edfa_params)
+    ASE = graph.get_output_noise(propagator, save_transforms=True)
+    gain = graph.nodes[1]['model'].transform[0][1] # nab the transform, which is gain
+
+    _, ax = plt.subplots()
+    ax.plot(propagator.f, 10 * np.log10(np.fft.fftshift(fft_(ASE, propagator.dt))), label='ASE')
+    ax.plot(propagator.f, gain, label='gain')
+    ax.legend()
+
+    plt.title(f'ASE and gain, with max noise fig 3.5, max small signal gain 40')
+    plt.show()
+
+# ------------------- Modulator Check --------------------
+
+def get_phase_modulator_graph(phase_noise_points=None, **kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: PhaseModulator(phase_noise_points=phase_noise_points, parameters_from_name=kwargs),
+             2: MeasurementDevice()
+            }
+
+    edges = [(0, 1),
+             (1, 2)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
+
+
+@pytest.mark.skip
+@pytest.mark.PhaseModulator
+def test_modulator_behaviour(propagator):
+    AdditiveNoise.simulate_with_noise = False 
+    param = {'depth':2 * np.pi}
+    graph = get_phase_modulator_graph(**param)
+    graph.propagate(propagator)
+    graph.inspect_state(propagator)
+
+    AdditiveNoise.simulate_with_noise = True 
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.PhaseModulator
+def test_phase_noise_interpolation(propagator):
+    noise_test_points = [(10e3, -116), (100e3, -117), (1e6, -118), (10e6, -140)]
+    graph = get_phase_modulator_graph(phase_noise_points=noise_test_points)
+    graph.propagate(propagator)
+    graph.inspect_state(propagator)
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.PhaseModulator
+def test_add_linewidth_to_centre_freq(propagator):
+    for FWHM in [1, 13e3, 1e9, 5e9, 10e9]:
+        noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=FWHM, noise_on=False)
+        phase_noise = noise_model.get_phase_noise(propagator)
+
+        _, ax = plt.subplots(3, 1)
+        ax[0].plot(propagator.t, phase_noise)
+        ax[0].set_xlabel('time (s)')
+        ax[0].set_ylabel('Phase noise (rad)')
+
+        frequency = 12e9
+        transform = np.cos(2 * np.pi * frequency * propagator.t + phase_noise)
+        ax[1].plot(propagator.t, transform)
+        ax[1].set_xlabel('time (s)')
+        ax[1].set_ylabel('Transform (no units, is the modulation)')
+
+        psd = psd_(transform, propagator.dt, propagator.df)
+        h0 = FWHM / np.pi
+        lineshape = 1e-3 * h0 / (np.power(propagator.f, 2) + np.power(np.pi * h0 / 2, 2)) # dt is just normalization stuff
+        ax[2].plot(propagator.f, psd / np.max(psd), label='psd')
+        ax[2].plot(propagator.f, lineshape / np.max(lineshape), label='lineshape', ls=':')
+        ax[2].legend()
+        ax[2].set_xlabel('frequency offset (Hz)')
+        ax[2].set_ylabel('Transform (i.e. the modulation)')
+        plt.show()
+
+# ----------------- Pulsed Laser tests ---------------------
+
+def get_pulsed_laser(propagator, num_pulses=4, pulse_width_ratio=0.01, linewidth=0):
+    nodes = {0: PulsedLaser(parameters_from_name={'t_rep': propagator.window_t / num_pulses, 'pulse_width':propagator.window_t * pulse_width_ratio, 'FWHM_linewidth':linewidth}),
+             1: MeasurementDevice()
+            }
+
+    edges = [(0, 1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=False)
+    graph.assert_number_of_edges()
+    return graph
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_PL_basic(propagator):
+    PL = get_pulsed_laser(propagator)
+    PL.propagate(propagator)
+    PL.inspect_state(propagator, freq_log_scale=False)
+
+
+def test_PL_central_f_noise(propagator):
+    # TODO: try this with different pulse widths, because that really matters to the shape
+    AdditiveNoise.simulate_with_noise = True
+    for pw in [0.001, 0.01, 0.1]:
+        for linewidth in [0, 1e8, 1e9]:#[1e7, 1e8, 1e9]:
+            PL = get_pulsed_laser(propagator, pulse_width_ratio=pw, linewidth=linewidth)
+            PL.propagate(propagator)
+            PL.inspect_state(propagator)
+            PL.display_noise_contributions(propagator)
+
+
+# ----------------- EDFA tests ---------------------
+
+
+
+
+    
 
 # ------------------- out of commission laser test
 @pytest.mark.skip
@@ -439,3 +778,6 @@ def test_autograd_gain_signal_relative(propagator):
     noise_sum = np.sum(noise.add_noise_to_propagation(signal, propagator) - signal).astype(dtype='float')
     print(f"noise_sum: {noise_sum}")
     assert np.isclose(gradient_at_G[0], noise_sum)
+
+
+# ----------------- Miscellaneous tests ---------------------

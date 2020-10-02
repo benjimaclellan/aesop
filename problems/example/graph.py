@@ -545,7 +545,7 @@ class Graph(GraphParent):
                 if 'model' in self.edges[edge]:
                     self.edges[edge]['model'].inspect_parameters()
 
-    def inspect_state(self, propagator, freq_log_scale=False):
+    def inspect_state(self, propagator, freq_log_scale=False, title=''):
         """ we loop through all nodes and plot the optical state *after* the node"""
         fig, ax = plt.subplots(2, 1)
         linestyles = cycle(['-', '--', '-.', ':'])
@@ -562,6 +562,7 @@ class Graph(GraphParent):
             else:
                 ax[1].plot(propagator.f, 0.1*cnt + psd/np.max(psd), **line)
         ax[0].legend()
+        plt.title(title)
         plt.show()
 
 

@@ -112,30 +112,52 @@ class VariableOpticalAttenuator(SinglePath):
 @register_node_types_all
 class PhaseModulator(SinglePath):
     """
-
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, phase_noise_points=None, **kwargs):
+        # fixing this up, because phase noise points isn't a proper parameter, just a way to GET the proper param
+        if phase_noise_points is not None:
+            FWHM = AdditiveNoise.get_estimated_FWHM_linewidth_from_points(phase_noise_points)
+            if 'parameters' in kwargs:
+                kwargs['parameters'][3] = FWHM
+            elif 'parameters_from_name' in kwargs:
+                kwargs['parameters_from_name']['FWHM_linewidth'] = FWHM
+
         self.node_lock = False
         self.node_acronym = 'PM'
 
-        self.number_of_parameters = 3
-        self.default_parameters = [1.0, 12.0e9, 0.0]
 
-        self.upper_bounds = [np.pi, 48.0e9, 2*np.pi]
-        self.lower_bounds = [0.001, 2.0e9, 0.01]
-        self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, 2e9, None]
-        self.parameter_imprecisions = [1.0, 1.0, 0.1]
-        self.parameter_units = [unit.rad, unit.Hz, unit.rad]
-        self.parameter_locks = [False, False, False]
-        self.parameter_names = ['depth', 'frequency', 'shift']
-        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$"]
+        self.number_of_parameters = 4
+        self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
+
+        self.upper_bounds = [np.pi, 48.0e9, 2*np.pi, 1e9]
+        self.lower_bounds = [0.001, 2.0e9, 0.01, 0.0]
+        self.data_types = ['float', 'float', 'float', 'float']
+        self.step_sizes = [None, 2e9, None, None]
+        self.parameter_imprecisions = [1.0, 1.0, 0.1, 1.0]
+        self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
+        self.parameter_locks = [False, False, False, True]
+        self.parameter_names = ['depth', 'frequency', 'shift', 'FWHM_linewidth']
+        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$", r"$x_{FWHM}$"]
 
         self._loss_dB = -4.0 # dB
+
         super().__init__(**kwargs)
 
-        return
+        """
+        General noise guidelines:
+        If RF signal generator phase noise characteristics are given as % error of frequency or ppm, use: "frequency ppm" noise type
+        (calculates value of % error, uses it as linewidth)
+        See: https://www.jitterlabs.com/support/calculators/ppm
+        
+        If RF signal generator phase noise characteristics are given as phase noise at offset from carrier, use 
+        (list of points (offset, dBc/Hz), which are fitted to the curve C/f^2, where C = h0/2 and FWHM = pi * h0)
+
+        Else, specify as actual linewidth "FWHM linewidth". If you want to unlock a parameter and optimize it, you SHOULD use linewidth. 
+        
+        Note: all noise metrics representation whould be FWHM linewidth, under the assumption that linewidth is Lorentzian/
+        """
+        self.update_noise_model()
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
@@ -143,17 +165,20 @@ class PhaseModulator(SinglePath):
         depth = self.parameters[0]
         frequency = self.parameters[1]
 
-        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t))
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + self.noise_model.get_phase_noise(propagator)))
     
         if save_transforms:
             self.transform = (('t', transform, 'modulation'),)
         else:
             self.transform = None
 
+
         state = state * np.exp(1j * transform)
         state = state * dB_to_amplitude_ratio(self._loss_dB)
         return [state]
-
+    
+    def update_noise_model(self):
+        self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
 
 @register_node_types_all
 class IntensityModulator(SinglePath):
@@ -282,6 +307,7 @@ class WaveShaper(SinglePath):
         return [state]
 
 
+@register_node_types_all
 class IntegratedSplitAndDelayLine(SinglePath):
     """
     """
@@ -352,7 +378,7 @@ class IntegratedSplitAndDelayLine(SinglePath):
         return [ifft_(field_short, propagator.dt) * dB_to_amplitude_ratio(self._loss_dB)]
 
 
-#@register_node_types_all
+@register_node_types_all
 class EDFA(SinglePath):
     """
     EDFA modelled as follows:
@@ -373,7 +399,7 @@ class EDFA(SinglePath):
 
     TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
     """
-    def __init__(self, small_signal_gain=None, **kwargs):
+    def __init__(self, **kwargs):
         """
         Possible values to include in kwargs
 
@@ -388,20 +414,20 @@ class EDFA(SinglePath):
         self.node_lock = False
         self.node_acronym = 'EDFA'
 
-        self.number_of_parameters = 6
-        self.upper_bounds = [50, 1612e-9, 1600-9, 1625e-9, 10, 10, 15, 1.5, 30]
-        self.lower_bounds = [0, 1535e-9, 1530e-9, 1540e-9, 0, 0, 0, 0, 3]
+        self.number_of_parameters = 9
+        self.upper_bounds = [50.0, 1612e-9, 1600e-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
+        self.lower_bounds = [1, 1535e-9, 1530e-9, 1540e-9, 1e-4, 1e-7, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
         self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, unit.W, None, None, None] # no dB unit exists in registry
         self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
         self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_in_max', 'P_out_max', 'gain_flatness_dB', 'alpha', 'max_noise_fig_dB']
-        self.default_parameters = [30, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1, 5]
+
+        self.default_parameters = [30.0, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1.0, 5.0]
         self.parameter_symbols = [r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
 
         super().__init__(**kwargs)
-        self._small_signal_gain = None
         self.noise_model = AdditiveNoise(noise_type='edfa ASE', noise_param=self)
 
         # save for noise propagation
@@ -443,26 +469,24 @@ class EDFA(SinglePath):
         Return ASE shape, ASE total power (this is so that the noise is still randomized rather than deterministic)
         Assume the bandwidth of the detector used to find the noise figure is
         """
+        FG = self._last_noise_factor * self._last_gain # properly should be FG - 1, if we account for signal shot, but this is very close except at low G
         expected_power_dist = Planck * (ifft_shift_(propagator.f) + propagator.central_frequency) / 2 * \
-            (self._last_noise_factor * self._last_gain - 1) * propagator.df
+            FG * propagator.df
 
         return np.sqrt(expected_power_dist)
-
 
     def _gain(self, state, propagator):
         """
         Gain is defined as in [1], G = g / (1 + (g * P_in / P_max)^alpha), with g = small signal gain, G is true gain
         """
-        if self._small_signal_gain is None:
-            self._small_signal_gain = self._get_small_signal_gain(propagator)
+        small_signal_gain = self._get_small_signal_gain(propagator)
 
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
         if P_in > self._P_in_max:
             raise ValueError(f'input signal {P_in} is greater than max input signal {self._P_in_max}')
 
-        self._last_gain = self._small_signal_gain / (1 + (self._small_signal_gain * P_in / self._P_out_max)**self._alpha) 
-
+        self._last_gain = small_signal_gain / (1 + (small_signal_gain * P_in / self._P_out_max)**self._alpha) 
         return self._last_gain
     
     def _noise_factor(self, state, propagator):
@@ -490,14 +514,18 @@ class EDFA(SinglePath):
             Gf = gain flatness in dB,
 
             Such that, as expected, g(d) = g_min
-        """        
+        """
+        g = 10**(self._max_small_signal_gain_dB / 10)
+        
+        if np.isclose(self._gain_flatness_dB, 0, atol=1e-12):
+            return np.ones_like(propagator.f) * g # if flatness of 0, the gain is constant over all frequencies
+    
         central_freq = speed_of_light / self._peak_wl
         lower_freq = speed_of_light / self._band_upper
         upper_freq = speed_of_light / self._band_lower
         d = np.maximum(central_freq - lower_freq, upper_freq - central_freq)
 
         beta = d**2 / (np.log(10**(self._gain_flatness_dB / 10)))
-        g = 10**(self._max_small_signal_gain_dB / 10)
         f = (ifft_shift_(propagator.f) + propagator.central_frequency) - central_freq
 
         return g * np.exp(-1 * np.power(f, 2) / beta)
@@ -519,7 +547,7 @@ class EDFA(SinglePath):
 
     def display_small_signal_gain(self):
         _, ax = plt.subplots()
-        wavelengths = [i*1e-9 for i in range(1520, 1565)]
+        wavelengths = [i*1e-9 for i in range(self._band_lower, self._band_upper)]
         gain = np.array([self._calculate_small_signal_gain(self._peak_wl,
                                                            speed_of_light / w,
                                                            self._band_upper,
