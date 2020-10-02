@@ -112,13 +112,13 @@ def test_differentiability_graphical():
             model = model_class()
             for i in range(0, model.number_of_parameters):
                 model = model_class()
-                # if model.node_acronym != 'EDFA':
-                #     continue
+                if model.node_acronym != 'PL': #'IM' or i != 2:
+                    continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
                     _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='always', noise=True)
         
 
-def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
@@ -145,11 +145,15 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
 
         input_state = (np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) + np.sin(2 * np.pi / propagator.window_t * propagator.t) +
                        np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.005 
-        output = model.propagate([input_state], propagator)
+        output = model.propagate([input_state], propagator)[0]
+        _, ax = plt.subplots(2, 1)
+        ax[0].plot(propagator.t, power_(output))
+        ax[1].plot(propagator.f, psd_(output, propagator.dt, propagator.df))
+        plt.show()
         if (model.noise_model is not None):
-            output = [model.noise_model.add_noise_to_propagation(output[0], propagator)]
+            output = model.noise_model.add_noise_to_propagation(output, propagator)
 
-        return np.mean(np.abs(output[0])) + np.std(np.angle(output[0])) * 10 + np.std(np.abs(output[0]))
+        return np.mean(np.abs(output)) + np.std(np.abs(output)) # + np.std(np.angle(output)) * 10 # + np.std(np.abs(output))
     
     gradient_func = autograd.grad(test_function)
 

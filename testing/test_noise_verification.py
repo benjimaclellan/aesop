@@ -361,17 +361,17 @@ def test_propagate(propagator, noise_use):
     amp_graph = get_amp_graph()
     AdditiveNoise.simulate_with_noise = noise_use
     amp_graph.propagate(propagator)
-    amp_graph.inspect_state(propagator, freq_log_scale=True)
-    amp_graph.propagate(propagator)
     amp_graph.inspect_state(propagator, freq_log_scale=True, title='Laser followed by amplifier output')
 
 
 @pytest.mark.EDFA
-@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.parametrize('noise_use', [False, True])
 def test_propagate2(propagator, noise_use):
     AdditiveNoise.simulate_with_noise = noise_use
     amp_graph = get_amp_graph_2()
+    print(f'got here')
+    assert False
     amp_graph.propagate(propagator)
     amp_graph.inspect_state(propagator, freq_log_scale=True)
     amp_graph.display_noise_contributions(propagator, title='CWL -> phase modulator -> WaveShaper -> EDFA output')
@@ -589,7 +589,6 @@ def test_PL_basic(propagator):
 
 
 def test_PL_central_f_noise(propagator):
-    # TODO: try this with different pulse widths, because that really matters to the shape
     AdditiveNoise.simulate_with_noise = True
     for pw in [0.001, 0.01, 0.1]:
         for linewidth in [0, 1e8, 1e9]:#[1e7, 1e8, 1e9]:
