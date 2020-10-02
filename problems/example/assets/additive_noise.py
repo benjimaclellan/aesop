@@ -229,7 +229,7 @@ class AdditiveNoise():
                 noise = np.ones(self.propagator.n_samples).reshape(self.propagator.n_samples, 1)
             else:
                 expected_phase_noise_amplitude = np.sqrt((noise_param / np.pi) / 2) / ifft_shift_(np.abs(self.propagator.f)) * np.sqrt(self.propagator.dt)
-                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator) 
+                phase_noise = expected_phase_noise_amplitude * AdditiveNoise._get_real_noise_signal_freq(self.propagator)
                 noise = np.exp(1j * np.real(ifft_(phase_noise, self.propagator.dt)))
         elif (noise_type == 'phase noise from linewidth'):
             if (noise_param == 0):

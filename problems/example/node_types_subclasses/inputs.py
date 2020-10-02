@@ -22,25 +22,25 @@ class PulsedLaser(Input):
     def __init__(self, **kwargs):
         self.node_lock = False
         self.node_acronym = 'PL'
-        self.number_of_parameters = 6
+        self.number_of_parameters = 7
 
-        self.default_parameters = ['gaussian', 3e-3, 1.0, 10e-9, 1.56e-6, True]
-        # self.default_parameters = ['gaussian', 100e-12, 1.0, 10e-9, 1.56e-6, True]
+        # self.default_parameters = ['gaussian', 3e-3, 1.0, 10e-9, 1.56e-6, True]
+        self.default_parameters = ['gaussian', 100e-12, 1.0, 10e-9, 1.56e-6, True, 1e3]
 
-        self.upper_bounds = [None, 1e-9, 1.0, 1/10e6, 1.56e-6, None]
-        self.lower_bounds = [None, 1e-12, 0.0001, 1/1e9, 1.54e-6, None]
-        self.data_types = ['str', 'float', 'float', 'float', 'float', 'bool']
-        self.step_sizes = [None, None, None, None, None, None]
-        self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 0.01e-6, 1]
-        self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None]
-        self.parameter_locks = [True, False, False, False, True, True]
-        self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train']
+        self.upper_bounds = [None, 1e-9, 1.0, 1/10e6, 1.56e-6, None, 5e9]
+        self.lower_bounds = [None, 1e-12, 0.0001, 1/1e9, 1.54e-6, None, 0]
+        self.data_types = ['str', 'float', 'float', 'float', 'float', 'bool', 'float']
+        self.step_sizes = [None, None, None, None, None, None, None]
+        self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 0.01e-6, 1, 1]
+        self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None, unit.Hz]
+        self.parameter_locks = [True, False, False, False, True, True, True]
+        self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train', 'FWHM_linewidth']
         self.parameter_symbols =[r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
 
         self.parameters = self.default_parameters
-
         super().__init__(**kwargs)
         self.set_parameters_as_attr()
+        self.noise_model = AdditiveNoise(noise_param=self._FWHM_linewidth, noise_type='FWHM linewidth')
         return
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):

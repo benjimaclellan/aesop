@@ -47,8 +47,6 @@ def plot_psd_v_wavelength(signal, propagator, title='', dB=True):
     ax.set_ylabel(ylabel)
     plt.title(title)
     plt.show()
-    assert False
-
 
 def plot_lineshape_dB(signal, propagator, freq_range, title=''):
     psd = W_to_dBm(power_(np.fft.fftshift(fft_(signal, propagator.dt))))

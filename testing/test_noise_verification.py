@@ -9,7 +9,7 @@ from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import power_, ifft_, ifft_shift_, fft_, psd_
 
 from problems.example.graph import Graph
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
 
@@ -19,7 +19,6 @@ This document is intended to unite verification of noise into one document
 Each test should (ideally) be run without a graphical component
 """
 SKIP_GRAPHICAL_TEST = True
-
 
 # ----------------- General Fixtures ---------------------------
 
@@ -264,7 +263,7 @@ def test_linewidth_with_osnr_large(propagator):
     # TODO: refactor this test to have a non-graphical test
     for i in [1e9, 5e9, 10e9, 50e9, 100e9]:
         graph = get_laser_only_graph(osnr_dB=1000, linewidth=i)
-        if SKIP_GRAPHICAL_TEST:
+        if not SKIP_GRAPHICAL_TEST:
             graph.propagate(propagator)
             output = graph.measure_propagator(1)
 
@@ -531,6 +530,7 @@ def test_modulator_behaviour(propagator):
     AdditiveNoise.simulate_with_noise = True 
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.PhaseModulator
 def test_phase_noise_interpolation(propagator):
     noise_test_points = [(10e3, -116), (100e3, -117), (1e6, -118), (10e6, -140)]
@@ -539,6 +539,7 @@ def test_phase_noise_interpolation(propagator):
     graph.inspect_state(propagator)
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.PhaseModulator
 def test_add_linewidth_to_centre_freq(propagator):
     for FWHM in [1, 13e3, 1e9, 5e9, 10e9]:
@@ -565,6 +566,38 @@ def test_add_linewidth_to_centre_freq(propagator):
         ax[2].set_xlabel('frequency offset (Hz)')
         ax[2].set_ylabel('Transform (i.e. the modulation)')
         plt.show()
+
+# ----------------- Pulsed Laser tests ---------------------
+
+def get_pulsed_laser(propagator, num_pulses=4, pulse_width_ratio=0.01, linewidth=0):
+    nodes = {0: PulsedLaser(parameters_from_name={'t_rep': propagator.window_t / num_pulses, 'pulse_width':propagator.window_t * pulse_width_ratio, 'FWHM_linewidth':linewidth}),
+             1: MeasurementDevice()
+            }
+
+    edges = [(0, 1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=False)
+    graph.assert_number_of_edges()
+    return graph
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_PL_basic(propagator):
+    PL = get_pulsed_laser(propagator)
+    PL.propagate(propagator)
+    PL.inspect_state(propagator, freq_log_scale=False)
+
+
+def test_PL_central_f_noise(propagator):
+    # TODO: try this with different pulse widths, because that really matters to the shape
+    AdditiveNoise.simulate_with_noise = True
+    for pw in [0.001, 0.01, 0.1]:
+        for linewidth in [0, 1e8, 1e9]:#[1e7, 1e8, 1e9]:
+            PL = get_pulsed_laser(propagator, pulse_width_ratio=pw, linewidth=linewidth)
+            PL.propagate(propagator)
+            PL.inspect_state(propagator)
+            PL.display_noise_contributions(propagator)
+
 
 # ----------------- EDFA tests ---------------------
 
