@@ -14,8 +14,6 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           ga_opts=None, update_rule='random',
                           cluster_address=None, local_mode=False):
     io.init_logging()
-
-    hof = init_hof(ga_opts['n_hof'])
     log, log_metrics = logbook_initialize()
 
     if update_rule == 'random':
@@ -33,6 +31,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for (object_filename, object_to_save) in zip(('propagator', 'evaluator', 'evolver'), (propagator, evaluator, evolver)):
         io.save_object(object_to_save=object_to_save, filename=f"{object_filename}.pkl")
 
+    # create initial population and hof
+    hof = init_hof(ga_opts['n_hof'])
     population = []
     for individual in range(ga_opts['n_population']):
         population.append((None, copy.deepcopy(graph)))
