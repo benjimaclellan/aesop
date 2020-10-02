@@ -7,12 +7,13 @@ class Evolver(object):
 
 
 
-    def __init__(self, **attr):
+    def __init__(self, verbose=False, **attr):
+        self.verbose = verbose
         super().__init__(**attr)
         return
 
 
-    def evolve_graph(self, graph, evaluator, propagator, verbose=False):
+    def evolve_graph(self, graph, evaluator, propagator):
         """Function
         """
 
@@ -24,7 +25,7 @@ class Evolver(object):
         evo_op_choice = np.random.choice(possible_evo_ops)
 
         # apply the chosen evolution
-        graph = evo_op_choice().apply_evolution(graph, verbose=verbose)
+        graph = evo_op_choice().apply_evolution(graph, verbose=self.verbose)
 
         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
         # score = evaluator.evaluate_graph(graph, propagator)

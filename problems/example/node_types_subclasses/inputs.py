@@ -18,7 +18,6 @@ from ..node_types import Input
 class PulsedLaser(Input):
     """
     """
-
     def __init__(self, **kwargs):
         self.node_lock = False
         self.node_acronym = 'PL'

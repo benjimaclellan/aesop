@@ -307,7 +307,7 @@ class WaveShaper(SinglePath):
         return [state]
 
 
-@register_node_types_all
+# @register_node_types_all
 class IntegratedSplitAndDelayLine(SinglePath):
     """
     """

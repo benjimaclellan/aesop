@@ -107,7 +107,7 @@ class RemoveNode(EvolutionOperators):
 @register_evolution_operators
 class SwapNode(EvolutionOperators):
 
-    potential_node_types = set(['SinglePath'])
+    potential_node_types = set(['SinglePath', 'Input', 'MultiPath'])
 
     def __init__(self, **attr):
         super().__init__(**attr)
@@ -118,18 +118,27 @@ class SwapNode(EvolutionOperators):
         """
 
         # find all nodes which could be swapped and randomly select one
-        swappable_nodes = []
-        for node in graph.nodes:
-            if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types:
-                swappable_nodes.append(node)
-        node_to_swap = random.sample(swappable_nodes, 1)[0]
 
-        potential_new_nodes = []
-        for node_type in self.potential_node_types:
-            potential_new_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
+        while True:
+            try:
+                potential_node_type = random.sample(self.potential_node_types, 1)
+                swappable_nodes = []
+                for node in graph.nodes:
+                    if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in potential_node_type:
+                        swappable_nodes.append(node)
+                node_to_swap = random.sample(swappable_nodes, 1)[0]
+                ## TODO: NEED TO FIX THIS EVOLUTION OPERATOR
+                potential_new_nodes = []
+                for node_type in potential_node_type:
+                    potential_new_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
 
-        # choose new model and swap out the model on that node
-        new_model = random.sample(potential_new_nodes, 1)[0]()
+
+                # choose new model and swap out the model on that node
+                new_model = random.sample(potential_new_nodes, 1)[0]()
+                break
+            except:
+                pass
+
         graph.nodes[node_to_swap]['model'] = new_model
         graph.nodes[node_to_swap]['name'] = new_model.__class__.__name__
 

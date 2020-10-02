@@ -104,6 +104,7 @@ def update_population_topology_random(population, evolver, evaluator, propagator
             try:
                 graph_tmp.assert_number_of_edges()
             except:
+                print(f'Could not evolve this graph.{[node for node in graph_tmp.nodes()]}')
                 continue
 
             if len(x0) == 0:
@@ -116,9 +117,13 @@ def update_population_topology_random(population, evolver, evaluator, propagator
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):
-    graph.clear_propagation()
-    graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
-    x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-    graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
-    return score, graph
+    try:
+        graph.clear_propagation()
+        graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
+        x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+        graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
+
+        return score, graph
+    except:
+        return 99999999, graph
