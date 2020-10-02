@@ -12,7 +12,7 @@ import autograd.numpy as np
 from ..node_types import SinglePath
 
 from ..assets.decorators import register_node_types_all
-from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_
+from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_, dB_to_amplitude_ratio
 from ..assets.additive_noise import AdditiveNoise
 
 
@@ -29,8 +29,8 @@ class CorningFiber(SinglePath):
         self.number_of_parameters = 1
         self.default_parameters = [1.0]
 
-        self.upper_bounds = [100e3]
-        self.lower_bounds = [0.01]
+        self.upper_bounds = [1000e3]
+        self.lower_bounds = [0.0]
         self.data_types = ['float']
         self.step_sizes = [None]
         self.parameter_imprecisions = [1]
@@ -38,8 +38,13 @@ class CorningFiber(SinglePath):
         self.parameter_locks = [False]
         self.parameter_names = ['length']
         self.parameter_symbols = [r"$x_\beta$"]
-        self.beta = 1e-26
+        # self.beta = -26.3e3 * 1e-12 * 1e-12 #fs2/m * s/fs * s/fs
         self._n = 1.44
+        self._alpha = -0.015 # dB/km, from Corning SMF28 datasheet
+
+        self._zdw0 = 1310.0 * 1e-9 #nm * m/nm (zero-dispersion wavelength)
+        # self._S0 = 0.092 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
+        self._S0 = -0.155 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
 
         super().__init__(**kwargs)
         return
@@ -49,16 +54,21 @@ class CorningFiber(SinglePath):
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
-        b2 = length * self.beta * np.power(2 * np.pi * propagator.f, 2)
 
-        b1 = length * self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
+        _lambda0 = speed_of_light/((propagator.central_frequency))
+        _lambda = speed_of_light/((propagator.f + propagator.central_frequency))
 
+        D_lambda = self._S0 / 4.0 * (_lambda - self._zdw0 ** 4.0 / _lambda ** 3.0)
+        beta_2 = _lambda**2.0 * D_lambda / (-2.0 * np.pi * speed_of_light)
+        propagation_constant = length * beta_2 * np.power(2 * np.pi * (propagator.f), 2)
         if save_transforms:
-            self.transform = (('f', b1, 'b1'), ('f', b2, 'b2'),)
+            self.transform = (('f', D_lambda, r'D(lambda)'),)
         else:
             self.transform = None
 
-        state = ifft_( ifft_shift_(np.exp(1j * (b1 + b2)), ax=0) * fft_(state, propagator.dt), propagator.dt)
+        state = ifft_( ifft_shift_(np.exp(1j * (propagation_constant)), ax=0) * fft_(state, propagator.dt), propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._alpha * length/1000.0)
+
         return [state]
 
 @register_node_types_all
@@ -96,7 +106,7 @@ class VariableOpticalAttenuator(SinglePath):
         else:
             self.transform = None
 
-        state = state * np.exp(0.5 * attenuation)
+        state = state * dB_to_amplitude_ratio(attenuation)
         return [state]
 
 @register_node_types_all
@@ -116,6 +126,7 @@ class PhaseModulator(SinglePath):
         self.node_lock = False
         self.node_acronym = 'PM'
 
+
         self.number_of_parameters = 4
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
@@ -128,6 +139,9 @@ class PhaseModulator(SinglePath):
         self.parameter_locks = [False, False, False, True]
         self.parameter_names = ['depth', 'frequency', 'shift', 'FWHM_linewidth']
         self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$", r"$x_{FWHM}$"]
+
+        self._loss_dB = -4.0 # dB
+
         super().__init__(**kwargs)
 
         """
@@ -158,8 +172,10 @@ class PhaseModulator(SinglePath):
         else:
             self.transform = None
 
-        state1 = state * np.exp(1j * transform)
-        return [state1]
+
+        state = state * np.exp(1j * transform)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
+        return [state]
     
     def update_noise_model(self):
         self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
@@ -186,6 +202,9 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         self.parameter_locks = [False, False, False]
         self.parameter_names = ['depth', 'frequency', 'bias']
         self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_{DC}$"]
+
+        self._loss_dB = -4.0 # dB
+
         super().__init__(**kwargs)
 
         return
@@ -204,8 +223,10 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
             self.transform = (('t', transform, 'modulation'),)
         else:
             self.transform = None
-        state1 = state/2.0 + state / 2.0 * np.exp(1j * transform)
-        return [state1]
+        state = state/2.0 + state / 2.0 * np.exp(1j * transform)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
+
+        return [state]
 
 
 @register_node_types_all
@@ -241,6 +262,7 @@ class WaveShaper(SinglePath):
         self.parameter_symbols = [r"$x_{a_{"+"{:+d}".format(ind)+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)] + \
                                  [r"$x_{\phi_{"+"{:+d}".format(ind)+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)]
 
+        self._loss_dB = -4.5 # dB
 
         super().__init__(**kwargs)
         return
@@ -275,6 +297,7 @@ class WaveShaper(SinglePath):
         phase_mask = np.concatenate((pad_left, phase1, pad_right), axis=0)
 
         state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt), propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
 
         if save_transforms:
             self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
@@ -308,8 +331,10 @@ class IntegratedSplitAndDelayLine(SinglePath):
 
         self._n = 1.444
         self._delays = [2**k * 1e-12 for k in range(0, self.number_of_parameters)]
-        # [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12
 
+        self._loss_dB = 1.0 # dB
+
+        # [1e-12, 2e-12, 4e-12, 8e-12, 16e-12, 32e-12, 128e-12, 64e-12
 
         super().__init__(**kwargs)
         return
@@ -350,7 +375,7 @@ class IntegratedSplitAndDelayLine(SinglePath):
         else:
             self.transform = None
 
-        return [ifft_(field_short, propagator.dt)]
+        return [ifft_(field_short, propagator.dt) * dB_to_amplitude_ratio(self._loss_dB)]
 
 
 @register_node_types_all
@@ -398,7 +423,10 @@ class EDFA(SinglePath):
         self.parameter_units = [None, unit.m, unit.m, unit.m, unit.W, unit.W, None, None, None] # no dB unit exists in registry
         self.parameter_locks = [False] + [True] * (self.number_of_parameters - 1)
         self.parameter_names = ['max_small_signal_gain_dB', 'peak_wl', 'band_lower', 'band_upper', 'P_in_max', 'P_out_max', 'gain_flatness_dB', 'alpha', 'max_noise_fig_dB']
+
         self.default_parameters = [30.0, 1550e-9, 1520e-9, 1565e-9, 0.01, 0.1, 1.5, 1.0, 5.0]
+        self.parameter_symbols = [r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
+
         super().__init__(**kwargs)
         self.noise_model = AdditiveNoise(noise_type='edfa ASE', noise_param=self)
 
@@ -585,6 +613,8 @@ class ProgrammableFilter(SinglePath):
                                  [r"$x_{p_{" + "{:+d}".format(ind) + r"}}$" for ind in
                                   range(-(number_of_bases - 1) // 2, (number_of_bases - 1) // 2 + 1)]
 
+        self._loss_dB = -4.5 # dB
+
         super().__init__(**kwargs)
         return
 
@@ -620,6 +650,7 @@ class ProgrammableFilter(SinglePath):
 
         state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt),
                       propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
 
         if save_transforms:
             self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
@@ -650,6 +681,8 @@ class DelayLine(SinglePath):
         self.parameter_names = ['delay']
         self.parameter_symbols = [r"$x_{d}$"]
 
+        self._loss_dB = -0.0 # dB
+
         self._n = 1.444
 
         super().__init__(**kwargs)
@@ -663,6 +696,7 @@ class DelayLine(SinglePath):
         beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
         state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
 
         if save_transforms:
             transform = np.zeros_like(propagator.t).astype('float')

@@ -5,17 +5,18 @@
 """
 
 import autograd.numpy as np
+from scipy.constants import speed_of_light
 
 class Propagator(object):
     """Class for the state of an optical field within a system
     """
 
-    def __init__(self, n_samples = None, window_t = None, central_wl = None):
+    def __init__(self, n_samples = None, window_t = None, central_wl = 1.55e-6):
         self._n_samples = n_samples
         self._window_t = window_t
         self._central_wl = central_wl
 
-        self._central_frequency = self.speed_of_light / central_wl
+        self._central_frequency = speed_of_light / central_wl
 
         self._generate_time_frequency_arrays()
 
