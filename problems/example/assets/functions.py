@@ -48,5 +48,5 @@ def rf_(power_trace, dt, ax=0):
     """
     return np.abs(np.fft.rfft(power_trace, axis=ax))
 
-
-
+def dB_to_amplitude_ratio(loss_db):
+    return 10.0 ** (loss_db/20.0)
