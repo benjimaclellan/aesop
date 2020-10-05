@@ -109,24 +109,31 @@ def test_differentiability():
 def test_differentiability_graphical():
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     results = []
+
+    amp_funct = lambda output : np.mean(np.abs(output)) + np.std(np.abs(output))
+    phase_funct = lambda output: np.mean(np.angle(output)) + np.std(np.angle(output))
+    power_funct = lambda output: np.mean(power_(output)) + np.std(power_(output))
+    test_function_list = [amp_funct, phase_funct, power_funct]
+    test_function_names = ['np.abs', 'np.angle', 'power_']
+
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
             for i in range(0, model.number_of_parameters):
                 model = model_class()
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    differentiable = _get_gradient_vectors(model, i, propagator, graphical_test='if failing', noise=True)
-                    record = {'model':model_class.__name__, 'param':model.parameter_names[i],'differentiable':differentiable}
+                    test_func_results = [_get_gradient_vectors(model, i, propagator, test_func, graphical_test='none', noise=True) for test_func in test_function_list]                    
+                    record = {'model':model_class.__name__, 'param':model.parameter_names[i],'differentiable':test_func_results}
                     results.append(record)
     
     print('\n\nRESULTS (showing failures only)\n')
     for result in results:
-        if not result['differentiable']:
-            print(f"model {result['model']}, param {result['param']} differentiation failed")
+        if False in result['differentiable']:
+            failed_functions = [test_function_names[i] for i in range(len(test_function_list)) if not result['differentiable'][i]] 
+            print(f"model {result['model']}, param {result['param']} differentiation failed for functions {failed_functions}")
 
-        
 
-def _get_gradient_vectors(model, param_index, propagator, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+def _get_gradient_vectors(model, param_index, propagator, eval_func, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
@@ -157,7 +164,7 @@ def _get_gradient_vectors(model, param_index, propagator, noise=True, steps=200,
         if (model.noise_model is not None):
             output = model.noise_model.add_noise_to_propagation(output, propagator)
 
-        return np.mean(np.abs(output)) + np.std(np.abs(output)) # + np.std(np.angle(output)) * 10 # + np.std(np.abs(output))
+        return eval_func(output) # np.mean(np.abs(output)) + np.std(np.abs(output)) # + np.std(np.angle(output)) * 10 # + np.std(np.abs(output))
     
     gradient_func = autograd.grad(test_function)
 
