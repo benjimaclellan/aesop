@@ -115,7 +115,7 @@ def test_differentiability_graphical():
             for i in range(0, model.number_of_parameters):
                 model = model_class()
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    differentiable = _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='none', noise=True)
+                    differentiable = _get_gradient_vectors(model, i, propagator, graphical_test='if failing', noise=True)
                     record = {'model':model_class.__name__, 'param':model.parameter_names[i],'differentiable':differentiable}
                     results.append(record)
     
@@ -126,7 +126,7 @@ def test_differentiability_graphical():
 
         
 
-def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+def _get_gradient_vectors(model, param_index, propagator, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
@@ -136,7 +136,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     """
     print(f'model: {model.node_acronym}, param: {model.parameter_names[param_index]}')
     AdditiveNoise.simulate_with_noise = noise
-    if (lower_limit == upper_limit):
+    if (model.lower_bounds[param_index] == model.upper_bounds[param_index]):
         return
 
     def lock_unwanted_params(node_model, unlock_index):
@@ -162,9 +162,9 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     gradient_func = autograd.grad(test_function)
 
     lock_unwanted_params(model, param_index)
-    model.parameters = default_vals
+    model.parameters = model.default_parameters
 
-    param_vals, delta = np.linspace(lower_limit, upper_limit, num=steps, retstep=True)
+    param_vals, delta = np.linspace(model.lower_bounds[param_index], model.upper_bounds[param_index], num=steps, retstep=True)
     
     function_output = np.array([test_function(param_val) for param_val in param_vals])
     finite_diff_gradient_output = np.diff(function_output) / delta
@@ -185,7 +185,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         ax[0].set_ylabel('f(x)')
         ax[1].set_ylabel('df/dx')
         ax[1].legend()
-        plt.title(f'Autograd and FDM derivatives. Model {model.node_acronym}, param {model.parameter_names[param_index]}, range {lower_limit}-{upper_limit}')
+        plt.title(f'Autograd and FDM derivatives. Model {model.node_acronym}, param {model.parameter_names[param_index]}, range {model.lower_bounds[param_index]}-{model.upper_bounds[param_index]}')
         plt.draw()
         plt.pause(0.001)
         response = input('Evaluate plot. Plot correct [y/n]: ').lower()
