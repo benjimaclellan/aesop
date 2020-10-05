@@ -108,17 +108,22 @@ def test_differentiability():
 
 def test_differentiability_graphical():
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    results = []
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
             for i in range(0, model.number_of_parameters):
                 model = model_class()
-                # if model.noise_model is None:
-                #     continue
-                if model.node_acronym == 'PL': #'IM' or i != 2:
-                    continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='if failing', noise=True)
+                    differentiable = _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='if failing', noise=True)
+                    record = {'model':model_class.__name__, 'param':model.parameter_names,'differentiable':differentiable}
+                    results.append(record)
+    
+    print('\n\nRESULTS (showing failures only)\n')
+    for result in results:
+        if not result['differentiable']:
+            print(f"model {result['model']}, param {result['param']} is not differentiable")
+
         
 
 def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
@@ -149,10 +154,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         input_state = (np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) + np.sin(2 * np.pi / propagator.window_t * propagator.t) +
                        np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.005 
         output = model.propagate([input_state], propagator)[0]
-        # _, ax = plt.subplots(2, 1)
-        # ax[0].plot(propagator.t, power_(output))
-        # ax[1].plot(propagator.f, psd_(output, propagator.dt, propagator.df))
-        # plt.show()
+
         if (model.noise_model is not None):
             output = model.noise_model.add_noise_to_propagation(output, propagator)
 
@@ -176,10 +178,10 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     gradient_correct = _gradients_match(gradient_output * normalization_factor, finite_diff_gradient_output * normalization_factor, rtol=rtol, atol=atol, noise=noise and model.noise_model is not None)
     
     if (not gradient_correct):
-        print(f'Calculation mismatch, please inspect plot.')
+        print(f'Automated check failed, please inspect plot.')
 
     if graphical_test == 'always' or (graphical_test == 'if failing' and not gradient_correct):
-        _, ax = plt.subplots(2, 1)
+        fig, ax = plt.subplots(2, 1)
         ax[1].plot(param_vals, gradient_output, label='autograd derivative')
         ax[1].plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls='--')
         ax[0].plot(param_vals, function_output, label='function', color='black')
@@ -188,7 +190,19 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         ax[1].set_ylabel('df/dx')
         ax[1].legend()
         plt.title(f'Autograd and FDM derivatives. Model {model.node_acronym}, param {model.parameter_names[param_index]}, range {lower_limit}-{upper_limit}')
-        plt.show()
+        plt.draw()
+        plt.pause(0.001)
+        response = input('Evaluate plot. Plot correct [y/n]: ').lower()
+        while (response != 'y' and response != 'n'):
+            response = input(f'{response} is an invalid response. Plot correct [y/n]: ').lower()
+        plt.close(fig)
+        if response == 'y':
+            return True
+        else:
+            return False
+    
+    return gradient_correct
+
 
 def _gradients_match(gradient_output, finite_diff_output, rtol=5e-2, atol=1e-9, max_mean_dev=1e-5, max_std_dev=1e-5, noise=True):
     if not noise:
