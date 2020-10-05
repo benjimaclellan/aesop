@@ -1,6 +1,7 @@
 
 import scipy.optimize
 import cma
+from pyswarm import pso
 import autograd.numpy as np
 import random
 from algorithms.functions import logbook_update, logbook_initialize
@@ -44,8 +45,43 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         log['time'] = log['iteration']/np.max(log['iteration']) * (t2-t1)
         return graph, x, graph.func(x), log
 
-    if method == 'L-BFGS+GA':
-        if verbose: print("Parameter optimization: L-BFGS + GA algorithm")
+    if method == 'L-BFGS+PSO':
+        if verbose: print("Parameter optimization: L-BFGS + PSO algorithm")
+
+        # t1 = time.process_time()
+        xopt, fopt = pso(graph.func, lower_bounds, upper_bounds, f_ieqcons=None,
+                         args=(), kwargs={}, swarmsize=30, omega=0.5, phip=0.5,
+                         phig=0.5, maxiter=10, minstep=1e-8, minfunc=1e-8, debug=False)
+        # t2 = time.process_time()
+        #
+        # total_log = pd.DataFrame(columns=['iteration','time','score'])
+        # total_log['iteration'] = log['generation']
+        # total_log['score'] = log['minimum']
+        # total_log['time'] = log['generation']/np.max(log['generation']) * (t2 - t1)
+        # total_log['method'] = 'GA'
+
+
+
+        # t1 = time.process_time()
+        res = scipy.optimize.minimize(graph.func, xopt, method='L-BFGS-B',
+                                      bounds=list(zip(lower_bounds, upper_bounds)),
+                                      options={'disp': verbose, 'maxiter': 50},
+                                      callback=callback,
+                                      jac=graph.grad)
+        # t2 = time.process_time()
+        # log = pd.DataFrame(LOG)
+        # log['time'] = log['iteration'] / np.max(log['iteration']) * (t2 - t1) + total_log['time'].iloc[-1]
+        # log['method'] = 'L-BFGS'
+
+        # print(total_log['time'].iloc[-1])
+        # total_log = pd.concat([total_log, log], sort=True)
+
+        graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
+        x = res.x
+        return graph, x, graph.func(x), fopt#total_log
+
+    elif method == 'L-BFGS+GA':
+        if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
         t1 = time.process_time()
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.8,
@@ -77,9 +113,17 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
         x = res.x
         return graph, x, graph.func(x), total_log
+    elif method == 'PSO':
+        if verbose: print("Parameter optimization: PSO algorithm")
+        _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+        xopt, fopt = pso(graph.func, lower_bounds, upper_bounds, f_ieqcons=None,
+                         args=(), kwargs={}, swarmsize=30, omega=0.5, phip=0.5,
+                         phig=0.5, maxiter=10, minstep=1e-8, minfunc=1e-8, debug=False)
+        print(fopt)
+        graph.distribute_parameters_from_list(xopt, node_edge_index, parameter_index)
+        return graph, xopt, graph.func(xopt), fopt
 
     elif method == 'CMA':
-        # raise NotImplementedError("CMA is not implemented yet")
         if verbose: print("Parameter optimization: CMA algorithm")
 
         _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
