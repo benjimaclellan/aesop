@@ -115,18 +115,18 @@ def test_differentiability_graphical():
             for i in range(0, model.number_of_parameters):
                 model = model_class()
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    differentiable = _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='if failing', noise=True)
-                    record = {'model':model_class.__name__, 'param':model.parameter_names,'differentiable':differentiable}
+                    differentiable = _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='none', noise=True)
+                    record = {'model':model_class.__name__, 'param':model.parameter_names[i],'differentiable':differentiable}
                     results.append(record)
     
     print('\n\nRESULTS (showing failures only)\n')
     for result in results:
         if not result['differentiable']:
-            print(f"model {result['model']}, param {result['param']} is not differentiable")
+            print(f"model {result['model']}, param {result['param']} differentiation failed")
 
         
 
-def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
@@ -154,7 +154,6 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         input_state = (np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) + np.sin(2 * np.pi / propagator.window_t * propagator.t) +
                        np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.005 
         output = model.propagate([input_state], propagator)[0]
-
         if (model.noise_model is not None):
             output = model.noise_model.add_noise_to_propagation(output, propagator)
 
@@ -176,9 +175,6 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     
     gradient_output = np.array([gradient_func(param_val) for param_val in param_vals])
     gradient_correct = _gradients_match(gradient_output * normalization_factor, finite_diff_gradient_output * normalization_factor, rtol=rtol, atol=atol, noise=noise and model.noise_model is not None)
-    
-    if (not gradient_correct):
-        print(f'Automated check failed, please inspect plot.')
 
     if graphical_test == 'always' or (graphical_test == 'if failing' and not gradient_correct):
         fig, ax = plt.subplots(2, 1)
@@ -205,15 +201,16 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
 
 
 def _gradients_match(gradient_output, finite_diff_output, rtol=5e-2, atol=1e-9, max_mean_dev=1e-5, max_std_dev=1e-5, noise=True):
-    if not noise:
-        # the gradient is averaged, because the finite differences are closest to the derivative halfway between the parameter values
-        # the first two points are ignored, because there's often slightly strange behaviour at 0
-        return np.allclose((gradient_output[1:-1] + gradient_output[2:]) / 2, finite_diff_output[1:], rtol=rtol, atol=atol)
-    
-    residuals = (gradient_output[1:-1] + gradient_output[2:]) / 2 - finite_diff_output[1:]
-    _, p = shapiro(residuals)
+    # the gradient is averaged, because the finite differences are closest to the derivative halfway between the parameter values
+    # the first two points are ignored, because there's often slightly strange behaviour at 0
+    direct_match = np.allclose((gradient_output[1:-1] + gradient_output[2:]) / 2, finite_diff_output[1:], rtol=rtol, atol=atol)
+    if not noise or direct_match:
+        return direct_match
+    else:
+        residuals = (gradient_output[1:-1] + gradient_output[2:]) / 2 - finite_diff_output[1:]
+        _, p = shapiro(residuals)
 
-    return np.abs(np.mean(residuals)) < max_mean_dev and np.std(residuals) < max_std_dev and shapiro(residuals)[1] > 0.05 # shapiro tests for normal distribution, which noise SHOULD be
+        return np.abs(np.mean(residuals)) < max_mean_dev and np.std(residuals) < max_std_dev and shapiro(residuals)[1] > 0.05 # shapiro tests for normal distribution, which noise SHOULD be
 
     
 

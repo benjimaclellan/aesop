@@ -166,12 +166,10 @@ class PhaseModulator(SinglePath):
         frequency = self.parameters[1]
 
         transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + self.noise_model.get_phase_noise(propagator)))
-    
         if save_transforms:
             self.transform = (('t', transform, 'modulation'),)
         else:
             self.transform = None
-
 
         state = state * np.exp(1j * transform)
         state = state * dB_to_amplitude_ratio(self._loss_dB)

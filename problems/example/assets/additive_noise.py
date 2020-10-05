@@ -165,7 +165,7 @@ class AdditiveNoise():
         :raises ValueError if no FWHM linewidth noise source has been added to this AdditiveNoise object
         """
         if not AdditiveNoise.simulate_with_noise:
-            return np.zeros(propagator.n_samples)
+            return np.zeros(propagator.n_samples).reshape(propagator.n_samples, 1)
 
         if (self.propagator is None or propagator is not self.propagator): # we avoid resampling the noise when the propagator hasn't changed, for efficiency
             self.propagator = propagator
