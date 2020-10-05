@@ -106,21 +106,24 @@ def test_differentiability():
     return
 
 
-def test_differentiability_graphical():
+def test_differentiability_graphical(include_locked=True):
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     results = []
 
-    amp_funct = lambda output : np.mean(np.abs(output)) + np.std(np.abs(output))
-    phase_funct = lambda output: np.mean(np.angle(output)) + np.std(np.angle(output))
-    power_funct = lambda output: np.mean(power_(output)) + np.std(power_(output))
-    test_function_list = [amp_funct, phase_funct, power_funct]
-    test_function_names = ['np.abs', 'np.angle', 'power_']
+    amp_func = lambda output : np.mean(np.abs(output)) + np.std(np.abs(output))
+    phase_func = lambda output: np.mean(np.angle(output)) + np.std(np.angle(output))
+    power_func = lambda output: np.mean(power_(output)) + np.std(power_(output))
+    ifft_fft_func = lambda output: np.mean(np.abs(np.fft.ifft(np.fft.fft(output))))
+    test_function_list = [amp_func, phase_func, power_func, ifft_fft_func]
+    test_function_names = ['np.abs', 'np.angle', 'power_', 'ifft * fft']
 
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
             for i in range(0, model.number_of_parameters):
                 model = model_class()
+                if not include_locked and model.parameter_locks[i]:
+                    continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
                     test_func_results = [_get_gradient_vectors(model, i, propagator, test_func, graphical_test='none', noise=True) for test_func in test_function_list]                    
                     record = {'model':model_class.__name__, 'param':model.parameter_names[i],'differentiable':test_func_results}
@@ -164,8 +167,8 @@ def _get_gradient_vectors(model, param_index, propagator, eval_func, noise=True,
         if (model.noise_model is not None):
             output = model.noise_model.add_noise_to_propagation(output, propagator)
 
-        return eval_func(output) # np.mean(np.abs(output)) + np.std(np.abs(output)) # + np.std(np.angle(output)) * 10 # + np.std(np.abs(output))
-    
+        return eval_func(output) 
+
     gradient_func = autograd.grad(test_function)
 
     lock_unwanted_params(model, param_index)
@@ -249,5 +252,5 @@ def test_distributed_computing():
 if __name__ == "__main__":
     # unittest.main()
     # test_differentiability()
-    test_differentiability_graphical()
+    test_differentiability_graphical(include_locked=True)
     # test_distributed_computing()
