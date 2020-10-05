@@ -118,26 +118,14 @@ class SwapNode(EvolutionOperators):
         """
 
         # find all nodes which could be swapped and randomly select one
+        tmp = self.collect_potential_nodes_to_swap(graph)
+        potential_node_types = [node_type for (node_type, nodes) in tmp.items() if ((len(nodes) >= 1) and (len(configuration.NODE_TYPES_ALL[node_type]) > 1))]
+        potential_node_type = random.sample(potential_node_types, 1)[0]
 
-        while True:
-            try:
-                potential_node_type = random.sample(self.potential_node_types, 1)
-                swappable_nodes = []
-                for node in graph.nodes:
-                    if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in potential_node_type:
-                        swappable_nodes.append(node)
-                node_to_swap = random.sample(swappable_nodes, 1)[0]
-                ## TODO: NEED TO FIX THIS EVOLUTION OPERATOR
-                potential_new_nodes = []
-                for node_type in potential_node_type:
-                    potential_new_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
+        swappable_nodes = tmp[potential_node_type]
+        node_to_swap = random.sample(swappable_nodes, 1)[0]
 
-
-                # choose new model and swap out the model on that node
-                new_model = random.sample(potential_new_nodes, 1)[0]()
-                break
-            except:
-                pass
+        new_model = random.sample(list(configuration.NODE_TYPES_ALL[potential_node_type].values()), 1)[0]()
 
         graph.nodes[node_to_swap]['model'] = new_model
         graph.nodes[node_to_swap]['name'] = new_model.__class__.__name__
@@ -146,20 +134,30 @@ class SwapNode(EvolutionOperators):
             print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node_to_swap, graph.nodes[node_to_swap]['model'], new_model))
         return graph
 
+    def collect_potential_nodes_to_swap(self, graph):
+        tmp = {potential_node_type: [] for potential_node_type in self.potential_node_types}
+        for node in graph.nodes:
+            if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types:
+                tmp[graph.nodes[node]['model'].__class__.__bases__[0].__name__].append(node)
+        return tmp
+
     def verify_evolution(self, graph):
         """ Checks if the specific evolution on the graph is possible, returns bool
 
         All logic for going through graph structures and what node specifics there are, and returning a Yes/No of whether this
         evolution operator can be applied to this graph
         """
-        potential_nodes = []
-        for node in graph.nodes:
-            if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types:
-                potential_nodes.append(node)
-        if len(potential_nodes) > 0:
-            return True
-        else:
-            return False
+
+        tmp = self.collect_potential_nodes_to_swap(graph)
+        flag = False
+        for potential_node_type, potential_nodes in tmp.items():
+            # print('Swap node check')
+            # print(f"potential_node_type:{potential_node_type}, nodes:{potential_nodes}, swaps: {configuration.NODE_TYPES_ALL[potential_node_type]}")
+            if (len(potential_nodes) >= 1) and (len(configuration.NODE_TYPES_ALL[potential_node_type]) > 1):
+                flag = flag or True
+            else:
+                flag = flag or False
+        return flag
 
 
 @register_evolution_operators

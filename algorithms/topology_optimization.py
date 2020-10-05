@@ -125,5 +125,6 @@ def parameters_optimize_multiprocess(graph, evaluator, propagator):
         graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
 
         return score, graph
-    except:
+    except Exception as e:
+        print(f'error caught in parameter optimization: {e}')
         return 99999999, graph

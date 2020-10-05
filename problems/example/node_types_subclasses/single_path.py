@@ -130,7 +130,7 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 4
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
-        self.upper_bounds = [np.pi, 48.0e9, 2*np.pi, 1e9]
+        self.upper_bounds = [2*np.pi, 48.0e9, 2*np.pi, 1e9]
         self.lower_bounds = [0.001, 2.0e9, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
         self.step_sizes = [None, 2e9, None, None]
@@ -239,7 +239,7 @@ class WaveShaper(SinglePath):
         self.node_lock = False
         self.node_acronym = 'WS'
 
-        number_of_bins = 9
+        number_of_bins = 15
         self._number_of_bins = number_of_bins
         self.frequency_bin_width = 12e9
         self.extinction_ratio = 10 **( -35 / 10)

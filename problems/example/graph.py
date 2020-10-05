@@ -344,7 +344,8 @@ class Graph(GraphParent):
         if labels is None:
             labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
 
-        pos = nx.planar_layout(self)
+        # pos = nx.planar_layout(self)
+        pos = nx.kamada_kawai_layout(self)
         nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
 
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))

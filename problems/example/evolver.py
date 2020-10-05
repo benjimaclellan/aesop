@@ -13,7 +13,7 @@ class Evolver(object):
         return
 
 
-    def evolve_graph(self, graph, evaluator, propagator):
+    def evolve_graph(self, graph, evaluator, propagator, verbose=False):
         """Function
         """
 
@@ -28,8 +28,6 @@ class Evolver(object):
         graph = evo_op_choice().apply_evolution(graph, verbose=self.verbose)
 
         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
-        # score = evaluator.evaluate_graph(graph, propagator)
-        # print('The score here is {}'.format(score))
         return graph, evo_op_choice
 
     def random_graph(self, graph, evaluator, propagator):
