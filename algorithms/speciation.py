@@ -1,3 +1,5 @@
+import autograd.numpy as np
+
 """
 Module for speciation! Generally follows the model given by NEAT:
 1. Each species has a representative member
@@ -39,9 +41,10 @@ class Speciation():
             raise ValueError(f'Delta threshold (d_thresh) for speciation must be in (0, 1), not {d_thresh}')
         self.d_thresh = d_thresh
 
-        self.species = set() # becomes a set of species. This is actually just the set of all representatives
+        self.species = {} # key: representative, value: num of elements in species
         self.individual_species_map = {} # maps most recent population individuals to their species representative
         self.distance_func = distance_func
+        self.protection_half_life = protection_half_life
 
     def speciate(self, population):
         """
@@ -53,10 +56,12 @@ class Speciation():
 
         # 1. Update all the representative individuals. The representative individual is always the one with the LEAST distance to the previous representative individual
         # if there is no suitable representative individual, a species may die out
+        # also set # of element per species to zero, we'll update in part 2
         graph_set = set([graph for (_, graph) in population])
-        for rep in self.species:
+        for rep in self.species.items():
             if rep in graph_set:
                 graph_set.remove(rep) # this element is no longer available to represent another species
+                self.species[rep] = 0
                 continue
             best_rep = None
             best_rep_score = 5 # all distance functions have range 0 to 1, so this is fine as a max
@@ -67,9 +72,9 @@ class Speciation():
                         best_rep = graph
                         best_rep_score = score
             
-            self.species.remove(rep)
+            self.species.pop(rep, None)
             if best_rep is not None: # The rep is dead, long live the rep! Is best_rep is None, the species dies out
-                self.species.add(best_rep)
+                self.species[best_rep] = 0
                 graph_set.remove(best_rep) # this graph is no longer available to represent a species
                 
 
@@ -77,16 +82,18 @@ class Speciation():
         for _, graph in population:
             if graph in self.species:
                 self.individual_species_map[graph] = graph # graph is its own representative, yay!
+                self.species[graph] += 1
                 continue
             for rep in self.species:
                 if self.distance_func(rep, graph) < self.d_thresh:
                     self.individual_species_map[graph] = rep
+                    self.species[rep] += 1
                     break
     
             # if you don't manage to slot it, make a new species
             if graph not in self.individual_species_map: # alas, even after checking all the species, no dice. Make a new species with graph being the representative
                 self.individual_species_map[graph] = graph 
-                self.species.add(graph)
+                self.species[graph] = 1
         
         # 3. Update self.d_thresh with my awesome P(ID) method
         self.d_thresh = min((self.target_species_num - len(self.species)) * THRESH_ADJUST_PROP_CONSTANT, THRESH_MAX_ADJUST) + self.d_thresh
@@ -99,12 +106,14 @@ class Speciation():
 
         :param population: the population of (score, graph) elements
         :param generation_num: the current generation (may affect sharing, if self.protection_half_life is not None)
-        :return : the population of (adjusted_score, graph) elements
+        :modifies population: updates the scores to reflect fitness sharing. population becomes a list of (adjusted_score, graph) elements
         """
-        pass
+        self.speciate(population)
+        coeff = self.protection_half_life / np.log(2)
+        for i in range(len(population)):
+            graph = population[i][1]
+            species_size = self.species[self.individual_species_map[graph]]
+            denominator = np.min(1, np.exp(-coeff * generation_num) * species_size)
 
-
-
-
-
-    
+            population[i][0] /= denominator # adjust fitness score
+        
