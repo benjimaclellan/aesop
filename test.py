@@ -7,6 +7,7 @@ import autograd.numpy as np
 import autograd
 import warnings
 import matplotlib.pyplot as plt
+from scipy.stats import shapiro
 
 import config.config as config
 
@@ -105,20 +106,37 @@ def test_differentiability():
     return
 
 
-def test_differentiability_graphical():
+def test_differentiability_graphical(include_locked=True):
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    results = []
+
+    amp_func = lambda output : np.mean(np.abs(output)) + np.std(np.abs(output))
+    phase_func = lambda output: np.mean(np.angle(output)) + np.std(np.angle(output))
+    power_func = lambda output: np.mean(power_(output)) + np.std(power_(output))
+    ifft_fft_func = lambda output: np.mean(np.abs(np.fft.ifft(np.fft.fft(output))))
+    test_function_list = [amp_func, phase_func, power_func, ifft_fft_func]
+    test_function_names = ['np.abs', 'np.angle', 'power_', 'ifft * fft']
+
     for _, node_sub_classes in config.NODE_TYPES_ALL.items():
         for _, model_class in node_sub_classes.items():
             model = model_class()
             for i in range(0, model.number_of_parameters):
                 model = model_class()
-                # if model.node_acronym != 'EDFA':
-                #     continue
+                if not include_locked and model.parameter_locks[i]:
+                    continue
                 if type(model.parameters[i]) == float and model.lower_bounds[i] is not None and model.upper_bounds[i] is not None:
-                    _get_gradient_vectors(model, i, model.lower_bounds[i], model.upper_bounds[i], model.default_parameters, propagator, graphical_test='always', noise=True)
-        
+                    test_func_results = [_get_gradient_vectors(model, i, propagator, test_func, graphical_test='none', noise=True) for test_func in test_function_list]                    
+                    record = {'model':model_class.__name__, 'param':model.parameter_names[i],'differentiable':test_func_results}
+                    results.append(record)
+    
+    print('\n\nRESULTS (showing failures only)\n')
+    for result in results:
+        if False in result['differentiable']:
+            failed_functions = [test_function_names[i] for i in range(len(test_function_list)) if not result['differentiable'][i]] 
+            print(f"model {result['model']}, param {result['param']} differentiation failed for functions {failed_functions}")
 
-def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_vals, propagator, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+
+def _get_gradient_vectors(model, param_index, propagator, eval_func, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
@@ -128,7 +146,7 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
     """
     print(f'model: {model.node_acronym}, param: {model.parameter_names[param_index]}')
     AdditiveNoise.simulate_with_noise = noise
-    if (lower_limit == upper_limit):
+    if (model.lower_bounds[param_index] == model.upper_bounds[param_index]):
         return
 
     def lock_unwanted_params(node_model, unlock_index):
@@ -145,36 +163,31 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
 
         input_state = (np.ones(propagator.n_samples).reshape(propagator.n_samples, 1) + np.sin(2 * np.pi / propagator.window_t * propagator.t) +
                        np.sin(4 * np.pi / propagator.window_t * propagator.t) + np.cos(32 * np.pi / propagator.window_t * propagator.t)) * 0.005 
-        output = model.propagate([input_state], propagator)
+        output = model.propagate([input_state], propagator)[0]
         if (model.noise_model is not None):
-            output = [model.noise_model.add_noise_to_propagation(output[0], propagator)]
+            output = model.noise_model.add_noise_to_propagation(output, propagator)
 
-        return np.mean(np.abs(output[0])) + np.std(np.angle(output[0])) * 10 + np.std(np.abs(output[0]))
-    
+        return eval_func(output) 
+
     gradient_func = autograd.grad(test_function)
 
     lock_unwanted_params(model, param_index)
-    model.parameters = default_vals
+    model.parameters = model.default_parameters
 
-    param_vals, delta = np.linspace(lower_limit, upper_limit, num=steps, retstep=True)
+    param_vals, delta = np.linspace(model.lower_bounds[param_index], model.upper_bounds[param_index], num=steps, retstep=True)
     
     function_output = np.array([test_function(param_val) for param_val in param_vals])
     finite_diff_gradient_output = np.diff(function_output) / delta
+    normalization_factor = delta / steps # normalize the x axis over a unit interval, for automated tests
 
     if hasattr(finite_diff_gradient_output, '_value'): # if it's an arraybox object, fix it
         finite_diff_gradient_output = finite_diff_gradient_output._value
     
     gradient_output = np.array([gradient_func(param_val) for param_val in param_vals])
-    
-    # the gradient is averaged, because the finite differences are closest to the derivative halfway between the parameter values
-    # the first two points are ignored, because there's often slightly strange behaviour at 0
-    gradients_correct = np.allclose((gradient_output[1:-1] + gradient_output[2:]) / 2, finite_diff_gradient_output[1:], rtol=rtol, atol=atol)
-    
-    if (not gradients_correct):
-        print(f'Calculation mismatch, please inspect plot.')
+    gradient_correct = _gradients_match(gradient_output * normalization_factor, finite_diff_gradient_output * normalization_factor, rtol=rtol, atol=atol, noise=noise and model.noise_model is not None)
 
-    if graphical_test == 'always' or (graphical_test == 'if failing' and not gradients_correct):
-        _, ax = plt.subplots(2, 1)
+    if graphical_test == 'always' or (graphical_test == 'if failing' and not gradient_correct):
+        fig, ax = plt.subplots(2, 1)
         ax[1].plot(param_vals, gradient_output, label='autograd derivative')
         ax[1].plot(param_vals[0:-1] + delta / 2, finite_diff_gradient_output, label='finite difference derivative', ls='--')
         ax[0].plot(param_vals, function_output, label='function', color='black')
@@ -182,8 +195,34 @@ def _get_gradient_vectors(model, param_index, lower_limit, upper_limit, default_
         ax[0].set_ylabel('f(x)')
         ax[1].set_ylabel('df/dx')
         ax[1].legend()
-        plt.title(f'Autograd and FDM derivatives. Param {model.parameter_names[param_index]}, model {model.node_acronym}, range {lower_limit}-{upper_limit}')
-        plt.show()
+        plt.title(f'Autograd and FDM derivatives. Model {model.node_acronym}, param {model.parameter_names[param_index]}, range {model.lower_bounds[param_index]}-{model.upper_bounds[param_index]}')
+        plt.draw()
+        plt.pause(0.001)
+        response = input('Evaluate plot. Plot correct [y/n]: ').lower()
+        while (response != 'y' and response != 'n'):
+            response = input(f'{response} is an invalid response. Plot correct [y/n]: ').lower()
+        plt.close(fig)
+        if response == 'y':
+            return True
+        else:
+            return False
+    
+    return gradient_correct
+
+
+def _gradients_match(gradient_output, finite_diff_output, rtol=5e-2, atol=1e-9, max_mean_dev=1e-5, max_std_dev=1e-5, noise=True):
+    # the gradient is averaged, because the finite differences are closest to the derivative halfway between the parameter values
+    # the first two points are ignored, because there's often slightly strange behaviour at 0
+    direct_match = np.allclose((gradient_output[1:-1] + gradient_output[2:]) / 2, finite_diff_output[1:], rtol=rtol, atol=atol)
+    if not noise or direct_match:
+        return direct_match
+    else:
+        residuals = (gradient_output[1:-1] + gradient_output[2:]) / 2 - finite_diff_output[1:]
+        _, p = shapiro(residuals)
+
+        return np.abs(np.mean(residuals)) < max_mean_dev and np.std(residuals) < max_std_dev and shapiro(residuals)[1] > 0.05 # shapiro tests for normal distribution, which noise SHOULD be
+
+    
 
 
 
@@ -213,5 +252,5 @@ def test_distributed_computing():
 if __name__ == "__main__":
     # unittest.main()
     # test_differentiability()
-    test_differentiability_graphical()
+    test_differentiability_graphical(include_locked=True)
     # test_distributed_computing()
