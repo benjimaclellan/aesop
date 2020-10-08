@@ -6,7 +6,8 @@ from scipy.constants import speed_of_light
 
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_, ifft_, ifft_shift_, fft_, psd_
+from problems.example.assets.functions import power_, ifft_, ifft_shift_, fft_, psd_, dB_to_amplitude_ratio
+from problems.example.assets.filter import Filter
 
 from problems.example.graph import Graph
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
@@ -210,6 +211,30 @@ def get_laser_only_graph(peak_power=1e-3, osnr_dB=55, linewidth=1e3):
     graph.assert_number_of_edges()
     return graph
 
+
+@pytest.mark.AdditiveNoise # technically graph class but close enough
+def test_graph_resampling(propagator):
+    # TODO: check resampling works on edges too
+    laser_graph = get_laser_only_graph()
+    laser_graph.propagate(propagator)
+    output0 = np.copy(laser_graph.measure_propagator(laser_graph.get_output_node()))
+
+    laser_graph.resample_all_noise()
+
+    laser_graph.propagate(propagator)
+    output1 = laser_graph.measure_propagator(laser_graph.get_output_node())
+
+    assert not np.allclose(output0, output1)
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.CWL
+def test_visual_sanity_CWL(propagator):
+    laser_graph = get_laser_only_graph()
+    laser_graph.propagate(propagator)
+    laser_graph.inspect_state(propagator, freq_log_scale=True)
+
+
 @pytest.mark.CWL
 def test_peak_power(propagator):
     """
@@ -365,7 +390,7 @@ def test_propagate(propagator, noise_use):
 
 
 @pytest.mark.EDFA
-# @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.parametrize('noise_use', [False, True])
 def test_propagate2(propagator, noise_use):
     AdditiveNoise.simulate_with_noise = noise_use
@@ -417,7 +442,6 @@ def test_gain_max(propagator, edfa):
     plt.title('Gain vs input power of EDFA')
     plt.show()
 
-# ----------------- EDFA tests (preliminary Variability-Sensitivity Analysis) ---------------------
 @pytest.mark.EDFA
 @pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_increasing_noise_small_gain(propagator):
@@ -588,6 +612,7 @@ def test_PL_basic(propagator):
     PL.inspect_state(propagator, freq_log_scale=False)
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 def test_PL_central_f_noise(propagator):
     AdditiveNoise.simulate_with_noise = True
     for pw in [0.001, 0.01, 0.1]:
@@ -598,185 +623,302 @@ def test_PL_central_f_noise(propagator):
             PL.display_noise_contributions(propagator)
 
 
-# ----------------- EDFA tests ---------------------
+
+# -------------------------------- Testing Photodiode -----------------------------------------
+
+def get_laser_photodiode_graph(**kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: Photodiode(parameters_from_name=kwargs)
+            }
+
+    edges = [(0, 1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
 
 
+def get_laser_photodiode_graph_2(**kwargs):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
+             1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             2: WaveShaper(),
+             3: EDFA(),
+             4: Photodiode(parameters_from_name=kwargs)
+            }
+
+    edges = [(0, 1),
+             (1, 2),
+             (2, 3), 
+             (3, 4)]
+
+    graph = Graph(nodes, edges, propagate_on_edges=True)
+    graph.assert_number_of_edges()
+    return graph
 
 
-    
-
-# ------------------- out of commission laser test
-@pytest.mark.skip
-def test_linewidth(propagator):
-    np.random.seed(100)
-
-    N = 100
-
-    for j in range(3):
-        print(j)
-        laser_graph = get_laser_only_graph(linewidth=2e9 * 10**j)
-        average_state = np.zeros(propagator.n_samples, dtype='complex').reshape((propagator.n_samples, 1))
-
-        for i in range(N):
-            laser_graph.propagate(propagator)
-            average_state += laser_graph.measure_propagator(node=1)
-            if (i == 0):
-                laser_graph.inspect_state(propagator)
-            laser_graph.resample_all_noise(seed=i)
-
-        average_state /= N
-        _, ax = plt.subplots(2, 1)
-        ax[0].plot(propagator.t, power_(average_state))
-        ax[1].plot(propagator.f, psd_(average_state, propagator.dt, propagator.df))
-        plt.title('Average linewidth results')
-        plt.show()
+@pytest.fixture(scope='function')
+def photodiode():
+    return Photodiode()
 
 
-@pytest.mark.skip
-def test_linewidth_effects(propagator):
-    np.random.seed(100)
-
-    for j in range(3):
-        laser_graph = get_standard_graph(2e9 * 10**j)
-        laser_graph.propagate(propagator)
-        laser_graph.inspect_state(propagator) # , freq_log_scale=True)
-        osnr = AdditiveNoise.get_OSNR(laser_graph.get_output_signal_pure(propagator), laser_graph.get_output_noise(propagator))
-        laser_graph.display_noise_contributions(propagator, node=0, title=f'osnr: {osnr}, linewidth: {2 * 10**j} GHz')
+@pytest.fixture(scope='function')
+def photodiode_graph():
+    return get_laser_photodiode_graph()
 
 
-# ---------------------------------- AUTOGRAD TEST SLUSH PILE FOR NOW --------------------------------------
-def gain_sum_no_noise(signal):
-    return np.sum(np.abs(5 * signal))
-
-
-def get_funct_gain_sum_noise(propagator):
-    def gain_sum_noise(signal):
-        gain = 5 * signal
-        noise = AdditiveNoise(noise_param=4, seed=0)
-        output = noise.add_noise_to_propagation(gain, propagator)
-        return np.sum(np.abs(output))
-    return gain_sum_noise
-
-
-def get_funct_gain_separate_sum_noise(test_signal, propagator):
-    noise = AdditiveNoise(noise_param=4, seed=0)
-    noise.add_noise_to_propagation(test_signal, propagator) # try without this too...
-                                                # But in practice if we evaluate before we derive
-                                                # this test is accurate to what would happen
-    def funct(signal):
-        gain = 5 * signal
-        output = noise.add_noise_to_propagation(gain, propagator)
-        return np.sum(np.abs(output))
-    
-    return funct
-
-@pytest.mark.skip
-def test_autograd_gain1(signal, propagator):
-    tmp = np.copy(signal)
-    print(f'Sum power no noise: {gain_sum_no_noise(tmp)}')
-    
-    tmp = np.copy(signal)
-    gain_sum_noise = get_funct_gain_sum_noise(propagator)
-    print(f'Sum power noise: {gain_sum_noise(tmp)}')
-    
-    tmp = np.copy(signal)
-    gain_separate_noise_gen = get_funct_gain_separate_sum_noise(tmp, propagator)
-    tmp = np.copy(signal)
-    print(f'Sum power separate noise: {gain_separate_noise_gen(tmp)}')
-
-    grad_no_noise = grad(gain_sum_no_noise)
-    grad_noise = grad(gain_sum_noise)
-    grad_separate_noise_gen = grad(gain_separate_noise_gen)
-
-    tmp = np.copy(signal)
-    print(f'grad sum power no noise: {grad_no_noise(tmp)}')
-    
-    tmp = np.copy(signal)
-    print(f'grad sum power noise: {grad_noise(tmp)}')
-
-    tmp = np.copy(signal)
-    print(f'grad sum power separate noise: {grad_separate_noise_gen(tmp)}')
-
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_photodiode_basic(propagator, photodiode_graph):
+    # tests the original graph with laser noise enabled
+    photodiode_graph.propagate(propagator)
+    photodiode_graph.inspect_state(propagator, freq_log_scale=True)
+    photodiode_graph.display_noise_contributions(propagator, node=0) # after laser, unfiltered by photodiode
+    photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
     assert False
 
 
-@pytest.mark.skip
-def test_autograd_convergence(signal, propagator):
-    # same as the gain test, but we'll take the average of a BUNCH of noisy signals and see if it converges
-    TOTAL_ITERATIONS = 1
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_photodiode_basic2(propagator):
+    # tests the original graph with laser noise enabled
+    photodiode_graph2 = get_laser_photodiode_graph_2()
+    photodiode_graph2.propagate(propagator)
 
-    grad_sum = np.zeros((signal.shape[0], 1), dtype='complex')
-    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute power')
-    noise.add_noise_to_propagation(np.copy(signal), propagator)
-
-    for i in range(TOTAL_ITERATIONS):
-        tmp = np.copy(signal)
-        noise.resample_noise(seed=i)
-        
-        def funct(x):
-            """
-            Making this a linear function bc it's easier to validate the derivative there
-            """
-            gain = 5 * x
-            output = noise.add_noise_to_propagation(gain, propagator)
-            return np.sum(output).astype(dtype='float')
-        
-        grad_funct = grad(funct)
-        print("About to evaluate grad function!")
-        grad_sum += grad_funct(tmp)
-
-    avg_grad = grad_sum / TOTAL_ITERATIONS
-    print("Average gradient:")
-    print(avg_grad)
+    amplifier_arr = photodiode_graph2.measure_propagator(3)
+    photodiode_arr = photodiode_graph2.measure_propagator(4)
+    _, ax = plt.subplots()
+    ax.plot(propagator.t, (photodiode_arr - np.min(photodiode_arr)) / (np.max(photodiode_arr) - np.min(photodiode_arr)), label='Photodiode output voltage', lw=1)
+    ax.plot(propagator.t, (amplifier_arr - np.min(amplifier_arr)) / (np.max(amplifier_arr) - np.min(amplifier_arr)), label='Pre-photodiode power', lw=1)
+    ax.legend()
+    plt.title('Photodiode effects')
+    ax.set_xlabel('time (s)')
+    ax.set_ylabel('Power and voltage, normalized between 0 and 1 (W and V)')
+    plt.show()
+    photodiode_graph2.inspect_state(propagator, freq_log_scale=True)
+    photodiode_graph2.display_noise_contributions(propagator, node=4) # filtered by photodiode, but also with photo noise once that's there
     assert False
 
 
-@pytest.mark.skip
-def test_autograd_gain_signal_absolute(propagator):
-    signal = np.zeros((propagator.n_samples, 1), dtype='complex')
-    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='absolute power')
-    noise.add_noise_to_propagation(signal, propagator)
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_photodiode_no_input_noise(propagator, photodiode_graph):
+    np.random.seed(1)
+    # tests the original graph with laser noise enabled
+    photodiode_graph.nodes[0]['model'].noise_model.noise_on = False
+    photodiode_graph.propagate(propagator)
+    photodiode_graph.inspect_state(propagator, freq_log_scale=True)
+    photodiode_graph.display_noise_contributions(propagator, node=0) # after laser, unfiltered by photodiode
+    photodiode_graph.display_noise_contributions(propagator, node=1) # filtered by photodiode, but also with photo noise once that's there
+    assert False
 
-    noise.resample_noise(seed=0)
-    def funct(G):
-        all_noise = noise.add_noise_to_propagation(signal, propagator) # using empty signal but doesn't matter, it's a constant with this deriv
-        print(f"all_noise sum: {np.sum(np.abs(all_noise))}")
-        return np.sum(np.abs(G * all_noise))
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_photodiode_saturation(propagator, photodiode_graph):
+    # TODO: confirm noise behaviour is expected
+    _, ax = plt.subplots()
+    # RMS powers
+    P_total = []
+    P_signal = []
+    P_noise = []
+    P_in = []
+    # expected voltage cutoff when P_in = 6e-3 (default: I_d = R_d * P_in, with R_d = 0.5, I_d_max = 3e-3)
+    # this should be at voltage = 3e-3 A * 50 Ohms = 0.15 V 
+    for i in range(0, 100):
+        P_in.append(i * 1e-4)
+        photodiode_graph.nodes[0]['model'].parameters[0] = i*1e-4 # set different max powers for laser
+        P_total.append(np.sqrt(np.mean(power_(photodiode_graph.get_output_signal(propagator)))))
+        P_signal.append(np.sqrt(np.mean(power_(photodiode_graph.get_output_signal_pure(propagator)))))
+        P_noise.append(np.sqrt(np.mean(power_(photodiode_graph.get_output_noise(propagator)))))
     
-    grad_funct = grad(funct)
-    print("Evaluating grad function")
-    gradient_at_G = grad_funct(np.array([5]))
-    print(gradient_at_G)
-
-    # get noise sum
-    noise.resample_noise(seed=0)
-    noise_sum = np.sum(np.abs(noise.add_noise_to_propagation(signal, propagator)))
-    assert np.isclose(gradient_at_G[0], noise_sum)
-
-
-@pytest.mark.skip
-def test_autograd_gain_signal_relative(propagator):
-    GAIN = 8
-
-    signal = np.ones((propagator.n_samples, 1), dtype='complex')
-    noise = AdditiveNoise(noise_param=4, seed=0, noise_on=True, noise_type='osnr')
-    noise.add_noise_to_propagation(signal, propagator)
-
-    noise.resample_noise(seed=0)
-    def funct(G):
-        output = noise.add_noise_to_propagation(G * signal, propagator) -  G * signal
-        return np.sum(output).astype(dtype='float')
+    ax.plot(np.array(P_in), np.array(P_total), label='total RMS voltage')
+    ax.plot(np.array(P_in), np.array(P_signal), label='pure signal RMS voltage')
+    ax.plot(np.array(P_in), np.array(P_noise), label='noise RMS voltage')
+    ax.legend()
+    ax.set_xlabel('Power in (W)')
+    ax.set_ylabel('RMS voltage (V)')
+    plt.title('Photodetector RMS voltage v. power in')
+    plt.show()
     
-    grad_funct = grad(funct)
-    print("Evaluating grad function")
-    gradient_at_G = grad_funct(np.array([GAIN]))
-    print(gradient_at_G)
 
-    # test with expected val
-    noise.resample_noise(seed=0)
-    noise_sum = np.sum(noise.add_noise_to_propagation(signal, propagator) - signal).astype(dtype='float')
-    print(f"noise_sum: {noise_sum}")
-    assert np.isclose(gradient_at_G[0], noise_sum)
+# ------------------ Test filter (esp. butterworth filter) ---------------------------
+
+@pytest.fixture(scope='function')
+def freq_squared_filter():
+    return Filter(shape='exponential of square', central_wl=1550e-9, FWHM=50e-9)
 
 
-# ----------------- Miscellaneous tests ---------------------
+@pytest.fixture(scope='function')
+def butterworth_lowpass():
+    return Filter(shape='butterworth lowpass', transition_f=100e9, dc_gain=1, order=2)
+
+
+@pytest.fixture(scope='function')
+def noise_signal(propagator):
+    return np.random.normal(scale=1, size=(propagator.n_samples, 2)).view(dtype='complex')
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_freq_squared_filter(freq_squared_filter, propagator):
+    freq_squared_filter.display_filter(propagator)
+
+
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_freq_squared_filtered_output(freq_squared_filter, propagator, noise_signal):
+    freq_squared_filter.display_filtered_output(noise_signal, propagator)
+
+
+@pytest.mark.filter
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_standard_butterworth(butterworth_lowpass, propagator):
+    butterworth_lowpass.display_filter(propagator)
+
+
+@pytest.mark.filter
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_multiple_orders_butterworth(propagator):
+    """
+    Amplitude validated by inspection
+    Phase validated by comparing to matlab plots obtained like so: https://www.mathworks.com/help/signal/ref/butter.html
+    """
+    _, ax = plt.subplots(2)
+
+    for i in [1, 2, 5, 8]:
+        filter_shape = Filter.get_filter(propagator, shape='butterworth lowpass', transition_f=100e9, dc_gain=1, order=i)
+        freq = ifft_shift_(propagator.f) # we'll only be looking at positive frequencies, so might as well put them first
+        ax[0].plot(freq[0:1000], np.abs(filter_shape[0:1000]), label=f'order: {i}')
+        ax[0].set_xlabel('frequency (Hz)')
+        ax[0].set_ylabel('Filter amplitude (dB)')
+        ax[1].plot(freq[0:1000], np.angle(filter_shape[0:1000]), label=f'order: {i}')
+        ax[1].set_xlabel('frequency (Hz)')
+        ax[1].set_ylabel('Filter phase (rad)')
+    
+    ax[0].legend()
+    ax[1].legend()
+    plt.title('Butterworth filter')
+    plt.show()
+
+
+@pytest.mark.filter
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_filtering_butterworth(propagator, butterworth_lowpass):
+    signal_dc = np.ones_like(propagator.t)
+    signal_low = np.cos(2 * np.pi * 10e9 * propagator.t)
+    signal_high = np.cos(2 * np.pi * 150e9 * propagator.t)
+    signal_highest = np.cos(2 * np.pi * 300e9 * propagator.t)
+    signal = signal_dc + signal_low + signal_high + signal_highest
+
+    _, ax = plt.subplots(2, 1)
+    ax[0].plot(propagator.t, signal_dc + 10, label='DC (offset 10)')
+    ax[0].plot(propagator.t, signal_low + 10, label='low freq (offset 10)')
+    ax[0].plot(propagator.t, signal_high + 10, label='high freq (offset 10)')
+    ax[0].plot(propagator.t, signal_highest + 10, label='highest freq (offset 10)', lw=1, ls=':')
+
+    ax[0].plot(propagator.t, signal, label='signal', lw=1)
+    ax[0].set_xlabel('time (s)')
+    ax[0].set_ylabel('Signal unfiltered')
+    ax[0].legend()
+
+    ax[1].plot(propagator.t, butterworth_lowpass.get_filtered_time(signal_dc, propagator) + 10, label='DC (offset 10)')
+    ax[1].plot(propagator.t, butterworth_lowpass.get_filtered_time(signal_low, propagator) + 10, label='low freq (offset 10)')
+    ax[1].plot(propagator.t, butterworth_lowpass.get_filtered_time(signal_high, propagator) + 10, label='high freq (offset 10)')
+    ax[1].plot(propagator.t, butterworth_lowpass.get_filtered_time(signal_highest, propagator) + 10, label='highest freq (offset 10)', lw=1, ls=':')
+    ax[1].plot(propagator.t, butterworth_lowpass.get_filtered_time(signal, propagator), label='signal', lw=1)
+    ax[1].set_xlabel('time (s)')
+    ax[1].set_ylabel('Signal filtered')
+    ax[1].legend()
+
+    plt.title('Butterworth: filtered vs unfiltered signals')
+    plt.show()
+
+
+@pytest.mark.filter
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
+def test_filtering_butterworth_multiple_orders(propagator):
+    signal = 2 * np.cos(2 * np.pi * 50e9 * propagator.t) + np.cos(2 * np.pi * 150e9 * propagator.t)
+
+    NUM_FILTERS = 4
+
+    _, ax = plt.subplots(NUM_FILTERS + 1, 1)
+
+    ax[0].plot(propagator.t, signal, label='signal', lw=1)
+    ax[0].set_xlabel('time (s)')
+    ax[0].set_ylabel('Unfiltered')
+    ax[0].legend()
+
+    for i in range(1, NUM_FILTERS + 1):
+        butter = Filter(shape='butterworth lowpass', transition_f=100e9, dc_gain=1, order=i)
+        ax[i].plot(propagator.t, butter.get_filtered_time(signal, propagator), lw=1)
+        ax[i].set_xlabel('time (s)')
+        ax[i].set_ylabel(f'order {i}')
+        ax[i].legend()
+
+    plt.show()
+
+# ------------------------------------ Test coupling efficiency ------------------------------
+
+def phase_modulator_graph(coupling_eff):
+    nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power':0.01, 'osnr_dB':2000, 'FWHM_linewidth':1}), # minimal noise in here, so the system will be mostly noise free
+             1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             2: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             3: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
+             4: MeasurementDevice()
+            }
+
+    edges = [(0, 1),
+             (1, 2),
+             (2, 3),
+             (3, 4)]
+
+    print(f'coupling efficiency: {coupling_eff}')
+    graph = Graph(nodes, edges, propagate_on_edges=True, coupling_efficiency=coupling_eff)
+    graph.assert_number_of_edges()
+    return graph
+
+
+@pytest.mark.coupling
+def test_coupling_efficiency(propagator):
+    for e in [0.9, 0.7, 0.5]:
+        graph = phase_modulator_graph(e)
+        graph.propagate(propagator)
+        if not SKIP_GRAPHICAL_TEST:
+            graph.inspect_state(propagator)
+        
+        loss_per_modulator = e * dB_to_amplitude_ratio(graph.nodes[1]['model']._loss_dB) # this will work for this specific graph
+        output_power = power_(graph.measure_propagator(graph.get_output_node()))
+        assert np.isclose(np.mean(output_power), 0.01 * loss_per_modulator**(len(graph.nodes) - 1), atol=1e-3), f'mean power: {np.mean(output_power)}, expected power: {0.01 * loss_per_modulator**(len(graph.nodes) - 1)}'
+
+
+# ------------------- out of commission laser test ---------------------
+# @pytest.mark.skip
+# def test_linewidth(propagator):
+#     np.random.seed(100)
+
+#     N = 100
+
+#     for j in range(3):
+#         print(j)
+#         laser_graph = get_laser_only_graph(linewidth=2e9 * 10**j)
+#         average_state = np.zeros(propagator.n_samples, dtype='complex').reshape((propagator.n_samples, 1))
+
+#         for i in range(N):
+#             laser_graph.propagate(propagator)
+#             average_state += laser_graph.measure_propagator(node=1)
+#             if (i == 0):
+#                 laser_graph.inspect_state(propagator)
+#             laser_graph.resample_all_noise(seed=i)
+
+#         average_state /= N
+#         _, ax = plt.subplots(2, 1)
+#         ax[0].plot(propagator.t, power_(average_state))
+#         ax[1].plot(propagator.f, psd_(average_state, propagator.dt, propagator.df))
+#         plt.title('Average linewidth results')
+#         plt.show()
+
+
+# @pytest.mark.skip
+# def test_linewidth_effects(propagator):
+#     np.random.seed(100)
+
+#     for j in range(3):
+#         laser_graph = get_standard_graph(2e9 * 10**j)
+#         laser_graph.propagate(propagator)
+#         laser_graph.inspect_state(propagator) # , freq_log_scale=True)
+#         osnr = AdditiveNoise.get_OSNR(laser_graph.get_output_signal_pure(propagator), laser_graph.get_output_noise(propagator))
+#         laser_graph.display_noise_contributions(propagator, node=0, title=f'osnr: {osnr}, linewidth: {2 * 10**j} GHz')

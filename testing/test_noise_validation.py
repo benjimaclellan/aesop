@@ -13,6 +13,7 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
 
+SKIP_GRAPHICAL_TEST = True
 
 def dBc_to_power(dBc, reference_power):
     """
@@ -230,24 +231,24 @@ def ADJ_X15_graph_propagator():
     return propagator
 
 
-@pytest.mark.skip
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.CWL_validation
 def test_SFL1550_lasing_spectrum(SFL1550_graph_output, SFL1550_graph_propagator):
     plot_psd_v_wavelength(SFL1550_graph_output, SFL1550_graph_propagator, title=f'SFL1550 Single Mode Lasing Spectrum (simulated), OSNR guessed', dB=True)
 
 
-@pytest.mark.skip
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.CWL_validation
 def test_SFL1550_lineshape(SFL1550_graph_output, SFL1550_graph_propagator):
     plot_lineshape_dB(SFL1550_graph_output, SFL1550_graph_propagator, (-1e4, 1e7), title='SFL1550 Linewidth Measurement (simulated)')
 
 
-@pytest.mark.skip
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.CWL_validation
 def test_ORS1500_lineshape(ORS1500_graph_output, ORS1500_graph_propagator):
     plot_lineshape(ORS1500_graph_output, ORS1500_graph_propagator, (-2, 2), 0.5, title='ORS1500 Linewidth Measurement (simulated)')
 
-
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.CWL_validation
 def test_ADJUSTIK_phase_amplitude(ADJ_X15_graph_output, ADJ_E15_graph_output, ADJ_E15_graph_propagator):
     # note that the two adjustiks have the same propagator
@@ -288,6 +289,7 @@ def EDFA100p_graph(scope='function'):
     return get_amp_graph(**EDFA_params)
 
 
+@pytest.mark.skipif(SKIP_GRAPHICAL_TEST, reason='skipping non-automated checks')
 @pytest.mark.EDFA_validation
 def test_plot_input_to_output_power_100s(EDFA100s_graph, default_propagator):
     input_powers_dBm = np.linspace(-30, 7, num=50)
@@ -315,7 +317,6 @@ def test_plot_input_to_output_power_100s(EDFA100s_graph, default_propagator):
     ax.set_ylabel('Output power (dBm)')
     plt.title('Typical EDFA 100S Output vs Input power (simulated)')
     plt.show()
-    assert False
 
 
 

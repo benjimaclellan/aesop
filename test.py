@@ -136,7 +136,7 @@ def test_differentiability_graphical(include_locked=True):
             print(f"model {result['model']}, param {result['param']} differentiation failed for functions {failed_functions}")
 
 
-def _get_gradient_vectors(model, param_index, propagator, eval_func, noise=True, steps=50, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
+def _get_gradient_vectors(model, param_index, propagator, eval_func, noise=True, steps=200, rtol=5e-2, atol=1e-9, graphical_test='if failing'):
     """
     Plot gradient vectors. One is computed with autograd, the other with np.diff (finite difference). Also plot the function
 
