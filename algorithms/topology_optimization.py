@@ -9,6 +9,11 @@ import ray
 
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
+from algorithms.speciation import Speciation, SimpleSubpopulationSchemeDist
+
+
+SPECIATION_MANAGER = None 
+
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           ga_opts=None, update_rule='random',
@@ -18,12 +23,15 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
+    elif update_rule == 'random simple subpop scheme':
+        update_population = update_population_topology_random_simple_subpopulation_scheme
     else:
         raise NotImplementedError("This topology optimization update rule is not implemented yet. current options are 'random'")
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
+    ray.init()
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # save the objects for analysis later
@@ -41,10 +49,15 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for generation in range(ga_opts['n_generations']):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
-        population = update_population(population, evolver, evaluator, propagator)
+        population = update_population(population, evolver, evaluator, propagator, target_species_num=ga_opts['n_population'] / 20,
+                                                                                   protection_half_life=None)
 
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(graph, evaluator_id, propagator_id) for (_, graph) in population])
+        if SPECIATION_MANAGER is not None: # apply fitness sharing
+            SPECIATION_MANAGER.speciate(population)
+            SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
+
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
         for (score, graph) in population:
             graph.clear_propagation()
@@ -95,6 +108,7 @@ def update_hof(hof, population, verbose=False):
                 break
     return hof
 
+
 def update_population_topology_random(population, evolver, evaluator, propagator, **hyperparameters):
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
     for i, (score, graph) in enumerate(population):
@@ -113,6 +127,22 @@ def update_population_topology_random(population, evolver, evaluator, propagator
                 break
         population[i] = (None, graph)
     return population
+
+
+def update_population_topology_random_simple_subpopulation_scheme(population, evolver, evaluator, propagator, **hyperparameters):
+    global SPECIATION_MANAGER
+    # set up speciation if it's not set up already. This is only necessary on first function call
+    if population[0][1].speciation_descriptor is None:
+        dist_func = SimpleSubpopulationSchemeDist(num_species=hyperparameters['target_species_num']).distance
+        SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
+                                        protection_half_life=hyperparameters['protection_half_life'],
+                                        distance_func=dist_func)
+        for i, (_, graph) in enumerate(population()):
+            graph.speciation_descriptor = i % hyperparameters['target_species_num']
+
+    return update_population_topology_random(population, evolver, evaluator, propagator) # rest goes on normally
+    
+
 
 @ray.remote
 def parameters_optimize_multiprocess(graph, evaluator, propagator):

@@ -108,12 +108,41 @@ class Speciation():
         :param generation_num: the current generation (may affect sharing, if self.protection_half_life is not None)
         :modifies population: updates the scores to reflect fitness sharing. population becomes a list of (adjusted_score, graph) elements
         """
-        self.speciate(population)
-        coeff = self.protection_half_life / np.log(2)
+        if self.protection_half_life is None:
+            coeff = 0
+        else:
+            coeff = self.protection_half_life / np.log(2)
+
         for i in range(len(population)):
             graph = population[i][1]
             species_size = self.species[self.individual_species_map[graph]]
-            denominator = np.min(1, np.exp(-coeff * generation_num) * species_size)
+            denominator = np.max(1, np.exp(-coeff * generation_num) * species_size)
 
             population[i][0] /= denominator # adjust fitness score
-        
+
+
+class DistanceEvaluatorInterface():
+    def __init__(self):
+        pass
+    
+    def distance(self, graph0, graph1):
+        pass
+
+
+class SimpleSubpopulationSchemeDist(DistanceEvaluatorInterface):      
+    def __init__(self, num_species=10):
+        self.num_species = num_species
+
+    def distance(self, graph0, graph1):
+        """
+        Based on W. M. Spear's Simple Subpopulation Scheme
+        https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.54.8319&rep=rep1&type=pdf
+
+        Each graph has a label (which all of its children inherit) which indicates its species. Distance is 0 between species,
+        1 otherwise. Really simple
+        """
+        if graph0.speciation_descriptor == graph1.speciation_descriptor:
+            return 1
+
+        return 0
+

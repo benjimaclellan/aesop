@@ -52,6 +52,9 @@ class Graph(GraphParent):
         self.coupling_efficiency = coupling_efficiency
         if coupling_efficiency < 0 or coupling_efficiency > 1:
             raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
+        
+        # initialize description needed for speciation
+        self.speciation_descriptor = None
 
         # initialize variables to store function handles for grad & hess
         self.func = None
