@@ -42,8 +42,8 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 2,
-               'n_population': psutil.cpu_count(),
+    ga_opts = {'n_generations': 5,
+               'n_population': 10, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False)
+    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule='random vectorDIFF')
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)

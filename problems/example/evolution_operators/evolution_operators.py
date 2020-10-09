@@ -6,6 +6,7 @@ import networkx as nx
 import config.config as configuration
 from lib.decorators import register_evolution_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
+import algorithms.speciation as Speciation
 import random
 
 
@@ -36,6 +37,10 @@ class AddNode(EvolutionOperators):
         # find an appropriate label for the new node (no duplicates in the graph)
         node_label = min(set(range(min(graph.nodes), max(graph.nodes)+2)) - set(graph.nodes))
         graph.add_node(node_label, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
+        if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
+            historical_marker = Speciation.next_historical_marker()
+            graph.speciation_descriptor['node to marker'][node_label] = historical_marker
+            graph.speciation_descriptor['marker to node'][historical_marker] = node_label
 
         # update graph connections
         graph.add_edge(edge[0], node_label)
@@ -85,6 +90,9 @@ class RemoveNode(EvolutionOperators):
         graph.remove_edge(node_to_remove, graph.suc(node_to_remove)[0])
 
         graph.remove_node(node_to_remove)
+        if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
+            marker = graph.speciation_descriptor['node to marker'].pop(node_to_remove)
+            graph.speciation_descriptor['marker to node'].pop(marker)
 
         return graph
 
@@ -179,6 +187,12 @@ class AddInterferometer(EvolutionOperators):
 
         graph.add_node(label1, **{'model': splitter1, 'name': splitter1.__class__.__name__, 'lock': False})
         graph.add_node(label2, **{'model': splitter2, 'name': splitter2.__class__.__name__, 'lock': False})
+        if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
+            for node in [label1, label2]:
+                historical_marker = Speciation.next_historical_marker()
+                graph.speciation_descriptor['node to marker'][node] = historical_marker
+                graph.speciation_descriptor['marker to node'][historical_marker] = node
+
 
         # we need to put the new splitters in the proper order to avoid loops (follow the propagation order)
         if graph.propagation_order.index(edges[0][0]) <= graph.propagation_order.index(edges[1][0]):
@@ -285,6 +299,10 @@ class RemoveOneInterferometerPath(EvolutionOperators):
 
         # remove the nodes that should be deleted
         graph.remove_nodes_from(nodes_to_remove)
+        if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
+            for node in nodes_to_remove:
+                marker = graph.speciation_descriptor['node to marker'].pop(node)
+                graph.speciation_descriptor['marker to node'].pop(marker)            
 
         if verbose:
             str_info = 'Source node {} | Sink node {} | Branch to keep {} | Nodes to delete {}'.format(source_node, sink_node, branch_to_keep, nodes_to_remove)
@@ -351,6 +369,11 @@ class AddInterferometerSimple(EvolutionOperators):
         graph.add_node(label1, **{'model': splitter1, 'name': splitter1.__class__.__name__, 'lock': False})
         graph.add_node(label2, **{'model': splitter2, 'name': splitter2.__class__.__name__, 'lock': False})
         graph.add_node(label3, **{'model': new_nonsplitter, 'name': new_nonsplitter.__class__.__name__, 'lock': False})
+        if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
+            for node in [label1, label2, label3]:
+                historical_marker = Speciation.next_historical_marker()
+                graph.speciation_descriptor['node to marker'][node] = historical_marker
+                graph.speciation_descriptor['marker to node'][historical_marker] = node
 
         graph.remove_edge(edge[0], edge[1])
         graph.add_edge(edge[0], label1)

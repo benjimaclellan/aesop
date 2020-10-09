@@ -1,5 +1,7 @@
 import autograd.numpy as np
 
+import config.config as config
+
 """
 Module for speciation! Generally follows the model given by NEAT:
 1. Each species has a representative member
@@ -22,6 +24,9 @@ Resources:
 
 THRESH_MAX_ADJUST = 0.3
 THRESH_ADJUST_PROP_CONSTANT = 0.1
+
+historical_marker = 1 # not always needed (only necessary for photoNEAT), but REALLY quite easy to maintain
+                      # starts at one such that next returned marker is 2 (1st of all population two nodes all have the same markers)
 
 class Speciation():
     """
@@ -58,7 +63,9 @@ class Speciation():
         # if there is no suitable representative individual, a species may die out
         # also set # of element per species to zero, we'll update in part 2
         graph_set = set([graph for (_, graph) in population])
-        for rep in self.species.items():
+        rep_set = set(self.species.keys()) # make shallow copy such that we can iterate without fear
+
+        for rep in rep_set:
             if rep in graph_set:
                 graph_set.remove(rep) # this element is no longer available to represent another species
                 self.species[rep] = 0
@@ -66,7 +73,7 @@ class Speciation():
             best_rep = None
             best_rep_score = 5 # all distance functions have range 0 to 1, so this is fine as a max
             for graph in graph_set:
-                if (graph not in self.species): # if it is, it's also out of bounds bc another species needs it as its representative
+                if (graph not in self.species.keys()): # if it is, it's also out of bounds bc another species needs it as its representative
                     score = self.distance_func(rep, graph)
                     if score < best_rep_score and score < self.d_thresh:
                         best_rep = graph
@@ -76,7 +83,17 @@ class Speciation():
             if best_rep is not None: # The rep is dead, long live the rep! Is best_rep is None, the species dies out
                 self.species[best_rep] = 0
                 graph_set.remove(best_rep) # this graph is no longer available to represent a species
-                
+        
+        # 2. Eliminate redundant species (i.e. species the representatives of which are excessively similar to one another)
+        # TODO: consider whether there's a more efficient way of checking this (spoiler, there def is...)
+        redundant_set = set()
+        for species0 in self.species.keys():
+            for species1 in self.species.keys():
+                if species0 != species1 and species0 not in redundant_set and species1 not in redundant_set and self.distance_func(species0, species1) < self.d_thresh:
+                    redundant_set.add(species1)
+        
+        for redundant in redundant_set:
+            self.species.pop(redundant)
 
         # 2. Slot every other graph
         for _, graph in population:
@@ -85,6 +102,7 @@ class Speciation():
                 self.species[graph] += 1
                 continue
             for rep in self.species:
+                print(f'distance: {self.distance_func(rep, graph)}')
                 if self.distance_func(rep, graph) < self.d_thresh:
                     self.individual_species_map[graph] = rep
                     self.species[rep] += 1
@@ -94,10 +112,14 @@ class Speciation():
             if graph not in self.individual_species_map: # alas, even after checking all the species, no dice. Make a new species with graph being the representative
                 self.individual_species_map[graph] = graph 
                 self.species[graph] = 1
-        
+        print(f'species: {self.species}')
+
         # 3. Update self.d_thresh with my awesome P(ID) method
-        self.d_thresh = min((self.target_species_num - len(self.species)) * THRESH_ADJUST_PROP_CONSTANT, THRESH_MAX_ADJUST) + self.d_thresh
-        self.d_thresh = max(0, min(self.d_thresh, 1)) # can't go past 0 or 1, since distance is always in that range (by def)
+        print(f'current d_thresh: {self.d_thresh}')
+        delta = np.clip(-1 * (self.target_species_num - len(self.species)) * THRESH_ADJUST_PROP_CONSTANT, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
+        self.d_thresh = delta + self.d_thresh
+        self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
+        print(f'udpated d_thresh: {self.d_thresh}')
     
     def execute_fitness_sharing(self, population, generation_num):
         """
@@ -116,9 +138,14 @@ class Speciation():
         for i in range(len(population)):
             graph = population[i][1]
             species_size = self.species[self.individual_species_map[graph]]
-            denominator = np.max(1, np.exp(-coeff * generation_num) * species_size)
+            denominator = max(1, np.exp(-coeff * generation_num) * species_size)
 
-            population[i][0] /= denominator # adjust fitness score
+            population[i] = (population[i][0] / denominator, population[i][1]) # adjust fitness score
+    
+    @staticmethod
+    def next_historical_marker(cls):
+        cls.historical_marker += 1 
+        return cls.historical_marker
 
 
 class DistanceEvaluatorInterface():
@@ -126,12 +153,15 @@ class DistanceEvaluatorInterface():
         pass
     
     def distance(self, graph0, graph1):
+        """
+        Must be reflective and commutative, but NOT (necessarily) transitive
+        """
         pass
 
 
 class SimpleSubpopulationSchemeDist(DistanceEvaluatorInterface):      
-    def __init__(self, num_species=10):
-        self.num_species = num_species
+    def __init__(self):
+        pass 
 
     def distance(self, graph0, graph1):
         """
@@ -141,8 +171,65 @@ class SimpleSubpopulationSchemeDist(DistanceEvaluatorInterface):
         Each graph has a label (which all of its children inherit) which indicates its species. Distance is 0 between species,
         1 otherwise. Really simple
         """
-        if graph0.speciation_descriptor == graph1.speciation_descriptor:
-            return 1
+        if (graph0.speciation_descriptor['name'] != 'simple subpopulation scheme' or graph1.speciation_descriptor['name'] != 'simple subpopulation scheme'):
+            raise ValueError(f'speciation descriptor {graph0.speciation_descriptor}, {graph1.speciation_descriptor} does not match simple subpopulation scheme!')
+        if graph0.speciation_descriptor['label'] == graph1.speciation_descriptor['label']:
+            return 0
 
-        return 0
+        return 1
 
+
+class vectorDIFF(DistanceEvaluatorInterface):
+    """
+    Comparison in this class is based solely on the number of same-class models in a graph. It does not rely on graph shape
+    Each model forms a "basis" for the similarity vector. 
+    E.g. if CWL->PM->PD were <1, 1, 0, …, 1>, then CWL->PM->PM->PD would be <1, 2, 0, …, 1>
+    """
+    def __init__(self):
+        self.vector_basis = {} # maps model class to index number in the vector comparison
+        index = 0
+        for _, node_sub_classes in config.NODE_TYPES_ALL.items():
+            for _, model_class in node_sub_classes.items():
+                self.vector_basis[model_class] = index
+                index += 1
+        
+        self.dimension = index
+        
+    def distance(self, graph0, graph1):
+        if (graph0.speciation_descriptor['name'] != 'vectorDIFF' or graph1.speciation_descriptor['name'] != 'vectorDIFF'):
+            raise ValueError(f'speciation descriptor {graph0.speciation_descriptor}, {graph1.speciation_descriptor} does not match vectorDIFF!')
+        
+        vector0 = self._get_vector(graph0)
+        vector1 = self._get_vector(graph1)
+
+        # normalization: suppose they both have totally different nodes, max possible norm is sqrt(size0**2 + size1**2)
+        # actually it's realistically less bc you can't have all the same node type, but this will do as a normalization
+        return np.linalg.norm(vector0 - vector1) / np.sqrt(np.power(len(graph0.nodes), 2) + np.power(len(graph1.nodes), 2))
+
+    def _get_vector(self, graph):
+        vector = np.zeros(self.dimension)
+        for node in graph.nodes:
+            model = type(graph.nodes[node]['model'])
+            vector[self.vector_basis[model]] += 1
+        return vector
+
+
+class photoNEAT(DistanceEvaluatorInterface):
+    """
+    Basically NEAT speciation, but only nodes get a historical marker, and distance function also weighs heterogeneity of nodes
+    
+    TODO: add disjoint genes (not just excess) if we get crossovers going. Not useful rn
+    """
+    def __init__(self, a1, a2):
+        weights_sum = a1 + a2
+        self.weights = (a1 / weights_sum, a2 / weights_sum)
+    
+    def distance(self, graph0, graph1):
+        if (graph0.speciation_descriptor['name'] != 'photoNEAT' or graph1.speciation_descriptor['name'] != 'photoNEAT'):
+            raise ValueError(f'speciation descriptor {graph0.speciation_descriptor}, {graph1.speciation_descriptor} does not match photoNEAT!')
+        
+        markers0_set = set(graph0.speciation_descriptor['marker to node'].key())
+        markers1_set = set(graph1.speciation_descriptor['marker to node'].key())
+
+        raise ValueError('photoNEAT distance function not fully implemented yet')
+        

@@ -481,8 +481,8 @@ class EDFA(SinglePath):
 
         P_in = np.mean(power_(state)) # EDFAs saturation is affected by average power according to
 
-        if P_in > self._P_in_max:
-            raise ValueError(f'input signal {P_in} is greater than max input signal {self._P_in_max}')
+        # if P_in > self._P_in_max:
+        #     raise ValueError(f'input signal {P_in} is greater than max input signal {self._P_in_max}')
 
         self._last_gain = small_signal_gain / (1 + (small_signal_gain * P_in / self._P_out_max)**self._alpha) 
         return self._last_gain

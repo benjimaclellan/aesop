@@ -62,6 +62,12 @@ class Graph(GraphParent):
         self.hess = None
 
         self.score = None
+    
+    # def __str__(self):
+    #     string_rep = ""
+    #     for i in self.nodes:
+    #         string_rep += f"{self.nodes[i]['model'].node_acronym} "
+    #     return string_rep
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
