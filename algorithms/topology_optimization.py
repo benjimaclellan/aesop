@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import ray
+import random
 
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
@@ -13,6 +14,7 @@ from algorithms.speciation import Speciation, SimpleSubpopulationSchemeDist, vec
 
 
 SPECIATION_MANAGER = None 
+random.seed(1020)
 
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
@@ -24,12 +26,20 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
+    elif update_rule == 'preferential':
+        update_population = update_population_topology_preferential
     elif update_rule == 'random simple subpop scheme':
         update_population = update_population_topology_random_simple_subpopulation_scheme
+    elif update_rule == 'preferential simple subpop scheme':
+        update_population = update_population_topology_preferential_simple_subpopulation_scheme
     elif update_rule == 'random vectorDIFF':
         update_population = update_population_topology_random_vectorDIFF
+    elif update_rule == 'preferential vectorDIFF':
+        update_population_topology_preferential_vectorDIFF
     elif update_rule == 'random photoNEAT':
         update_population = update_population_topology_random_photoNEAT
+    elif update_rule == 'preferential photoNEAT':
+        update_population_topology_preferential_photoNEAT
     else:
         raise NotImplementedError("This topology optimization update rule is not implemented yet. current options are 'random'")
 
@@ -68,6 +78,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
             SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
 
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
+        population = population[0:ga_opts['n_population'] - 1] # get rid of extra params, if we have too many
         for (score, graph) in population:
             graph.clear_propagation()
 
@@ -138,6 +149,39 @@ def update_population_topology_random(population, evolver, evaluator, propagator
     return population
 
 
+def update_population_topology_preferential(population, evolver, evaluator, propagator, **hyperparameters):
+    """
+    Updates population such that the fitter individuals have a larger chance of reproducing
+
+    So we want individuals to reproduce about once on average, more for the fitter, less for the less fit
+    """
+    most_fit_reproduction_mean = 2 # most fit element will on average reproduce this many additional times (everyone reproduces once at least)
+
+    score_array = np.array([score for (score, _) in population])
+    print(f'score_array: {score_array}')
+    break_probability = 1 / most_fit_reproduction_mean * score_array / np.max(score_array)
+    new_pop = []
+    for i, (score, graph) in enumerate(population):
+        while True:
+            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator, propagator)
+            x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
+            try:
+                graph_tmp.assert_number_of_edges()
+            except:
+                continue
+
+            if len(x0) == 0:
+                continue
+            
+            new_pop.append(None, graph_tmp)
+            
+            if random.random() < break_probability[i]:
+                break
+
+    return population[0:len(population) / 10] + new_pop # top 10 percent of old population, and new recruits go through
+
+
+
 # ------------------------------- Speciation setup helpers -----------------------------------
 
 def _simple_subpopulation_setup(population, **hyperparameters):
@@ -187,9 +231,19 @@ def update_population_topology_random_simple_subpopulation_scheme(population, ev
     return update_population_topology_random(population, evolver, evaluator, propagator) # rest goes on normally
 
 
+def update_population_topology_preferential_simple_subpopulation_scheme(population, evolver, evaluator, propagator, **hyperparameters):
+    _simple_subpopulation_setup(population, **hyperparameters)
+    return update_population_topology_preferential(population, evolver, evaluator, propagator) # rest goes on normally
+
+
 def update_population_topology_random_vectorDIFF(population, evolver, evaluator, propagator, **hyperparameters):
     _vectorDIFF_setup(population, **hyperparameters)
     return update_population_topology_random(population, evolver, evaluator, propagator)
+
+
+def update_population_topology_preferential_vectorDIFF(population, evolver, evaluator, propagator, **hyperparameters):
+    _vectorDIFF_setup(population, **hyperparameters)
+    return update_population_topology_preferential(population, evolver, evaluator, propagator)
 
 
 def update_population_topology_random_photoNEAT(population, evolver, evaluator, propagator, **hyperparameters):
@@ -201,6 +255,12 @@ def update_population_topology_random_photoNEAT(population, evolver, evaluator, 
     """
     _photoNEAT_setup(population, **hyperparameters)
     return update_population_topology_random(population, evolver, evaluator, propagator)
+
+
+def update_population_topology_preferential_photoNEAT(population, evolver, evaluator, propagator, **hyperparameters):
+    _photoNEAT_setup(population, **hyperparameters)
+    return update_population_topology_preferential(population, evolver, evaluator, propagator)
+
 
 
 @ray.remote
