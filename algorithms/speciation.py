@@ -25,12 +25,14 @@ Resources:
 THRESH_MAX_ADJUST = 0.3
 THRESH_ADJUST_PROP_CONSTANT = 0.1
 
-historical_marker = 1 # not always needed (only necessary for photoNEAT), but REALLY quite easy to maintain
-                      # starts at one such that next returned marker is 2 (1st of all population two nodes all have the same markers)
 
 class Speciation():
     """
     """
+
+    historical_marker = 1 # not always needed (only necessary for photoNEAT), but REALLY quite easy to maintain
+                        # starts at one such that next returned marker is 2 (1st of all population two nodes all have the same markers)
+
     def __init__(self, target_species_num=None, d_thresh=0.4, protection_half_life=None, distance_func=None):
         """
         :param target_species_num: target number of species (note: actual number will fluctuate)
@@ -143,9 +145,9 @@ class Speciation():
             population[i] = (population[i][0] / denominator, population[i][1]) # adjust fitness score
     
     @staticmethod
-    def next_historical_marker(cls):
-        cls.historical_marker += 1 
-        return cls.historical_marker
+    def next_historical_marker():
+        Speciation.historical_marker += 1 
+        return Speciation.historical_marker
 
 
 class DistanceEvaluatorInterface():
@@ -220,7 +222,7 @@ class photoNEAT(DistanceEvaluatorInterface):
     
     TODO: add disjoint genes (not just excess) if we get crossovers going. Not useful rn
     """
-    def __init__(self, a1, a2):
+    def __init__(self, a1=0.7, a2=0.3):
         weights_sum = a1 + a2
         self.weights = (a1 / weights_sum, a2 / weights_sum)
     
@@ -228,8 +230,20 @@ class photoNEAT(DistanceEvaluatorInterface):
         if (graph0.speciation_descriptor['name'] != 'photoNEAT' or graph1.speciation_descriptor['name'] != 'photoNEAT'):
             raise ValueError(f'speciation descriptor {graph0.speciation_descriptor}, {graph1.speciation_descriptor} does not match photoNEAT!')
         
-        markers0_set = set(graph0.speciation_descriptor['marker to node'].key())
-        markers1_set = set(graph1.speciation_descriptor['marker to node'].key())
+        markers0_set = set(graph0.speciation_descriptor['marker to node'].keys())
+        markers1_set = set(graph1.speciation_descriptor['marker to node'].keys())
+        markers_intersection = markers0_set.intersection(markers1_set)
 
-        raise ValueError('photoNEAT distance function not fully implemented yet')
+        print(f'markers0: {markers0_set}')
+        print(f'markers1: {markers1_set}')
+        print(f'markers intersection: {markers_intersection}')
+
+        structural_diff = (len(markers0_set) + len(markers1_set) - 2 * len(markers_intersection)) / (len(markers0_set) + len(markers1_set))
+        print(f'structural_diff: {structural_diff}')
+        # list[marker] contains 0 (False) if the nodes at the same marker are of different classes, 1 otherwise
+        compositional_diff_list = [type(graph0.speciation_descriptor['marker to node'][marker]) != type(graph1.speciation_descriptor['marker to node'][marker]) for marker in markers_intersection]
+        compositional_diff = np.sum(np.array(compositional_diff_list, dtype=int)) / len(markers_intersection)
+        print(f'compositional_diff: {compositional_diff}')
+
+        return self.weights[0] * structural_diff + self.weights[1] * compositional_diff
         

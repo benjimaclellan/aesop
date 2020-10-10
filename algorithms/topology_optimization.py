@@ -28,6 +28,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         update_population = update_population_topology_random_simple_subpopulation_scheme
     elif update_rule == 'random vectorDIFF':
         update_population = update_population_topology_random_vectorDIFF
+    elif update_rule == 'random photoNEAT':
+        update_population = update_population_topology_random_photoNEAT
     else:
         raise NotImplementedError("This topology optimization update rule is not implemented yet. current options are 'random'")
 
@@ -162,15 +164,15 @@ def _vectorDIFF_setup(population, **hyperparameters):
             graph.speciation_descriptor = {'name':'vectorDIFF'}
 
 
-def _photoNEAT_setup(population, hyperparameters):
+def _photoNEAT_setup(population, **hyperparameters):
     global SPECIATION_MANAGER
-    # set up speciation if it's not set up already, noly necessary on first function call
+    # set up speciation if it's not set up already, only necessary on first function call
     if population[0][1].speciation_descriptor is None:
         dist_func = photoNEAT().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
                                         distance_func=dist_func)
-        for i, _, graph in enumerate(population):
+        for i, (_, graph) in enumerate(population):
             marker_node_map = {}
             node_marker_map = {}
             for i, node in enumerate(graph.nodes): # we only expect 2 things to start with, so i = 0, 1

@@ -6,7 +6,7 @@ import networkx as nx
 import config.config as configuration
 from lib.decorators import register_evolution_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
-import algorithms.speciation as Speciation
+from algorithms.speciation import Speciation
 import random
 
 
