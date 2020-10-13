@@ -48,14 +48,16 @@ if __name__ == "__main__":
     def animate_func(i, graph, evaluator, propagator, fig=fig2):
         N_TRIES = 0
         while N_TRIES < 20:
-            try:
-                graph_tmp = evolver.evolve_graph(graph, evaluator, propagator, verbose=True)
-                graph.assert_number_of_edges()
-                graph = graph_tmp
-                break
-            except:
-                N_TRIES += 1
-                continue
+            # try:
+            print(N_TRIES)
+            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator, propagator, verbose=True)
+            print(evo_op_choice)
+            graph.assert_number_of_edges()
+            graph = graph_tmp
+            break
+            # except:
+            #     N_TRIES += 1
+            #     continue
         graph.assert_number_of_edges()
 
         # if plot:
@@ -66,7 +68,7 @@ if __name__ == "__main__":
         #
         #     plt.figure(fig1.number)
         #     ax.cla()
-        #     graph.draw(ax=ax, labels=dict(zip(graph.nodes, model_names)))
+        #     graph.draw(ax=ax)
         #     plt.show()
         #     plt.pause(0.25)
         #     # plt.waitforbuttonpress()
@@ -81,13 +83,13 @@ if __name__ == "__main__":
             plt.figure(fig.number)
             state = graph.measure_propagator(-1)
             for ax in ax2: ax.cla()
-            model_names = ['{}'.format(node) for node in graph.nodes]
-            graph.draw(ax=ax2[0], labels=dict(zip(graph.nodes, model_names)))
+            graph.draw(ax=ax2[0])
             ax2[1].plot(propagator.t, np.power(np.abs(state), 2))
             ax2[1].set_ylim([0,1])
             if not animate:
                 plt.show()
-                plt.pause(0.25)
+                plt.waitforbuttonpress()
+                # plt.pause(0.25)
 
     if animate:
         anim = animation.FuncAnimation(fig2, animate_func, frames=150, init_func=None, fargs=(graph, evaluator, propagator),
