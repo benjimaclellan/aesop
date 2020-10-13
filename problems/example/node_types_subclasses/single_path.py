@@ -51,7 +51,7 @@ class CorningFiber(SinglePath):
 
     # TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
     # TODO : check this, and every other model for correctness (so far its been about logic flow)
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         length = self.parameters[0]
 
@@ -97,7 +97,7 @@ class VariableOpticalAttenuator(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         attenuation = self.parameters[0]
 
@@ -159,7 +159,7 @@ class PhaseModulator(SinglePath):
         """
         self.update_noise_model()
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
         depth = self.parameters[0]
@@ -207,7 +207,7 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
 
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0,
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1,
                   save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
@@ -265,7 +265,7 @@ class WaveShaper(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
         # Slice at into the first half (amp) and last half (phase)
@@ -337,7 +337,7 @@ class IntegratedSplitAndDelayLine(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         coupling_ratios = self.parameters
 
@@ -627,7 +627,7 @@ class ProgrammableFilter(SinglePath):
             y += coeff * self.bernstein(t, i=m, n=len(coeffs) - 1)
         return y
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
 
         # Slice at into the first half (amp) and last half (phase)
@@ -686,7 +686,7 @@ class DelayLine(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
         delay = self.parameters[0]
 

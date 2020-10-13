@@ -8,6 +8,7 @@ from lib.decorators import register_evolution_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
 from algorithms.speciation import Speciation
 import random
+import matplotlib.pyplot as plt
 
 
 @register_evolution_operators
@@ -85,7 +86,14 @@ class RemoveNode(EvolutionOperators):
 
 
         # update graph connections
-        graph.add_edge(graph.pre(node_to_remove)[0], graph.suc(node_to_remove)[0])
+        print(f'pre: {graph.pre(node_to_remove)}')
+        print(f'suc: {graph.suc(node_to_remove)}')
+        try:
+            graph.add_edge(graph.pre(node_to_remove)[0], graph.suc(node_to_remove)[0])
+        except IndexError as e:
+            print(e)
+            graph.draw(legend=True)
+            plt.show()
         graph.remove_edge(graph.pre(node_to_remove)[0], node_to_remove)
         graph.remove_edge(node_to_remove, graph.suc(node_to_remove)[0])
 

@@ -96,15 +96,19 @@ class Speciation():
         
         for redundant in redundant_set:
             self.species.pop(redundant)
+        
+        print(f'PRIOR TO SPECIATION')
+        print(f'species: {self.species}')
+        print(f'map (individual->species): {self.individual_species_map}')
 
         # 2. Slot every other graph
+        print(f'population size: {len(population)}')
         for _, graph in population:
             if graph in self.species:
                 self.individual_species_map[graph] = graph # graph is its own representative, yay!
                 self.species[graph] += 1
                 continue
             for rep in self.species:
-                print(f'distance: {self.distance_func(rep, graph)}')
                 if self.distance_func(rep, graph) < self.d_thresh:
                     self.individual_species_map[graph] = rep
                     self.species[rep] += 1
@@ -114,6 +118,8 @@ class Speciation():
             if graph not in self.individual_species_map: # alas, even after checking all the species, no dice. Make a new species with graph being the representative
                 self.individual_species_map[graph] = graph 
                 self.species[graph] = 1
+
+        print(f'POST SPECIATION')
         print(f'species: {self.species}')
 
         # 3. Update self.d_thresh with my awesome P(ID) method

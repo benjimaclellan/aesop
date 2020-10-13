@@ -14,15 +14,14 @@ from algorithms.speciation import Speciation, SimpleSubpopulationSchemeDist, vec
 
 
 SPECIATION_MANAGER = None 
-random.seed(1020)
-
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           ga_opts=None, update_rule='random',
-                          target_species_num=2, protection_half_life=None,
+                          target_species_num=3, protection_half_life=None,
                           cluster_address=None, local_mode=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
+    random.seed(1020)
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
@@ -72,7 +71,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                                                                                    protection_half_life=protection_half_life)
 
         # optimize parameters on each node/CPU
-        population = ray.get([parameters_optimize_multiprocess.remote(graph, evaluator_id, propagator_id) for (_, graph) in population])
+        population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
         if SPECIATION_MANAGER is not None: # apply fitness sharing
             SPECIATION_MANAGER.speciate(population)
             SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
@@ -154,11 +153,16 @@ def update_population_topology_preferential(population, evolver, evaluator, prop
     Updates population such that the fitter individuals have a larger chance of reproducing
 
     So we want individuals to reproduce about once on average, more for the fitter, less for the less fit
+
+    :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
     """
     most_fit_reproduction_mean = 2 # most fit element will on average reproduce this many additional times (everyone reproduces once at least)
+    if (population[0][0] is not None):
+        score_array = np.array([score for (score, _) in population])
+    else:
+        score_array = np.ones(len(population)).reshape(len(population), 1)
+        most_fit_reproduction_mean = 1
 
-    score_array = np.array([score for (score, _) in population])
-    print(f'score_array: {score_array}')
     break_probability = 1 / most_fit_reproduction_mean * score_array / np.max(score_array)
     new_pop = []
     for i, (score, graph) in enumerate(population):
@@ -173,13 +177,12 @@ def update_population_topology_preferential(population, evolver, evaluator, prop
             if len(x0) == 0:
                 continue
             
-            new_pop.append(None, graph_tmp)
+            new_pop.append((None, graph_tmp))
             
             if random.random() < break_probability[i]:
                 break
 
-    return population[0:len(population) / 10] + new_pop # top 10 percent of old population, and new recruits go through
-
+    return population[0:len(population) // 5 + 1] + new_pop # top 10 percent of old population, and new recruits go through
 
 
 # ------------------------------- Speciation setup helpers -----------------------------------
@@ -264,7 +267,10 @@ def update_population_topology_preferential_photoNEAT(population, evolver, evalu
 
 
 @ray.remote
-def parameters_optimize_multiprocess(graph, evaluator, propagator):
+def parameters_optimize_multiprocess(ind, evaluator, propagator):
+    score, graph = ind
+    if score is not None:
+        return score, graph
     graph.clear_propagation()
     graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
     x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
