@@ -127,6 +127,10 @@ class Graph(GraphParent):
         """Return the predeccessors of a node (nodes which lead to the current one) as a list
         """
         return list(self.predecessors(node))
+    
+    @property
+    def propagate_on_edges(self):
+        return self._propagate_on_edges
 
     def clear_propagation(self):
         self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems

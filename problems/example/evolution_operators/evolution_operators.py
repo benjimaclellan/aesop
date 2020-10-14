@@ -1,14 +1,13 @@
 import numpy as np
 import random
 import networkx as nx
-
+import matplotlib.pyplot as plt
 
 import config.config as configuration
-from lib.decorators import register_evolution_operators
+from lib.decorators import register_evolution_operators, register_crossover_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
 from algorithms.speciation import Speciation
-import random
-import matplotlib.pyplot as plt
+from problems.example.graph import Graph
 
 
 @register_evolution_operators
@@ -419,3 +418,100 @@ class AddInterferometerSimple(EvolutionOperators):
             return False
         else:
             return True
+
+
+@register_crossover_operators
+class SinglePointCrossover(EvolutionOperators):
+    """
+    A simple crossover operator which allows crossovers ONLY at bridges in the graph
+    Modifies graph0 and graph1 (in that it DOES NOT do a deepcopy of their nodes / edges and makes it undirected)
+    """
+    def __init__(self, **attr):
+        super().__init__(**attr)
+
+    def apply_evolution(self, graph0, graph1, verbose=False):
+        # TODO: pick bridge using NEAT historical marker methods
+
+        # 1. Pick a bridge on each graph. This is the edge across which we'll split the graphs
+        bridge0 = random.sample(list(nx.bridges(nx.Graph(graph0))), 1)[0]
+        bridge1 = random.sample(list(nx.bridges(nx.Graph(graph1))), 1)[0]
+        bridge0_model = None
+        try:
+            bridge0_model = graph0.edges[bridge0[0], bridge0[1]]['model']
+        except:
+            pass
+
+        # print(f'bridge0: {bridge0}, model0: {bridge0_model}')
+        # print(f'bridge1: {bridge1}')
+
+        # 2. Remove the edges bridge0 and bridge1 from the graphs. Like this, we get the 4 components we want to crossover
+        graph0.remove_edge(bridge0[0], bridge0[1])
+        graph1.remove_edge(bridge1[0], bridge1[1])
+
+        # 3. Grab the relevant components
+        graph0_comps = [c for c in nx.weakly_connected_components(graph0)]
+        graph1_comps = [c for c in nx.weakly_connected_components(graph1)]
+
+        graph0_A = graph0_comps[0]
+        graph0_B = graph0_comps[1]
+        graph1_A = graph1_comps[0]
+        graph1_B = graph1_comps[1]
+
+        # 4. Create the children
+        # 4.1 Create the nodes
+        graph0_start_nodes, graph0_end_nodes = (graph0_A, graph0_B) if 0 in graph0_A else (graph0_B, graph0_A)
+        graph1_start_nodes, graph1_end_nodes = (graph1_A, graph1_B) if 0 in graph1_A else (graph1_B, graph1_A)
+        child0_nodes = {node_num: graph0.nodes[node_num]['model'] for node_num in graph0_start_nodes}
+        child0_nodes.update({node_num: graph1.nodes[node_num]['model'] for node_num in graph1_end_nodes})
+        child1_nodes = {node_num: graph1.nodes[node_num]['model'] for node_num in graph1_start_nodes}
+        child1_nodes.update({node_num: graph0.nodes[node_num]['model'] for node_num in graph0_end_nodes})
+
+        # print(f'child0 nodes: {child0_nodes}')
+        # print(f'child1 nodes: {child1_nodes}')
+
+        # 4.2 Create the edges
+        child0_edges = []
+        child1_edges = []
+    
+        for edge in graph0.edges:
+            if edge[0] in graph0_start_nodes:
+                child0_edges.append(edge)
+            else:
+                child1_edges.append(edge)
+        
+        for edge in graph1.edges:
+            if edge[0] in graph1_start_nodes:
+                child1_edges.append(edge)
+            else:
+                child0_edges.append(edge)
+
+        # 4.3 Add the new bridge edges
+        (child0_connect_start, child1_connect_end) = (bridge0[0], bridge0[1]) if bridge0[0] in graph0_start_nodes else (bridge0[1], bridge0[0])
+        (child1_connect_start, child0_connect_end) = (bridge1[0], bridge1[1]) if bridge1[0] in graph0_start_nodes else (bridge1[1], bridge1[0])
+
+        child0_bridge = (child0_connect_start, child0_connect_end) if bridge0_model is None else (child0_connect_start, child0_connect_end, bridge0_model)
+        child1_bridge = (child1_connect_start, child1_connect_end) if bridge0_model is None else (child1_connect_start, child1_connect_end, bridge0_model)
+
+        child0_edges.append(child0_bridge)
+        child1_edges.append(child1_bridge)
+
+        # print(f'child0 edges: {child0_edges}')
+        # print(f'child1 edges: {child1_edges}')
+
+        # 5. Make children
+        child0 = Graph(nodes=child0_nodes, edges=child0_edges, propagate_on_edges=graph0.propagate_on_edges, coupling_efficiency=graph0.coupling_efficiency)
+        child1 = Graph(nodes=child1_nodes, edges=child1_edges, propagate_on_edges=graph0.propagate_on_edges, coupling_efficiency=graph0.coupling_efficiency)
+
+        return child0, child1
+
+    def verify_evolution(self, graph0, graph1):
+        """
+        Should not make modifications to graph0 and graph1
+        """
+        # undirected0 = graph0.to_undirected()
+        # undirected1 = graph1.to_undirected()
+        undirected0 = nx.Graph(graph0)
+        undirected1 = nx.Graph(graph1)
+        return nx.has_bridges(undirected0) and nx.has_bridges(undirected1)
+
+

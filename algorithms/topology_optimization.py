@@ -11,7 +11,7 @@ import random
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
 from algorithms.speciation import Speciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT
-
+import config.config as configuration
 
 SPECIATION_MANAGER = None 
 
@@ -21,10 +21,12 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           cluster_address=None, local_mode=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
-    random.seed(1020)
+    random.seed(18)
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
+    elif update_rule == 'test crossover':
+        update_population = update_population_crossover_test
     elif update_rule == 'preferential':
         update_population = update_population_topology_preferential
     elif update_rule == 'random simple subpop scheme':
@@ -69,6 +71,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
         population = update_population(population, evolver, evaluator, propagator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                                    protection_half_life=protection_half_life)
+        print(f'post update population: {population}')
 
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
@@ -77,7 +80,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
             SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
 
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
-        population = population[0:ga_opts['n_population'] - 1] # get rid of extra params, if we have too many
+        population = population[0:ga_opts['n_population']] # get rid of extra params, if we have too many
         for (score, graph) in population:
             graph.clear_propagation()
 
@@ -146,14 +149,46 @@ def update_population_topology_random(population, evolver, evaluator, propagator
                 graph = graph_tmp
                 break
         population[i] = (None, graph)
+
     return population
 
+
+def update_population_crossover_test(population, evolver, evaluator, propagator, **hyperparameters):
+    graph0 = population[0][1]
+    graph1 = population[1][1]
+    graph0.draw(legend=True)
+    # graph1.draw(legend=True)
+    # x00, node_edge_index0, parameter_index0, *_ = graph0.extract_parameters_to_list()
+    # x01, node_edge_index1, parameter_index1, *_ = graph1.extract_parameters_to_list()
+    # print(f'x0, node_edge_index, parameter_index (graph0, graph1): {(x00, x01)}, {(node_edge_index0, node_edge_index1)}, {(parameter_index0, parameter_index1)}')
+
+
+
+    verification = [evo_op().verify_evolution(graph0, graph1) for (_, evo_op) in configuration.CROSSOVER_OPERATORS.items()]
+    if not verification[0]:
+        print(f'verification failed!')
+        assert False
+    possible_crossover_ops = [evo_op for (verify, evo_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
+    
+
+    crossover = possible_crossover_ops[0]()
+
+    child0, child1 = crossover.apply_evolution(graph0, graph1)
+
+    # child0.draw(legend=True)
+    # child1.draw(legend=True)
+    # plt.show()
+    population[0] = (None, child0)
+    population[1] = (None, child1)
+
+    return population
 
 def update_population_topology_preferential(population, evolver, evaluator, propagator, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
 
     So we want individuals to reproduce about once on average, more for the fitter, less for the less fit
+    Does not modify the original graphs in population, unlike the random update rule
 
     :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
     """
@@ -168,7 +203,7 @@ def update_population_topology_preferential(population, evolver, evaluator, prop
     new_pop = []
     for i, (score, graph) in enumerate(population):
         while True:
-            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator, propagator)
+            graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator, propagator)
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
@@ -179,7 +214,8 @@ def update_population_topology_preferential(population, evolver, evaluator, prop
                 continue
             
             new_pop.append((None, graph_tmp))
-            
+            print(f'Do we have a new graph, or modify the existing one?')
+            print(f'graph is graph_tmp: {graph is graph_tmp}')
             if random.random() < break_probability[i]:
                 break
 
@@ -272,6 +308,7 @@ def parameters_optimize_multiprocess(ind, evaluator, propagator):
     score, graph = ind
     if score is not None:
         return score, graph
+
     try:
         graph.clear_propagation()
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
