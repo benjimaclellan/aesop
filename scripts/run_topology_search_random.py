@@ -22,7 +22,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
+from problems.example.evolver import Evolver, CrossoverMaker
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -51,6 +51,7 @@ if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     evolver = Evolver(verbose=True)
+    crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}
     edges = [(0,-1)]

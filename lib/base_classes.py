@@ -50,9 +50,11 @@ class NodeType(object):
     def assert_number_of_edges(self, number_input_edges, number_output_edges):
         """  """
         if not (min(self._range_input_edges) <= number_input_edges <= max(self._range_input_edges)):
-            raise TypeError("Current node, {}, has an unphysical number of inputs".format(self.__class__))
+            raise TypeError("Current node, {}, has an unphysical number of inputs ({}). Correct range is {}-{}".format(self.__class__, number_input_edges,
+                                                                                                                       min(self._range_input_edges), max(self._range_input_edges)))
         if not (min(self._range_output_edges) <= number_output_edges <= max(self._range_output_edges)):
-            raise TypeError("Current node, {}, has an unphysical number of outputs".format(self.__class__))
+            raise TypeError("Current node, {}, has an unphysical number of outputs ({})Correct range is {}-{}".format(self.__class__, number_output_edges,
+                                                                                                                       self._range_output_edges, self._range_input_edges))
         return
 
     def get_parameter_from_name(self, parameter_name):

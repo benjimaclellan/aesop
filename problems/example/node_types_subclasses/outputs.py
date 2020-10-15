@@ -19,7 +19,7 @@ from problems.example.assets.additive_noise import AdditiveNoise
 class MeasurementDevice(Output):
     def __init__(self, **kwargs):
         self.node_lock = True
-        self.node_acronym = 'PD'
+        self.node_acronym = 'MD'
 
         self.number_of_parameters = 0
         self.upper_bounds = []

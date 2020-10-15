@@ -16,6 +16,7 @@ import config.config as configuration
 SPECIATION_MANAGER = None 
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
+                          crossover_maker=None,
                           ga_opts=None, update_rule='random',
                           target_species_num=3, protection_half_life=None,
                           cluster_address=None, local_mode=False):
@@ -70,7 +71,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
         population = update_population(population, evolver, evaluator, propagator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
-                                                                                   protection_half_life=protection_half_life)
+                                                                                   protection_half_life=protection_half_life,
+                                                                                   crossover_maker=crossover_maker)
         print(f'post update population: {population}')
 
         # optimize parameters on each node/CPU
@@ -153,35 +155,35 @@ def update_population_topology_random(population, evolver, evaluator, propagator
     return population
 
 
-def update_population_crossover_test(population, evolver, evaluator, propagator, **hyperparameters):
-    graph0 = population[0][1]
-    graph1 = population[1][1]
-    graph0.draw(legend=True)
-    # graph1.draw(legend=True)
-    # x00, node_edge_index0, parameter_index0, *_ = graph0.extract_parameters_to_list()
-    # x01, node_edge_index1, parameter_index1, *_ = graph1.extract_parameters_to_list()
-    # print(f'x0, node_edge_index, parameter_index (graph0, graph1): {(x00, x01)}, {(node_edge_index0, node_edge_index1)}, {(parameter_index0, parameter_index1)}')
+# def update_population_crossover_test(population, evolver, evaluator, propagator, **hyperparameters):
+#     graph0 = population[0][1]
+#     graph1 = population[1][1]
+#     graph0.draw(legend=True)
+#     # graph1.draw(legend=True)
+#     # x00, node_edge_index0, parameter_index0, *_ = graph0.extract_parameters_to_list()
+#     # x01, node_edge_index1, parameter_index1, *_ = graph1.extract_parameters_to_list()
+#     # print(f'x0, node_edge_index, parameter_index (graph0, graph1): {(x00, x01)}, {(node_edge_index0, node_edge_index1)}, {(parameter_index0, parameter_index1)}')
 
 
 
-    verification = [evo_op().verify_evolution(graph0, graph1) for (_, evo_op) in configuration.CROSSOVER_OPERATORS.items()]
-    if not verification[0]:
-        print(f'verification failed!')
-        assert False
-    possible_crossover_ops = [evo_op for (verify, evo_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
+#     verification = [evo_op().verify_evolution(graph0, graph1) for (_, evo_op) in configuration.CROSSOVER_OPERATORS.items()]
+#     if not verification[0]:
+#         print(f'verification failed!')
+#         assert False
+#     possible_crossover_ops = [evo_op for (verify, evo_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
     
 
-    crossover = possible_crossover_ops[0]()
+#     crossover = possible_crossover_ops[0]()
 
-    child0, child1 = crossover.apply_evolution(graph0, graph1)
+#     child0, child1 = crossover.apply_evolution(graph0, graph1)
 
-    # child0.draw(legend=True)
-    # child1.draw(legend=True)
-    # plt.show()
-    population[0] = (None, child0)
-    population[1] = (None, child1)
+#     # child0.draw(legend=True)
+#     # child1.draw(legend=True)
+#     # plt.show()
+#     population[0] = (None, child0)
+#     population[1] = (None, child1)
 
-    return population
+#     return population
 
 def update_population_topology_preferential(population, evolver, evaluator, propagator, **hyperparameters):
     """

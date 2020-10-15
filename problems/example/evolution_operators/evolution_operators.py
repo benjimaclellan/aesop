@@ -429,20 +429,22 @@ class SinglePointCrossover(EvolutionOperators):
     def __init__(self, **attr):
         super().__init__(**attr)
 
-    def apply_evolution(self, graph0, graph1, verbose=False):
+    def apply_evolution(self, graph0, graph1, verbose=False, debug=False):
         # TODO: pick bridge using NEAT historical marker methods
 
         # 1. Pick a bridge on each graph. This is the edge across which we'll split the graphs
         bridge0 = random.sample(list(nx.bridges(nx.Graph(graph0))), 1)[0]
         bridge1 = random.sample(list(nx.bridges(nx.Graph(graph1))), 1)[0]
+
         bridge0_model = None
         try:
             bridge0_model = graph0.edges[bridge0[0], bridge0[1]]['model']
         except:
             pass
 
-        # print(f'bridge0: {bridge0}, model0: {bridge0_model}')
-        # print(f'bridge1: {bridge1}')
+        if debug:
+            print(f'bridge0: {bridge0}, model0: {bridge0_model}')
+            print(f'bridge1: {bridge1}')
 
         # 2. Remove the edges bridge0 and bridge1 from the graphs. Like this, we get the 4 components we want to crossover
         graph0.remove_edge(bridge0[0], bridge0[1])
@@ -457,50 +459,111 @@ class SinglePointCrossover(EvolutionOperators):
         graph1_A = graph1_comps[0]
         graph1_B = graph1_comps[1]
 
+        if debug:
+            print(f'graph0_A: {graph0_A}')
+            print(f'graph0_B: {graph0_B}')
+            print(f'graph1_A: {graph1_A}')
+            print(f'graph1_B: {graph1_B}')
+
         # 4. Create the children
         # 4.1 Create the nodes
         graph0_start_nodes, graph0_end_nodes = (graph0_A, graph0_B) if 0 in graph0_A else (graph0_B, graph0_A)
         graph1_start_nodes, graph1_end_nodes = (graph1_A, graph1_B) if 0 in graph1_A else (graph1_B, graph1_A)
-        child0_nodes = {node_num: graph0.nodes[node_num]['model'] for node_num in graph0_start_nodes}
-        child0_nodes.update({node_num: graph1.nodes[node_num]['model'] for node_num in graph1_end_nodes})
-        child1_nodes = {node_num: graph1.nodes[node_num]['model'] for node_num in graph1_start_nodes}
-        child1_nodes.update({node_num: graph0.nodes[node_num]['model'] for node_num in graph0_end_nodes})
 
-        # print(f'child0 nodes: {child0_nodes}')
-        # print(f'child1 nodes: {child1_nodes}')
+        def new_node_num(node_num, offset):
+            if node_num == 0 or node_num == -1:
+                return node_num
+            return node_num + offset
+            
+        child0_nodes = {node_num: graph0.nodes[node_num]['model'] for node_num in graph0_start_nodes}
+        try:
+            node_num_offset0 = max(graph0_start_nodes) + 1 - min(graph1_end_nodes - set([-1]))
+        except ValueError: # if -1 is the only value in graph1_end_nodes, offset will not matter
+            node_num_offset0 = 0
+
+        if debug:
+            print(f'node_num_offset0: {node_num_offset0}')
+        child0_nodes.update({new_node_num(node_num, node_num_offset0): graph1.nodes[node_num]['model'] for node_num in graph1_end_nodes})
+
+        child1_nodes = {node_num: graph1.nodes[node_num]['model'] for node_num in graph1_start_nodes}
+        try:
+            node_num_offset1 = max(graph1_start_nodes) + 1 - min(graph0_end_nodes - set([-1]))
+        except ValueError: # if -1 is the only value in graph0_end_nodes, offset will not matter
+            node_num_offset1 = 0
+        if debug:
+            print(f'node_num_offset1: {node_num_offset1}')
+        child1_nodes.update({new_node_num(node_num, node_num_offset1): graph0.nodes[node_num]['model'] for node_num in graph0_end_nodes})
+
+        if debug:
+            print(f'\nchild0 nodes: {child0_nodes.keys()}')
+            print(f'\nchild1 nodes: {child1_nodes.keys()}')
 
         # 4.2 Create the edges
         child0_edges = []
         child1_edges = []
+
+        def new_edge(edge, offset, graph):
+            node_in = edge[0] if (edge[0] == 0 or edge[0] == -1) else edge[0] + offset
+            node_out = edge[1] if (edge[1] == 0 or edge[1] == -1) else edge[1] + offset
+            try:
+                return (node_in, node_out, graph.edges[edge]['model'])
+            except KeyError:
+                return (node_in, node_out)
     
         for edge in graph0.edges:
             if edge[0] in graph0_start_nodes:
-                child0_edges.append(edge)
+                child0_edges.append(new_edge(edge, 0, graph0))
             else:
-                child1_edges.append(edge)
+                child1_edges.append(new_edge(edge, node_num_offset1, graph0))
         
         for edge in graph1.edges:
             if edge[0] in graph1_start_nodes:
-                child1_edges.append(edge)
+                child1_edges.append(new_edge(edge, 0, graph1))
             else:
-                child0_edges.append(edge)
+                child0_edges.append(new_edge(edge, node_num_offset0, graph1))
 
         # 4.3 Add the new bridge edges
         (child0_connect_start, child1_connect_end) = (bridge0[0], bridge0[1]) if bridge0[0] in graph0_start_nodes else (bridge0[1], bridge0[0])
-        (child1_connect_start, child0_connect_end) = (bridge1[0], bridge1[1]) if bridge1[0] in graph0_start_nodes else (bridge1[1], bridge1[0])
+        (child1_connect_start, child0_connect_end) = (bridge1[0], bridge1[1]) if bridge1[0] in graph1_start_nodes else (bridge1[1], bridge1[0])
 
-        child0_bridge = (child0_connect_start, child0_connect_end) if bridge0_model is None else (child0_connect_start, child0_connect_end, bridge0_model)
-        child1_bridge = (child1_connect_start, child1_connect_end) if bridge0_model is None else (child1_connect_start, child1_connect_end, bridge0_model)
+        if debug:
+            print(f'child0 goes from (pre node name update): {(child0_connect_start, child0_connect_end)}')
+            print(f'child1 goes from (pre node name update): {(child1_connect_start, child1_connect_end)}')
 
+        child0_bridge = (child0_connect_start, new_node_num(child0_connect_end, node_num_offset0))
+        child1_bridge = (child1_connect_start, new_node_num(child1_connect_end, node_num_offset1))
+
+        if bridge0_model is not None:
+            child0_bridge = (child0_bridge[0], child0_bridge[1], bridge0_model)
+            child1_bridge = (child1_bridge[0], child1_bridge[1], bridge0_model)
+        # child0_bridge = (child0_connect_start, child0_connect_end) if bridge0_model is None else (child0_connect_start, child0_connect_end, bridge0_model)
+        # child1_bridge = (child1_connect_start, child1_connect_end) if bridge0_model is None else (child1_connect_start, child1_connect_end, bridge0_model)
+
+        # child0_edges.append(new_edge_num(child0_bridge, node_num_offset0))
+        # child1_edges.append(new_edge_num(child1_bridge, node_num_offset1))
         child0_edges.append(child0_bridge)
         child1_edges.append(child1_bridge)
 
-        # print(f'child0 edges: {child0_edges}')
-        # print(f'child1 edges: {child1_edges}')
+        if debug:
+            print(f'child0 edges: {child0_edges}')
+            print(f'child1 edges: {child1_edges}')
 
         # 5. Make children
         child0 = Graph(nodes=child0_nodes, edges=child0_edges, propagate_on_edges=graph0.propagate_on_edges, coupling_efficiency=graph0.coupling_efficiency)
         child1 = Graph(nodes=child1_nodes, edges=child1_edges, propagate_on_edges=graph0.propagate_on_edges, coupling_efficiency=graph0.coupling_efficiency)
+        if debug:
+            print(f'child0_nodes, full: {child0_nodes}')
+            for node in child0.nodes:
+                print(f'child0: {child0.nodes[node]}')
+            child0.draw()
+            child1.draw()
+            plt.show()
+        
+        child0.assert_number_of_edges()
+        child1.assert_number_of_edges()
+
+        if verbose:
+            print(f'Crossover operator: SinglePointCrossover | Graphs split and crossover at bridge0: {bridge0}, bridge1: {bridge1}')
 
         return child0, child1
 

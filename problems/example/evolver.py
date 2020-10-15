@@ -1,12 +1,12 @@
+import autograd.numpy as np 
 
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
 
 
 class Evolver(object):
-
-
-
+    """
+    """
     def __init__(self, verbose=False, **attr):
         self.verbose = verbose
         super().__init__(**attr)
@@ -14,7 +14,8 @@ class Evolver(object):
 
 
     def evolve_graph(self, graph, evaluator, propagator, verbose=False):
-        """Function
+        """
+        Function
         """
 
         # check if each evolution operator is possible
@@ -41,3 +42,28 @@ class Evolver(object):
                 continue
 
         return graph
+
+
+class CrossoverMaker():
+    """
+    An explicit class is not really necessary right now, but might become useful if we define more crossover operators
+    """
+    def __init__(self, verbose=False, **attr):
+        self.verbose = verbose
+    
+    def crossover_graphs(self, graph0, graph1, propagator):
+        # check if each evolution operator is possible
+        verification = [cross_op().verify_evolution(graph0, graph1) for (_, cross_op) in configuration.CROSSOVER_OPERATORS.items()]
+
+        # choose one evolution from all possible
+        possible_cross_ops = [cross_op for (verify, cross_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
+        if len(possible_cross_ops) == 0:
+            raise RuntimeError('No valid crossover operators')
+
+        cross_op_choice = np.random.choice(possible_cross_ops)
+
+        # apply the chosen evolution
+        child0, child1 = cross_op_choice().apply_evolution(graph0, graph1, verbose=self.verbose)
+
+        # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
+        return child0, child1, cross_op_choice

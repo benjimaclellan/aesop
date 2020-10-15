@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import time
 import autograd.numpy as np
+import random
 
 import config.config as configuration
 
@@ -11,14 +12,52 @@ from problems.example.assets.propagator import Propagator
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, EDFA, CorningFiber, VariableOpticalAttenuator
+from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+
+from problems.example.evolver import CrossoverMaker
 
 from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 
 if True:
     np.random.seed(0)
+    random.seed(0)
+
+
+def crossover_main():
+    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
+    nodes0 = {0:ContinuousWaveLaser(),
+              1:PhaseModulator(),
+              2:WaveShaper(),
+              -1:MeasurementDevice()}
+    edges0 = [(0, 1), (1, 2), (2, -1)]
+    graph0 = Graph(nodes0, edges0, propagate_on_edges=False)
+    graph0.assert_number_of_edges()
+
+    nodes1 = {0: PulsedLaser(),
+              1: CorningFiber(),
+              2: VariablePowerSplitter(),
+              3: VariableOpticalAttenuator(),
+              4: EDFA(),
+              5: VariablePowerSplitter(),
+              -1: Photodiode()
+             }
+    edges1 = [(0, 1), (1, 2), (2, 3), (2, 4), (3, 5), (4, 5), (5, -1)]
+    graph1 = Graph(nodes1, edges1, propagate_on_edges=False)
+
+    graph0.draw()
+    graph1.draw()
+    plt.show()
+
+    crossover_maker = CrossoverMaker()
+    for _ in range(5):
+        graph0, graph1, _ = crossover_maker.crossover_graphs(graph0, graph1, propagator)
+        # graph0.draw()
+        # graph1.draw()
+        # plt.show()    
+
 
 def principle_main():
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
@@ -117,5 +156,6 @@ def principle_main():
 
 
 if __name__ == "__main__":
-    principle_main()
+    # principle_main()
+    crossover_main()
 
