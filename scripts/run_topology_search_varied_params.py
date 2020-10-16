@@ -7,6 +7,7 @@ import sys
 import pathlib
 import os
 import platform
+import copy 
 
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
 sep = ';' if platform.system() == 'Windows' else ':'
@@ -58,9 +59,9 @@ if __name__ == '__main__':
              -1:Photodiode()}
     edges = [(0,-1)]
 
-    graph = Graph(nodes, edges, propagate_on_edges = False)
-    graph.assert_number_of_edges()
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+    start_graph = Graph(nodes, edges, propagate_on_edges = False)
+    start_graph.assert_number_of_edges()
+    start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
     # update_rules = ['preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
@@ -72,8 +73,7 @@ if __name__ == '__main__':
                 continue
             print(f'Starting optimization with rule {rule}, crossover_maker: {cross_opt}')
             io = handle_io()
-            graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
-
+            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
             ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
             ax.plot(log['generation'], log['best'], label='Best')

@@ -328,8 +328,7 @@ def update_population_topology_preferential_photoNEAT(population, evolver, evalu
     return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
 
 
-@ray.remote
-def parameters_optimize_multiprocess(ind, evaluator, propagator):
+def parameters_optimize_complete(ind, evaluator, propagator):
     score, graph = ind
     if score is not None:
         return score, graph
@@ -345,3 +344,8 @@ def parameters_optimize_multiprocess(ind, evaluator, propagator):
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')
         return 99999999, graph
+
+
+@ray.remote
+def parameters_optimize_multiprocess(ind, evaluator, propagator):
+    return parameters_optimize_complete(ind, evaluator, propagator)
