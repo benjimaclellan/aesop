@@ -10,15 +10,15 @@ import random
 
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
-from algorithms.speciation import Speciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT
+from algorithms.speciation import Speciation, NoSpeciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT
 import config.config as configuration
 
-SPECIATION_MANAGER = None 
+SPECIATION_MANAGER = NoSpeciation() 
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           crossover_maker=None,
                           ga_opts=None, update_rule='random',
-                          target_species_num=3, protection_half_life=None,
+                          target_species_num=2, protection_half_life=None,
                           cluster_address=None, local_mode=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
@@ -26,8 +26,6 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
-    elif update_rule == 'test crossover':
-        update_population = update_population_crossover_test
     elif update_rule == 'preferential':
         update_population = update_population_topology_preferential
     elif update_rule == 'random simple subpop scheme':
@@ -37,11 +35,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     elif update_rule == 'random vectorDIFF':
         update_population = update_population_topology_random_vectorDIFF
     elif update_rule == 'preferential vectorDIFF':
-        update_population_topology_preferential_vectorDIFF
+        update_population = update_population_topology_preferential_vectorDIFF
     elif update_rule == 'random photoNEAT':
         update_population = update_population_topology_random_photoNEAT
     elif update_rule == 'preferential photoNEAT':
-        update_population_topology_preferential_photoNEAT
+        update_population = update_population_topology_preferential_photoNEAT
     else:
         raise NotImplementedError("This topology optimization update rule is not implemented yet. current options are 'random'")
 
@@ -70,16 +68,13 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for generation in range(ga_opts['n_generations']):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
-        population = update_population(population, evolver, evaluator, propagator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
-                                                                                   protection_half_life=protection_half_life,
-                                                                                   crossover_maker=crossover_maker)
-        print(f'post update population: {population}')
-
+        population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
+                                                                       protection_half_life=protection_half_life,
+                                                                       crossover_maker=crossover_maker)
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
-        if SPECIATION_MANAGER is not None: # apply fitness sharing
-            SPECIATION_MANAGER.speciate(population)
-            SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
+        SPECIATION_MANAGER.speciate(population)
+        SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
 
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
         population = population[0:ga_opts['n_population']] # get rid of extra params, if we have too many
@@ -102,15 +97,21 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
 
         state = graph.measure_propagator(-1)
-        graph.draw(ax=axs[i,0], legend=True)
-        axs[i,1].plot(propagator.t, evaluator.target, label='Target')
-        axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+        if ga_opts['n_hof'] > 1:
+            graph.draw(ax=axs[i,0], legend=True)
+            axs[i,1].plot(propagator.t, evaluator.target, label='Target')
+            axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+        else:
+            graph.draw(ax=axs[0], legend=True)
+            axs[1].plot(propagator.t, evaluator.target, label='Target')
+            axs[1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
 
     io.save_fig(fig=fig, filename='halloffame.png')
     io.save_object(log, 'log.pkl')
 
     io.close_logging()
-    return hof[1], hof[0], log
+
+    return hof[0][1], hof[0][0], log # hof is actually a list in and of itself, so we only look at the top element
 
 def init_hof(n_hof):
     hof = [(None, None) for i in range(n_hof)]
@@ -133,11 +134,11 @@ def update_hof(hof, population, verbose=False):
     return hof
 
 
-def update_population_topology_random(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_random(population, evolver, evaluator, **hyperparameters):
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
     for i, (score, graph) in enumerate(population):
         while True:
-            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator, propagator)
+            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator)
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
@@ -155,7 +156,7 @@ def update_population_topology_random(population, evolver, evaluator, propagator
     return population
 
 
-# def update_population_crossover_test(population, evolver, evaluator, propagator, **hyperparameters):
+# def update_population_crossover_test(population, evolver, evaluator, **hyperparameters):
 #     graph0 = population[0][1]
 #     graph1 = population[1][1]
 #     graph0.draw(legend=True)
@@ -185,7 +186,7 @@ def update_population_topology_random(population, evolver, evaluator, propagator
 
 #     return population
 
-def update_population_topology_preferential(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_preferential(population, evolver, evaluator, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
 
@@ -195,17 +196,42 @@ def update_population_topology_preferential(population, evolver, evaluator, prop
     :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
     """
     most_fit_reproduction_mean = 2 # most fit element will on average reproduce this many additional times (everyone reproduces once at least)
+    
+    # 1. Initialize scores (only happens on generation 0)
     if (population[0][0] is not None):
         score_array = np.array([score for (score, _) in population])
     else:
         score_array = np.ones(len(population)).reshape(len(population), 1)
         most_fit_reproduction_mean = 1
-
-    break_probability = 1 / most_fit_reproduction_mean * score_array / np.max(score_array)
+    
     new_pop = []
+    # 2. Execute crossovers, if crossovers enabled
+    print(f'hyperparams: {hyperparameters}')
+    if hyperparameters['crossover_maker'] is not None:
+        # top 10% reproduce, reproduces with fitter mate with higher probability
+        will_reproduce = population[0:len(population) // 10 + 1]
+        could_reproduce = set(population)
+        for ind in will_reproduce:
+            if ind in could_reproduce:
+                could_reproduce.remove(ind)
+                compatible_mates = SPECIATION_MANAGER.get_crossover_candidates(ind, could_reproduce) # note: there's never reproduction on round 1, would be useless
+                if len(compatible_mates) == 0:
+                    continue
+                reproduction_prob = np.array([2**(len(compatible_mates) - i - 1) for i in range(len(compatible_mates))])
+                reproduction_prob = reproduction_prob / np.sum(reproduction_prob)
+                mate_indices = np.arange(0, len(compatible_mates))
+                mate = compatible_mates[np.random.choice(mate_indices, p=reproduction_prob)] # returns individual (score, Graph) not just graph
+
+                child0, child1, _ = hyperparameters['crossover_maker'].crossover_graphs(copy.deepcopy(ind[1]), copy.deepcopy(mate[1]))
+                new_pop.append((None, child0))
+                new_pop.append((None, child1))
+                could_reproduce.remove(mate)
+
+    # 3. Mutate existing elements (fitter individuals have a higher expectation value for number of reproductions)
+    break_probability = 1 / most_fit_reproduction_mean * score_array / np.max(score_array)
     for i, (score, graph) in enumerate(population):
         while True:
-            graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator, propagator)
+            graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
@@ -216,12 +242,10 @@ def update_population_topology_preferential(population, evolver, evaluator, prop
                 continue
             
             new_pop.append((None, graph_tmp))
-            print(f'Do we have a new graph, or modify the existing one?')
-            print(f'graph is graph_tmp: {graph is graph_tmp}')
             if random.random() < break_probability[i]:
                 break
 
-    return population[0:len(population) // 5 + 1] + new_pop # top 10 percent of old population, and new recruits go through
+    return population[0:len(population) // 10 + 1] + new_pop # top 10 percent of old population, and new recruits go through
 
 
 # ------------------------------- Speciation setup helpers -----------------------------------
@@ -268,27 +292,27 @@ def _photoNEAT_setup(population, **hyperparameters):
 
 
 # ---------------------------------- Speciated population update ------------------------------
-def update_population_topology_random_simple_subpopulation_scheme(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_random_simple_subpopulation_scheme(population, evolver, evaluator, **hyperparameters):
     _simple_subpopulation_setup(population, **hyperparameters)
-    return update_population_topology_random(population, evolver, evaluator, propagator) # rest goes on normally
+    return update_population_topology_random(population, evolver, evaluator, **hyperparameters) # rest goes on normally
 
 
-def update_population_topology_preferential_simple_subpopulation_scheme(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_preferential_simple_subpopulation_scheme(population, evolver, evaluator, **hyperparameters):
     _simple_subpopulation_setup(population, **hyperparameters)
-    return update_population_topology_preferential(population, evolver, evaluator, propagator) # rest goes on normally
+    return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters) # rest goes on normally
 
 
-def update_population_topology_random_vectorDIFF(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_random_vectorDIFF(population, evolver, evaluator, **hyperparameters):
     _vectorDIFF_setup(population, **hyperparameters)
-    return update_population_topology_random(population, evolver, evaluator, propagator)
+    return update_population_topology_random(population, evolver, evaluator, **hyperparameters)
 
 
-def update_population_topology_preferential_vectorDIFF(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_preferential_vectorDIFF(population, evolver, evaluator, **hyperparameters):
     _vectorDIFF_setup(population, **hyperparameters)
-    return update_population_topology_preferential(population, evolver, evaluator, propagator)
+    return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
 
 
-def update_population_topology_random_photoNEAT(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_random_photoNEAT(population, evolver, evaluator, **hyperparameters):
     """
     NOTE: with random population updates, NEAT speciation will not be very useful! That's because each individual just
     mutates once and moves on, which means that the speciation will brutally branch out and never recover
@@ -296,13 +320,12 @@ def update_population_topology_random_photoNEAT(population, evolver, evaluator, 
     Would be more useful with crossovers, or a number of offspring proportional which depends on their fitness
     """
     _photoNEAT_setup(population, **hyperparameters)
-    return update_population_topology_random(population, evolver, evaluator, propagator)
+    return update_population_topology_random(population, evolver, evaluator, **hyperparameters)
 
 
-def update_population_topology_preferential_photoNEAT(population, evolver, evaluator, propagator, **hyperparameters):
+def update_population_topology_preferential_photoNEAT(population, evolver, evaluator, **hyperparameters):
     _photoNEAT_setup(population, **hyperparameters)
-    return update_population_topology_preferential(population, evolver, evaluator, propagator)
-
+    return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
 
 
 @ray.remote

@@ -36,15 +36,17 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 
 from algorithms.topology_optimization import topology_optimization
 
-plt.close('all')
-if __name__ == '__main__':
+def handle_io():
     io = InputOutput(directory='testing', verbose=True)
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
+    return io
 
-    ga_opts = {'n_generations': 1,
-               'n_population': 1, # psutil.cpu_count(),
-               'n_hof': 1,
+plt.close('all')
+if __name__ == '__main__':
+    ga_opts = {'n_generations': 4,
+               'n_population': 16, # psutil.cpu_count(),
+               'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
@@ -60,15 +62,23 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule='preferential', crossover_maker=crossover_maker)
+    update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
+    crossover_option = [None, crossover_maker]
+    for rule in update_rules:
+        for cross_opt in crossover_option:
+            if rule == 'random' and cross_opt is not None: # no crossover implemented in random update so far
+                continue
+            print(f'Starting optimization with rule {rule}, crossover_maker: {cross_opt}')
+            io = handle_io()
+            graph, score, log = topology_optimization(graph, propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
 
-    fig, ax = plt.subplots(1, 1, figsize=[5,3])
-    ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
-    ax.plot(log['generation'], log['best'], label='Best')
-    ax.plot(log['generation'], log['mean'], label='Population mean')
-    ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
-    ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
-    ax.set(xlabel='Generation', ylabel='Cost')
-    ax.legend()
+            fig, ax = plt.subplots(1, 1, figsize=[5,3])
+            ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
+            ax.plot(log['generation'], log['best'], label='Best')
+            ax.plot(log['generation'], log['mean'], label='Population mean')
+            ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
+            ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
+            ax.set(xlabel='Generation', ylabel='Cost')
+            ax.legend()
 
-    io.save_fig(fig, 'topology_log.png')
+            io.save_fig(fig, f'topology_log_{rule.replace(" ", "_")}_with_crossover_is_{cross_opt is not None}.png')

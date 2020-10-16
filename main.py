@@ -27,7 +27,6 @@ if True:
 
 
 def crossover_main():
-    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     nodes0 = {0:ContinuousWaveLaser(),
               1:PhaseModulator(),
               2:WaveShaper(),
@@ -53,7 +52,7 @@ def crossover_main():
 
     crossover_maker = CrossoverMaker()
     for _ in range(5):
-        graph0, graph1, _ = crossover_maker.crossover_graphs(graph0, graph1, propagator)
+        graph0, graph1, _ = crossover_maker.crossover_graphs(graph0, graph1)
         # graph0.draw()
         # graph1.draw()
         # plt.show()    

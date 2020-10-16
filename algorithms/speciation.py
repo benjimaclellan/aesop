@@ -53,7 +53,7 @@ class Speciation():
         self.distance_func = distance_func
         self.protection_half_life = protection_half_life
 
-    def speciate(self, population):
+    def speciate(self, population, debug=False):
         """
         Splits population into species
 
@@ -96,13 +96,15 @@ class Speciation():
         
         for redundant in redundant_set:
             self.species.pop(redundant)
-        
-        print(f'PRIOR TO SPECIATION')
-        print(f'species: {self.species}')
-        print(f'map (individual->species): {self.individual_species_map}')
+
+        if debug:
+            print(f'PRIOR TO SPECIATION')
+            print(f'species: {self.species}')
+            print(f'map (individual->species): {self.individual_species_map}')
 
         # 2. Slot every other graph
-        print(f'population size: {len(population)}')
+        if debug:
+            print(f'population size: {len(population)}')
         for _, graph in population:
             if graph in self.species:
                 self.individual_species_map[graph] = graph # graph is its own representative, yay!
@@ -119,15 +121,18 @@ class Speciation():
                 self.individual_species_map[graph] = graph 
                 self.species[graph] = 1
 
-        print(f'POST SPECIATION')
-        print(f'species: {self.species}')
+        if debug:
+            print(f'POST SPECIATION')
+            print(f'species: {self.species}')
 
         # 3. Update self.d_thresh with my awesome P(ID) method
-        print(f'current d_thresh: {self.d_thresh}')
+        if debug:
+            print(f'current d_thresh: {self.d_thresh}')
         delta = np.clip(-1 * (self.target_species_num - len(self.species)) * THRESH_ADJUST_PROP_CONSTANT, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
         self.d_thresh = delta + self.d_thresh
         self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
-        print(f'udpated d_thresh: {self.d_thresh}')
+        if debug:
+            print(f'updated d_thresh: {self.d_thresh}')
     
     def execute_fitness_sharing(self, population, generation_num):
         """
@@ -150,10 +155,46 @@ class Speciation():
 
             population[i] = (population[i][0] / denominator, population[i][1]) # adjust fitness score
     
+    def get_crossover_candidates(self, graph, population):
+        """
+        Returns a list of crossover candidates for graph (i.e. individuals in the same species as graph)
+
+        :param graph: graph which we want to crossover with another element
+        :param population: pool of potentially compatible crossover candidates
+
+        :pre-condition: speciate HAS BEEN CALLED on population already (or has been called on a superset of population)
+                        Essentially requires all elements of population to exist inside our individual to species map
+
+        :returns: the compatible (i.e. same species) crossover candidates
+        """
+        crossover_candidates = []
+        for score, candidate in population:
+            if self.individual_species_map[candidate] is self.individual_species_map[graph] and candidate is not graph:
+                crossover_candidates.append((score, candidate))
+        
+        crossover_candidates.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
+        return crossover_candidates
+    
     @staticmethod
     def next_historical_marker():
         Speciation.historical_marker += 1 
         return Speciation.historical_marker
+
+
+class NoSpeciation(Speciation):
+    def __init__(self):
+        pass
+
+    def speciate(self, population):
+        pass
+    
+    def execute_fitness_sharing(self, population, generation_num):
+        pass
+    
+    def get_crossover_candidates(self, graph, population):
+        if not isinstance(population, list):
+            return list(population)
+        return population
 
 
 class DistanceEvaluatorInterface():
@@ -165,7 +206,6 @@ class DistanceEvaluatorInterface():
         Must be reflective and commutative, but NOT (necessarily) transitive
         """
         pass
-
 
 class SimpleSubpopulationSchemeDist(DistanceEvaluatorInterface):      
     def __init__(self):

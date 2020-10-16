@@ -85,8 +85,6 @@ class RemoveNode(EvolutionOperators):
 
 
         # update graph connections
-        print(f'pre: {graph.pre(node_to_remove)}')
-        print(f'suc: {graph.suc(node_to_remove)}')
         try:
             graph.add_edge(graph.pre(node_to_remove)[0], graph.suc(node_to_remove)[0])
         except IndexError as e:
@@ -431,6 +429,9 @@ class SinglePointCrossover(EvolutionOperators):
 
     def apply_evolution(self, graph0, graph1, verbose=False, debug=False):
         # TODO: pick bridge using NEAT historical marker methods
+        if debug:
+            print(f'graph0\nnodes: {graph0.nodes}\nedges: {graph0.edges}')
+            print(f'graph1\nnodes: {graph1.nodes}\nedges: {graph1.edges}\n\n')
 
         # 1. Pick a bridge on each graph. This is the edge across which we'll split the graphs
         bridge0 = random.sample(list(nx.bridges(nx.Graph(graph0))), 1)[0]
@@ -447,8 +448,16 @@ class SinglePointCrossover(EvolutionOperators):
             print(f'bridge1: {bridge1}')
 
         # 2. Remove the edges bridge0 and bridge1 from the graphs. Like this, we get the 4 components we want to crossover
-        graph0.remove_edge(bridge0[0], bridge0[1])
-        graph1.remove_edge(bridge1[0], bridge1[1])
+        # try and except is bc we get the bridge from an undirected graph, so the order could be flipped
+        try:
+            graph0.remove_edge(bridge0[0], bridge0[1])
+        except nx.exception.NetworkXError:
+            graph0.remove_edge(bridge0[1], bridge0[0])
+        
+        try:
+            graph1.remove_edge(bridge1[0], bridge1[1])
+        except nx.exception.NetworkXError:
+            graph1.remove_edge(bridge1[1], bridge1[0])
 
         # 3. Grab the relevant components
         graph0_comps = [c for c in nx.weakly_connected_components(graph0)]
@@ -555,9 +564,9 @@ class SinglePointCrossover(EvolutionOperators):
             print(f'child0_nodes, full: {child0_nodes}')
             for node in child0.nodes:
                 print(f'child0: {child0.nodes[node]}')
-            child0.draw()
-            child1.draw()
-            plt.show()
+            # child0.draw()
+            # child1.draw()
+            # plt.show()
         
         child0.assert_number_of_edges()
         child1.assert_number_of_edges()
@@ -571,6 +580,7 @@ class SinglePointCrossover(EvolutionOperators):
         """
         Should not make modifications to graph0 and graph1
         """
+        # return True # I think it HAS to always work actually, since our sources / detectors are single connection
         # undirected0 = graph0.to_undirected()
         # undirected1 = graph1.to_undirected()
         undirected0 = nx.Graph(graph0)

@@ -13,7 +13,7 @@ class Evolver(object):
         return
 
 
-    def evolve_graph(self, graph, evaluator, propagator, verbose=False):
+    def evolve_graph(self, graph, evaluator, verbose=False):
         """
         Function
         """
@@ -31,11 +31,11 @@ class Evolver(object):
         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
         return graph, evo_op_choice
 
-    def random_graph(self, graph, evaluator, propagator):
+    def random_graph(self, graph, evaluator):
         N_EVOLUTIONS = 10
         for n in range(N_EVOLUTIONS):
             try:
-                graph_tmp = self.evolve_graph(graph, evaluator, propagator)
+                graph_tmp = self.evolve_graph(graph, evaluator)
                 graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
             except:
@@ -51,7 +51,7 @@ class CrossoverMaker():
     def __init__(self, verbose=False, **attr):
         self.verbose = verbose
     
-    def crossover_graphs(self, graph0, graph1, propagator):
+    def crossover_graphs(self, graph0, graph1):
         # check if each evolution operator is possible
         verification = [cross_op().verify_evolution(graph0, graph1) for (_, cross_op) in configuration.CROSSOVER_OPERATORS.items()]
 
