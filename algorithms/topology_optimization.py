@@ -18,7 +18,7 @@ SPECIATION_MANAGER = NoSpeciation()
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           crossover_maker=None,
                           ga_opts=None, update_rule='random',
-                          target_species_num=2, protection_half_life=None,
+                          target_species_num=4, protection_half_life=None,
                           cluster_address=None, local_mode=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
@@ -45,8 +45,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # save the objects for analysis later

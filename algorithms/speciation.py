@@ -167,13 +167,17 @@ class Speciation():
 
         :returns: the compatible (i.e. same species) crossover candidates
         """
-        crossover_candidates = []
-        for score, candidate in population:
-            if self.individual_species_map[candidate] is self.individual_species_map[graph] and candidate is not graph:
-                crossover_candidates.append((score, candidate))
+        try:
+            crossover_candidates = []
+            for score, candidate in population:
+                if self.individual_species_map[candidate] is self.individual_species_map[graph] and candidate is not graph:
+                    crossover_candidates.append((score, candidate))
         
-        crossover_candidates.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
-        return crossover_candidates
+            crossover_candidates.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
+            return crossover_candidates
+        except KeyError as e:
+            print(f'Warning: {e}. Population must be speciated prior to getting crossover candidates')
+            return []
     
     @staticmethod
     def next_historical_marker():
