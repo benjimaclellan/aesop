@@ -53,7 +53,7 @@ class Speciation():
         self.distance_func = distance_func
         self.protection_half_life = protection_half_life
 
-    def speciate(self, population, debug=False):
+    def speciate(self, population, debug=True):
         """
         Splits population into species
 
