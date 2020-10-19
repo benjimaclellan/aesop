@@ -63,8 +63,8 @@ if __name__ == '__main__':
     start_graph.assert_number_of_edges()
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
-    # update_rules = ['preferential']
+    # update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
+    update_rules = ['preferential simple subpop scheme']
 
     # crossover_option = [None, crossover_maker]
     crossover_option = [None]
