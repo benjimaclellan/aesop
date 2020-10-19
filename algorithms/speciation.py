@@ -104,7 +104,7 @@ class Speciation():
 
         # 2. Slot every other graph
         if debug:
-            print(f'population size: {len(population)}')
+            print(f'population size to speciate: {len(population)}')
         for _, graph in population:
             if graph in self.species:
                 self.individual_species_map[graph] = graph # graph is its own representative, yay!
@@ -133,6 +133,8 @@ class Speciation():
         self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
         if debug:
             print(f'updated d_thresh: {self.d_thresh}')
+        
+        print(f'post speciation, species pop size: {len(self.individual_species_map)}')
     
     def execute_fitness_sharing(self, population, generation_num):
         """

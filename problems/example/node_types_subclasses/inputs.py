@@ -27,7 +27,7 @@ class PulsedLaser(Input):
         self.default_parameters = ['gaussian', 100e-12, 1.0, 10e-9, 1.56e-6, True, 1e3]
 
         self.upper_bounds = [None, 1e-9, 1.0, 1/10e6, 1.56e-6, None, 5e9]
-        self.lower_bounds = [None, 1e-12, 0.0001, 1/1e9, 1.54e-6, None, 0]
+        self.lower_bounds = [None, 3e-11, 0.0001, 1/1e9, 1.54e-6, None, 0]
         self.data_types = ['str', 'float', 'float', 'float', 'float', 'bool', 'float']
         self.step_sizes = [None, None, None, None, None, None, None]
         self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 0.01e-6, 1, 1]

@@ -23,6 +23,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     io.init_logging()
     log, log_metrics = logbook_initialize()
     random.seed(18)
+    np.random.seed(1040)
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
@@ -71,6 +72,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
                                                                        crossover_maker=crossover_maker)
+        print(f'population length after update: {len(population)}')
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
         SPECIATION_MANAGER.speciate(population)
@@ -195,6 +197,7 @@ def update_population_topology_preferential(population, evolver, evaluator, **hy
 
     :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
     """
+    print(f'update population input population size: {len(population)}')
     most_fit_reproduction_mean = 2 # most fit element will on average reproduce this many additional times (everyone reproduces once at least)
     
     # 1. Initialize scores (only happens on generation 0)
@@ -244,7 +247,8 @@ def update_population_topology_preferential(population, evolver, evaluator, **hy
             new_pop.append((None, graph_tmp))
             if random.random() < break_probability[i]:
                 break
-
+    
+    print(f'return population size, from population update: {len(population) // 10 + len(new_pop)}')
     return population[0:len(population) // 10 + 1] + new_pop # top 10 percent of old population, and new recruits go through
 
 
