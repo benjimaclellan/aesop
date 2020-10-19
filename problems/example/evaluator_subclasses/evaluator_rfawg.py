@@ -19,7 +19,7 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
         self.target_harmonic = 12e9  # target pattern repetition in Hz
 
-        self.target = 0.5 * 0.04 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
+        self.target = 0.5 * 0.02 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
 
         self.target_f = np.fft.fft(self.target, axis=0)
         self.target_rf = rfft(self.target)

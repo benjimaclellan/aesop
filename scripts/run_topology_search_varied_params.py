@@ -46,7 +46,7 @@ def handle_io():
 plt.close('all')
 if __name__ == '__main__':
     ga_opts = {'n_generations': 10,
-               'n_population': 40, # psutil.cpu_count(),
+               'n_population': 32, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -64,9 +64,10 @@ if __name__ == '__main__':
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
-    # update_rules = ['preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
+    # update_rules = ['preferential']
 
-    crossover_option = [None, crossover_maker]
+    # crossover_option = [None, crossover_maker]
+    crossover_option = [None]
     for rule in update_rules:
         for cross_opt in crossover_option:
             if rule == 'random' and cross_opt is not None: # no crossover implemented in random update so far

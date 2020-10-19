@@ -58,6 +58,22 @@ def crossover_main():
         # plt.show()    
 
 
+def max_output_main():
+    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
+    nodes = {0:ContinuousWaveLaser(),
+             1:PhaseModulator(),
+             2:WaveShaper(),
+             3:EDFA(parameters_from_name={'max_small_signal_gain_dB':50}),
+            -1:Photodiode()
+            }
+    edges = [(0, 1), (1, 2), (2, 3), (3, -1)]
+
+    graph = Graph(nodes=nodes, edges=edges, propagate_on_edges=False)
+    graph.assert_number_of_edges()
+    graph.propagate(propagator)
+    graph.inspect_state(propagator)
+
+
 def principle_main():
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
@@ -156,5 +172,5 @@ def principle_main():
 
 if __name__ == "__main__":
     # principle_main()
-    crossover_main()
-
+    # cro ssover_main()
+    max_output_main()
