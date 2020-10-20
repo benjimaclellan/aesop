@@ -46,8 +46,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # save the objects for analysis later
@@ -71,7 +71,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
-                                                                       crossover_maker=crossover_maker)
+                                                                       crossover_maker=crossover_maker,
+                                                                       generation_num=generation)
         print(f'population length after update: {len(population)}')
         
         # optimize parameters on each node/CPU
@@ -189,7 +190,7 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
 
 #     return population
 
-def update_population_topology_preferential(population, evolver, evaluator, **hyperparameters):
+def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
 
@@ -233,7 +234,9 @@ def update_population_topology_preferential(population, evolver, evaluator, **hy
 
     # 3. Mutate existing elements (fitter individuals have a higher expectation value for number of reproductions)
     # basically after the initial reproduction, the most fit reproduces on average <most_fit_reproduction_mean> times, and the least fit never reproduces
-    break_probability = 1 / most_fit_reproduction_mean * score_array / np.min(score_array)
+    
+    # TODO: test different ways of getting this probability (one that favours the top individuals less?)
+    break_probability = 1 / most_fit_reproduction_mean * (score_array / np.min(score_array))**(1 / preferentiality_param)
 
     print(f'break prob: {break_probability}')
     for i, (score, graph) in enumerate(population):
@@ -251,8 +254,13 @@ def update_population_topology_preferential(population, evolver, evaluator, **hy
             new_pop.append((None, graph_tmp))
             if random.random() < break_probability[i]:
                 break
-    
-    return population[0:len(population) // 10 + 1] + new_pop # top 10 percent of old population, and new recruits go through
+    # speciation manager reverses fitness sharing to get raw score. Generation - 1 is given, since we're reversing the sharing of the previous generation in this case
+    from_last_gen = population[0:len(population) // 10 + 1]
+    print(f'from last gen before fitness reversal: {from_last_gen}')
+    if population[0][0] is not None:
+        SPECIATION_MANAGER.reverse_fitness_sharing(from_last_gen, hyperparameters['generation_num'] - 1)
+    print(f'from last gen after fitness reversal: {from_last_gen}')
+    return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 
 # ------------------------------- Speciation setup helpers -----------------------------------

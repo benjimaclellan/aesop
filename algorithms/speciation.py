@@ -143,7 +143,7 @@ class Speciation():
 
         :param population: the population of (score, graph) elements
         :param generation_num: the current generation (may affect sharing, if self.protection_half_life is not None)
-        :modifies population: updates the scores to reflect fitness sharing. population becomes a list of (adjusted_score, graph) elements
+        :modifies population: updates the scores to reflect fitness sharing. population becomes a list of (score, graph, adjusted_score) elements
         """
         if self.protection_half_life is None:
             coeff = 0
@@ -155,7 +155,20 @@ class Speciation():
             species_size = self.species[self.individual_species_map[graph]]
             denominator = max(1, np.exp(-coeff * generation_num) * species_size)
 
-            population[i] = (population[i][0] / denominator, population[i][1]) # adjust fitness score
+            population[i] = (population[i][0] / denominator, graph) # adjust fitness score
+
+    def reverse_fitness_sharing(self, population, generation_num):
+        if self.protection_half_life is None:
+            coeff = 0
+        else:
+            coeff = self.protection_half_life / np.log(2)
+
+        for i in range(len(population)):
+            graph = population[i][1]
+            species_size = self.species[self.individual_species_map[graph]]
+            denominator = max(1, np.exp(-coeff * generation_num) * species_size)
+
+            population[i] = (population[i][0] * denominator, graph)
     
     def get_crossover_candidates(self, graph, population):
         """
@@ -195,6 +208,9 @@ class NoSpeciation(Speciation):
         pass
     
     def execute_fitness_sharing(self, population, generation_num):
+        pass
+
+    def reverse_fitness_sharing(self, population, generation_num):
         pass
     
     def get_crossover_candidates(self, graph, population):
