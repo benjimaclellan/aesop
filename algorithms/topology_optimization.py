@@ -73,8 +73,10 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                                                                        protection_half_life=protection_half_life,
                                                                        crossover_maker=crossover_maker)
         print(f'population length after update: {len(population)}')
+        
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
+        hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
         SPECIATION_MANAGER.speciate(population)
         SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
 
@@ -84,7 +86,6 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
             graph.clear_propagation()
 
         # update logbook and hall of fame
-        hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose'])
         logbook_update(generation, population, log, log_metrics, time=(time.time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
     # save a figure which quickly demonstrates the results of the run as a .pdf files
@@ -231,7 +232,10 @@ def update_population_topology_preferential(population, evolver, evaluator, **hy
                 could_reproduce.remove(mate)
 
     # 3. Mutate existing elements (fitter individuals have a higher expectation value for number of reproductions)
-    break_probability = 1 / most_fit_reproduction_mean * score_array / np.max(score_array)
+    # basically after the initial reproduction, the most fit reproduces on average <most_fit_reproduction_mean> times, and the least fit never reproduces
+    break_probability = 1 / most_fit_reproduction_mean * score_array / np.min(score_array)
+
+    print(f'break prob: {break_probability}')
     for i, (score, graph) in enumerate(population):
         while True:
             graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
@@ -248,7 +252,6 @@ def update_population_topology_preferential(population, evolver, evaluator, **hy
             if random.random() < break_probability[i]:
                 break
     
-    print(f'return population size, from population update: {len(population) // 10 + len(new_pop)}')
     return population[0:len(population) // 10 + 1] + new_pop # top 10 percent of old population, and new recruits go through
 
 
