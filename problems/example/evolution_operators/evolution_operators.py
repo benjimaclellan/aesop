@@ -24,15 +24,16 @@ class AddNode(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
+        # choose a random edge to insert the node at
+        edge = random.sample(graph.edges, 1)[0]
+        return self.apply_evolution_at(graph, edge, verbose=verbose)
 
+    def apply_evolution_at(self, graph, edge, verbose=False):
         # find all potential model types (all single-path nodes) to choose one from
         potential_nodes = []
         for node_type in self.potential_node_types:
             potential_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
         model = random.sample(potential_nodes, 1)[0]()
-
-        # choose a random edge to insert the node at
-        edge = random.sample(graph.edges, 1)[0]
 
         # find an appropriate label for the new node (no duplicates in the graph)
         node_label = min(set(range(min(graph.nodes), max(graph.nodes)+2)) - set(graph.nodes))
@@ -50,6 +51,7 @@ class AddNode(EvolutionOperators):
         if verbose:
             print('Evolution operator: AddNode | Adding node {} with model {} on edge {}'.format(node_label, model, edge))
         return graph
+    
 
     def verify_evolution(self, graph):
         """ Checks if the specific evolution on the graph is possible, returns bool
@@ -80,24 +82,28 @@ class RemoveNode(EvolutionOperators):
             if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types:
                 potential_nodes.append(node)
         node_to_remove = random.sample(potential_nodes, 1)[0]
-        if verbose:
-            print('Evolution operator: RemoveNode | Removing node {} with model {}'.format(node_to_remove, graph.nodes[node_to_remove]['model']))
 
+        return self.apply_evolution_at(graph, node_to_remove, verbose=verbose)
 
+    
+    def apply_evolution_at(self, graph, node, verbose=False):
         # update graph connections
         try:
-            graph.add_edge(graph.pre(node_to_remove)[0], graph.suc(node_to_remove)[0])
+            graph.add_edge(graph.pre(node)[0], graph.suc(node)[0])
         except IndexError as e:
             print(e)
             graph.draw(legend=True)
             plt.show()
-        graph.remove_edge(graph.pre(node_to_remove)[0], node_to_remove)
-        graph.remove_edge(node_to_remove, graph.suc(node_to_remove)[0])
+        graph.remove_edge(graph.pre(node)[0], node)
+        graph.remove_edge(node, graph.suc(node)[0])
 
-        graph.remove_node(node_to_remove)
+        graph.remove_node(node)
         if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
-            marker = graph.speciation_descriptor['node to marker'].pop(node_to_remove)
+            marker = graph.speciation_descriptor['node to marker'].pop(node)
             graph.speciation_descriptor['marker to node'].pop(marker)
+
+        if verbose:
+            print('Evolution operator: RemoveNode | Removing node {} with model {}'.format(node, graph.nodes[node]['model']))
 
         return graph
 
@@ -115,7 +121,6 @@ class RemoveNode(EvolutionOperators):
             return True
         else:
             return False
-
 
 
 @register_evolution_operators
@@ -138,15 +143,20 @@ class SwapNode(EvolutionOperators):
 
         swappable_nodes = tmp[potential_node_type]
         node_to_swap = random.sample(swappable_nodes, 1)[0]
-        model_to_swap = graph.nodes[node_to_swap]['model']
+        return self.apply_evolution_at(graph, node_to_swap, verbose=verbose)
 
-        new_model = random.sample(list(set(configuration.NODE_TYPES_ALL[potential_node_type].values()) - set([model_to_swap.__class__])), 1)[0]()
+    
+    def apply_evolution_at(self, graph, node, verbose=False):
+        model_to_swap = graph.nodes[node]['model']
+        node_type_set = set(configuration.NODE_TYPES_ALL[model_to_swap.__class__.__bases__[0].__name__].values())
 
-        graph.nodes[node_to_swap]['model'] = new_model
-        graph.nodes[node_to_swap]['name'] = new_model.__class__.__name__
+        new_model = random.sample(list(node_type_set - set([model_to_swap.__class__])), 1)[0]()
+
+        graph.nodes[node]['model'] = new_model
+        graph.nodes[node]['name'] = new_model.__class__.__name__
 
         if verbose:
-            print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node_to_swap,model_to_swap, new_model))
+            print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node, model_to_swap, new_model))
         return graph
 
     def collect_potential_nodes_to_swap(self, graph):
@@ -185,13 +195,14 @@ class AddInterferometer(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
+        # choose two separate edges to insert the new multi-path nodes
+        edges = random.sample(graph.edges, 2)
+        return self.apply_evolution_at(self, graph, edges[0], edges[1], verbose=verbose)
 
+    def apply_evolution_at(self, graph, edge0, edge1, verbose=False):
         # create instance of two new multi-path nodes (just 2x2 couplers for now)
         splitter1 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
         splitter2 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
-
-        # choose two separate edges to insert the new multi-path nodes
-        edges = random.sample(graph.edges, 2)
 
         # add new splitters into graph
         node_labels = set(range(min(graph.nodes), max(graph.nodes) + 4)) - set(graph.nodes)
@@ -208,10 +219,10 @@ class AddInterferometer(EvolutionOperators):
 
 
         # we need to put the new splitters in the proper order to avoid loops (follow the propagation order)
-        if graph.propagation_order.index(edges[0][0]) <= graph.propagation_order.index(edges[1][0]):
-            edge1, edge2 = edges[0], edges[1]
+        if graph.propagation_order.index(edge0[0]) <= graph.propagation_order.index(edge1[0]):
+            edge1, edge2 = edge0, edge1
         else:
-            edge1, edge2 = edges[1], edges[0]
+            edge1, edge2 = edge1, edge0
 
         # fix connections in graph
         graph.remove_edge(edge1[0], edge1[1])
@@ -259,7 +270,6 @@ class RemoveOneInterferometerPath(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
-
         # conver graph to a simple (undirected, non-hyper, simple graph) to find cycles
         tmp_graph = nx.Graph()
         for u, v, data in graph.edges(data=True):
@@ -349,7 +359,7 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             return False
 
 
-# @register_evolution_operators
+@register_evolution_operators
 class AddInterferometerSimple(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -359,7 +369,11 @@ class AddInterferometerSimple(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
-
+        # edge to add interferometer in
+        edge = random.sample(graph.edges, 1)[0]
+        self.apply_evolution_at(graph, edge, verbose=verbose)
+    
+    def apply_evolution_at(self, graph, edge, verbose=False):
         # two new multipath splitters (just 2x2 couplers for now)
         splitter1 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
         splitter2 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
@@ -370,9 +384,6 @@ class AddInterferometerSimple(EvolutionOperators):
         for node_type in potential_node_types:
             potential_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
         new_nonsplitter = random.sample(potential_nodes, 1)[0]()
-
-        # edge to add interferometer in
-        edge = random.sample(graph.edges, 1)[0]
 
         node_labels = set(range(min(graph.nodes), max(graph.nodes) + 4)) - set(graph.nodes)
         label1 = min(node_labels)

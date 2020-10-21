@@ -18,6 +18,7 @@ from problems.example.node_types_subclasses.single_path import PhaseModulator, W
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from problems.example.evolver import CrossoverMaker
+from problems.example.evolution_operators import SwapNode
 
 from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 
@@ -55,8 +56,7 @@ def crossover_main():
         graph0, graph1, _ = crossover_maker.crossover_graphs(graph0, graph1)
         # graph0.draw()
         # graph1.draw()
-        # plt.show()    
-
+        # plt.show()
 
 def max_output_main():
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
@@ -172,5 +172,6 @@ def principle_main():
 
 if __name__ == "__main__":
     # principle_main()
-    # cro ssover_main()
+    # crossover_main()
     max_output_main()
+    # evolution_tests_main()
