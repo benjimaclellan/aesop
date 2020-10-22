@@ -97,13 +97,13 @@ class RemoveNode(EvolutionOperators):
         graph.remove_edge(graph.pre(node)[0], node)
         graph.remove_edge(node, graph.suc(node)[0])
 
+        if verbose:
+            print('Evolution operator: RemoveNode | Removing node {} with model {}'.format(node, graph.nodes[node]['model']))
+
         graph.remove_node(node)
         if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
             marker = graph.speciation_descriptor['node to marker'].pop(node)
             graph.speciation_descriptor['marker to node'].pop(marker)
-
-        if verbose:
-            print('Evolution operator: RemoveNode | Removing node {} with model {}'.format(node, graph.nodes[node]['model']))
 
         return graph
 
@@ -145,7 +145,6 @@ class SwapNode(EvolutionOperators):
         node_to_swap = random.sample(swappable_nodes, 1)[0]
         return self.apply_evolution_at(graph, node_to_swap, verbose=verbose)
 
-    
     def apply_evolution_at(self, graph, node, verbose=False):
         model_to_swap = graph.nodes[node]['model']
         node_type_set = set(configuration.NODE_TYPES_ALL[model_to_swap.__class__.__bases__[0].__name__].values())
@@ -197,7 +196,7 @@ class AddInterferometer(EvolutionOperators):
         """
         # choose two separate edges to insert the new multi-path nodes
         edges = random.sample(graph.edges, 2)
-        return self.apply_evolution_at(self, graph, edges[0], edges[1], verbose=verbose)
+        return self.apply_evolution_at(graph, edges[0], edges[1], verbose=verbose)
 
     def apply_evolution_at(self, graph, edge0, edge1, verbose=False):
         # create instance of two new multi-path nodes (just 2x2 couplers for now)
@@ -268,6 +267,9 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         return
 
     def apply_evolution(self, graph, verbose=False):
+        return self.apply_evolution_at(graph, None, verbose=verbose) # node is passed as None bc it's the easiest way to avoid legacy breaking things rn
+
+    def apply_evolution_at(self, graph, node, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
         # conver graph to a simple (undirected, non-hyper, simple graph) to find cycles
@@ -285,7 +287,9 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         collapsed_cycles = [edge for edge in tmp_graph.edges if tmp_graph.get_edge_data(edge[0], edge[1])['weight'] > 1]
         cycles += collapsed_cycles
 
-        # we choose a random cycle that we will consider
+        # we choose a random cycle that we will consider. This cycle must contain 'node' (precondition is that node is part of a cycle)
+        if node is not None: # select an arbitrary cycle which 'node' is part of. The if statement is for backwards compatible of a random evolution application
+            cycles = [cycle for cycle in cycles if node in cycle]
         cycle = random.sample(cycles, 1)[0] # chooses random cycle to remove part of
 
         # use the old propagation order to ensure physicality when placing new nodes
@@ -333,7 +337,6 @@ class RemoveOneInterferometerPath(EvolutionOperators):
 
         return graph
 
-
     def verify_evolution(self, graph):
         """ Checks if the specific evolution on the graph is possible, returns bool
 
@@ -359,7 +362,7 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             return False
 
 
-@register_evolution_operators
+# @register_evolution_operators
 class AddInterferometerSimple(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -371,7 +374,7 @@ class AddInterferometerSimple(EvolutionOperators):
         """
         # edge to add interferometer in
         edge = random.sample(graph.edges, 1)[0]
-        self.apply_evolution_at(graph, edge, verbose=verbose)
+        return self.apply_evolution_at(graph, edge, verbose=verbose)
     
     def apply_evolution_at(self, graph, edge, verbose=False):
         # two new multipath splitters (just 2x2 couplers for now)
