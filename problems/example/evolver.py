@@ -69,6 +69,94 @@ class Evolver(object):
 
         return graph
 
+class StochMatrixEvolver(object):
+    """
+    Evolver object will take in and update graphs based on a stochastic probability matrix
+    It will have a set of rules for updating a graph's stochastic matrix, in order to update the graph next time
+
+    Matrices are defined as a probability matrix of Node/Edge versus Evolution Operator. p(node0, SwapNode) for example is the relative probability
+    that the 'SwapNode' operator be applied on node node0
+
+    The application of any operator must take the form apply_evolution_at(graph, node_or_edge, verbose=whatever)
+
+    This class has the most basic probability selection: if a given operator can possibly be run on a node/edge, it will be assigned a value of one.
+    If it is not possible, it is assigned a value of zero. Probability are normalized prior to selecting the operator
+    """
+    def __init__(self, verbose=False, **attr):
+        self.verbose = verbose
+        self.evo_op_list = list(configuration.EVOLUTION_OPERATORS.values()) # we pick these out because technically dictionary values are not ordered
+                                                                            # so because we need our matrix order to be consistent, 
+        super().__init__(**attr)
+    
+    def evolve_graph(self, graph, evaluator, generation=None, verbose=False):
+        """
+        Evolves graph according to the stochastic matrix probabilites
+
+        :param graph: the graph to evolve
+        :param evaluator: not used in the base implementation, but may be useful in the future
+        """
+        if graph.evo_probabilities_matrix is None:
+            self.create_graph_matrix(graph, evaluator)
+        
+        node_or_edge, evo_op = graph.evolution_probabilities.sample_matrix()
+        graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
+        self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
+
+    def create_graph_matrix(self, graph, evaluator):
+        """
+        :param graph: the graph to evolve
+        :param evaluator: not used in the base implementation, but may be useful in the future
+        """
+        graph.evo_probabilities_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges))
+        for node_or_edge in list(graph.nodes) + list(graph.edges):
+            for op in self.evo_op_list:
+                likelihood = int(op().verify_evolution_at(graph, node_or_edge))
+                graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, node_or_edge, op)
+                graph.evo_probabilities_matrix.normalize_matrix()
+                graph.evo_probabilities_matrix.verify_matrix()
+
+    def update_graph_matrix(self, graph, evaluator, last_evo_op, last_node_or_edge):
+        """
+        Note: this function is made to be independent of the operator used (i.e. doesn't consider the operator proper)
+        """
+        pass
+    
+    class ProbabilityMatrix(object):
+        """
+        Probability matrix of (node/edge) v. Operator. The probability p(node_or_edge, operator) is the odd of operator being applied on node_or_edge
+
+        Note that updates to the matrix can be done either through the provided function, or by direct manipulation of self.matrix
+        """
+        def __init__(self, op_list, node_list, edge_list):
+            self.op_to_index = {op: i for (i, op) in enumerate(op_list)}
+            self.index_to_op = {i: op for (i, op) in enumerate(op_list)}
+            self.node_or_edge_to_index = {node_or_edge: i for (i, node_or_edge) in enumerate(node_list + edge_list)}
+            self.index_to_node_or_edge = {i: node_or_edge for (i, node_or_edge) in enumerate(node_list + edge_list)}
+
+            self.matrix = np.ones((len(self.node_or_edge_to_index), len(self.op_to_index)))
+            self.normalize_matrix()
+    
+        def normalize_matrix(self):
+            self.matrix = self.matrix / np.sum(self.matrix)
+        
+        def verify_matrix(self):
+            assert np.close(np.sum(self.matrix), 1) # matrix sums to proper probability
+            assert (self.matrix <= 1).all() and (self.matrix >= 0).all() # assert all probabilities are between 0 and 1
+        
+        def sample_matrix(self):
+            flat_matrix = self.matrix.flatten()
+            flat_indices = np.arange(0, flat_matrix.shape[0], step=1)
+            flat_index = np.random.choice(flat_indices, p=flat_matrix)
+
+            # convert flat index to proper bidirectional index
+            row = flat_index // self.matrix.shape[1]
+            col = flat_index % self.matrix.shape[1]
+
+            return self.index_to_node_or_edge[row], self.index_to_op[col]
+        
+        def set_prob_by_nodeEdge_op(self, probability, node_or_edge, op):
+            self.matrix[self.node_or_edge_to_index[node_or_edge]][self.op_to_index[op]] = probability
+
 
 class RuleBasedEvolver(Evolver):
     """

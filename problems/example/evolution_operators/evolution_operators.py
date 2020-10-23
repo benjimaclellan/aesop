@@ -61,6 +61,15 @@ class AddNode(EvolutionOperators):
         """
         # TODO check graph here
         return True # just for now
+    
+    def verify_evolution_at(self, graph, edge):
+        """
+        Check if the specific evolution on this edge of the graph is possible, returns bool
+        """
+        if edge not in graph.edges: # if the input edge is truly an edge
+            return False
+
+        return True # if the input is not an edge
 
 
 @register_evolution_operators
@@ -88,6 +97,9 @@ class RemoveNode(EvolutionOperators):
     
     def apply_evolution_at(self, graph, node, verbose=False):
         # update graph connections
+        if node not in graph.nodes:
+            return False
+
         try:
             graph.add_edge(graph.pre(node)[0], graph.suc(node)[0])
         except IndexError as e:
@@ -122,6 +134,13 @@ class RemoveNode(EvolutionOperators):
         else:
             return False
 
+    def verify_evolution_at(self, graph, node):
+        """
+        Check if the specific evolution on this node of the graph is possible, returns bool
+        """
+        if node not in graph.nodes:
+            return False
+        return graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types
 
 @register_evolution_operators
 class SwapNode(EvolutionOperators):
@@ -182,6 +201,16 @@ class SwapNode(EvolutionOperators):
             else:
                 flag = flag or False
         return flag
+    
+    def verify_evolution_at(self, graph, node):
+        """
+        Check if the specific evolution on this edge of the graph is possible, returns bool
+        """
+        if node not in graph.nodes:
+            return False
+        # returns True if node is of a correct type, and node is not the only one of the correct type. Otherwise returns false
+        node_type = graph.nodes[node]['model'].__class__.__bases__[0].__name__
+        return node_type in self.potential_node_types and len(configuration.NODE_TYPES_ALL[node_type] > 1)
 
 
 @register_evolution_operators
@@ -195,11 +224,13 @@ class AddInterferometer(EvolutionOperators):
         """ Applies the specific evolution on the graph argument
         """
         # choose two separate edges to insert the new multi-path nodes
-        edges = random.sample(graph.edges, 2)
-        return self.apply_evolution_at(graph, edges[0], edges[1], verbose=verbose)
+        edge = random.sample(graph.edges, 1)[0]
+        return self.apply_evolution_at(graph, edge, verbose=verbose)
 
-    def apply_evolution_at(self, graph, edge0, edge1, verbose=False):
+    def apply_evolution_at(self, graph, edge0, verbose=False):
         # create instance of two new multi-path nodes (just 2x2 couplers for now)
+        edge1 = random.sample(set(graph.edges) - set([edge0]), 1)[0]
+
         splitter1 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
         splitter2 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
 
@@ -240,7 +271,8 @@ class AddInterferometer(EvolutionOperators):
         return graph
 
     def verify_evolution(self, graph):
-        """ Checks if the specific evolution on the graph is possible, returns bool
+        """
+        Checks if the specific evolution on the graph is possible, returns bool
 
         All logic for going through graph structures and what node specifics there are, and returning a Yes/No of whether this
         evolution operator can be applied to this graph
@@ -254,6 +286,11 @@ class AddInterferometer(EvolutionOperators):
             return False
         else:
             return True
+
+    def verify_evolution_at(self, graph, edge):
+        if edge not in graph.edges:
+            return False
+        return self.verify_evolution(graph)
 
 
 @register_evolution_operators
@@ -273,19 +310,7 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         """ Applies the specific evolution on the graph argument
         """
         # conver graph to a simple (undirected, non-hyper, simple graph) to find cycles
-        tmp_graph = nx.Graph()
-        for u, v, data in graph.edges(data=True):
-            w = 1.0
-            if tmp_graph.has_edge(u, v):
-                tmp_graph[u][v]['weight'] += w
-            else:
-                tmp_graph.add_edge(u, v, weight=w)
-
-        cycles = nx.cycle_basis(tmp_graph)
-
-        # collapsed cycles are when beamsplitters link to each other on both edges (this info is lost when converted to simple undirected graph)
-        collapsed_cycles = [edge for edge in tmp_graph.edges if tmp_graph.get_edge_data(edge[0], edge[1])['weight'] > 1]
-        cycles += collapsed_cycles
+        cycles = self.get_graph_cycles(graph)
 
         # we choose a random cycle that we will consider. This cycle must contain 'node' (precondition is that node is part of a cycle)
         if node is not None: # select an arbitrary cycle which 'node' is part of. The if statement is for backwards compatible of a random evolution application
@@ -343,7 +368,24 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         All logic for going through graph structures and what node specifics there are, and returning a Yes/No of whether this
         evolution operator can be applied to this graph
         """
+        cycles = self.get_graph_cycles(graph)
 
+        if len(cycles) > 0:
+            return True
+        else:
+            return False
+    
+    def verify_evolution_at(self, graph, node):
+        if node not in graph.nodes:
+            return False
+
+        cycles = self.get_graph_cycles(graph)
+        for cycle in cycles:
+            if node in cycle:
+                return True
+        return False
+    
+    def get_graph_cycles(self, graph):
         # check to see if there is a cycle which can be collapses
         tmp_graph = nx.Graph()
         for u, v, data in graph.edges(data=True):
@@ -353,13 +395,10 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             else:
                 tmp_graph.add_edge(u, v, weight=w)
         cycles = nx.cycle_basis(tmp_graph)
+        # collapsed cycles are when beamsplitters link to each other on both edges (this info is lost when converted to simple undirected graph)
         collapsed_cycles = [edge for edge in tmp_graph.edges if tmp_graph.get_edge_data(edge[0], edge[1])['weight'] > 1]
         cycles += collapsed_cycles
-
-        if len(cycles) > 0:
-            return True
-        else:
-            return False
+        return cycles
 
 
 # @register_evolution_operators
@@ -430,6 +469,12 @@ class AddInterferometerSimple(EvolutionOperators):
             return False
         else:
             return True
+    
+    def verify_evolution_at(self, graph, edge):
+        if edge not in graph.edges:
+            return False
+
+        return self.verify_evolution(graph)
 
 
 @register_crossover_operators
