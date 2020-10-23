@@ -211,7 +211,6 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     
     new_pop = []
     # 2. Execute crossovers, if crossovers enabled
-    print(f'hyperparams: {hyperparameters}')
     if hyperparameters['crossover_maker'] is not None:
         # top 10% reproduce, reproduces with fitter mate with higher probability
         will_reproduce = population[0:len(population) // 10 + 1]

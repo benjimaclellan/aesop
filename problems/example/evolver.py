@@ -1,5 +1,6 @@
 import autograd.numpy as np
 import random
+import matplotlib.pyplot as plt
 
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
@@ -98,9 +99,11 @@ class StochMatrixEvolver(object):
         if graph.evo_probabilities_matrix is None:
             self.create_graph_matrix(graph, evaluator)
         
-        node_or_edge, evo_op = graph.evolution_probabilities.sample_matrix()
+        print(f'graph matrix: {graph.evo_probabilities_matrix}')
+        node_or_edge, evo_op = graph.evo_probabilities_matrix.sample_matrix()
         graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
         self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
+        return graph
 
     def create_graph_matrix(self, graph, evaluator):
         """
@@ -112,15 +115,33 @@ class StochMatrixEvolver(object):
             for op in self.evo_op_list:
                 likelihood = int(op().verify_evolution_at(graph, node_or_edge))
                 graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, node_or_edge, op)
-                graph.evo_probabilities_matrix.normalize_matrix()
-                graph.evo_probabilities_matrix.verify_matrix()
+        
+        graph.evo_probabilities_matrix.normalize_matrix()
+        graph.evo_probabilities_matrix.verify_matrix()
 
     def update_graph_matrix(self, graph, evaluator, last_evo_op, last_node_or_edge):
         """
-        Note: this function is made to be independent of the operator used (i.e. doesn't consider the operator proper)
+        Function does not use evaluator, last_evo_op, or last_node_or_edge in this implementation. However, they may be valid parameters to modify later
         """
-        pass
-    
+        self.create_graph_matrix(graph, evaluator) # just fully remakes the graph matrix for now
+
+    def random_graph(self, graph, evaluator, view_evo=False, verbose=False):
+        N_EVOLUTIONS = 10
+        for n in range(N_EVOLUTIONS):
+            try:
+
+                graph_tmp = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose)
+                graph_tmp.assert_number_of_edges()
+                graph = graph_tmp
+                if view_evo:
+                    graph.draw()
+                    plt.show()
+            except AssertionError as e:
+                print(e)
+
+        return graph
+
+
     class ProbabilityMatrix(object):
         """
         Probability matrix of (node/edge) v. Operator. The probability p(node_or_edge, operator) is the odd of operator being applied on node_or_edge
@@ -140,7 +161,7 @@ class StochMatrixEvolver(object):
             self.matrix = self.matrix / np.sum(self.matrix)
         
         def verify_matrix(self):
-            assert np.close(np.sum(self.matrix), 1) # matrix sums to proper probability
+            assert np.isclose(np.sum(self.matrix), 1) # matrix sums to proper probability
             assert (self.matrix <= 1).all() and (self.matrix >= 0).all() # assert all probabilities are between 0 and 1
         
         def sample_matrix(self):
@@ -156,6 +177,11 @@ class StochMatrixEvolver(object):
         
         def set_prob_by_nodeEdge_op(self, probability, node_or_edge, op):
             self.matrix[self.node_or_edge_to_index[node_or_edge]][self.op_to_index[op]] = probability
+        
+        def __str__(self):
+            string_rep = f'operator to index: {self.op_to_index}\n' + f'node/edge to index: {self.node_or_edge_to_index}\n' + \
+                         f'matrix: \n{self.matrix}'
+            return string_rep
 
 
 class RuleBasedEvolver(Evolver):

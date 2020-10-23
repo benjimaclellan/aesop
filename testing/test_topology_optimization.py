@@ -1,6 +1,14 @@
-
+# place main ASOPE directory on the path which will be accessed by all ray workers
 import sys
-sys.path.append('..')
+import pathlib
+import os
+import platform
+import copy 
+
+parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
+sep = ';' if platform.system() == 'Windows' else ':'
+os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
+sys.path.append(parent_dir)
 
 import networkx as nx
 import itertools
@@ -26,16 +34,33 @@ from problems.example.assets.functions import psd_, power_, fft_, ifft_
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+
+from problems.example.evolver import StochMatrixEvolver
 
 from algorithms.parameter_optimization import parameters_optimize
 from algorithms.topology_optimization import topology_optimization
 
-# np.random.seed(0)
+np.random.seed(0)
 plt.close('all')
-if __name__ == "__main__":
+
+
+def matrix_evolver_basic_test():
+    evolver = StochMatrixEvolver()
+
+    nodes = {0:ContinuousWaveLaser(),
+            -1:Photodiode()}
+    edges = [(0,-1)]
+
+    graph = Graph(nodes, edges, propagate_on_edges = False)
+    graph.assert_number_of_edges()
+
+    evolver.random_graph(graph, None, view_evo=True, verbose=True) # doesn't actually need an evaluator in this implementation
+
+
+def topology_optimization_test():
     directory_main = os.path.join(Path(os.getcwd()).parent, 'results')
     description = "test_runs"
     directory_rand = r"{}_{}_{}".format(date.today().strftime("%Y%m%d"),
@@ -74,3 +99,7 @@ if __name__ == "__main__":
 
     plt.savefig(os.path.join(directory, "time-domain.png"))
 
+
+if __name__ == "__main__":
+    matrix_evolver_basic_test()
+    # topology_optimization_test()

@@ -66,7 +66,7 @@ class AddNode(EvolutionOperators):
         """
         Check if the specific evolution on this edge of the graph is possible, returns bool
         """
-        if edge not in graph.edges: # if the input edge is truly an edge
+        if edge not in set(graph.edges): # if the input edge is truly an edge
             return False
 
         return True # if the input is not an edge
@@ -210,7 +210,7 @@ class SwapNode(EvolutionOperators):
             return False
         # returns True if node is of a correct type, and node is not the only one of the correct type. Otherwise returns false
         node_type = graph.nodes[node]['model'].__class__.__bases__[0].__name__
-        return node_type in self.potential_node_types and len(configuration.NODE_TYPES_ALL[node_type] > 1)
+        return node_type in self.potential_node_types and len(configuration.NODE_TYPES_ALL[node_type]) > 1
 
 
 @register_evolution_operators
@@ -288,7 +288,7 @@ class AddInterferometer(EvolutionOperators):
             return True
 
     def verify_evolution_at(self, graph, edge):
-        if edge not in graph.edges:
+        if edge not in set(graph.edges):
             return False
         return self.verify_evolution(graph)
 
@@ -471,7 +471,7 @@ class AddInterferometerSimple(EvolutionOperators):
             return True
     
     def verify_evolution_at(self, graph, edge):
-        if edge not in graph.edges:
+        if edge not in set(graph.edges):
             return False
 
         return self.verify_evolution(graph)
