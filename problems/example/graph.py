@@ -345,7 +345,7 @@ class Graph(GraphParent):
         plt.show()
         return
 
-    def draw(self, ax=None, labels=None, legend=False, ignore_warnings=True):
+    def draw(self, ax=None, labels=None, legend=False, method='planar', ignore_warnings=True):
         """
         custom plotting function to more closely resemble schematic diagrams
 
@@ -361,8 +361,13 @@ class Graph(GraphParent):
         if labels is None:
             labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
 
-        # pos = nx.planar_layout(self)
-        pos = nx.kamada_kawai_layout(self)
+        if method == 'planar':
+            pos = nx.planar_layout(self)
+        elif method == 'kamada_kawai':
+            pos = nx.kamada_kawai_layout(self)
+        else:
+            pos = nx.planar_layout(self) # planar as default, though on occasion can fail with system graph
+
         nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
 
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))

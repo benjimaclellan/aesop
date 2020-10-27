@@ -385,8 +385,23 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             if save:
                 print(f'adding edges: ({graph.pre(source_node)[0]},{new_source_node}) and ({new_sink_node}, {graph.suc(sink_node)[0]})')
 
+
         # remove the nodes that should be deleted
         graph.remove_nodes_from(nodes_to_remove)
+
+        # HACKY fix for rare issue of floating/unattached nodes, which can occur with nested interferometers
+        floating_nodes = []
+        for node in graph.nodes:
+            try:
+                graph.nodes[node]['model'].assert_number_of_edges(graph.get_in_degree(node), graph.get_out_degree(node))
+            except TypeError as E:
+                floating_nodes.append(node)
+        if save:
+            print(f'------------Floating nodes:{floating_nodes}')
+        if floating_nodes is not None:
+            graph.remove_nodes_from(floating_nodes)
+
+
         if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
             for node in nodes_to_remove:
                 marker = graph.speciation_descriptor['node to marker'].pop(node)
