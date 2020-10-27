@@ -390,16 +390,22 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         graph.remove_nodes_from(nodes_to_remove)
 
         # HACKY fix for rare issue of floating/unattached nodes, which can occur with nested interferometers
-        floating_nodes = []
-        for node in graph.nodes:
+        flag = True
+        while flag:
             try:
-                graph.nodes[node]['model'].assert_number_of_edges(graph.get_in_degree(node), graph.get_out_degree(node))
+                graph.assert_number_of_edges()
+                break # no issues, can continue on
             except TypeError as E:
-                floating_nodes.append(node)
-        if save:
-            print(f'------------Floating nodes:{floating_nodes}')
-        if floating_nodes is not None:
-            graph.remove_nodes_from(floating_nodes)
+                floating_nodes = []
+                for node in graph.nodes:
+                    try:
+                        graph.nodes[node]['model'].assert_number_of_edges(graph.get_in_degree(node), graph.get_out_degree(node))
+                    except TypeError as E:
+                        floating_nodes.append(node)
+                if save:
+                    print(f'------------Floating nodes:{floating_nodes}')
+                if floating_nodes is not None:
+                    graph.remove_nodes_from(floating_nodes)
 
 
         if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
