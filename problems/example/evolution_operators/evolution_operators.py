@@ -29,7 +29,7 @@ class AddNode(EvolutionOperators):
         edge = random.sample(graph.edges, 1)[0]
         return self.apply_evolution_at(graph, edge, verbose=verbose)
 
-    def apply_evolution_at(self, graph, edge, verbose=False):
+    def apply_evolution_at(self, graph, edge, save=False, verbose=False):
         # find all potential model types (all single-path nodes) to choose one from
         potential_nodes = []
         for node_type in self.potential_node_types:
@@ -97,7 +97,7 @@ class RemoveNode(EvolutionOperators):
         return self.apply_evolution_at(graph, node_to_remove, verbose=verbose)
 
     
-    def apply_evolution_at(self, graph, node, verbose=False):
+    def apply_evolution_at(self, graph, node, save=False, verbose=False):
         # update graph connections
         if node not in graph.nodes:
             return False
@@ -166,7 +166,7 @@ class SwapNode(EvolutionOperators):
         node_to_swap = random.sample(swappable_nodes, 1)[0]
         return self.apply_evolution_at(graph, node_to_swap, verbose=verbose)
 
-    def apply_evolution_at(self, graph, node, verbose=False):
+    def apply_evolution_at(self, graph, node, save=False, verbose=False):
         model_to_swap = graph.nodes[node]['model']
         node_type_set = set(configuration.NODE_TYPES_ALL[model_to_swap.__class__.__bases__[0].__name__].values())
 
@@ -230,7 +230,7 @@ class AddInterferometer(EvolutionOperators):
         edge = random.sample(graph.edges, 1)[0]
         return self.apply_evolution_at(graph, edge, verbose=verbose)
 
-    def apply_evolution_at(self, graph, edge0, verbose=False):
+    def apply_evolution_at(self, graph, edge0, save=False, verbose=False):
         # create instance of two new multi-path nodes (just 2x2 couplers for now)
         edge1 = random.sample(set(graph.edges) - set([edge0]), 1)[0]
 
@@ -323,6 +323,9 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         if node is not None: # select an arbitrary cycle which 'node' is part of. The if statement is for backwards compatible of a random evolution application
             cycles = [cycle for cycle in cycles if node in cycle]
         cycle = random.sample(cycles, 1)[0] # chooses random cycle to remove part of
+        # tmp_ = [len(cycle) for cycle in cycles]
+        # cycle = cycles[tmp_.index(max(tmp_))]
+
         if save:
             with open (f'cycle_to_remove_interferometer_graph.pkl', 'wb') as handle:
                 pickle.dump(cycle, handle)
@@ -392,6 +395,7 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         # HACKY fix for rare issue of floating/unattached nodes, which can occur with nested interferometers
         flag = True
         while flag:
+
             try:
                 graph.assert_number_of_edges()
                 break # no issues, can continue on
@@ -402,11 +406,29 @@ class RemoveOneInterferometerPath(EvolutionOperators):
                         graph.nodes[node]['model'].assert_number_of_edges(graph.get_in_degree(node), graph.get_out_degree(node))
                     except TypeError as E:
                         floating_nodes.append(node)
+                if len(floating_nodes) == 2: # if there's two unconnected ndoes, just try stitching them together
+                    edge_try1 = [(floating_nodes[0], floating_nodes[1])]
+                    edge_try2 = [(floating_nodes[1], floating_nodes[0])]
+                    try:
+                        graph.add_edges_from(edge_try1)
+                        graph.assert_number_of_edges()
+                        break
+                    except:
+                        graph.remove_edges_from(edge_try1)
+                        pass
+                    try:
+                        graph.add_edges_from(edge_try2)
+                        graph.assert_number_of_edges()
+                        break
+                    except:
+                        graph.remove_edges_from(edge_try2)
+                        pass
+
                 if save:
                     print(f'------------Floating nodes:{floating_nodes}')
                 if floating_nodes is not None:
                     graph.remove_nodes_from(floating_nodes)
-
+            # end of gross HACKY fix
 
         if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
             for node in nodes_to_remove:
@@ -477,7 +499,7 @@ class AddInterferometerSimple(EvolutionOperators):
         edge = random.sample(graph.edges, 1)[0]
         return self.apply_evolution_at(graph, edge, verbose=verbose)
     
-    def apply_evolution_at(self, graph, edge, verbose=False):
+    def apply_evolution_at(self, graph, edge, verbose=False, save=False):
         # two new multipath splitters (just 2x2 couplers for now)
         splitter1 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
         splitter2 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
