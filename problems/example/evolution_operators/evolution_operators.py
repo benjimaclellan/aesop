@@ -2,14 +2,15 @@ import numpy as np
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
+import pickle
 
 import config.config as configuration
-from lib.decorators import register_evolution_operators, register_crossover_operators
+from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
 from algorithms.speciation import Speciation
 from problems.example.graph import Graph
 
-
+@register_growth_operators
 @register_evolution_operators
 class AddNode(EvolutionOperators):
     """
@@ -24,15 +25,16 @@ class AddNode(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
+        # choose a random edge to insert the node at
+        edge = random.sample(graph.edges, 1)[0]
+        return self.apply_evolution_at(graph, edge, verbose=verbose)
 
+    def apply_evolution_at(self, graph, edge, verbose=False):
         # find all potential model types (all single-path nodes) to choose one from
         potential_nodes = []
         for node_type in self.potential_node_types:
             potential_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
         model = random.sample(potential_nodes, 1)[0]()
-
-        # choose a random edge to insert the node at
-        edge = random.sample(graph.edges, 1)[0]
 
         # find an appropriate label for the new node (no duplicates in the graph)
         node_label = min(set(range(min(graph.nodes), max(graph.nodes)+2)) - set(graph.nodes))
@@ -50,6 +52,7 @@ class AddNode(EvolutionOperators):
         if verbose:
             print('Evolution operator: AddNode | Adding node {} with model {} on edge {}'.format(node_label, model, edge))
         return graph
+    
 
     def verify_evolution(self, graph):
         """ Checks if the specific evolution on the graph is possible, returns bool
@@ -59,9 +62,19 @@ class AddNode(EvolutionOperators):
         """
         # TODO check graph here
         return True # just for now
+    
+    def verify_evolution_at(self, graph, edge):
+        """
+        Check if the specific evolution on this edge of the graph is possible, returns bool
+        """
+        if edge not in set(graph.edges): # if the input edge is truly an edge
+            return False
+
+        return True # if the input is not an edge
 
 
 @register_evolution_operators
+@register_reduction_operators
 class RemoveNode(EvolutionOperators):
 
     potential_node_types = set(['SinglePath'])
@@ -80,23 +93,30 @@ class RemoveNode(EvolutionOperators):
             if graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types:
                 potential_nodes.append(node)
         node_to_remove = random.sample(potential_nodes, 1)[0]
-        if verbose:
-            print('Evolution operator: RemoveNode | Removing node {} with model {}'.format(node_to_remove, graph.nodes[node_to_remove]['model']))
 
+        return self.apply_evolution_at(graph, node_to_remove, verbose=verbose)
 
+    
+    def apply_evolution_at(self, graph, node, verbose=False):
         # update graph connections
+        if node not in graph.nodes:
+            return False
+
         try:
-            graph.add_edge(graph.pre(node_to_remove)[0], graph.suc(node_to_remove)[0])
+            graph.add_edge(graph.pre(node)[0], graph.suc(node)[0])
         except IndexError as e:
             print(e)
             graph.draw(legend=True)
             plt.show()
-        graph.remove_edge(graph.pre(node_to_remove)[0], node_to_remove)
-        graph.remove_edge(node_to_remove, graph.suc(node_to_remove)[0])
+        graph.remove_edge(graph.pre(node)[0], node)
+        graph.remove_edge(node, graph.suc(node)[0])
 
-        graph.remove_node(node_to_remove)
+        if verbose:
+            print('Evolution operator: RemoveNode | Removing node {} with model {}'.format(node, graph.nodes[node]['model']))
+
+        graph.remove_node(node)
         if graph.speciation_descriptor is not None and graph.speciation_descriptor['name'] == 'photoNEAT':
-            marker = graph.speciation_descriptor['node to marker'].pop(node_to_remove)
+            marker = graph.speciation_descriptor['node to marker'].pop(node)
             graph.speciation_descriptor['marker to node'].pop(marker)
 
         return graph
@@ -116,7 +136,13 @@ class RemoveNode(EvolutionOperators):
         else:
             return False
 
-
+    def verify_evolution_at(self, graph, node):
+        """
+        Check if the specific evolution on this node of the graph is possible, returns bool
+        """
+        if node not in graph.nodes:
+            return False
+        return graph.nodes[node]['model'].__class__.__bases__[0].__name__ in self.potential_node_types
 
 @register_evolution_operators
 class SwapNode(EvolutionOperators):
@@ -138,15 +164,19 @@ class SwapNode(EvolutionOperators):
 
         swappable_nodes = tmp[potential_node_type]
         node_to_swap = random.sample(swappable_nodes, 1)[0]
-        model_to_swap = graph.nodes[node_to_swap]['model']
+        return self.apply_evolution_at(graph, node_to_swap, verbose=verbose)
 
-        new_model = random.sample(list(set(configuration.NODE_TYPES_ALL[potential_node_type].values()) - set([model_to_swap.__class__])), 1)[0]()
+    def apply_evolution_at(self, graph, node, verbose=False):
+        model_to_swap = graph.nodes[node]['model']
+        node_type_set = set(configuration.NODE_TYPES_ALL[model_to_swap.__class__.__bases__[0].__name__].values())
 
-        graph.nodes[node_to_swap]['model'] = new_model
-        graph.nodes[node_to_swap]['name'] = new_model.__class__.__name__
+        new_model = random.sample(list(node_type_set - set([model_to_swap.__class__])), 1)[0]()
+
+        graph.nodes[node]['model'] = new_model
+        graph.nodes[node]['name'] = new_model.__class__.__name__
 
         if verbose:
-            print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node_to_swap,model_to_swap, new_model))
+            print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node, model_to_swap, new_model))
         return graph
 
     def collect_potential_nodes_to_swap(self, graph):
@@ -173,9 +203,20 @@ class SwapNode(EvolutionOperators):
             else:
                 flag = flag or False
         return flag
+    
+    def verify_evolution_at(self, graph, node):
+        """
+        Check if the specific evolution on this edge of the graph is possible, returns bool
+        """
+        if node not in graph.nodes:
+            return False
+        # returns True if node is of a correct type, and node is not the only one of the correct type. Otherwise returns false
+        node_type = graph.nodes[node]['model'].__class__.__bases__[0].__name__
+        return node_type in self.potential_node_types and len(configuration.NODE_TYPES_ALL[node_type]) > 1
 
 
 @register_evolution_operators
+@register_growth_operators
 class AddInterferometer(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -185,13 +226,16 @@ class AddInterferometer(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
+        # choose two separate edges to insert the new multi-path nodes
+        edge = random.sample(graph.edges, 1)[0]
+        return self.apply_evolution_at(graph, edge, verbose=verbose)
 
+    def apply_evolution_at(self, graph, edge0, verbose=False):
         # create instance of two new multi-path nodes (just 2x2 couplers for now)
+        edge1 = random.sample(set(graph.edges) - set([edge0]), 1)[0]
+
         splitter1 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
         splitter2 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
-
-        # choose two separate edges to insert the new multi-path nodes
-        edges = random.sample(graph.edges, 2)
 
         # add new splitters into graph
         node_labels = set(range(min(graph.nodes), max(graph.nodes) + 4)) - set(graph.nodes)
@@ -208,10 +252,10 @@ class AddInterferometer(EvolutionOperators):
 
 
         # we need to put the new splitters in the proper order to avoid loops (follow the propagation order)
-        if graph.propagation_order.index(edges[0][0]) <= graph.propagation_order.index(edges[1][0]):
-            edge1, edge2 = edges[0], edges[1]
+        if graph.propagation_order.index(edge0[0]) <= graph.propagation_order.index(edge1[0]):
+            edge1, edge2 = edge0, edge1
         else:
-            edge1, edge2 = edges[1], edges[0]
+            edge1, edge2 = edge1, edge0
 
         # fix connections in graph
         graph.remove_edge(edge1[0], edge1[1])
@@ -230,7 +274,8 @@ class AddInterferometer(EvolutionOperators):
         return graph
 
     def verify_evolution(self, graph):
-        """ Checks if the specific evolution on the graph is possible, returns bool
+        """
+        Checks if the specific evolution on the graph is possible, returns bool
 
         All logic for going through graph structures and what node specifics there are, and returning a Yes/No of whether this
         evolution operator can be applied to this graph
@@ -245,8 +290,14 @@ class AddInterferometer(EvolutionOperators):
         else:
             return True
 
+    def verify_evolution_at(self, graph, edge):
+        if edge not in set(graph.edges):
+            return False
+        return self.verify_evolution(graph)
+
 
 @register_evolution_operators
+@register_reduction_operators
 class RemoveOneInterferometerPath(EvolutionOperators):
     """
     Collapses an interferometer structure to a single path (if possible)
@@ -257,26 +308,25 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         return
 
     def apply_evolution(self, graph, verbose=False):
+        return self.apply_evolution_at(graph, None, verbose=verbose) # node is passed as None bc it's the easiest way to avoid legacy breaking things rn
+
+    def apply_evolution_at(self, graph, node, verbose=False, save=False):
         """ Applies the specific evolution on the graph argument
         """
+        if save:
+            with open (f'remove_interferometer_pre_graph.pkl', 'wb') as handle:
+                pickle.dump(graph, handle)
+        # convert graph to a simple (undirected, non-hyper, simple graph) to find cycles
+        cycles = self.get_graph_cycles(graph)
 
-        # conver graph to a simple (undirected, non-hyper, simple graph) to find cycles
-        tmp_graph = nx.Graph()
-        for u, v, data in graph.edges(data=True):
-            w = 1.0
-            if tmp_graph.has_edge(u, v):
-                tmp_graph[u][v]['weight'] += w
-            else:
-                tmp_graph.add_edge(u, v, weight=w)
-
-        cycles = nx.cycle_basis(tmp_graph)
-
-        # collapsed cycles are when beamsplitters link to each other on both edges (this info is lost when converted to simple undirected graph)
-        collapsed_cycles = [edge for edge in tmp_graph.edges if tmp_graph.get_edge_data(edge[0], edge[1])['weight'] > 1]
-        cycles += collapsed_cycles
-
-        # we choose a random cycle that we will consider
+        # we choose a random cycle that we will consider. This cycle must contain 'node' (precondition is that node is part of a cycle)
+        if node is not None: # select an arbitrary cycle which 'node' is part of. The if statement is for backwards compatible of a random evolution application
+            cycles = [cycle for cycle in cycles if node in cycle]
         cycle = random.sample(cycles, 1)[0] # chooses random cycle to remove part of
+        if save:
+            with open (f'cycle_to_remove_interferometer_graph.pkl', 'wb') as handle:
+                pickle.dump(cycle, handle)
+            print(f'cycle to remove: {cycle}')
 
         # use the old propagation order to ensure physicality when placing new nodes
         propagation_order = graph.propagation_order
@@ -285,21 +335,41 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         propagation_index = [propagation_order.index(node) for node in cycle]
         source_node = cycle[np.argmin(propagation_index)]
         sink_node = cycle[np.argmax(propagation_index)]
+        if save:
+            print(f'propagation index: {propagation_index}')
+            print(f'source node: {source_node}')
+            print(f'sink node: {sink_node}')
 
         # choose one branch to remain in the graph, we will delete the others
         branch_to_keep = random.sample(graph.suc(source_node), 1)[0]
+
         if branch_to_keep == sink_node:
             branch_to_keep = None
-
+        
+        if save:
+            with open (f'branch_to_keep_remove_interferometer_graph.pkl', 'wb') as handle:
+                pickle.dump(cycle, handle)
+            print(f'branch to keep: {branch_to_keep}')
+    
         # check what nodes/edges to keep and remove
         paths_from_source_to_sink = list(nx.all_simple_paths(graph, source_node, sink_node))
         paths_to_remove = [path for path in paths_from_source_to_sink if branch_to_keep not in path]
         nodes_to_remove = set([item for sublist in paths_to_remove for item in sublist])
         paths_to_keep = [path for path in paths_from_source_to_sink if branch_to_keep in path]
         nodes_to_keep = set([item for sublist in paths_to_keep for item in sublist]) - set([source_node, sink_node])
+        if save:
+            print(f'paths source to sink: {paths_from_source_to_sink}')
+            print(f'paths to remove: {paths_to_remove}')
+            print(f'nodes to remove: {nodes_to_remove}')
+            print(f'paths to keep: {paths_to_keep}')
+            print(f'nodes to keep: {nodes_to_keep}')
+            graph.draw()
+            plt.show()
 
         # connect graph back together deal with the possibilities of removing a whole loop
         if not nodes_to_keep:
+            if save:
+                print(f'not keeping nodes, adding edge: ({graph.pre(source_node)[0]}, {graph.suc(sink_node)[0]})')
             graph.add_edge(graph.pre(source_node)[0], graph.suc(sink_node)[0])
         else:
             tmp = list(nodes_to_keep)
@@ -309,6 +379,8 @@ class RemoveOneInterferometerPath(EvolutionOperators):
 
             graph.add_edge(graph.pre(source_node)[0], new_source_node)
             graph.add_edge(new_sink_node, graph.suc(sink_node)[0])
+            if save:
+                print(f'adding edges: ({graph.pre(source_node)[0]},{new_source_node}) and ({new_sink_node}, {graph.suc(sink_node)[0]})')
 
         # remove the nodes that should be deleted
         graph.remove_nodes_from(nodes_to_remove)
@@ -320,9 +392,12 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         if verbose:
             str_info = 'Source node {} | Sink node {} | Branch to keep {} | Nodes to delete {}'.format(source_node, sink_node, branch_to_keep, nodes_to_remove)
             print('Evolution operator: RemoveOneInterferometerPath | {}'.format(str_info))
+        
+        if save:
+            graph.draw()
+            plt.show()
 
         return graph
-
 
     def verify_evolution(self, graph):
         """ Checks if the specific evolution on the graph is possible, returns bool
@@ -330,7 +405,24 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         All logic for going through graph structures and what node specifics there are, and returning a Yes/No of whether this
         evolution operator can be applied to this graph
         """
+        cycles = self.get_graph_cycles(graph)
 
+        if len(cycles) > 0:
+            return True
+        else:
+            return False
+    
+    def verify_evolution_at(self, graph, node):
+        if node not in graph.nodes:
+            return False
+
+        cycles = self.get_graph_cycles(graph)
+        for cycle in cycles:
+            if node in cycle:
+                return True
+        return False
+    
+    def get_graph_cycles(self, graph):
         # check to see if there is a cycle which can be collapses
         tmp_graph = nx.Graph()
         for u, v, data in graph.edges(data=True):
@@ -340,16 +432,14 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             else:
                 tmp_graph.add_edge(u, v, weight=w)
         cycles = nx.cycle_basis(tmp_graph)
+        # collapsed cycles are when beamsplitters link to each other on both edges (this info is lost when converted to simple undirected graph)
         collapsed_cycles = [edge for edge in tmp_graph.edges if tmp_graph.get_edge_data(edge[0], edge[1])['weight'] > 1]
         cycles += collapsed_cycles
-
-        if len(cycles) > 0:
-            return True
-        else:
-            return False
+        return cycles
 
 
 # @register_evolution_operators
+# @register_growth_operators
 class AddInterferometerSimple(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -359,7 +449,11 @@ class AddInterferometerSimple(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         """ Applies the specific evolution on the graph argument
         """
-
+        # edge to add interferometer in
+        edge = random.sample(graph.edges, 1)[0]
+        return self.apply_evolution_at(graph, edge, verbose=verbose)
+    
+    def apply_evolution_at(self, graph, edge, verbose=False):
         # two new multipath splitters (just 2x2 couplers for now)
         splitter1 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
         splitter2 = configuration.NODE_TYPES_ALL['MultiPath']['VariablePowerSplitter']()
@@ -370,9 +464,6 @@ class AddInterferometerSimple(EvolutionOperators):
         for node_type in potential_node_types:
             potential_nodes += list(configuration.NODE_TYPES_ALL[node_type].values())
         new_nonsplitter = random.sample(potential_nodes, 1)[0]()
-
-        # edge to add interferometer in
-        edge = random.sample(graph.edges, 1)[0]
 
         node_labels = set(range(min(graph.nodes), max(graph.nodes) + 4)) - set(graph.nodes)
         label1 = min(node_labels)
@@ -416,6 +507,12 @@ class AddInterferometerSimple(EvolutionOperators):
             return False
         else:
             return True
+    
+    def verify_evolution_at(self, graph, edge):
+        if edge not in set(graph.edges):
+            return False
+
+        return self.verify_evolution(graph)
 
 
 @register_crossover_operators

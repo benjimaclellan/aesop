@@ -71,8 +71,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
-                                                                       crossover_maker=crossover_maker,
-                                                                       generation_num=generation)
+                                                                       crossover_maker=crossover_maker)
         print(f'population length after update: {len(population)}')
         
         # optimize parameters on each node/CPU
@@ -83,6 +82,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
         population = population[0:ga_opts['n_population']] # get rid of extra params, if we have too many
+        SPECIATION_MANAGER.reverse_fitness_sharing(population, generation) # ensures log info is correct (fitness sharing is ONLY to select next gen)
         for (score, graph) in population:
             graph.clear_propagation()
 
@@ -211,7 +211,6 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     
     new_pop = []
     # 2. Execute crossovers, if crossovers enabled
-    print(f'hyperparams: {hyperparameters}')
     if hyperparameters['crossover_maker'] is not None:
         # top 10% reproduce, reproduces with fitter mate with higher probability
         will_reproduce = population[0:len(population) // 10 + 1]
@@ -256,10 +255,10 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
                 break
     # speciation manager reverses fitness sharing to get raw score. Generation - 1 is given, since we're reversing the sharing of the previous generation in this case
     from_last_gen = population[0:len(population) // 10 + 1]
-    print(f'from last gen before fitness reversal: {from_last_gen}')
-    if population[0][0] is not None:
-        SPECIATION_MANAGER.reverse_fitness_sharing(from_last_gen, hyperparameters['generation_num'] - 1)
-    print(f'from last gen after fitness reversal: {from_last_gen}')
+    # print(f'from last gen before fitness reversal: {from_last_gen}')
+    # if population[0][0] is not None:
+    #     SPECIATION_MANAGER.reverse_fitness_sharing(from_last_gen, hyperparameters['generation_num'] - 1)
+    # print(f'from last gen after fitness reversal: {from_last_gen}')
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 

@@ -128,7 +128,9 @@ class Speciation():
         # 3. Update self.d_thresh with my awesome P(ID) method
         if debug:
             print(f'current d_thresh: {self.d_thresh}')
-        delta = np.clip(-1 * (self.target_species_num - len(self.species)) * THRESH_ADJUST_PROP_CONSTANT, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
+        
+        thresh_adjust_prop = THRESH_ADJUST_PROP_CONSTANT / np.sqrt(len(population)) # normalize adjustment factor to total number of individuals, since more individuals = likely larger diff in species #
+        delta = np.clip(-1 * (self.target_species_num - len(self.species)) * thresh_adjust_prop, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
         self.d_thresh = delta + self.d_thresh
         self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
         if debug:
@@ -302,16 +304,16 @@ class photoNEAT(DistanceEvaluatorInterface):
         markers1_set = set(graph1.speciation_descriptor['marker to node'].keys())
         markers_intersection = markers0_set.intersection(markers1_set)
 
-        print(f'markers0: {markers0_set}')
-        print(f'markers1: {markers1_set}')
-        print(f'markers intersection: {markers_intersection}')
+        # print(f'markers0: {markers0_set}')
+        # print(f'markers1: {markers1_set}')
+        # print(f'markers intersection: {markers_intersection}')
 
         structural_diff = (len(markers0_set) + len(markers1_set) - 2 * len(markers_intersection)) / (len(markers0_set) + len(markers1_set))
-        print(f'structural_diff: {structural_diff}')
+        # print(f'structural_diff: {structural_diff}')
         # list[marker] contains 0 (False) if the nodes at the same marker are of different classes, 1 otherwise
         compositional_diff_list = [type(graph0.speciation_descriptor['marker to node'][marker]) != type(graph1.speciation_descriptor['marker to node'][marker]) for marker in markers_intersection]
         compositional_diff = np.sum(np.array(compositional_diff_list, dtype=int)) / len(markers_intersection)
-        print(f'compositional_diff: {compositional_diff}')
+        # print(f'compositional_diff: {compositional_diff}')
 
         return self.weights[0] * structural_diff + self.weights[1] * compositional_diff
         

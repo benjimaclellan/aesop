@@ -56,6 +56,9 @@ class Graph(GraphParent):
         # initialize description needed for speciation
         self.speciation_descriptor = None
 
+        # initialize evolution probability matrix
+        self.evo_probabilities_matrix = None
+
         # initialize variables to store function handles for grad & hess
         self.func = None
         self.grad = None
