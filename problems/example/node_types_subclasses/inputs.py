@@ -106,3 +106,54 @@ class ContinuousWaveLaser(Input):
     def update_noise_model(self):
         self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
         self.noise_model.add_noise_source(noise_type='osnr', noise_param=self._osnr_dB)
+
+
+@register_node_types_all
+class BitStream(Input):
+    """
+    """
+
+    def __init__(self, seed=None, **kwargs):
+
+        random_state = np.random.RandomState(seed=seed)
+
+        self.node_lock = True
+        self.node_acronym = 'BIT'
+        self.number_of_parameters = 7
+        self.default_parameters = [10, 1.0, 12e-9, 100e-12, 1.55e-6, 55.0, 0.1e3]  #
+
+        self.upper_bounds = [50, 1.0, 12e-9, 100e-12, 1.56e-6, 200.0, 1.0e6]  #
+        self.lower_bounds = [2, 0.0, 4e-9, 10e-12, 1.54e-6, 1.0, 0.0]  #
+        self.data_types = ['int', 'float', 'float', 'float', 'float', 'float', 'float']
+        self.step_sizes = [1, None, None, None, None, None, None]
+        self.parameter_imprecisions = [0.0, 0.01e-6, 0, 0, 0, 0, 0]
+        self.parameter_units = [None, unit.W, unit.s, unit.m, None, unit.Hz]  # TODO: check whether we should use dB instead of None
+        self.parameter_locks = [True, True, True, True, True, True, True]
+        self.parameter_names = ['n_bits', 'peak_power', 't_rep', 'pulse_width', 'central_wl', 'osnr_dB', 'FWHM_linewidth']
+
+        self.parameter_symbols = [r"$x_"+f"{i}" + r"$" for i in range(self.number_of_parameters)]
+        self.parameters = self.default_parameters
+
+        super().__init__(**kwargs)
+        self.set_parameters_as_attr()
+        self.update_noise_model()
+
+        n_bits = self.parameters[0]
+        self.bits = random_state.randint(0, 2, n_bits)
+        self.pattern = None
+
+    def make_binary_pulse_pattern(self, propagator, bits):
+        n_bits = len(bits)
+        pattern = np.zeros_like(propagator.t)
+        for i, bit in enumerate(bits):
+            pattern += bit * np.sqrt(self._peak_power) * np.exp(-np.power((propagator.t - (i - (n_bits-1)/2) * self._t_rep)/self._pulse_width, 2))
+        return pattern
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
+        assert self.pattern.shape == states[0].shape
+        state = self.pattern
+        return [state]
+
+    def update_noise_model(self):
+        self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
+        self.noise_model.add_noise_source(noise_type='osnr', noise_param=self._osnr_dB)

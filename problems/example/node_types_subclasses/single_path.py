@@ -233,14 +233,18 @@ class WaveShaper(SinglePath):
 
     """
 
+    number_of_bins = 15
+    frequency_bin_width = 12e9
+    extinction_ratio = 10 ** (-35 / 10)
+
     def __init__(self, **kwargs):
         self.node_lock = False
         self.node_acronym = 'WS'
 
-        number_of_bins = 15
+        number_of_bins = self.number_of_bins
         self._number_of_bins = number_of_bins
-        self.frequency_bin_width = 12e9
-        self.extinction_ratio = 10 **( -35 / 10)
+        # self.frequency_bin_width = 12e9
+        # self.extinction_ratio = 10 **( -35 / 10)
 
         #TODO: add test to make sure (at initialization that all these variables are the same length)
         # Then: also add one at runtime that ensure the .parameters variable is the same length

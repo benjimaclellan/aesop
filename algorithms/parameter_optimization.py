@@ -1,7 +1,6 @@
 
 import scipy.optimize
 import cma
-from pyswarm import pso
 import autograd.numpy as np
 import random
 from algorithms.functions import logbook_update, logbook_initialize
@@ -46,6 +45,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         return graph, x, graph.func(x), log
 
     if method == 'L-BFGS+PSO':
+        from pyswarm import pso
+
         if verbose: print("Parameter optimization: L-BFGS + PSO algorithm")
 
         # t1 = time.process_time()
@@ -114,6 +115,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         x = res.x
         return graph, x, graph.func(x), total_log
     elif method == 'PSO':
+        from pyswarm import pso
+
         if verbose: print("Parameter optimization: PSO algorithm")
         _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         xopt, fopt = pso(graph.func, lower_bounds, upper_bounds, f_ieqcons=None,
