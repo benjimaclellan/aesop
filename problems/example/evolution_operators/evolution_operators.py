@@ -326,6 +326,7 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         if save:
             with open (f'cycle_to_remove_interferometer_graph.pkl', 'wb') as handle:
                 pickle.dump(cycle, handle)
+            print(f'node to remove path around: {node}')
             print(f'cycle to remove: {cycle}')
 
         # use the old propagation order to ensure physicality when placing new nodes
@@ -373,6 +374,8 @@ class RemoveOneInterferometerPath(EvolutionOperators):
             graph.add_edge(graph.pre(source_node)[0], graph.suc(sink_node)[0])
         else:
             tmp = list(nodes_to_keep)
+            if save:
+                print(f'nodes to keep: {tmp}')
             propagation_index = [propagation_order.index(node) for node in tmp]
             new_source_node = tmp[np.argmin(propagation_index)]
             new_sink_node = tmp[np.argmax(propagation_index)]

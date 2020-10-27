@@ -62,7 +62,7 @@ class Evolver(object):
         N_EVOLUTIONS = 10
         for n in range(N_EVOLUTIONS):
             try:
-                graph_tmp = self.evolve_graph(graph, evaluator)
+                graph_tmp, evo_op = self.evolve_graph(graph, evaluator)
                 graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
             except:
@@ -110,7 +110,8 @@ class StochMatrixEvolver(object):
         else:
             graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
         self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
-        return graph
+        
+        return graph, evo_op
 
     def create_graph_matrix(self, graph, evaluator):
         """
@@ -138,9 +139,9 @@ class StochMatrixEvolver(object):
                 print(f'Starting evolution number {n}')
             try:
                 if n == 14: # just to debug a thing
-                    graph_tmp = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug, save=True)
+                    graph_tmp, evo_op = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug, save=True)
                 else:
-                    graph_tmp = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug)
+                    graph_tmp, evo_op = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug)
                 graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
                 if view_evo:
@@ -265,6 +266,19 @@ class SizeAwareMatrixEvolver(StochMatrixEvolver):
     def _get_alpha_offset(self, graph):
         delta = len(graph.nodes) - self.ideal_node_num
         return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
+
+
+# class ReinforcementMatrixEvolver(StochMatrixEvolver):
+#     """
+#     Loosely based on reinforcement learning ideas, where only the operator selection is reinforcement based (node selection remains arbitrary)
+#     1. The probability matrix is arbitrary if we have no past history for a graph of size N (number of nodes)
+#     2. Otherwise, the best historical solution op is assigned probability epsilon (equally divided between all possible node/edges),
+#        with equal probability across all other possible node/op pairs (epsilon can be gen dependent)
+    
+#     Implementation notes:
+
+#     """
+#     pass
 
 
 # class RuleBasedEvolver(Evolver):
