@@ -2,14 +2,15 @@ import numpy as np
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
+import pickle
 
 import config.config as configuration
-from lib.decorators import register_evolution_operators, register_crossover_operators
+from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
 from algorithms.speciation import Speciation
 from problems.example.graph import Graph
 
-
+@register_growth_operators
 @register_evolution_operators
 class AddNode(EvolutionOperators):
     """
@@ -73,6 +74,7 @@ class AddNode(EvolutionOperators):
 
 
 @register_evolution_operators
+@register_reduction_operators
 class RemoveNode(EvolutionOperators):
 
     potential_node_types = set(['SinglePath'])
@@ -214,6 +216,7 @@ class SwapNode(EvolutionOperators):
 
 
 @register_evolution_operators
+@register_growth_operators
 class AddInterferometer(EvolutionOperators):
 
     def __init__(self, **attr):
@@ -294,6 +297,7 @@ class AddInterferometer(EvolutionOperators):
 
 
 @register_evolution_operators
+@register_reduction_operators
 class RemoveOneInterferometerPath(EvolutionOperators):
     """
     Collapses an interferometer structure to a single path (if possible)
@@ -306,16 +310,23 @@ class RemoveOneInterferometerPath(EvolutionOperators):
     def apply_evolution(self, graph, verbose=False):
         return self.apply_evolution_at(graph, None, verbose=verbose) # node is passed as None bc it's the easiest way to avoid legacy breaking things rn
 
-    def apply_evolution_at(self, graph, node, verbose=False):
+    def apply_evolution_at(self, graph, node, verbose=False, save=False):
         """ Applies the specific evolution on the graph argument
         """
-        # conver graph to a simple (undirected, non-hyper, simple graph) to find cycles
+        if save:
+            with open (f'remove_interferometer_pre_graph.pkl', 'wb') as handle:
+                pickle.dump(graph, handle)
+        # convert graph to a simple (undirected, non-hyper, simple graph) to find cycles
         cycles = self.get_graph_cycles(graph)
 
         # we choose a random cycle that we will consider. This cycle must contain 'node' (precondition is that node is part of a cycle)
         if node is not None: # select an arbitrary cycle which 'node' is part of. The if statement is for backwards compatible of a random evolution application
             cycles = [cycle for cycle in cycles if node in cycle]
         cycle = random.sample(cycles, 1)[0] # chooses random cycle to remove part of
+        if save:
+            with open (f'cycle_to_remove_interferometer_graph.pkl', 'wb') as handle:
+                pickle.dump(cycle, handle)
+            print(f'cycle to remove: {cycle}')
 
         # use the old propagation order to ensure physicality when placing new nodes
         propagation_order = graph.propagation_order
@@ -324,21 +335,41 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         propagation_index = [propagation_order.index(node) for node in cycle]
         source_node = cycle[np.argmin(propagation_index)]
         sink_node = cycle[np.argmax(propagation_index)]
+        if save:
+            print(f'propagation index: {propagation_index}')
+            print(f'source node: {source_node}')
+            print(f'sink node: {sink_node}')
 
         # choose one branch to remain in the graph, we will delete the others
         branch_to_keep = random.sample(graph.suc(source_node), 1)[0]
+
         if branch_to_keep == sink_node:
             branch_to_keep = None
-
+        
+        if save:
+            with open (f'branch_to_keep_remove_interferometer_graph.pkl', 'wb') as handle:
+                pickle.dump(cycle, handle)
+            print(f'branch to keep: {branch_to_keep}')
+    
         # check what nodes/edges to keep and remove
         paths_from_source_to_sink = list(nx.all_simple_paths(graph, source_node, sink_node))
         paths_to_remove = [path for path in paths_from_source_to_sink if branch_to_keep not in path]
         nodes_to_remove = set([item for sublist in paths_to_remove for item in sublist])
         paths_to_keep = [path for path in paths_from_source_to_sink if branch_to_keep in path]
         nodes_to_keep = set([item for sublist in paths_to_keep for item in sublist]) - set([source_node, sink_node])
+        if save:
+            print(f'paths source to sink: {paths_from_source_to_sink}')
+            print(f'paths to remove: {paths_to_remove}')
+            print(f'nodes to remove: {nodes_to_remove}')
+            print(f'paths to keep: {paths_to_keep}')
+            print(f'nodes to keep: {nodes_to_keep}')
+            graph.draw()
+            plt.show()
 
         # connect graph back together deal with the possibilities of removing a whole loop
         if not nodes_to_keep:
+            if save:
+                print(f'not keeping nodes, adding edge: ({graph.pre(source_node)[0]}, {graph.suc(sink_node)[0]})')
             graph.add_edge(graph.pre(source_node)[0], graph.suc(sink_node)[0])
         else:
             tmp = list(nodes_to_keep)
@@ -348,6 +379,8 @@ class RemoveOneInterferometerPath(EvolutionOperators):
 
             graph.add_edge(graph.pre(source_node)[0], new_source_node)
             graph.add_edge(new_sink_node, graph.suc(sink_node)[0])
+            if save:
+                print(f'adding edges: ({graph.pre(source_node)[0]},{new_source_node}) and ({new_sink_node}, {graph.suc(sink_node)[0]})')
 
         # remove the nodes that should be deleted
         graph.remove_nodes_from(nodes_to_remove)
@@ -359,6 +392,10 @@ class RemoveOneInterferometerPath(EvolutionOperators):
         if verbose:
             str_info = 'Source node {} | Sink node {} | Branch to keep {} | Nodes to delete {}'.format(source_node, sink_node, branch_to_keep, nodes_to_remove)
             print('Evolution operator: RemoveOneInterferometerPath | {}'.format(str_info))
+        
+        if save:
+            graph.draw()
+            plt.show()
 
         return graph
 
@@ -402,6 +439,7 @@ class RemoveOneInterferometerPath(EvolutionOperators):
 
 
 # @register_evolution_operators
+# @register_growth_operators
 class AddInterferometerSimple(EvolutionOperators):
 
     def __init__(self, **attr):

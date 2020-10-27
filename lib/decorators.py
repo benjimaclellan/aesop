@@ -16,12 +16,29 @@ def register_evolution_operators(cls):
     return cls
 
 
+def register_growth_operators(cls):
+    """
+    Register all evolution operators which grow the graph size into a global config dictionary for use elsewhere
+    """
+    configuration.GROWTH_EVO_OPERATORS[cls.__name__] = cls
+    return cls
+
+
+def register_reduction_operators(cls):
+    """
+    Register all evolution operators which shrink the graph size into a global config dictionary for use elsewhere
+    """
+    configuration.REDUCTION_EVO_OPERATORS[cls.__name__] = cls
+    return cls
+
+
 def register_crossover_operators(cls):
     """
     Register all crossover operators into global config dictionary for use elsewhere
     Technically, this is an evolution operator as well, but crossover operators require a different API
     """
     configuration.CROSSOVER_OPERATORS[cls.__name__] = cls
+    return cls
 
 
 def register_node_types(cls):
