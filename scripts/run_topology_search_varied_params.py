@@ -25,7 +25,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver, CrossoverMaker
+from problems.example.evolver import Evolver, CrossoverMaker, StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -48,14 +48,17 @@ def handle_io():
 plt.close('all')
 if __name__ == '__main__':
     ga_opts = {'n_generations': 10,
-               'n_population': 32, # psutil.cpu_count(),
+               'n_population': 4, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    evolver = Evolver(verbose=False)
+    # evolver = Evolver(verbose=False)
+    # evolver = StochMatrixEvolver(verbose=False)
+    # evolver = SizeAwareMatrixEvolver(verbose=False)
+    evolver = ReinforcementMatrixEvolver(verbose=False)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}
@@ -66,7 +69,7 @@ if __name__ == '__main__':
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     # update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
-    update_rules = ['preferential vectorDIFF', 'preferential photoNEAT']
+    update_rules = ['preferential']
 
     # crossover_option = [None, crossover_maker]
     crossover_option = [None]
