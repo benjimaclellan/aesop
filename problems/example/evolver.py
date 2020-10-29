@@ -1,6 +1,7 @@
 import autograd.numpy as np
 import random
 import matplotlib.pyplot as plt
+import pickle
 
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
@@ -151,7 +152,9 @@ class StochMatrixEvolver(object):
                 print(e)
 
         return graph
-
+    
+    def close(self):
+        pass
 
     class ProbabilityMatrix(object):
         """
@@ -312,13 +315,18 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
                                       Dictionary key: number of nodes in graph, N
                                       Dictionary value: row1 = numpy array of expected rewards (i.e. values) per operator (in same order as the ordered list)
                                                         row2 = numpy array of integers, with number of times the same-index value of expected rewards has been updated in the past (required to tally long-term average)
-                                      If not provided, all configuration operators are selected, and all values are set to 0 to start 
+                                      If not provided, all configuration operators are selected, and all values are set to 0 to start
+
+                                      If a string, this is the string to a pickle file of a previous run
         """
         super().__init__(verbose=verbose, **attr)
         self.epsilon = epsilon
         
         if starting_value_matrix is None:
             self.value_matrix = {} # value matrix will be consistently updated
+        elif type(starting_value_matrix) == str:
+            with open(starting_value_matrix, 'rb') as handle:
+                self.value_matrix = pickle.load(handle)
         else:
             self.value_matrix = starting_value_matrix[0]
             self.evo_op_list = starting_value_matrix[1] # override default in constructor
@@ -334,18 +342,19 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
         print(f'last evo record: {graph.last_evo_record}')
         print(f'graph score: {graph.score}')
         if graph.last_evo_record is not None and graph.score is not None and graph.last_evo_record['score'] is not None: # we can only update our evo matrices if we have a previous score to compare to
-            N = len(graph.nodes)
-            reward = graph.score - graph.last_evo_record['score']
+            N = graph.last_evo_record['state']
+            reward = graph.last_evo_record['score'] - graph.score
             evo_index = self.evo_op_list.index(graph.last_evo_record['op'])
 
             # new value is the new average reward. If the previous average is Qk, and the new reward is Rk:
             # average reward Q(k + 1) = Qk + (1/k)(R_k - Q_k)
+            self.value_matrix[N][1][evo_index] += 1
+            print(f'number of times updated for graph of size{N}: {self.value_matrix[N][1]}')
             Qk = self.value_matrix[N][0][evo_index]
             k = self.value_matrix[N][1][evo_index]
             new_value = Qk + (1 / k) * (reward - Qk)
 
             self.value_matrix[N][0][evo_index] = new_value
-            self.value_matrix[N][1][evo_index] = k + 1
 
     
     def _translate_values_to_probabilities(self, graph, evaluator):
@@ -369,6 +378,8 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
                     prob = greedy_op_prob if op == greedy_op else other_op_prob
                     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(prob, node_or_edge, op)
         
+        print(f'evo matrix')
+        print(graph.evo_probabilities_matrix.matrix)
         # omit normalization because evo matrix should be normalized already. If not, we want it to crash, not silently fail
         graph.evo_probabilities_matrix.verify_matrix()
 
@@ -376,16 +387,29 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
         """
         Returns the greedy operator. If there exist multiple potential greedy operators, it randomly selects one
         """
-        max_val = np.max(self.value_matrix[len(graph.nodes)][0])
-        indices = [i for (i, val) in enumerate(self.value_matrix[len(graph.nodes)][0]) if np.isclose(val, max_val)]
-        while len(indices) != 0:
-            index = np.random.choice(indices)
-            op = self.evo_op_list[index]
-            greedy_op_num_possible = np.count_nonzero(graph.evo_probabilities_matrix.get_probs_at_operator(op))
-            if greedy_op_num_possible > 0:
-                return op, greedy_op_num_possible
-            else:
-                indices.remove(index)
+        # TODO: refactor this, it's ugly code...
+        # 1. Look through all max valued options, going in descending order of value (in case the max valued options are not applicable)
+        usable = np.ones_like(self.value_matrix[len(graph.nodes)][0])
+        while np.count_nonzero(usable) > 0:
+            print(f'usable: {usable}')
+            max_val = np.max(np.array([self.value_matrix[len(graph.nodes)][0][i] for i in range(len(usable)) if usable[i]]))
+            print(f'max val for op value: {max_val}')
+            indices = [i for (i, val) in enumerate(self.value_matrix[len(graph.nodes)][0]) if np.isclose(val, max_val)]
+            while len(indices) > 0:
+                print(f'greedy op indices options: {indices}')
+                index = np.random.choice(indices)
+                op = self.evo_op_list[index]
+                greedy_op_num_possible = np.count_nonzero(graph.evo_probabilities_matrix.get_probs_at_operator(op))
+                if greedy_op_num_possible > 0:
+                    return op, greedy_op_num_possible
+                else:
+                    indices.remove(index)
+            
+            for i in range(len(usable)):
+                if np.isclose(max_val, self.value_matrix[len(graph.nodes)][0][i]):
+                    usable[i] = 0
+
+        # 2. no max valued option is available
         raise ValueError('No possible operator found')
 
     def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False, save=False):
@@ -397,15 +421,21 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
         :param graph: the graph to evolve
         :param evaluator: not used in the base implementation, but may be useful in the future
         """
+        pre_evo_state = len(graph.nodes)
         graph, evo_op = super().evolve_graph(graph, evaluator, generation=generation, verbose=verbose, debug=debug, save=save)
         if graph.last_evo_record is None:
             graph.last_evo_record = {}
         graph.last_evo_record['op'] = evo_op
         graph.last_evo_record['score'] = graph.score
+        graph.last_evo_record['state'] = pre_evo_state
         print('Value matrix:')
         print(self.value_matrix)
         print()
         return graph, evo_op
+    
+    def close(self):
+        with open(f'reinforcement_evolver_value_matrix.pkl', 'wb') as handle:
+            pickle.dump(self.value_matrix, handle)
 
 # class RuleBasedEvolver(Evolver):
 #     """

@@ -62,8 +62,10 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     # create initial population and hof
     hof = init_hof(ga_opts['n_hof'])
     population = []
+    score, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    graph.score = score
     for individual in range(ga_opts['n_population']):
-        population.append((None, copy.deepcopy(graph)))
+        population.append((score, copy.deepcopy(graph)))
 
     t1 = time.time()
     for generation in range(ga_opts['n_generations']):
@@ -115,7 +117,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     io.save_object(log, 'log.pkl')
 
     io.close_logging()
-
+    evolver.close()
     return hof[0][1], hof[0][0], log # hof is actually a list in and of itself, so we only look at the top element
 
 

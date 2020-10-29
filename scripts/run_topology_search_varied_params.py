@@ -47,8 +47,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 10,
-               'n_population': 4, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 8,
+               'n_population': 16, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # evolver = Evolver(verbose=False)
     # evolver = StochMatrixEvolver(verbose=False)
     # evolver = SizeAwareMatrixEvolver(verbose=False)
-    evolver = ReinforcementMatrixEvolver(verbose=False)
+    evolver = ReinforcementMatrixEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}
