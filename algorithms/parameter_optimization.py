@@ -92,7 +92,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         total_log = pd.DataFrame(columns=['iteration','time','score'])
         total_log['iteration'] = log['generation']
         total_log['score'] = log['minimum']
-        total_log['time'] = log['generation']/np.max(log['generation']) * (t2 - t1)
+        total_log['time'] = 1.0 #log['generation']/np.max(log['generation']) * (t2 - t1)
         total_log['method'] = 'GA'
 
 
@@ -105,7 +105,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
                                       jac=graph.grad)
         t2 = time.process_time()
         log = pd.DataFrame(LOG)
-        log['time'] = log['iteration'] / np.max(log['iteration']) * (t2 - t1) + total_log['time'].iloc[-1]
+        log['time'] = 1.0 #log['iteration'] / np.max(log['iteration']) * (t2 - t1) + total_log['time'].iloc[-1]
         log['method'] = 'L-BFGS'
 
         # print(total_log['time'].iloc[-1])

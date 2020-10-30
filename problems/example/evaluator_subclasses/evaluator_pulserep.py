@@ -11,40 +11,34 @@ from lib.functions import scale_units
 class PulseRepetition(Evaluator):
     """  """
 
-    def __init__(self, propagator, **kwargs):
+    def __init__(self, propagator, target, pulse_width, rep_t, peak_power, **kwargs):
         super().__init__(**kwargs)
 
-        self.target_pulse_rep_t = 5e-9  # target pattern repetition time in s
-        self.target_pulse_width = 0.1e-9 # pulse width in s
-        self.target_pulse_rep_f = 1/self.target_pulse_rep_t  # target reprate in Hz
-
-        self.target = 0.5 * power_(get_pulse_train(propagator.t, self.target_pulse_rep_t, self.target_pulse_width, pulse_shape='gaussian'))
+        self.target = target
+        self.target_power = power_(target)
+        self.pulse_width = pulse_width # pulse width in s
+        self.rep_t = rep_t  # target pattern repetition time in s
+        self.peak_power = peak_power # peak power
+        self.rep_f = 1.0/self.rep_t  # target reprate in Hz
 
         self.target_f = np.fft.fft(self.target, axis=0)
-        self.target_rf = np.fft.rfft(self.target, axis=0)
 
+        self.target_rf = np.fft.fft(self.target_power, axis=0) # rf spectrum, used to shift global phase of generated
         self.scale_array = (np.fft.fftshift(
             np.linspace(0, len(self.target_f) - 1, len(self.target_f))) / propagator.n_samples).reshape(
             (propagator.n_samples, 1))
 
-        self.target_harmonic_ind = (self.target_pulse_rep_f / propagator.df).astype('int')
+        self.target_harmonic_ind = (self.rep_f / propagator.df).astype('int') + 1
         if (self.target_harmonic_ind >= self.target_f.shape[0]):
             self.target_harmonic_ind = self.target_f.shape[0]
 
 
     def evaluate_graph(self, graph, propagator):
         evaluation_node = graph.get_output_node()  # finds node with no outgoing edges
-
         graph.propagate(propagator)
         state = graph.measure_propagator(evaluation_node)
 
-        num_nodes = len(graph.nodes) - 2
-        power_loss_approx = (0.95) ** num_nodes  # TODO make more valid loss calculation
-
-        overlap = self.waveform_temporal_similarity(state, propagator)
-
-        score = overlap * (power_loss_approx)
-
+        score = self.waveform_temporal_similarity(state, propagator)
         return score
 
     @staticmethod
@@ -60,26 +54,33 @@ class PulseRepetition(Evaluator):
         return np.sum(np.power(x_ - y_, 2))
 
     def waveform_temporal_similarity(self, state, propagator):
-        generated = power_(state)
-        shifted = self.shift_function(generated, propagator)
+        shifted = self.shift_function(state, propagator)
         similarity_func = self.similarity_l2_norm
-        similarity = -np.abs(np.fft.rfft(generated, axis=0))[self.target_harmonic_ind]
-        # similarity = similarity_func(np.abs(np.fft.rfft(generated, axis=0)), np.abs(self.target_rf))
-        # similarity = similarity_func(shifted, self.target)
-        # similarity = similarity_func(generated, self.target)
+        similarity = similarity_func(shifted, self.target_power)
         return similarity
 
-    def shift_function(self, state_power, propagator):
+
+
+    def shift_function(self, state, propagator):
+        state_power = power_(state)
         state_rf = np.fft.fft(state_power, axis=0)
 
         if (state_rf[self.target_harmonic_ind] == 0):
             return state_power  # no phase shift in this case, and it'll break my lovely gradient otherwise (bit of a hack but...)
 
-        phase = np.angle(state_rf[self.target_harmonic_ind] / self.target_f[self.target_harmonic_ind])
-        shift = phase / (self.target_pulse_rep_f * propagator.dt)
+        # target_harmonic_ind = (self.rep_f / propagator.df).astype('int') + 1
+        phase = np.angle(state_rf[self.target_harmonic_ind] / self.target_rf[self.target_harmonic_ind])
+        shift = phase / (self.rep_f * propagator.dt)
         state_rf *= np.exp(-1j * shift * self.scale_array)
-
         shifted = np.abs(np.fft.ifft(state_rf, axis=0))
+
+
+        # plt.figure()
+        # plt.plot(propagator.t, state_power, label='original', ls='-')
+        # plt.plot(propagator.t, shifted, label='shifted', ls='--')
+        # plt.plot(propagator.t, power_(self.target), label='target original', ls=':')
+        # # plt.plot(propagator.t, shifted_target, label='target shifted', ls='-.')
+        # plt.legend()
         return shifted
 
 
