@@ -64,6 +64,7 @@ class Graph(GraphParent):
         self.func = None
         self.grad = None
         self.hess = None
+        self.scaled_hess = None
 
         self.score = None
     
@@ -91,7 +92,6 @@ class Graph(GraphParent):
 
         return func
 
-
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
@@ -106,7 +106,6 @@ class Graph(GraphParent):
         scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
         self.scaled_hess = lambda parameters: hess_tmp(np.array(parameters)) * scale_matrix
         return
-
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))
