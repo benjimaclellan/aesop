@@ -1,7 +1,6 @@
 
 import scipy.optimize
 import cma
-from pyswarm import pso
 import autograd.numpy as np
 import random
 from algorithms.functions import logbook_update, logbook_initialize
@@ -46,6 +45,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         return graph, x, graph.func(x), log
 
     if method == 'L-BFGS+PSO':
+        from pyswarm import pso
+
         if verbose: print("Parameter optimization: L-BFGS + PSO algorithm")
 
         # t1 = time.process_time()
@@ -91,7 +92,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         total_log = pd.DataFrame(columns=['iteration','time','score'])
         total_log['iteration'] = log['generation']
         total_log['score'] = log['minimum']
-        total_log['time'] = log['generation']/np.max(log['generation']) * (t2 - t1)
+        total_log['time'] = 1.0 #log['generation']/np.max(log['generation']) * (t2 - t1)
         total_log['method'] = 'GA'
 
 
@@ -104,7 +105,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
                                       jac=graph.grad)
         t2 = time.process_time()
         log = pd.DataFrame(LOG)
-        log['time'] = log['iteration'] / np.max(log['iteration']) * (t2 - t1) + total_log['time'].iloc[-1]
+        log['time'] = 1.0 #log['iteration'] / np.max(log['iteration']) * (t2 - t1) + total_log['time'].iloc[-1]
         log['method'] = 'L-BFGS'
 
         # print(total_log['time'].iloc[-1])
@@ -114,6 +115,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         x = res.x
         return graph, x, graph.func(x), total_log
     elif method == 'PSO':
+        from pyswarm import pso
+
         if verbose: print("Parameter optimization: PSO algorithm")
         _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         xopt, fopt = pso(graph.func, lower_bounds, upper_bounds, f_ieqcons=None,

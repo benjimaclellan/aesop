@@ -19,11 +19,11 @@ class VariablePowerSplitter(MultiPath):
         self.node_acronym = 'BS'
 
         self.number_of_parameters = 1
-        self.upper_bounds = [0.9]
-        self.lower_bounds = [0.1]
+        self.upper_bounds = [1.0]
+        self.lower_bounds = [0.0]
         self.data_types = ['float']
         self.step_sizes = [None]
-        self.parameter_imprecisions = [1]
+        self.parameter_imprecisions = [0.1]
         self.parameter_units = [None]
         self.parameter_locks = [False]
         self.parameter_names = ['coupling_ratio']
@@ -33,12 +33,16 @@ class VariablePowerSplitter(MultiPath):
         return
 
     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 2, save_transforms=False):
-        coupling_ratio = self.parameters[0]
+        theta = self.parameters[0] * np.pi/2
+
+        C = np.array([[np.cos(theta), -1j * np.sin(theta)],
+                      [-1j * np.sin(theta), np.cos(theta)]])
+
         if (num_inputs == 1) and (num_outputs == 2):
             state = states[0]
-            return [(coupling_ratio) * state, (1-coupling_ratio) * state * np.exp(1j * np.pi/2)]
+            return [C[0,0] * state, C[0,1] * state]
         elif (num_inputs == 2) and (num_outputs == 1):
-            return [states[0] + states[1] * np.exp(1j * np.pi / 2)]
+            return [C[1,0]*states[0] + C[0,0]*states[1]]
         elif (num_inputs == 1) and (num_outputs == 1):
             return states
         else:

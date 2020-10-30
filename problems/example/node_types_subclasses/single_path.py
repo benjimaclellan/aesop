@@ -233,14 +233,18 @@ class WaveShaper(SinglePath):
 
     """
 
+    number_of_bins = 15
+    frequency_bin_width = 12e9
+    extinction_ratio = 10 ** (-35 / 10)
+
     def __init__(self, **kwargs):
         self.node_lock = False
         self.node_acronym = 'WS'
 
-        number_of_bins = 15
+        number_of_bins = self.number_of_bins
         self._number_of_bins = number_of_bins
-        self.frequency_bin_width = 12e9
-        self.extinction_ratio = 10 **( -35 / 10)
+        # self.frequency_bin_width = 12e9
+        # self.extinction_ratio = 10 **( -35 / 10)
 
         #TODO: add test to make sure (at initialization that all these variables are the same length)
         # Then: also add one at runtime that ensure the .parameters variable is the same length
@@ -414,7 +418,7 @@ class EDFA(SinglePath):
 
         self.number_of_parameters = 9
         self.upper_bounds = [50.0, 1612e-9, 1600e-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
-        self.lower_bounds = [1, 1535e-9, 1530e-9, 1540e-9, 1e-4, 1e-7, 0.0, 0.0, 3.0]
+        self.lower_bounds = [1.0, 1535e-9, 1530e-9, 1540e-9, 1e-4, 1e-7, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
         self.step_sizes = [None] * self.number_of_parameters
         self.parameter_imprecisions = [1, 1e-9, 1e-9, 1e-9, 1e-3, 1e-3, 1, 0.1, 1] # placeholders, I don't really know
@@ -668,13 +672,13 @@ class DelayLine(SinglePath):
 
         self.number_of_parameters = 1
 
-        self.default_parameters = [500.0]
+        self.default_parameters = [10.0e-9]
 
-        self.upper_bounds = [1000.0e-12]
+        self.upper_bounds = [50.0e-9]
         self.lower_bounds = [0.0]
         self.data_types = ['float']
-        self.step_sizes = [None]
-        self.parameter_imprecisions = [1.0e-12]
+        self.step_sizes = [1e-9]
+        self.parameter_imprecisions = [10.0e-12]
         self.parameter_units = [None]
         self.parameter_locks = [False]
         self.parameter_names = ['delay']

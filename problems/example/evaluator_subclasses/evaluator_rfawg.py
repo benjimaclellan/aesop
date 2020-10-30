@@ -38,12 +38,8 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         graph.propagate(propagator)
         state = graph.measure_propagator(evaluation_node)
 
-        num_nodes = len(graph.nodes) - 2
-        power_loss_approx = (0.95) ** num_nodes  #TODO make more valid loss calculation
-
         overlap = self.waveform_temporal_similarity(state, propagator)
-
-        score = overlap #* (power_loss_approx)
+        score = overlap
         return score
 
     @staticmethod
