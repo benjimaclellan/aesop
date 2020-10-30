@@ -58,11 +58,13 @@ class Graph(GraphParent):
 
         # initialize evolution probability matrix
         self.evo_probabilities_matrix = None
+        self.last_evo_record = None
 
         # initialize variables to store function handles for grad & hess
         self.func = None
         self.grad = None
         self.hess = None
+        self.scaled_hess = None
 
         self.score = None
     
@@ -90,7 +92,6 @@ class Graph(GraphParent):
 
         return func
 
-
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
@@ -105,7 +106,6 @@ class Graph(GraphParent):
         scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
         self.scaled_hess = lambda parameters: hess_tmp(np.array(parameters)) * scale_matrix
         return
-
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))
@@ -344,7 +344,7 @@ class Graph(GraphParent):
         plt.show()
         return
 
-    def draw(self, ax=None, labels=None, legend=False, layout=0, ignore_warnings=True):
+    def draw(self, ax=None, labels=None, legend=False, method='planar', ignore_warnings=True):
         """
         custom plotting function to more closely resemble schematic diagrams
 
@@ -360,10 +360,13 @@ class Graph(GraphParent):
         if labels is None:
             labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
 
-        if layout == 0:
+        if method == 'planar':
             pos = nx.planar_layout(self)
-        elif layout == 1:
+        elif method == 'kamada_kawai':
             pos = nx.kamada_kawai_layout(self)
+        else:
+            pos = nx.planar_layout(self) # planar as default, though on occasion can fail with system graph
+
         nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
 
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
@@ -407,6 +410,40 @@ class Graph(GraphParent):
                 if 'model' in self.edges[edge]:
                     self.edges[edge]['model'].assert_number_of_edges(1, 1)  # by definition, edges have 1 in, 1 out
         return
+    
+    def attempt_topology_fix(self):
+        """
+        Does not fix loops
+        Goes through nodes with a nonphysical number of inputs/outputs and removes them. It keeps removing till we have hit a physical state again
+
+        This is mostly meant to deal with the case where a node is stranded with no output (which can arise when removing interferometer paths)
+        Results are not guaranteed, but it will never break a working graph
+        """
+
+        # 1. Check all nodes, if one is unphysical then
+        # 2. Remove that node, and recurse through successors and predecessors (start with predecessors due to our target problem) removing each that ends up being unphysical
+        # 3. Once that's done, check the whole graph again till it all passes
+        while True:
+            all_models_physical = True
+            for node in self.nodes:
+                try:
+                    number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
+                    self.nodes[node]['model'].assert_number_of_edges(number_input_edges, number_output_edges)
+                except TypeError:
+                    all_models_physical = False
+                    while (number_input_edges not in self.nodes[node]['model']._range_input_edges) or \
+                          (number_output_edges not in self.nodes[node]['model']._range_output_edges):
+                        next_node = self.pre(node)
+                        current_node = node
+                        self.remove_node(node)
+                        current_node = next_node
+                        if current_node == -1: # if we're trying to remove the top node
+                            raise AssertionError('Topology could not be fixed')
+                        number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
+
+            if all_models_physical:    
+                break
+
 
     def sample_parameters(self, probability_dist='uniform', **kwargs):
         """ Samples new parameters for each node-type """

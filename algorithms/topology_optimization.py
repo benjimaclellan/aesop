@@ -62,8 +62,10 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     # create initial population and hof
     hof = init_hof(ga_opts['n_hof'])
     population = []
+    score, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    graph.score = score
     for individual in range(ga_opts['n_population']):
-        population.append((None, copy.deepcopy(graph)))
+        population.append((score, copy.deepcopy(graph)))
 
     t1 = time.time()
     for generation in range(ga_opts['n_generations']):
@@ -76,6 +78,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
+        save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
         SPECIATION_MANAGER.speciate(population)
         SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
@@ -114,12 +117,19 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     io.save_object(log, 'log.pkl')
 
     io.close_logging()
-
+    evolver.close()
     return hof[0][1], hof[0][0], log # hof is actually a list in and of itself, so we only look at the top element
+
+
+def save_scores_to_graph(population):
+    for (score, graph) in population:
+        graph.score = score
+
 
 def init_hof(n_hof):
     hof = [(None, None) for i in range(n_hof)]
     return hof
+
 
 def update_hof(hof, population, verbose=False):
     for ind_i, (score, ind) in enumerate(population):

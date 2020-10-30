@@ -38,7 +38,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice, Ph
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from problems.example.evolver import StochMatrixEvolver, SizeAwareMatrixEvolver
+from problems.example.evolver import StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
 
 from algorithms.parameter_optimization import parameters_optimize
 from algorithms.topology_optimization import topology_optimization
@@ -49,7 +49,7 @@ plt.close('all')
 
 
 def matrix_evolver_basic_test():
-    evolver = SizeAwareMatrixEvolver()
+    evolver = ReinforcementMatrixEvolver()
 
     nodes = {0:ContinuousWaveLaser(),
             -1:Photodiode()}
@@ -58,7 +58,7 @@ def matrix_evolver_basic_test():
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()
 
-    evolver.random_graph(graph, None, view_evo=False, verbose=True, n_evolutions=15, debug=True) # doesn't actually need an evaluator in this implementation
+    evolver.random_graph(graph, None, view_evo=False, verbose=True, n_evolutions=50, debug=True) # doesn't actually need an evaluator in this implementation
 
 
 def topology_optimization_test():

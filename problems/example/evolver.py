@@ -1,6 +1,7 @@
 import autograd.numpy as np
 import random
 import matplotlib.pyplot as plt
+import pickle
 
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
@@ -21,7 +22,6 @@ class Evolver(object):
         if operator_likelihood is None:
             self.operator_likelihood = [1] *  len(configuration.EVOLUTION_OPERATORS)
         elif callable(operator_likelihood.values()[0]):
-            # TODO: add warning if we're trying to give a likelihood to an operator that does not exist
             self.time_dependent_likelihood = True
             # maps generation to an array of the likelihood at time gen
             self.operator_likelihood = lambda gen :[operator_likelihood[operator.__class__.__name__](gen) for operator in configuration.EVOLUTION_OPERATORS.values()]
@@ -62,7 +62,7 @@ class Evolver(object):
         N_EVOLUTIONS = 10
         for n in range(N_EVOLUTIONS):
             try:
-                graph_tmp = self.evolve_graph(graph, evaluator)
+                graph_tmp, evo_op = self.evolve_graph(graph, evaluator)
                 graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
             except:
@@ -70,13 +70,14 @@ class Evolver(object):
 
         return graph
 
+
 class StochMatrixEvolver(object):
     """
     Evolver object will take in and update graphs based on a stochastic probability matrix
     It will have a set of rules for updating a graph's stochastic matrix, in order to update the graph next time
 
-    Matrices are defined as a probability matrix of Node/Edge versus Evolution Operator. p(node0, SwapNode) for example is the relative probability
-    that the 'SwapNode' operator be applied on node node0
+    Matrices are defined as a probability matrix of Node/Edge versus Evolution Operator. p(node0, SwapNode) for example is the probability
+    that the 'SwapNode' operator be applied on node node0. 
 
     The application of any operator must take the form apply_evolution_at(graph, node_or_edge, verbose=whatever)
 
@@ -89,7 +90,7 @@ class StochMatrixEvolver(object):
                                                                             # so because we need our matrix order to be consistent, 
         super().__init__(**attr)
     
-    def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False, save=False):
+    def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False):
         """
         Evolves graph according to the stochastic matrix probabilites
 
@@ -105,12 +106,11 @@ class StochMatrixEvolver(object):
             print()
 
         node_or_edge, evo_op = graph.evo_probabilities_matrix.sample_matrix()
-        if save:
-            graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose, save=save)
-        else:
-            graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
+        graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
+
         self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
-        return graph
+        
+        return graph, evo_op
 
     def create_graph_matrix(self, graph, evaluator):
         """
@@ -137,10 +137,7 @@ class StochMatrixEvolver(object):
             if verbose:
                 print(f'Starting evolution number {n}')
             try:
-                if n == 14: # just to debug a thing
-                    graph_tmp = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug, save=True)
-                else:
-                    graph_tmp = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug)
+                graph_tmp, evo_op = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug)
                 graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
                 if view_evo:
@@ -150,7 +147,9 @@ class StochMatrixEvolver(object):
                 print(e)
 
         return graph
-
+    
+    def close(self):
+        pass
 
     class ProbabilityMatrix(object):
         """
@@ -186,7 +185,22 @@ class StochMatrixEvolver(object):
             return self.index_to_node_or_edge[row], self.index_to_op[col]
         
         def set_prob_by_nodeEdge_op(self, probability, node_or_edge, op):
-            self.matrix[self.node_or_edge_to_index[node_or_edge]][self.op_to_index[op]] = probability
+            self.matrix[self.node_or_edge_to_index[node_or_edge], self.op_to_index[op]] = probability
+        
+        def get_prob_by_nodeEdge_op(self, node_or_edge, op):
+            return self.matrix[self.node_or_edge_to_index[node_or_edge], self.op_to_index[op]]
+        
+        def get_probs_at_node_or_edge(self, node_or_edge):
+            """
+            Warning: modifying the returned vector will modify matrix values
+            """
+            return self.matrix[self.node_or_edge_to_index[node_or_edge], :]
+        
+        def get_probs_at_operator(self, op):
+            """
+            Warning: modifying the returned vector will modify matrix values
+            """
+            return self.matrix[:, self.op_to_index[op]]
         
         def __str__(self):
             string_rep = f'operator to index: {self.op_to_index}\n' + f'node/edge to index: {self.node_or_edge_to_index}\n' + \
@@ -267,46 +281,146 @@ class SizeAwareMatrixEvolver(StochMatrixEvolver):
         return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
 
 
-# class RuleBasedEvolver(Evolver):
-#     """
-#     Evolves according to a set of rules with a certain probability, and randomly with another probability
+class ReinforcementMatrixEvolver(StochMatrixEvolver):
+    """
+    Loosely based on reinforcement learning ideas, where only the operator selection is reinforcement based (node selection remains arbitrary)
+    The "state" of the graph is solely defined by the number of nodes, for simplicity
 
-#     The trend is that the exploitativeness of the algorithm will increase over time, as exploration decreases:
-#     https://towardsdatascience.com/striking-a-balance-between-exploring-and-exploiting-5475d9c1e66e
-#     https://www.manifold.ai/exploration-vs-exploitation-in-reinforcement-learning
-
-#     We assume that the decay in exploitation is linear, for simplicity
-#     """
-#     def __init__(self, epsilon_start=0.6, epsilon_end=0.1, decay_length_gen=10, verbose=False, operator_likelihood=None, **attr):
-#         """
-#         Rule based evolver evolves randomly with probability epsilon, and based on the rules with probability 1 - epsilon
-#         """
-#         def epsilon_from_gen(gen):
-#             if gen > decay_length_gen:
-#                 return epsilon_end
-#             else:
-#                 return (epsilon_end - epsilon_start) / decay_length_gen * gen + epsilon_start
-
-#         self.epsilon_from_gen = epsilon_from_gen
-
-#         super().__init__(verbose=verbose, operator_likelihood=operator_likelihood, **attr)
+    1. The probability matrix is arbitrary if we have no past history for a graph of size N (number of nodes)
+    2. Otherwise, the best historical solution op is assigned probability 1 - epsilon (equally divided between all possible node/edges),
+       with equal probability across all other possible node/op pairs (epsilon can be gen dependent)
     
-#     def evolve_graph(self, graph, evaluator, generation=None, verbose=False):
-#         if random.random() < self.epsilon_from_gen(generation):
-#             return super().evolve_graph(graph, evaluator, generation=generation, verbose=verbose)
+    Implementation notes:
+    1. Each graph can store its previous scores / averages? At the beginning of each new optimization we can compute the updated "value"
+    2. Consider: how do we backpropagate value between states. For now we won't, we just calculate improvement in score from last time
+
+    The philosophy for now is: immediate improvement is the name of the game. We define the value of an operation as its predicted ,
+    where reward is improvement in score. The predicted improvement is aggregated from all graphs that the evolver is called on
+
+    # TODO: consider making value less based on immediate reward
+    # TODO: consider decaying epsilon scheme instead of constant epsilon value
+    """
+    def __init__(self, verbose=False, starting_value_matrix=None, epsilon=0.4, **attr):
+        """
+        Creates a ReinforcementMatrixEvolver (reinforcement is used a bit loosely here)
+
+        :param verbose: if True, evolution operators type and node/edges are printed to stdout. Otherwise, the evolution is 'silent'
+        :param starting_value_matrix: initial matrix of expected awards for different operators
+                                      Parameter is a tuple: (dictionary of numpy 2D vectors, ordered list of operators)
+                                      Dictionary key: number of nodes in graph, N
+                                      Dictionary value: row1 = numpy array of expected rewards (i.e. values) per operator (in same order as the ordered list)
+                                                        row2 = numpy array of integers, with number of times the same-index value of expected rewards has been updated in the past (required to tally long-term average)
+                                      If not provided, all configuration operators are selected, and all values are set to 0 to start
+
+                                      If a string, this is the string to a pickle file of a previous run
+        """
+        super().__init__(verbose=verbose, **attr)
+        self.epsilon = epsilon
         
-#         evo_op_choice = self.select_correct_evolution(graph)
-#         # apply the chosen evolution
-#         graph = evo_op_choice().apply_evolution(graph, verbose=self.verbose)
-
-#         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
-#         return graph, evo_op_choice
+        if starting_value_matrix is None:
+            self.value_matrix = {} # value matrix will be consistently updated
+        elif type(starting_value_matrix) == str:
+            with open(starting_value_matrix, 'rb') as handle:
+                self.value_matrix = pickle.load(handle)
+        else:
+            self.value_matrix = starting_value_matrix[0]
+            self.evo_op_list = starting_value_matrix[1] # override default in constructor
     
-#     def select_correct_evolution(self, graph):
-#         # TODO: have some selection rule! this is currently here as a stopgap
-#         verification = [evo_op().verify_evolution(graph) for (_, evo_op) in configuration.EVOLUTION_OPERATORS.items()]
-#         possible_evo_ops = [evo_op for (verify, evo_op) in zip(verification, configuration.EVOLUTION_OPERATORS.values()) if verify]
-#         return np.random.choice(possible_evo_ops)
+    def create_graph_matrix(self, graph, evaluator):
+        self._update_value_matrix(graph)
+        self._translate_values_to_probabilities(graph, evaluator)
+
+    def _update_value_matrix(self, graph):
+        if len(graph.nodes) not in self.value_matrix: # check whether we already have an entry for this graph state
+            self.value_matrix[len(graph.nodes)] = np.zeros((2, len(self.evo_op_list)))
+
+        if graph.last_evo_record is not None and graph.score is not None and graph.last_evo_record['score'] is not None: # we can only update our evo matrices if we have a previous score to compare to
+            N = graph.last_evo_record['state']
+            reward = graph.last_evo_record['score'] - graph.score
+            evo_index = self.evo_op_list.index(graph.last_evo_record['op'])
+
+            # new value is the new average reward. If the previous average is Qk, and the new reward is Rk:
+            # average reward Q(k + 1) = Qk + (1/k)(R_k - Q_k)
+            self.value_matrix[N][1][evo_index] += 1
+            Qk = self.value_matrix[N][0][evo_index]
+            k = self.value_matrix[N][1][evo_index]
+            new_value = Qk + (1 / k) * (reward - Qk)
+
+            self.value_matrix[N][0][evo_index] = new_value
+
+    
+    def _translate_values_to_probabilities(self, graph, evaluator):
+        """
+        Turns the value matrix into a matrix of probabilities with the following rules:
+        1. Total probability of the greedy operator being selected is 1 - epsilon
+        2. Probability of greedy operator is evenly dispersed among each node/edge where it can be applied
+        3. Remaining probability is distributed equally among all other possible operator-node/edge combinations
+
+        Pre-condition: assumes self.value_matrix is fully updated
+        """
+        super().create_graph_matrix(graph, evaluator) # get basic matrix with 1 for possible combos and 0 for impossible combos
+
+        greedy_op, greedy_op_num_possible = self._get_greedy_op_and_possible_num(graph)
+        greedy_op_prob = (1 - self.epsilon) / greedy_op_num_possible
+        other_op_prob = self.epsilon / (np.count_nonzero(graph.evo_probabilities_matrix.matrix) - greedy_op_num_possible)
+        
+        for node_or_edge in list(graph.nodes) + list(graph.edges):
+            for op in self.evo_op_list:
+                if not np.isclose(0, graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(node_or_edge, op)): # i.e. if an operation is possible
+                    prob = greedy_op_prob if op == greedy_op else other_op_prob
+                    graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(prob, node_or_edge, op)
+
+        # omit normalization because evo matrix should be normalized already. If not, we want it to crash, not silently fail
+        graph.evo_probabilities_matrix.verify_matrix()
+
+    def _get_greedy_op_and_possible_num(self, graph):
+        """
+        Returns the greedy operator. If there exist multiple potential greedy operators, it randomly selects one
+        """
+        # TODO: refactor this, it's ugly code...
+        # 1. Look through all max valued options, going in descending order of value (in case the max valued options are not applicable)
+        usable = np.ones_like(self.value_matrix[len(graph.nodes)][0])
+        while np.count_nonzero(usable) > 0:
+            max_val = np.max(np.array([self.value_matrix[len(graph.nodes)][0][i] for i in range(len(usable)) if usable[i]]))
+            indices = [i for (i, val) in enumerate(self.value_matrix[len(graph.nodes)][0]) if np.isclose(val, max_val)]
+            while len(indices) > 0:
+                index = np.random.choice(indices)
+                op = self.evo_op_list[index]
+                greedy_op_num_possible = np.count_nonzero(graph.evo_probabilities_matrix.get_probs_at_operator(op))
+                if greedy_op_num_possible > 0:
+                    return op, greedy_op_num_possible
+                else:
+                    indices.remove(index)
+            
+            for i in range(len(usable)):
+                if np.isclose(max_val, self.value_matrix[len(graph.nodes)][0][i]):
+                    usable[i] = 0
+
+        # 2. no max valued option is available
+        raise ValueError('No possible operator found')
+
+    def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False):
+        """
+        Evolves graph according to the stochastic matrix probabilites
+        The probabilities for operators are based on a epsilon-greedy learning method
+        The probabilities for different nodes with the same operator are equal, assuming the operation is possible
+
+        :param graph: the graph to evolve
+        :param evaluator: not used in the base implementation, but may be useful in the future
+        """
+        pre_evo_state = len(graph.nodes)
+        graph, evo_op = super().evolve_graph(graph, evaluator, generation=generation, verbose=verbose, debug=debug)
+        if graph.last_evo_record is None:
+            graph.last_evo_record = {}
+        graph.last_evo_record['op'] = evo_op
+        graph.last_evo_record['score'] = graph.score
+        graph.last_evo_record['state'] = pre_evo_state
+
+        return graph, evo_op
+    
+    def close(self):
+        with open(f'reinforcement_evolver_value_matrix.pkl', 'wb') as handle:
+            pickle.dump(self.value_matrix, handle)
 
 
 class CrossoverMaker(object):
