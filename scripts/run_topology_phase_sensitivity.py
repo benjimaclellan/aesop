@@ -20,7 +20,7 @@ sys.path.append(parent_dir)
 import matplotlib.pyplot as plt
 import psutil
 import numpy as np
-
+import types
 import config.config as config
 
 from lib.functions import InputOutput
@@ -76,24 +76,29 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    start_graph = copy.deepcopy(graph)
-    def __evolve_graph(_graph, _evaluator):
-        _new_graph, _evo_op = Evolver().evolve_graph(_graph, _evaluator)
+    evolver.start_graph = copy.deepcopy(graph)
+    def __evolve_graph(self, _graph, _evaluator):
+        """
+        Updates the evolve_graph function of the evolver to double-check that there is the PS in the graph, and restarts if not
+        """
+        _new_graph, _evo_op = Evolver.evolve_graph(self, _graph, _evaluator)
         flag = False
-        for node in _graph.nodes:
+        for node in _new_graph.nodes:
             if node == phase_node:
                 flag = True
         if flag:
             return _new_graph, _evo_op
         else:
             print('need to start again from start_graph, as PS has been removed')
-            return copy.deepcopy(start_graph), None
+            return self._start_graph, None
 
-    evolver.evolve_graph = __evolve_graph
+    # evolver.evolve_graph = lambda _graph, _evaluator: __evolve_graph(_graph, _evaluator)
+    evolver.evolve_graph = types.MethodType(__evolve_graph, evolver)
 
-    update_rule = 'preferential'
+    # update_rule = 'preferential'
+    update_rule = 'random'
 
-    # for j in range(10):
+    # for j in range(1):
     #     fig, ax = plt.subplots(1,1)
     #     for i in range(10):
     #         graph, evo_op = evolver.evolve_graph(graph, evaluator)
@@ -101,6 +106,6 @@ if __name__ == '__main__':
     #         graph.draw(ax=ax)
     #         plt.waitforbuttonpress()
 
-    graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
+    graph, score, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                               ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                              crossover_maker=None)
+                                              include_dashboard=False, crossover_maker=None)
