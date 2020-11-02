@@ -76,7 +76,7 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    evolver.start_graph = copy.deepcopy(graph)
+    evolver._start_graph = copy.deepcopy(graph)
     def __evolve_graph(self, _graph, _evaluator):
         """
         Updates the evolve_graph function of the evolver to double-check that there is the PS in the graph, and restarts if not
