@@ -25,7 +25,7 @@ from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepeti
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine, ProgrammableFilter, EDFA
+from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine, IntensityModulator, ProgrammableFilter, EDFA
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_optimization import parameters_optimize
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     evolver = Evolver()
 
     pulse_width, rep_t, peak_power = (0.2e-9, 20.0e-9, 1.0)
-    p, q = (1, 2)
+    p, q = (2,1)
 
     pl = PulsedLaser(parameters_from_name={'pulse_width':pulse_width,'peak_power':peak_power, 't_rep':rep_t,
                                            'pulse_shape':'gaussian', 'central_wl':1.55e-6, 'train':True})
@@ -49,13 +49,11 @@ if __name__ == "__main__":
     target = pl.get_pulse_train(propagator.t, pulse_width=pulse_width*(p/q), rep_t=rep_t*(p/q), peak_power=peak_power*(p/q))
     evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-    nodes = {0: pl,
-             1:VariablePowerSplitter(),
-             3:VariablePowerSplitter(),
-             2:DelayLine(parameters=[10.0e-9]),
-             4:EDFA(parameters_from_name={'max_small_signal_gain_dB':3.0}),
+    nodes = {0:pl,
+             1:IntensityModulator(parameters_from_name={'depth':np.pi*0.5, 'frequency':1/rep_t/2, 'bias':np.pi*0.5}),
+             2:EDFA(),
             -1: MeasurementDevice()}
-    edges = [(0,1), (1,3),(1,2), (2, 3), (3,4) , (4,-1)]
+    edges = [(0,1), (1,2), (2,-1)]
 
     graph = Graph(nodes, edges, propagate_on_edges = False)
     graph.assert_number_of_edges()
@@ -96,3 +94,6 @@ if __name__ == "__main__":
     ax[1].plot(propagator.f, psd_(state, propagator.dt, propagator.df))
     ax[1].plot(propagator.f, psd_(evaluator.target, propagator.dt, propagator.df))
     ax[0].legend()
+
+    graph.propagate(propagator, save_transforms=True)
+    graph.visualize_transforms([0,1,-1], propagator)
