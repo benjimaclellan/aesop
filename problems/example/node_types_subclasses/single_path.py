@@ -10,6 +10,8 @@ unit = UnitRegistry()
 import autograd.numpy as np
 
 from ..node_types import SinglePath
+from lib.base_classes import NodeType
+
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_, dB_to_amplitude_ratio
@@ -699,6 +701,62 @@ class DelayLine(SinglePath):
         length = (propagator.speed_of_light / self._n) * delay
         beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
+        state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
+
+        if save_transforms:
+            transform = np.zeros_like(propagator.t).astype('float')
+            transform[(np.abs(propagator.t - (-delay))).argmin()] = 1
+            self.transform = (('t', transform, 'delay'),)
+        else:
+            self.transform = None
+
+        return [state]
+
+
+
+
+class PhaseShifter(NodeType):
+    """
+    This will be used in ASOPE to search for 'sensing' setups, i.e. ones for which an objective function has the largest
+    sensitivity to a phase shift (i.e. large first-order derivative w.r.t. this phase value)
+    """
+    def __init__(self, **kwargs):
+        self.node_lock = True
+        self.node_acronym = 'PS'
+        self._node_type = "signal node"
+
+        self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+        self._range_output_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+
+        self.number_of_parameters = 1
+
+        self.default_parameters = [0.5*np.pi]
+
+        self.upper_bounds = [+1.0*np.pi]
+        self.lower_bounds = [-1.0*np.pi]
+        self.data_types = ['float']
+        self.step_sizes = [None]
+        self.parameter_imprecisions = [0.1*np.pi]
+        self.parameter_units = [unit.rad]
+        self.parameter_locks = [True]
+        self.parameter_names = ['phase']
+        self.parameter_symbols = [r"$x_{\phi}$"]
+
+        self._loss_dB = -0.0 # dB
+
+        self._n = 1.444
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+
+        phase = self.parameters[0]
+        delay = propagator.central_wl / (2.0 * np.pi) * phase
+        length = (propagator.speed_of_light / self._n) * delay
+        beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
         state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
         state = state * dB_to_amplitude_ratio(self._loss_dB)
 

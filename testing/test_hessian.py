@@ -15,7 +15,7 @@ from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.evaluator_subclasses.evaluator_power import PeakPower
+from problems.example.evaluator_subclasses.evaluator_phase_sensitivity import PeakPower
 
 ### TODO: for each model, we could prepare the function once at the beginning (especially for locked models)
 
