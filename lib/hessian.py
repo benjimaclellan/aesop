@@ -56,7 +56,7 @@ def lha_analysis(hessian_function, parameters):
     # Compute eigenstuff of the matrix, and sort them by eigenvalue magnitude
 
     eigen_items = np.linalg.eig(H0)
-    eigensort_inds = np.argsort(eigen_items[0])
+    eigensort_inds = np.argsort(np.abs(eigen_items[0]))
     eigenvalues, eigenvectors = eigen_items[0][eigensort_inds], eigen_items[1][:, eigensort_inds]
     return np.diag(H0), H0, eigenvalues, eigenvectors
 
