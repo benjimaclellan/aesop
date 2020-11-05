@@ -71,7 +71,7 @@ class Evolver(object):
         return graph
 
 
-class StochMatrixEvolver(object):
+class ProbabilityLookupEvolver(object):
     """
     Evolver object will take in and update graphs based on a stochastic probability matrix
     It will have a set of rules for updating a graph's stochastic matrix, in order to update the graph next time
@@ -208,7 +208,7 @@ class StochMatrixEvolver(object):
             return string_rep
 
 
-class SizeAwareMatrixEvolver(StochMatrixEvolver):
+class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
     """
     The size aware stochastic matrix evolver updates probabilities of certain operators being used based on the size of the graph.
     The algorithm considers "growth" operators (add nodes or edges), and "reduction" operators (remove nodes or edges). Any operators not marked
@@ -281,7 +281,7 @@ class SizeAwareMatrixEvolver(StochMatrixEvolver):
         return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
 
 
-class ReinforcementMatrixEvolver(StochMatrixEvolver):
+class ReinforcementLookupEvolver(ProbabilityLookupEvolver):
     """
     Loosely based on reinforcement learning ideas, where only the operator selection is reinforcement based (node selection remains arbitrary)
     The "state" of the graph is solely defined by the number of nodes, for simplicity

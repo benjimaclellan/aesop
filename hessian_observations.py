@@ -11,7 +11,7 @@ from problems.example.node_types_subclasses.single_path import PhaseModulator, W
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.graph import Graph
 
-from problems.example.assets.hessian_graph_analysis import get_all_free_wheeling_params
+from problems.example.assets.hessian_graph_analysis import get_all_node_scores
 
 from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 from algorithms.topology_optimization import parameters_optimize_complete
@@ -105,8 +105,8 @@ def free_wheeling_thresholding(graph, free_wheeling_node, test_title='', free_wh
     print(f"CW params: {graph.nodes[0]['model'].parameters}")
     print(f'gradient: {graph.grad(x)}')
 
-    node_edge_index, parameter_index = get_all_free_wheeling_params(graph)
-    print(f'free wheeling params list\nnode_edge_index: {node_edge_index}\nparameter_index: {parameter_index}')
+    free_nodes, node_edge_index, parameter_index = get_all_free_wheeling_nodes_params(graph)
+    print(f'free wheeling\nnodes: {free_nodes}\nnode_edge_index: {node_edge_index}\nparameter_index: {parameter_index}')
 
     hessian = graph.scaled_hess(np.array(x))
     phessian, phess_params = partial_hessian_node(hessian, graph, free_wheeling_node)
@@ -122,7 +122,6 @@ def free_wheeling_thresholding(graph, free_wheeling_node, test_title='', free_wh
     plot_hessian(bin_hess, params, title=f'{test_title}, binarized')
     bin_phess = binarize_hessian(phessian, epsilon)
     plot_hessian(bin_phess, phess_params, title=f'{test_title}, binarized, {free_wheeler_title}')
-
 
 
 def linked_parameter_checks(graph, title=''):
@@ -142,6 +141,7 @@ def linked_parameter_checks(graph, title=''):
     print(f'eigenvalues (smallest 3): {H_evals[0:3]}')
     print(f'eigenvectors (matching): {H_evecs[:, 0:3]}')
 
+
 def free_wheeling_params_0():
     nodes = {0:ContinuousWaveLaser(),
              1: PhaseModulator(),
@@ -152,7 +152,13 @@ def free_wheeling_params_0():
     graph = Graph(nodes=nodes, edges=edges, propagate_on_edges=False)
     graph.assert_number_of_edges()
 
-    free_wheeling_thresholding(graph, 2, test_title='free-wheeling params 0', free_wheeler_title='WS only')
+    # free_wheeling_thresholding(graph, 2, test_title='free-wheeling params 0', free_wheeler_title='WS only')
+    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+
+    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph, evaluator)
+    print(f'terminal node score:\n{terminal_node_scores}\n')
+    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}')
 
 
 def free_wheeling_params_1():
@@ -164,7 +170,13 @@ def free_wheeling_params_1():
     graph = Graph(nodes=nodes, edges=edges, propagate_on_edges=False)
     graph.assert_number_of_edges()
 
-    free_wheeling_thresholding(graph, 1, test_title='free-wheeling params/node 1', free_wheeler_title='PM only')
+    # free_wheeling_thresholding(graph, 1, test_title='free-wheeling params/node 1', free_wheeler_title='PM only')
+    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+
+    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph, evaluator)
+    print(f'terminal node score:\n{terminal_node_scores}\n')
+    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}')
 
 
 def free_wheeling_node_2():
@@ -182,7 +194,13 @@ def free_wheeling_node_2():
     graph = Graph(nodes=nodes, edges=edges, propagate_on_edges=False)
     graph.assert_number_of_edges()
 
-    free_wheeling_thresholding(graph, 3, test_title='free-wheeling node 2', free_wheeler_title='disconnected IM')
+    # free_wheeling_thresholding(graph, 3, test_title='free-wheeling node 2', free_wheeler_title='disconnected IM')
+    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+
+    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph, evaluator)
+    print(f'terminal node score:\n{terminal_node_scores}\n')
+    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}')
 
 
 def linked_parameters_delays():

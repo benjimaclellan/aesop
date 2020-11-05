@@ -38,7 +38,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice, Ph
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from problems.example.evolver import StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
 
 from algorithms.parameter_optimization import parameters_optimize
 from algorithms.topology_optimization import topology_optimization
@@ -49,7 +49,7 @@ plt.close('all')
 
 
 def matrix_evolver_basic_test():
-    evolver = ReinforcementMatrixEvolver()
+    evolver = ReinforcementLookupEvolver()
 
     nodes = {0:ContinuousWaveLaser(),
             -1:Photodiode()}
