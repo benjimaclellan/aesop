@@ -85,7 +85,7 @@ if __name__ == "__main__":
     # # fig, ax = plt.subplots(1,1)
     # # ax.plot(delays, scores)
     #
-    # graph.propagate(propagator, save_transforms=True)
+    graph.propagate(propagator, save_transforms=True)
     # state = graph.measure_propagator(-1)
     # print(evaluator.evaluate_graph(graph, propagator))
     # fig, ax = plt.subplots(2, 1)

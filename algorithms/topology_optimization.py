@@ -50,6 +50,9 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
+    # start_graph = ray.put(copy.deepcopy(graph))
+
+
     # save the objects for analysis later
     io.save_json(ga_opts, 'ga_opts.json')
     for (object_filename, object_to_save) in zip(('propagator', 'evaluator', 'evolver'), (propagator, evaluator, evolver)):
@@ -92,33 +95,39 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         # update logbook and hall of fame
         logbook_update(generation, population, log, log_metrics, time=(time.time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
-    # save a figure which quickly demonstrates the results of the run as a .pdf files
-    fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
-    for i, (score, graph) in enumerate(hof):
-        graph.score = score
-
-        graph.propagate(propagator, save_transforms=False)
-        hof_i_score = evaluator.evaluate_graph(graph, propagator)
-        if score != hof_i_score: print("HOF final score calculation does not match")
-
-        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
-
-        state = graph.measure_propagator(-1)
-        if ga_opts['n_hof'] > 1:
-            graph.draw(ax=axs[i,0], legend=True)
-            axs[i,1].plot(propagator.t, evaluator.target, label='Target')
-            axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
-        else:
-            graph.draw(ax=axs[0], legend=True)
-            axs[1].plot(propagator.t, evaluator.target, label='Target')
-            axs[1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
-
-    io.save_fig(fig=fig, filename='halloffame.png')
     io.save_object(log, 'log.pkl')
 
     io.close_logging()
     evolver.close()
-    return hof[0][1], hof[0][0], log # hof is actually a list in and of itself, so we only look at the top element
+    return hof, log # hof is actually a list in and of itself, so we only look at the top element
+
+def save_hof(hof, io):
+    for i, (score, graph) in enumerate(hof):
+        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
+    return
+
+def plot_hof(hof, propagator, evaluator, io):
+    # save a figure which quickly demonstrates the results of the run as a .pdf files
+    fig, axs = plt.subplots(nrows=len(hof), ncols=3, figsize=[5, 2 * len(hof)])
+    for i, (score, graph) in enumerate(hof):
+        graph.score = score
+        graph.propagate(propagator, save_transforms=False)
+
+        state = graph.measure_propagator(-1)
+        if len(hof) > 1:
+            np.expand_dims(axs, 0)
+
+        graph.draw(ax=axs[i, 0], legend=True)
+        axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
+        axs[i, 1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+        axs[i, 2].set(xticks=[], yticks=[])
+        axs[i, 2].grid = False
+        axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
+        # else:
+        #     graph.draw(ax=axs[0], legend=True)
+        #     axs[1].plot(propagator.t, evaluator.target, label='Target')
+        #     axs[1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+    io.save_fig(fig=fig, filename='halloffame.png')
 
 
 def save_scores_to_graph(population):
@@ -362,7 +371,7 @@ def parameters_optimize_complete(ind, evaluator, propagator):
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
         x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
+        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=True)
 
         return score, graph
     except Exception as e:

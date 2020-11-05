@@ -752,19 +752,17 @@ class PhaseShifter(NodeType):
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
         state = states[0]
-
         phase = self.parameters[0]
+
         delay = propagator.central_wl / (2.0 * np.pi) * phase
         length = (propagator.speed_of_light / self._n) * delay
         beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
         state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
         state = state * dB_to_amplitude_ratio(self._loss_dB)
-
         if save_transforms:
             transform = np.zeros_like(propagator.t).astype('float')
             transform[(np.abs(propagator.t - (-delay))).argmin()] = 1
             self.transform = (('t', transform, 'delay'),)
         else:
             self.transform = None
-
         return [state]

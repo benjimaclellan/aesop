@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 import psutil
 import numpy as np
 import types
+import ray
+
 import config.config as config
 
 from lib.functions import InputOutput
@@ -44,68 +46,78 @@ from problems.example.node_types_subclasses.single_path import DelayLine, Intens
 from problems.example.node_types_subclasses.single_path import PhaseShifter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.topology_optimization import topology_optimization
+from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 
 
 plt.close('all')
 if __name__ == '__main__':
-
+    #
     io = InputOutput(directory='testing', verbose=True)
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 4,
+    ga_opts = {'n_generations': 6,
                'n_population': 4, # psutil.cpu_count(),
-               'n_hof': 6,
+               'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
-    propagator = Propagator(window_t=100e-9, n_samples=2 ** 14, central_wl=1.55e-6)
-    evolver = Evolver()
+    propagator = Propagator(window_t=10e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    evolver = StochMatrixEvolver(verbose=False)
 
     phase, phase_node = (0.5 * np.pi, -2)
     phase_shifter = PhaseShifter(parameters=[phase])
     evaluator = PhaseSensitivity(propagator, phase=phase, phase_node=phase_node)
+    def create_start_graph():
 
-    nodes = {0: ContinuousWaveLaser(),
-             phase_node: phase_shifter,
-             -1: Photodiode(parameters_from_name={'bandwidth': 1 / propagator.window_t})}
-    edges = [(0, phase_node), (phase_node, -1)]
+        nodes = {0: ContinuousWaveLaser(),
+                 phase_node: phase_shifter,
+                 -1: Photodiode(parameters_from_name={'bandwidth': 1 / propagator.window_t})}
+        edges = [(0, phase_node), (phase_node, -1)]
 
-    graph = Graph(nodes, edges, propagate_on_edges = False)
-    graph.assert_number_of_edges()
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+        graph = Graph(nodes, edges, propagate_on_edges = False)
+        graph.assert_number_of_edges()
+        graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+        return graph
 
-    evolver._start_graph = copy.deepcopy(graph)
-    def __evolve_graph(self, _graph, _evaluator):
-        """
-        Updates the evolve_graph function of the evolver to double-check that there is the PS in the graph, and restarts if not
-        """
-        _new_graph, _evo_op = Evolver.evolve_graph(self, _graph, _evaluator)
-        flag = False
-        for node in _new_graph.nodes:
-            if node == phase_node:
-                flag = True
-        if flag:
-            return _new_graph, _evo_op
-        else:
-            print('need to start again from start_graph, as PS has been removed')
-            return self._start_graph, None
+    graph = create_start_graph()
+    def __decorated_evolve_graph(base_evolve_graph_function, start_graph):
+        def assert_phase_shifter(*args, **kwargs):
+            _evaluator = args[1]
+            try:
+                _new_graph, _evo_op = base_evolve_graph_function(*args, **kwargs)
+                flag = False
+                for node in _new_graph.nodes:
+                    if node == phase_node:
+                        flag = True
+                if not flag:
+                    raise RuntimeError
+                return _new_graph, _evo_op
+            except RuntimeError as e:
+                return create_start_graph(), None
+            return graph, evo_op
+        return assert_phase_shifter
 
-    # evolver.evolve_graph = lambda _graph, _evaluator: __evolve_graph(_graph, _evaluator)
-    evolver.evolve_graph = types.MethodType(__evolve_graph, evolver)
+    evolver.evolve_graph = __decorated_evolve_graph(evolver.evolve_graph, copy.deepcopy(graph))
+    graph, evo_op = evolver.evolve_graph(graph, evaluator)
 
     # update_rule = 'preferential'
     update_rule = 'random'
 
+
+    # # # graph = copy.deepcopy(graph)
     # for j in range(1):
     #     fig, ax = plt.subplots(1,1)
-    #     for i in range(10):
+    #     for i in range(100):
     #         graph, evo_op = evolver.evolve_graph(graph, evaluator)
     #         ax.cla()
-    #         graph.draw(ax=ax)
-    #         plt.waitforbuttonpress()
+    #         graph.draw(ax=ax, method='kamada_kawai')
+    #         plt.pause(0.01)
+    #         # plt.waitforbuttonpress()
 
-    graph, score, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                              ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                              include_dashboard=False, crossover_maker=None)
+    hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                     include_dashboard=False, crossover_maker=None)
+
+    save_hof(hof, io)
+    plot_hof(hof, propagator, evaluator, io)

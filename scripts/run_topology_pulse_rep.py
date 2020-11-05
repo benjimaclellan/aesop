@@ -19,7 +19,7 @@ sys.path.append(parent_dir)
 # various imports
 import matplotlib.pyplot as plt
 import psutil
-
+import numpy as np
 import config.config as config
 
 from lib.functions import InputOutput
@@ -39,7 +39,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice, Ph
 from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.topology_optimization import topology_optimization
+from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 
 
 plt.close('all')
@@ -47,14 +47,14 @@ if __name__ == '__main__':
 
     fixed_input = True
     if fixed_input:
-        SwapNode.potential_node_types.remove('Input')
+        if 'Input' in SwapNode.potential_node_types: SwapNode.potential_node_types.remove('Input')
 
     io = InputOutput(directory='testing', verbose=True)
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 12,
-               'n_population': 16, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 4,
+               'n_population': 4, # psutil.cpu_count(),
                'n_hof': 6,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -87,6 +87,8 @@ if __name__ == '__main__':
     plt.plot(evaluator.target)
     plt.plot()
 
-    graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
+    hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
                                               ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                               crossover_maker=None)
+    save_hof(hof, io)
+    plot_hof(hof, propagator, evaluator, io)
