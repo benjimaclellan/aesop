@@ -189,12 +189,12 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         self.node_acronym = 'IM'
 
         self.number_of_parameters = 3
-        self.default_parameters = [1.0, 12.0e9, 0.0]
+        self.default_parameters = [1.0, 1.0e9, 0.0]
 
-        self.upper_bounds = [np.pi, 48.0e9, 2 * np.pi]
-        self.lower_bounds = [0.001, 2.0e9, 0.01]
+        self.upper_bounds = [np.pi, 50.0e9, 2 * np.pi]
+        self.lower_bounds = [0.001, 10.0e6, 0.01]
         self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, 2e9, None]
+        self.step_sizes = [None, None, None]
         self.parameter_imprecisions = [1.0, 1.0, 0.1]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad]
         self.parameter_locks = [False, False, False]
@@ -218,7 +218,8 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         transform = depth * (np.cos(2 * np.pi * frequency * propagator.t)) + bias
 
         if save_transforms:
-            self.transform = (('t', transform, 'modulation'),)
+            self.transform = (('t', power_( np.ones_like(state)/2.0 + np.ones_like(state) / 2.0 * np.exp(1j * transform)), 'modulation'),)
+            # self.transform = (('t', transform, 'modulation'),)
         else:
             self.transform = None
         state = state/2.0 + state / 2.0 * np.exp(1j * transform)

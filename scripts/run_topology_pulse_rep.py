@@ -53,9 +53,9 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 8,
+    ga_opts = {'n_generations': 12,
                'n_population': 16, # psutil.cpu_count(),
-               'n_hof': 2,
+               'n_hof': 6,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
