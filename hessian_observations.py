@@ -142,6 +142,15 @@ def linked_parameter_checks(graph, title=''):
     print(f'eigenvectors (matching): {H_evecs[:, 0:3]}')
 
 
+def print_node_freewheeling_terminal_scores(graph):
+    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+
+    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph)
+    print(f'terminal node score:\n{terminal_node_scores}')
+    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}\n\n')
+
+
 def free_wheeling_params_0():
     nodes = {0:ContinuousWaveLaser(),
              1: PhaseModulator(),
@@ -153,13 +162,8 @@ def free_wheeling_params_0():
     graph.assert_number_of_edges()
 
     # free_wheeling_thresholding(graph, 2, test_title='free-wheeling params 0', free_wheeler_title='WS only')
-    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
-    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph, evaluator)
-    print(f'terminal node score:\n{terminal_node_scores}\n')
-    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}')
-
+    print_node_freewheeling_terminal_scores(graph)
 
 def free_wheeling_params_1():
     nodes = {0:ContinuousWaveLaser(),
@@ -171,12 +175,7 @@ def free_wheeling_params_1():
     graph.assert_number_of_edges()
 
     # free_wheeling_thresholding(graph, 1, test_title='free-wheeling params/node 1', free_wheeler_title='PM only')
-    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-
-    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph, evaluator)
-    print(f'terminal node score:\n{terminal_node_scores}\n')
-    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}')
+    print_node_freewheeling_terminal_scores(graph)
 
 
 def free_wheeling_node_2():
@@ -195,12 +194,7 @@ def free_wheeling_node_2():
     graph.assert_number_of_edges()
 
     # free_wheeling_thresholding(graph, 3, test_title='free-wheeling node 2', free_wheeler_title='disconnected IM')
-    _, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-
-    terminal_node_scores, free_wheeling_node_scores = get_all_node_scores(graph, evaluator)
-    print(f'terminal node score:\n{terminal_node_scores}\n')
-    print(f'free_wheeling_node_scores:\n{free_wheeling_node_scores}')
+    print_node_freewheeling_terminal_scores(graph)
 
 
 def linked_parameters_delays():

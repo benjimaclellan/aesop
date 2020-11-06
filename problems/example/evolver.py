@@ -423,6 +423,50 @@ class ReinforcementLookupEvolver(ProbabilityLookupEvolver):
             pickle.dump(self.value_matrix, handle)
 
 
+class EGreedyHessianEvolver(ProbabilityLookupEvolver):
+    """
+    The epsilon-greedy Hessian evolver assigns value to different actions (action = an operator and the node/edge on which it applied)
+    based on the 0th order and 2nd order derivatve information of our fitness function with respect to the parameter space. 
+
+    Once all actions are assigned a value, it executes the action with the largest value with probability 1 - epsilon, and a random
+    action with probability epsilon. EPSILON CAN (and likely should) BE A GENERATION DEPENDENT FUNCTION.
+
+    The value of an action is determined by a relevent base score i.e. log10(free wheeling node score) = W, log10(terminal node score) = T, multiplied by
+    a scaling coefficient (which weighs importance of various factors). These scaling coefficients are hyperparameters, to be tuned as needed.
+
+    The action-node/edge values, V(O, N) are assigned as such, with floats a, b, c, d, e >= 0 as the scaling coefficients
+    
+    Remove Path (on source/sink node, i.e. multipath): V = -a * T, a = <terminal_path_removal_coeff>
+        - If a multipath node is terminal, it's likely directing all the signal to one branch or another.
+          Therefore it should be likely we remove the other branch
+    Remove Path (on single-path node): V = max(-a * T_source * W, -a * T_sink * W)
+        - If we have a long path with a terminal source, we axe it. How do we know we're on the right branch?
+          Well the nodes should be free-wheeling if the source is terminal pointing away from this branch!
+    Duplicate Node (on single-path node): V = -b * T, b = <terminal_duplicate_coeff>
+        - If a node is terminal, it's possible that it just needs more JUICE rather than being quasi-passive
+          (e.g. an EDFA might be at max gain, so chaining them might help!).
+          So we can also try duplicating that component to beef things up
+    Remove Node (on single-path node): V = max(-c * W, -d * T>, c = <freewheel_removal_coeff>, d = terminal_removal_coeff
+        - A free-wheeling node is likely doing nothing, so might as well boot it
+        - Also, a terminal node Might be in passive state, so we can try booting it as well
+
+    Other operators: V = e = <default_val>
+    """
+    def __init__(self, verbose=False, epsilon=1, freewheel_removal_coeff=1, terminal_removal_coeff=0.5, terminal_duplicate_coeff=1,
+                freewheel_path_removal_coeff=0.3, terminal_path_removal_coeff=2, default_val=1, **attr):
+        """
+        Creates a Hessian based evolver (which simplifies graphs based on the Hessian)
+
+        :param epsilon: probability epsilon with which a random node/edge, operator combo is selected
+                        epsilon can be a number or a function of the generation
+        :param freewheel_removal_coeff: hyperparameter which scales the base value for removing a free-wheeling node
+
+        """
+        pass
+    
+
+
+
 class CrossoverMaker(object):
     """
     An explicit class is not really necessary right now, but might become useful if we define more crossover operators

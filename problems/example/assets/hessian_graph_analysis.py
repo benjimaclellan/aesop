@@ -4,18 +4,17 @@ from autograd.numpy.numpy_boxes import ArrayBox
 # TODO: if both get_all_free_wheeling and get free_wheeling_<>_scores are used in code, refactor such that hessian is only computed once (it takes a long time)
 
 
-def get_all_node_scores(graph, evaluator):
+def get_all_node_scores(graph, as_log=True):
     """
     Returns dictionary with (key, value) = (node, terminal score), dictionary with (key, value) = (node, free_wheeling score) 
     """
     x, *_ = graph.extract_parameters_to_list()
-    grad = np.array(graph.grad(x))
-    hess = normalize_hessian(graph.scaled_hess(x), evaluator)
+    hess = normalize_hessian(graph.scaled_hess(x))
 
-    return terminal_node_scores(graph, grad), free_wheeling_node_scores(graph, hess)
+    return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
 
 
-def normalize_hessian(hessian, evaluator):
+def normalize_hessian(hessian):
     """
     How to normalize is a big unknown. There needs to be something,
     otherwise the choice of evaluator will potentially affect the Hessian
@@ -29,7 +28,11 @@ def normalize_hessian(hessian, evaluator):
     return hessian / np.sum(hessian) * hessian.shape[0]**2
 
 
-def free_wheeling_node_scores(graph, hess, p=1, reference_level=1):
+def normalize_gradient(grad):
+    return grad / np.sum(grad) * grad.shape[0]
+
+
+def free_wheeling_node_scores(graph, hess, p=1, as_log=False):
     """
     The free-wheeling score for node i, n_i is defined as:
     avg(p_j) for all parameters j in the node parameters (def of p_j found in free_wheeling_param_scores docstring)
@@ -39,15 +42,27 @@ def free_wheeling_node_scores(graph, hess, p=1, reference_level=1):
     :param graph: graph on which to score nodes
     :returns: a dictionary of the node and its corresponding score
     """
-    param_scores = free_wheeling_param_scores(hess, reference_level=reference_level, p=p)
-    return _extract_average_over_node(graph, param_scores)
+    param_scores = free_wheeling_param_scores(hess, p=p)
+    return _extract_average_over_node(graph, param_scores, as_log=as_log)
 
 
-def terminal_node_scores(graph, grad, reference_score=1):
-    return _extract_average_over_node(graph, np.abs(grad) / reference_score)
+def terminal_node_scores(graph, as_log=False):
+    x, _, _, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+
+    x, lower_bounds, upper_bounds = np.array(x), np.array(lower_bounds), np.array(upper_bounds)
+    uncertainty_scaling = graph.extract_attributes_to_list_experimental(['parameter_imprecisions'],
+                                                                        get_location_indices=False,
+                                                                        exclude_locked=True)['parameter_imprecisions']
+    per_param_dist = np.minimum(x - lower_bounds, upper_bounds - x) / np.array(uncertainty_scaling) 
+
+    return _extract_average_over_node(graph, per_param_dist, as_log=as_log)
 
 
-def free_wheeling_param_scores(hess, p=1, reference_level=1e-4):
+# def terminal_node_scores(graph, grad):
+#     return _extract_average_over_node(graph, np.abs(grad))
+
+
+def free_wheeling_param_scores(hess, p=1):
     """
     TODO: take into account the gradient as well (this does not)
 
@@ -64,9 +79,10 @@ def free_wheeling_param_scores(hess, p=1, reference_level=1e-4):
     :params graph: graph on which to compute parameter scores
     """
     hess_p = np.abs(hess)**p
-    return (np.sum(hess_p, axis=0)**(1/p) + np.sum(hess_p, axis=1)**(1/p)) / (2 * hess.shape[0] * reference_level)
+    return (np.sum(hess_p, axis=0)**(1/p) + np.sum(hess_p, axis=1)**(1/p)) / (2 * hess.shape[0])
 
-def _extract_average_over_node(graph, vector_to_average):
+
+def _extract_average_over_node(graph, vector_to_average, as_log=False):
     node_scores = {}
     _, node_edge_index, *_ = graph.extract_parameters_to_list()
 
@@ -77,6 +93,9 @@ def _extract_average_over_node(graph, vector_to_average):
 
             while type(score) == ArrayBox: # TODO: investigate. smh I end up with double-boxed floats... I don't know why
                 score = score._value
+
+            if as_log:
+                score = np.log10(score)
 
             node_scores[node] = score
     
