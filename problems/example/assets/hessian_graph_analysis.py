@@ -26,10 +26,10 @@ def normalize_hessian(hessian, evaluator):
     My gut feeling is that we need to normalize the same way
     across all graphs of an optimization but dunno
     """
-    return hessian
+    return hessian / np.sum(hessian) * hessian.shape[0]**2
 
 
-def free_wheeling_node_scores(graph, hess, p=1, reference_level=1e-4):
+def free_wheeling_node_scores(graph, hess, p=1, reference_level=1):
     """
     The free-wheeling score for node i, n_i is defined as:
     avg(p_j) for all parameters j in the node parameters (def of p_j found in free_wheeling_param_scores docstring)
@@ -43,7 +43,7 @@ def free_wheeling_node_scores(graph, hess, p=1, reference_level=1e-4):
     return _extract_average_over_node(graph, param_scores)
 
 
-def terminal_node_scores(graph, grad, reference_score=1e-6):
+def terminal_node_scores(graph, grad, reference_score=1):
     return _extract_average_over_node(graph, np.abs(grad) / reference_score)
 
 
