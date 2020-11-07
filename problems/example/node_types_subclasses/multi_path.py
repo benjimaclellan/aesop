@@ -14,11 +14,11 @@ from ..assets.functions import power_, psd_, fft_, ifft_, ifft_shift_
 
 @register_node_types_all
 class VariablePowerSplitter(MultiPath):
+    node_acronym = 'BS'
+    number_of_parameters = 1
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'BS'
 
-        self.number_of_parameters = 1
         self.upper_bounds = [1.0]
         self.lower_bounds = [0.0]
         self.data_types = ['float']
@@ -52,9 +52,10 @@ class VariablePowerSplitter(MultiPath):
 
 @register_node_types_all
 class WavelengthDivisionMultiplexer(MultiPath):
+    node_lock = False
+    node_acronym = 'WDM'
     def __init__(self, **kwargs):
-        self.node_lock = False
-        self.node_acronym = 'WDM'
+
 
         self.number_of_parameters = 1
         self.upper_bounds = [1.0]

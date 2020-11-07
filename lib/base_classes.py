@@ -107,7 +107,7 @@ class Evaluator(object):
 
 
 
-class Graph(networkx.MultiDiGraph):
+class Graph(networkx.DiGraph):
     """Parent class
     """
 

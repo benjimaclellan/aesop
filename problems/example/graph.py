@@ -115,11 +115,13 @@ class Graph(GraphParent):
 
     def get_in_edges(self, node):
         """ """
-        return [(u, v, k) for (u, v, k) in self.edges if v == node]
+        # return [(u, v, k) for (u, v, k) in self.edges if v == node]
+        return [(u, v) for (u, v) in self.edges if v == node]
 
     def get_out_edges(self, node):
         """ """
-        return [(u, v, k) for (u, v, k) in self.edges if u == node]
+        # return [(u, v, k) for (u, v, k) in self.edges if u == node]
+        return [(u, v) for (u, v) in self.edges if u == node]
 
     def suc(self, node):
         """Return the successors of a node (nodes which follow the current one) as a list
