@@ -25,7 +25,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver, CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
+from problems.example.evolver import Evolver, CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver, EGreedyHessianEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -47,8 +47,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 8,
-               'n_population': 16, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 4,
+               'n_population': 1, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -58,7 +58,8 @@ if __name__ == '__main__':
     # evolver = Evolver(verbose=False)
     # evolver = ProbabilityLookupEvolver(verbose=False)
     # evolver = SizeAwareLookupEvolver(verbose=False)
-    evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
+    # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
+    evolver = EGreedyHessianEvolver(verbose=True)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}
@@ -79,7 +80,7 @@ if __name__ == '__main__':
                 continue
             print(f'Starting optimization with rule {rule}, crossover_maker: {cross_opt}')
             io = handle_io()
-            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
+            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=True, update_rule=rule, crossover_maker=cross_opt)
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
             ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
             ax.plot(log['generation'], log['best'], label='Best')

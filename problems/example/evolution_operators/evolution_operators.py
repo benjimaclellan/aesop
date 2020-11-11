@@ -4,8 +4,13 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import pickle
 
+# TODO: remove once debugging complete
+import copy 
+from autograd.numpy.numpy_boxes import ArrayBox
+# -------------------------------
+
 import config.config as configuration
-from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators
+from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators,register_path_reduction_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
 from algorithms.speciation import Speciation
 from problems.example.graph import Graph
@@ -167,16 +172,32 @@ class SwapNode(EvolutionOperators):
         return self.apply_evolution_at(graph, node_to_swap, verbose=verbose)
 
     def apply_evolution_at(self, graph, node, save=False, verbose=False):
+        pre_swap_params, *_ = copy.deepcopy(graph.extract_parameters_to_list())
+
         model_to_swap = graph.nodes[node]['model']
         node_type_set = set(configuration.NODE_TYPES_ALL[model_to_swap.__class__.__bases__[0].__name__].values())
 
         new_model = random.sample(list(node_type_set - set([model_to_swap.__class__])), 1)[0]()
 
+        print(f'Swap node, model being swapped out: {model_to_swap}')
+        print(f'params: {list(zip(model_to_swap.parameter_names, model_to_swap.parameters))}\n')
+
         graph.nodes[node]['model'] = new_model
         graph.nodes[node]['name'] = new_model.__class__.__name__
+        
+        print(f'Swap node, model being swapped in: {new_model}')
+        print(f'params: {list(zip(new_model.parameter_names, new_model.parameters))}')
 
         if verbose:
             print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node, model_to_swap, new_model))
+       
+        # x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+        # for i in range(len(x)):
+        #     while type(x[i]) == ArrayBox:
+        #         x[i] = x[i]._value
+
+        # assert np.logical_and(lower_bounds < x, x < upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
+
         return graph
 
     def collect_potential_nodes_to_swap(self, graph):
@@ -298,6 +319,7 @@ class AddInterferometer(EvolutionOperators):
 
 @register_evolution_operators
 @register_reduction_operators
+@register_path_reduction_operators
 class RemoveOneInterferometerPath(EvolutionOperators):
     """
     Collapses an interferometer structure to a single path (if possible)

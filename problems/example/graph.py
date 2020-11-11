@@ -64,7 +64,7 @@ class Graph(GraphParent):
         self.func = None
         self.grad = None
         self.hess = None
-        self.scaled_hess = None
+        # Attribute: self.scaled_hess
 
         self.score = None
     
@@ -96,16 +96,23 @@ class Graph(GraphParent):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
         hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
-        # def hess_tmp(parameters):
-        #     return hessian(self.func)(np.array(parameters))
-        # self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
         self.hess = lambda parameters: hess_tmp(np.array(parameters))
 
+    @property
+    def scaled_hess(self):
         attributes = self.extract_attributes_to_list_experimental(['parameter_imprecisions'])
         parameter_imprecisions = np.expand_dims(np.array(attributes['parameter_imprecisions']), axis=1)
+
         scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
-        self.scaled_hess = lambda parameters: hess_tmp(np.array(parameters)) * scale_matrix
-        return
+
+        def _scaled_hess(parameters):
+            # print(f'in scaled_hess, scale matrix: {scale_matrix}')
+            print(f'comparing shapes, param: {len(parameters)}, scale_matrix: {scale_matrix.shape}')
+            return self.hess(np.array(parameters)) * scale_matrix
+
+        return _scaled_hess
+        # return lambda parameters: self.hess(np.array(parameters)) * scale_matrix
+ 
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))

@@ -2,7 +2,10 @@ import autograd.numpy as np
 import random
 import matplotlib.pyplot as plt
 import pickle
+import copy
+from autograd.numpy.numpy_boxes import ArrayBox
 
+import problems.example.assets.hessian_graph_analysis as hessian_analysis
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
 
@@ -105,11 +108,25 @@ class ProbabilityLookupEvolver(object):
             print(graph.evo_probabilities_matrix)
             print()
 
+        print(f'evolving graph: {graph.nodes}')
+        for node in graph.nodes:
+            print(graph.nodes[node]['model'])
         node_or_edge, evo_op = graph.evo_probabilities_matrix.sample_matrix()
         graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
-
+        print(f'\nevolving on: {node_or_edge}, with operator: {evo_op}\n')
         self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
-        
+        print(f'evolved graph: {graph.nodes}')
+        for node in graph.nodes:
+            print(graph.nodes[node]['model'])
+        print()
+       
+        x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+        for i in range(len(x)):
+            while type(x[i]) == ArrayBox:
+                x[i] = x[i]._value
+
+        assert np.logical_and(lower_bounds < x, x < upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
+
         return graph, evo_op
 
     def create_graph_matrix(self, graph, evaluator):
@@ -202,6 +219,19 @@ class ProbabilityLookupEvolver(object):
             """
             return self.matrix[:, self.op_to_index[op]]
         
+        def get_largest_prob_node_or_edge_and_op(self):
+            """
+            Returns the node/edge and operator associated with the largest value. If multiple node/edge and operator
+            pairs have the same value, returns a random pair (all same-valued options are returned with equal probability)
+
+            :Pre-condition: the matrix is populated
+            """
+            max = np.amax(self.matrix)
+            locations = np.where(self.matrix >= max)
+            possibilities = list(zip(locations[0].tolist(), locations[1].tolist()))
+            (row, col) = random.choice(possibilities)
+            return self.index_to_node_or_edge[row], self.index_to_op[col]
+
         def __str__(self):
             string_rep = f'operator to index: {self.op_to_index}\n' + f'node/edge to index: {self.node_or_edge_to_index}\n' + \
                          f'matrix: \n{self.matrix}'
@@ -442,13 +472,15 @@ class EGreedyHessianEvolver(ProbabilityLookupEvolver):
     Remove Path (on single-path node): V = max(-a * T_source * W, -a * T_sink * W)
         - If we have a long path with a terminal source, we axe it. How do we know we're on the right branch?
           Well the nodes should be free-wheeling if the source is terminal pointing away from this branch!
+    Remove Node (on single-path node): V = max(-c * W, -d * T>, c = <freewheel_removal_coeff>, d = terminal_removal_coeff
+        - A free-wheeling node is likely doing nothing, so might as well boot it
+        - Also, a terminal node Might be in passive state, so we can try booting it as well
+
+    TODO: implement later if it still seems like a good idea
     Duplicate Node (on single-path node): V = -b * T, b = <terminal_duplicate_coeff>
         - If a node is terminal, it's possible that it just needs more JUICE rather than being quasi-passive
           (e.g. an EDFA might be at max gain, so chaining them might help!).
           So we can also try duplicating that component to beef things up
-    Remove Node (on single-path node): V = max(-c * W, -d * T>, c = <freewheel_removal_coeff>, d = terminal_removal_coeff
-        - A free-wheeling node is likely doing nothing, so might as well boot it
-        - Also, a terminal node Might be in passive state, so we can try booting it as well
 
     Other operators: V = e = <default_val>
     """
@@ -462,9 +494,120 @@ class EGreedyHessianEvolver(ProbabilityLookupEvolver):
         :param freewheel_removal_coeff: hyperparameter which scales the base value for removing a free-wheeling node
 
         """
-        pass
+        if type(epsilon) == float or type(epsilon) == int:
+            # self.epsilon = lambda gen: epsilon
+            self.epsilon = epsilon
+        else:
+            AssertionError('function based epsilon not implemented yet')
+            self.epsilon = epsilon
+        
+        # hyperparameters
+        self.freewheel_removal_coeff = freewheel_path_removal_coeff
+        self.terminal_removal_coeff = terminal_removal_coeff
+        self.terminal_duplicate_coeff = terminal_duplicate_coeff
+        self.freewheel_path_removal_coeff = freewheel_path_removal_coeff
+        self.terminal_path_removal_coeff = terminal_path_removal_coeff
+        self.default_val = default_val
+
+        super().__init__(verbose=verbose, **attr)
     
 
+    def create_graph_matrix(self, graph, evaluator):
+        """
+        :param graph: the graph to evolve
+        :param evaluator: not used in this implementation, but may be useful in the future
+        """
+        super().create_graph_matrix(graph, evaluator) # get basic matrix with 1 for possible combos and 0 for impossible combos
+        
+        x, *_ = graph.extract_parameters_to_list()
+        # value_matrix = self._get_action_value_matrix(graph, evaluator) # we don't actually need the matrix, just the top val.
+                                                                       # BUT it's useful to see the full matrix for tuning/debugging purposes 
+        # # greedy_node_or_edge, greedy_op = value_matrix.get_largest_prob_node_or_edge_and_op() 
+        graph.hess(x)
+        non_greedy_prob = self.epsilon / np.sum(graph.evo_probabilities_matrix.matrix)
+
+        for node_or_edge in list(graph.nodes) + list(graph.edges):
+            for op in self.evo_op_list:
+                if graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(node_or_edge, op) != 0:
+                    # if node_or_edge == greedy_node_or_edge and op == greedy_op:
+                    #     likelihood = 1 - self.epsilon + non_greedy_prob # we can save the generation on the graph I guess
+                    # else:
+                    likelihood = non_greedy_prob
+                else: 
+                    likelihood = 0
+                
+                graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, node_or_edge, op)
+        
+        graph.evo_probabilities_matrix.normalize_matrix()
+        graph.evo_probabilities_matrix.verify_matrix()
+        # print(f'Graph node models, and parameters')
+        # for node in graph.nodes:
+        #     print(graph.nodes[node]['model'])
+        # print(f'start value x: {x}')
+        # end_param, *_ = graph.extract_parameters_to_list()
+        # print(f'end_params: {x}')
+
+    
+    def _get_action_value_matrix(self, graph, evaluator):
+        """
+        The matrix is actually not needed for the implementation, but it's def needed for tuning hyperparameters and debugging
+        
+        The action-node/edge values, V(O, N) are assigned as such, with floats a, b, c, d, e >= 0 as the scaling coefficients
+        
+        Remove Path (on source/sink node, i.e. multipath): V = -a * T, a = <terminal_path_removal_coeff>
+            - If a multipath node is terminal, it's likely directing all the signal to one branch or another.
+            Therefore it should be likely we remove the other branch
+        Remove Path (on single-path node): V = max(-a * T_source * W, -a * T_sink * W)
+            - If we have a long path with a terminal source, we axe it. How do we know we're on the right branch?
+            Well the nodes should be free-wheeling if the source is terminal pointing away from this branch!
+        Remove Node (on single-path node): V = max(-c * W, -d * T>, c = <freewheel_removal_coeff>, d = terminal_removal_coeff
+            - A free-wheeling node is likely doing nothing, so might as well boot it
+            - Also, a terminal node Might be in passive state, so we can try booting it as well
+        """
+        # TODO: handle cases where there were no unlocked param, and so terminal_node_scores[node_or_edge] is not defined
+        # print(f'before hessian analysis...')
+        # for node in graph.nodes:
+        #     print(graph.nodes[node]['model'])
+        # x, *_ = graph.extract_parameters_to_list()
+        # print(f'before hessian functs params: {x}\n')
+        # for i in range(len(x)):
+        #     while type(x[i]) == ArrayBox:
+        #         x[i] = x[i]._value
+        # print(f'before hessian unwrapped params: {x}\n\n')
+        terminal_node_scores, free_wheeling_node_scores = hessian_analysis.get_all_node_scores(graph)
+        # print(f'after hessian analysis...')
+        # x, *_ = graph.extract_parameters_to_list()
+        # print(f'after hessian functs params: {x}\n')
+
+        # value_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges)) # using this to build our value matrix
+
+        # for node_or_edge in list(graph.nodes) + list(graph.edges):
+        #     for op in self.evo_op_list:
+        #         # if graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(node_or_edge, op) != 0:
+        #         if op in configuration.PATH_REDUCTION_EVO_OPERATORS.values():
+        #             if EGreedyHessianEvolver._is_multipath_node(graph, node_or_edge):
+        #                 val = -1 * self.terminal_path_removal_coeff * terminal_node_scores[node_or_edge]
+        #             elif node_or_edge in graph.nodes: # single path node
+        #                 # TODO: add a dependency on the terminality of the source (see equation defined in class docstring)!
+        #                 val = -1 * self.freewheel_path_removal_coeff * free_wheeling_node_scores[node_or_edge]
+        #         elif op in configuration.REDUCTION_EVO_OPERATORS.values() and node_or_edge in graph.nodes:
+        #             val = max(-1 * self.freewheel_removal_coeff * free_wheeling_node_scores[node_or_edge],
+        #                     -1 * self.terminal_removal_coeff * terminal_node_scores[node_or_edge])
+        #         else: # else case covers all operators on edges, and any growth/swap operators
+        #             val = self.default_val
+        #         # else:
+        #         #     val = -1 * np.inf
+        #         value_matrix.set_prob_by_nodeEdge_op(val, node_or_edge, op)
+
+        # print(f'value matrix: {value_matrix}')
+        # return value_matrix
+        return True
+    
+    @staticmethod
+    def _is_multipath_node(graph, node_or_edge):
+        if node_or_edge in graph.nodes and (graph.get_in_degree(node_or_edge) > 1 or graph.get_out_degree(node_or_edge) > 1):
+            return True
+        return False
 
 
 class CrossoverMaker(object):

@@ -1,5 +1,6 @@
 import autograd.numpy as np
 from autograd.numpy.numpy_boxes import ArrayBox
+import copy
 
 # TODO: if both get_all_free_wheeling and get free_wheeling_<>_scores are used in code, refactor such that hessian is only computed once (it takes a long time)
 
@@ -8,10 +9,37 @@ def get_all_node_scores(graph, as_log=True):
     """
     Returns dictionary with (key, value) = (node, terminal score), dictionary with (key, value) = (node, free_wheeling score) 
     """
-    x, *_ = graph.extract_parameters_to_list()
-    hess = normalize_hessian(graph.scaled_hess(x))
+    x, node_or_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+    if len(x) == 0: # with bitstream -> photodiode, it's possible to have no unlocked parameters
+        scores = {}
+        for node in graph.nodes:
+            scores[node] = 0 if as_log else 1
+        return scores, scores
 
-    return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
+    # if type(x[0]) == ArrayBox:
+    #     print(f'x[0]._value._value: {x[0]._value._value}')
+    # else:
+    #     print(f'x = {x}')
+    # print(f'node_or_edge_index: {node_or_edge_index}')
+    # print(f'parameter_index: {parameter_index}')
+    # for node in graph.nodes:
+    #     print(f"graph model: {graph.nodes[node]['model']}")
+
+    # hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
+    # print(f'x before hess: {x}')
+    for i in range(len(x)):
+        while type(x[i]) == ArrayBox:
+            x[i] = x[i]._value
+    print(f'x before hess unpacked: {x}')
+    hess = graph.hess(copy.deepcopy(x))
+    x, *_ = graph.extract_parameters_to_list()
+    # print(f'x after hess: {x}')
+    for i in range(len(x)):
+        while type(x[i]) == ArrayBox:
+            x[i] = x[i]._value
+    print(f'x after hess unpacked: {x}')
+    return 0, 1
+    # return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
 
 
 def normalize_hessian(hessian):
@@ -42,7 +70,15 @@ def free_wheeling_node_scores(graph, hess, p=1, as_log=False):
     :param graph: graph on which to score nodes
     :returns: a dictionary of the node and its corresponding score
     """
+    # only for testing...
+    x, *_ = graph.extract_parameters_to_list()
+    # print(f'len(x): {len(x)}')
+    # print(f'hessian: {hess}')
+    if len(x) != hess.shape[0]:
+        raise ValueError(f'Hessian and parameter dimensionality mismatch. Parameter: {len(x)}, Hessian: {hess.shape}')
+    #---------------------
     param_scores = free_wheeling_param_scores(hess, p=p)
+    # print(f'averaging free-wheeling param scores into fw node scores')
     return _extract_average_over_node(graph, param_scores, as_log=as_log)
 
 
@@ -58,14 +94,8 @@ def terminal_node_scores(graph, as_log=False):
     return _extract_average_over_node(graph, per_param_dist, as_log=as_log)
 
 
-# def terminal_node_scores(graph, grad):
-#     return _extract_average_over_node(graph, np.abs(grad))
-
-
 def free_wheeling_param_scores(hess, p=1):
     """
-    TODO: take into account the gradient as well (this does not)
-
     We define the free-wheeling score of parameter i, p_i as:
 
     p_i = ( sum(abs(Hij)^p) + sum(abs(Hji)^p) )^(1/p) / 2sum(j)
@@ -85,7 +115,8 @@ def free_wheeling_param_scores(hess, p=1):
 def _extract_average_over_node(graph, vector_to_average, as_log=False):
     node_scores = {}
     _, node_edge_index, *_ = graph.extract_parameters_to_list()
-
+    # print(f'vector to average: {vector_to_average}')
+    # print(f'node_edge_indices: {node_edge_index}')
     for node in graph.nodes:
         filtered_scores = vector_to_average[np.array(node_edge_index) == node]
         if len(filtered_scores) != 0:
@@ -98,6 +129,8 @@ def _extract_average_over_node(graph, vector_to_average, as_log=False):
                 score = np.log10(score)
 
             node_scores[node] = score
+        else:
+            node_scores[node] = 0 if as_log else 1
     
     return node_scores
 
@@ -145,14 +178,6 @@ def _free_wheeling_at_point(gradient, hessian, param_index, grad_thresh, hess_th
     is_free_wheeling = (np.abs(gradient[param_index]) < grad_thresh) and all(np.abs(second_orders) < hess_thresh)
 
     return is_free_wheeling
-
-def lock_free_wheeling_params(graph):
-    pass
-    # TODO: add easy locking/unlocking mechanism (analogous to assigning param values from list)
-
-
-def unlock_non_free_wheeling_params(graph):
-    pass
 
 
 def get_all_free_wheeling_params(graph, grad_thresh=1e-7, hess_thresh=1e-5, test_point_num=1):

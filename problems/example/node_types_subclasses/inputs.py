@@ -111,7 +111,7 @@ class ContinuousWaveLaser(Input):
         self.noise_model.add_noise_source(noise_type='osnr', noise_param=self._osnr_dB)
 
 
-@register_node_types_all
+# @register_node_types_all
 class BitStream(Input):
     """
     """

@@ -2,11 +2,12 @@
 Random search for topology for benchmarking
 """
 import time
-import numpy as np
+import autograd.numpy as np
 import matplotlib.pyplot as plt
 import copy
 import ray
 import random
+from autograd.numpy.numpy_boxes import ArrayBox
 
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
@@ -22,8 +23,13 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           cluster_address=None, local_mode=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
+    # prev test we were using
     random.seed(18)
     np.random.seed(1040)
+
+    # new test
+    # random.seed(15)
+    # np.random.seed(10480)
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
@@ -248,9 +254,56 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     break_probability = 1 / most_fit_reproduction_mean * (score_array / np.min(score_array))**(1 / preferentiality_param)
 
     print(f'break prob: {break_probability}')
+
     for i, (score, graph) in enumerate(population):
+        x, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+        parent_parameters = copy.deepcopy(x)
         while True:
+            # debug ---------------------------------------
+            print(f'\n\nlooking at parameters for our parent graph...')
+            print(f'Graph: {graph.nodes} with:')
+            for node in graph.nodes:
+                print(f"{node}: {graph.nodes[node]['model']}")
+            x, *_ = graph.extract_parameters_to_list()
+            # print(f'Graph params: {x}')
+            for j in range(len(x)):
+                while type(x[j]) == ArrayBox:
+                    x[j] = x[j]._value
+            print(f'Graph params unpackaged: {x}\n')
+            # debug end -----------------------------------
+
             graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+            graph.distribute_parameters_from_list(parent_parameters, node_edge_index, parameter_index) # This is a hacky fix because smh graph parameters are occasionally modified through the deepcopy
+
+            # debug ---------------------------------------
+            print(f'\n\nlooking at parameters for our parent graph JUST after an evolution...')
+            print(f'Graph: {graph.nodes} with:')
+            for node in graph.nodes:
+                print(f"{node}: {graph.nodes[node]['model']}")
+            x, *_ = graph.extract_parameters_to_list()
+            for j in range(len(x)):
+                while type(x[j]) == ArrayBox:
+                    x[j] = x[j]._value
+            print(f'Graph params unpackaged: {x}\n')
+            for j in range(len(parent_parameters)):
+                while type(parent_parameters[j]) == ArrayBox:
+                    parent_parameters[j] = parent_parameters[j]._value
+            print(f'parent_parameters from copy: {parent_parameters}')
+
+            print(f'\n\nChild of parent JUST after an evolution...')
+            print(f'Graph: {graph_tmp.nodes} with:')
+            for node in graph_tmp.nodes:
+                print(f"{node}: {graph_tmp.nodes[node]['model']}")
+            x_tmp, *_ = graph_tmp.extract_parameters_to_list()
+            # print(f'Graph params: {x}')
+            for j in range(len(x_tmp)):
+                while type(x_tmp[j]) == ArrayBox:
+                    x_tmp[j] = x_tmp[j]._value
+            print(f'Graph params unpackaged: {x_tmp}\n')
+
+            print(f'Parent and children params are shared true or false: {x is x_tmp}\n\n')
+            # debug end -----------------------------------
+
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
@@ -269,6 +322,19 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     # if population[0][0] is not None:
     #     SPECIATION_MANAGER.reverse_fitness_sharing(from_last_gen, hyperparameters['generation_num'] - 1)
     # print(f'from last gen after fitness reversal: {from_last_gen}')
+
+    print(f'\nlooking at parameters for our potential graphs...')
+    for _, graph in from_last_gen + new_pop:
+        print(f'Graph: {graph.nodes} with:')
+        for node in graph.nodes:
+            print(f"{node}: {graph.nodes[node]['model']}")
+        x, *_ = graph.extract_parameters_to_list()
+        # print(f'Graph params: {x}')
+        for i in range(len(x)):
+            while type(x[i]) == ArrayBox:
+                x[i] = x[i]._value
+        print(f'Graph params unpackaged: {x}\n\n')
+
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 
@@ -367,6 +433,7 @@ def parameters_optimize_complete(ind, evaluator, propagator):
         return score, graph
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')
+        raise e
         return 99999999, graph
 
 
