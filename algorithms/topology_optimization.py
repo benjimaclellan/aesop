@@ -224,31 +224,30 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
             if debug: print(f'There is no need to check the similarity')
 
 
-        if check_similarity:
+        if check_similarity and (similarity_measure is not None):
             # similarity check with all HoF graphs
-            if similarity_measure is not None:
-                for k, (hof_k_score, hof_k) in enumerate(hof):
-                    if debug: print(f'Comparing similarity of with population index {i} with hof index {k}')
+            for k, (hof_k_score, hof_k) in enumerate(hof):
+                if debug: print(f'Comparing similarity of with population index {i} with hof index {k}')
 
-                    if hof_k is not None:
-                        sim = similarity_function(graph, hof_k)
+                if hof_k is not None:
+                    sim = similarity_function(graph, hof_k)
 
-                        if sim < threshold_value:
-                            # there is another, highly similar graph in the hof
-                            if k < j:
-                                # there is a similar graph with a better score, do not add graph to hof
-                                insert = False
-                                if debug: print(f'A similar, but better performing graph exists - the current graph will not be added')
-                                break # breaks out of 'k' loop
-                            elif k >= j:
-                                # there is a similar graph with a worse score, add in that location instead
-                                insert = True
-                                remove_ind = k
-                                if debug: print(f'A similar graph exists at index {k} of the hof. The current graph scores better and will be added')
-                                break
-                        else:
-                            # if verbose: print(f'Similarity of {sim} is not below the threshold')
-                            pass
+                    if sim < threshold_value:
+                        # there is another, highly similar graph in the hof
+                        if k < j:
+                            # there is a similar graph with a better score, do not add graph to hof
+                            insert = False
+                            if debug: print(f'A similar, but better performing graph exists - the current graph will not be added')
+                            break # breaks out of 'k' loop
+                        elif k >= j:
+                            # there is a similar graph with a worse score, add in that location instead
+                            insert = True
+                            remove_ind = k
+                            if debug: print(f'A similar graph exists at index {k} of the hof. The current graph scores better and will be added')
+                            break
+                    else:
+                        # if verbose: print(f'Similarity of {sim} is not below the threshold')
+                        pass
         if insert: # places this graph into the insert_ind index in the halloffame
             hof[remove_ind] = 'x'
             hof.insert(insert_ind, (score, graph))

@@ -56,13 +56,13 @@ if __name__ == '__main__':
              -1:Photodiode()}
     edges = [(0,-1)]
 
-    graph = Graph(nodes, edges, propagate_on_edges = False)
-    graph.assert_number_of_edges()
-    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+    start_graph = Graph(nodes, edges, propagate_on_edges = False)
+    start_graph.assert_number_of_edges()
+    start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     #%%
-    # graph1 = evolver.random_graph(copy.deepcopy(graph), evaluator)
-    # graph2 = evolver.random_graph(copy.deepcopy(graph), evaluator)
+    # graph1 = evolver.random_graph(copy.deepcopy(start_graph), evaluator)
+    # graph2 = evolver.random_graph(copy.deepcopy(start_graph), evaluator)
     #
     # plt.close('all')
     #
@@ -84,13 +84,29 @@ if __name__ == '__main__':
     n_hof, n_pop = 6, 6
     hof, pop = [], []
     for _ in range(n_hof):
-        graph = evolver.random_graph(copy.deepcopy(graph), evaluator)
+        graph = evolver.random_graph(copy.deepcopy(start_graph), evaluator)
         hof.append((evaluator.evaluate_graph(graph, propagator), graph))
     hof.sort(key=lambda x: x[0])
 
     for _ in range(n_pop):
-        graph = evolver.random_graph(copy.deepcopy(graph), evaluator)
+        start_graph = evolver.random_graph(copy.deepcopy(start_graph), evaluator)
         pop.append((evaluator.evaluate_graph(graph, propagator), graph))
 
 
     hof_updated = update_hof(copy.deepcopy(hof), copy.deepcopy(pop), similarity_measure='reduced_ged', threshold_value=12.0, verbose=True)
+
+    #%%
+    graph = copy.deepcopy(start_graph)
+    graph.draw(method = 'kamada_kawai')
+    print(list(nx.simple_cycles(graph)))
+    print(list(nx.algorithms.chain_decomposition(nx.to_undirected(graph))))
+    """
+    ideas to improve evolution operators:
+        - when adding parallel subgraphs, give a 'marker' to indicate they are a pair. this can then be accessed by remove parallel branch
+        - try out a simpler set of EvolutionOperators: just add, swap, and remove nodes. so splitters can be added and have one unused port
+            then when there are two un-connected ports they are connected. can only have one unconnected edge
+            add node: non-zero prob on all edges on a path between terminals, zero on all nodes
+            swap node: non-zero prob on all nodes, except persistent nodes
+            remove node: non-zero prob on all nodes, except persistent nodes
+            after each addition, check if there are more than one unconnected edges - if so, connect in the correct order
+    """

@@ -19,9 +19,11 @@ sys.path.append(parent_dir)
 # various imports
 import matplotlib.pyplot as plt
 import psutil
+import networkx as nx
 import numpy as np
 import types
 import ray
+from functools import wraps
 
 import config.config as config
 
@@ -63,16 +65,17 @@ if __name__ == '__main__':
                'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t=10e-9, n_samples=2 ** 14, central_wl=1.55e-6)
-    evolver = StochMatrixEvolver(verbose=False)
 
     phase, phase_node = (0.5 * np.pi, -2)
     phase_shifter = PhaseShifter(parameters=[phase])
     evaluator = PhaseSensitivity(propagator, phase=phase, phase_node=phase_node)
+    evolver = StochMatrixEvolver(verbose=False, permanent_nodes=[phase_node])
+
     def create_start_graph():
 
         nodes = {0: ContinuousWaveLaser(),
                  phase_node: phase_shifter,
-                 -1: Photodiode(parameters_from_name={'bandwidth': 1 / propagator.window_t})}
+                 -1: MeasurementDevice()}
         edges = [(0, phase_node), (phase_node, -1)]
 
         graph = Graph(nodes, edges, propagate_on_edges = False)
@@ -81,43 +84,52 @@ if __name__ == '__main__':
         return graph
 
     graph = create_start_graph()
-    def __decorated_evolve_graph(base_evolve_graph_function, start_graph):
-        def assert_phase_shifter(*args, **kwargs):
-            _evaluator = args[1]
-            try:
-                _new_graph, _evo_op = base_evolve_graph_function(*args, **kwargs)
-                flag = False
-                for node in _new_graph.nodes:
-                    if node == phase_node:
-                        flag = True
-                if not flag:
-                    raise RuntimeError
-                return _new_graph, _evo_op
-            except RuntimeError as e:
-                return create_start_graph(), None
-            return graph, evo_op
-        return assert_phase_shifter
 
-    evolver.evolve_graph = __decorated_evolve_graph(evolver.evolve_graph, copy.deepcopy(graph))
-    graph, evo_op = evolver.evolve_graph(graph, evaluator)
+    # def __decorated_evolve_graph(base_evolve_graph_function):
+    #     @wraps(base_evolve_graph_function)
+    #     def assert_phase_shifter(*args, **kwargs):
+    #         _evaluator = args[1]
+    #         try:
+    #             _new_graph, _evo_op = base_evolve_graph_function(*args, **kwargs)
+    #             flag = False
+    #             for node in _new_graph.nodes:
+    #                 if node == phase_node:
+    #                     flag = True
+    #             if not flag:
+    #                 raise RuntimeError
+    #             return _new_graph, _evo_op
+    #         except RuntimeError as e:
+    #             return create_start_graph(), None
+    #         return graph, evo_op
+    #     return assert_phase_shifter
+    #
+    # evolver.evolve_graph = __decorated_evolve_graph(evolver.evolve_graph)
+    # graph, evo_op = evolver.evolve_graph(graph, evaluator)
 
     # update_rule = 'preferential'
     update_rule = 'random'
 
+    #%%
+    for j in range(10):
+        # fig, axs = plt.subplots(1,2)
+        for i in range(1):
+            graph, evo_op = evolver.evolve_graph(graph, evaluator)
+            # ax = axs[0]
+            # ax.cla()
+            # graph.draw(ax=ax, method='kamada_kawai')
+            #
+            # ax = axs[1]
+            # ax.cla()
+            # nx.k_core(graph).draw(ax=axs[1], method='kamada_kawai')
+            # # plt.pause(0.01)
+            # plt.waitforbuttonpress()
 
-    # # # graph = copy.deepcopy(graph)
-    # for j in range(1):
-    #     fig, ax = plt.subplots(1,1)
-    #     for i in range(100):
-    #         graph, evo_op = evolver.evolve_graph(graph, evaluator)
-    #         ax.cla()
-    #         graph.draw(ax=ax, method='kamada_kawai')
-    #         plt.pause(0.01)
-    #         # plt.waitforbuttonpress()
+    #%%
+    # io.save_object(graph, 'test_graph.pkl')
 
-    hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     include_dashboard=False, crossover_maker=None)
-
-    save_hof(hof, io)
-    plot_hof(hof, propagator, evaluator, io)
+    # hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
+    #                                  ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+    #                                  include_dashboard=False, crossover_maker=None)
+    #
+    # save_hof(hof, io)
+    # plot_hof(hof, propagator, evaluator, io)

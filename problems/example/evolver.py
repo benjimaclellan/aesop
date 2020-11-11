@@ -84,10 +84,11 @@ class StochMatrixEvolver(object):
     This class has the most basic probability selection: if a given operator can possibly be run on a node/edge, it will be assigned a value of one.
     If it is not possible, it is assigned a value of zero. Probability are normalized prior to selecting the operator
     """
-    def __init__(self, verbose=False, **attr):
+    def __init__(self, verbose=False, permanent_nodes=None, **attr):
         self.verbose = verbose
         self.evo_op_list = list(configuration.EVOLUTION_OPERATORS.values()) # we pick these out because technically dictionary values are not ordered
                                                                             # so because we need our matrix order to be consistent, 
+        self.permanent_nodes = permanent_nodes
         super().__init__(**attr)
     
     def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False):
@@ -99,7 +100,12 @@ class StochMatrixEvolver(object):
         """
         if graph.evo_probabilities_matrix is None:
             self.create_graph_matrix(graph, evaluator)
-        
+
+        if self.permanent_nodes is not None:
+            # here we will have custom rules to ensure nodes are permanent
+            self.ensure_permanent_nodes(graph)
+            graph.evo_probabilities_matrix.normalize_matrix()
+
         if debug:
             print(f'evolution probability matrix for graph {graph}')
             print(graph.evo_probabilities_matrix)
@@ -111,6 +117,13 @@ class StochMatrixEvolver(object):
         self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
         
         return graph, evo_op
+
+    def ensure_permanent_nodes(self, graph):
+        # for node in self.permanent_nodes:
+        #     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(0.0, node, SwapNode)
+        #     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(0.0, node, RemoveNode)
+        #     print(f'ensuring we dont swap {node}')
+            return
 
     def create_graph_matrix(self, graph, evaluator):
         """
