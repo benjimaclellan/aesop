@@ -25,21 +25,9 @@ def get_all_node_scores(graph, as_log=True):
     # for node in graph.nodes:
     #     print(f"graph model: {graph.nodes[node]['model']}")
 
-    # hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
-    # print(f'x before hess: {x}')
-    for i in range(len(x)):
-        while type(x[i]) == ArrayBox:
-            x[i] = x[i]._value
-    print(f'x before hess unpacked: {x}')
-    hess = graph.hess(copy.deepcopy(x))
-    x, *_ = graph.extract_parameters_to_list()
-    # print(f'x after hess: {x}')
-    for i in range(len(x)):
-        while type(x[i]) == ArrayBox:
-            x[i] = x[i]._value
-    print(f'x after hess unpacked: {x}')
-    return 0, 1
-    # return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
+    hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
+    
+    return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
 
 
 def normalize_hessian(hessian):
@@ -72,8 +60,7 @@ def free_wheeling_node_scores(graph, hess, p=1, as_log=False):
     """
     # only for testing...
     x, *_ = graph.extract_parameters_to_list()
-    # print(f'len(x): {len(x)}')
-    # print(f'hessian: {hess}')
+
     if len(x) != hess.shape[0]:
         raise ValueError(f'Hessian and parameter dimensionality mismatch. Parameter: {len(x)}, Hessian: {hess.shape}')
     #---------------------

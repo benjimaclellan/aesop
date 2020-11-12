@@ -1,7 +1,6 @@
 """ """
 
 import autograd.numpy as np
-import numpy
 from autograd.numpy.fft import rfft
 import scipy.signal as signal
 import matplotlib.pyplot as plt

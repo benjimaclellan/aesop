@@ -3,7 +3,7 @@
 
 """
 
-import numpy as np
+import autograd.numpy as np
 import pandas as pd
 
 def logbook_update(generation, population, log, log_metrics, time=-1, best=None, verbose=False):

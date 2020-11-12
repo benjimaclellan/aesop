@@ -1,4 +1,4 @@
-import numpy as np
+import autograd.numpy as np
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -179,24 +179,11 @@ class SwapNode(EvolutionOperators):
 
         new_model = random.sample(list(node_type_set - set([model_to_swap.__class__])), 1)[0]()
 
-        print(f'Swap node, model being swapped out: {model_to_swap}')
-        print(f'params: {list(zip(model_to_swap.parameter_names, model_to_swap.parameters))}\n')
-
         graph.nodes[node]['model'] = new_model
         graph.nodes[node]['name'] = new_model.__class__.__name__
-        
-        print(f'Swap node, model being swapped in: {new_model}')
-        print(f'params: {list(zip(new_model.parameter_names, new_model.parameters))}')
 
         if verbose:
             print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node, model_to_swap, new_model))
-       
-        # x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
-        # for i in range(len(x)):
-        #     while type(x[i]) == ArrayBox:
-        #         x[i] = x[i]._value
-
-        # assert np.logical_and(lower_bounds < x, x < upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
 
         return graph
 
