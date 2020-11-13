@@ -68,11 +68,11 @@ class Graph(GraphParent):
 
         self.score = None
     
-    # def __str__(self):
-    #     string_rep = ""
-    #     for i in self.nodes:
-    #         string_rep += f"{self.nodes[i]['model'].node_acronym} "
-    #     return string_rep
+    def __str__(self):
+        str_rep = ''
+        for node in self.nodes:
+            str_rep += f"{node}: {self.nodes[node]['model']}\n"
+        return str_rep
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
@@ -105,14 +105,7 @@ class Graph(GraphParent):
 
         scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
 
-        def _scaled_hess(parameters):
-            # print(f'in scaled_hess, scale matrix: {scale_matrix}')
-            print(f'comparing shapes, param: {len(parameters)}, scale_matrix: {scale_matrix.shape}')
-            return self.hess(np.array(parameters)) * scale_matrix
-
-        return _scaled_hess
-        # return lambda parameters: self.hess(np.array(parameters)) * scale_matrix
- 
+        return lambda parameters: self.hess(np.array(parameters)) * scale_matrix 
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))

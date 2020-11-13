@@ -105,7 +105,16 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
         graph.propagate(propagator, save_transforms=False)
         hof_i_score = evaluator.evaluate_graph(graph, propagator)
-        if score != hof_i_score: print("HOF final score calculation does not match")
+        # ---- Investigating the HoF not matching weirdness
+        x, *_ = graph.extract_parameters_to_list()
+        graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+        hof_i_score_from_graph = graph.func(x)
+
+        print(f'HoF: {graph}')
+        x, *_ = graph.extract_parameters_to_list()
+        print(f'{x}\n')
+        # -------------------------------------------------
+        if score != hof_i_score: print(f"HOF final score calculation does not match. Score saved: {score}, calculated score eval: {hof_i_score}, calculated score graph: {hof_i_score_from_graph}")
 
         io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
 
@@ -141,14 +150,22 @@ def update_hof(hof, population, verbose=False):
     for ind_i, (score, ind) in enumerate(population):
         for hof_j, (hof_score, hof_ind) in enumerate(hof):
             if hof_score is None:
-                hof.insert(hof_j, (score, ind))
-                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                hof.insert(hof_j, (score, copy.deepcopy(ind)))
+                if verbose:
+                    print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                    print(f'New HoF: {ind}')
+                    x, *_ = ind.extract_parameters_to_list()
+                    print(f'{x}\n')
                 hof.pop()
                 break
 
             if score < hof_score:
-                hof.insert(hof_j, (score, ind))
-                if verbose: print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                hof.insert(hof_j, (score, copy.deepcopy(ind)))
+                if verbose:
+                    print(f'Replacing HOF individual {hof_j}, new score of {score}')
+                    print(f'New HoF: {ind}')
+                    x, *_ = ind.extract_parameters_to_list()
+                    print(f'{x}\n')
                 hof.pop()
                 break
     return hof

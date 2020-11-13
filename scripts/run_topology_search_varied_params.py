@@ -47,8 +47,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 4,
-               'n_population': 1, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 5,
+               'n_population': 10, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     # evolver = ProbabilityLookupEvolver(verbose=False)
     # evolver = SizeAwareLookupEvolver(verbose=False)
     # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
-    evolver = EGreedyHessianEvolver(verbose=True)
+    evolver = EGreedyHessianEvolver(verbose=True, debug=True)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}
@@ -80,7 +80,7 @@ if __name__ == '__main__':
                 continue
             print(f'Starting optimization with rule {rule}, crossover_maker: {cross_opt}')
             io = handle_io()
-            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=True, update_rule=rule, crossover_maker=cross_opt)
+            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
             ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
             ax.plot(log['generation'], log['best'], label='Best')
