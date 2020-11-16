@@ -1,7 +1,7 @@
 """
 
 """
-from lib.base_classes import NodeType as NodeTypeParent
+from lib.base_classes import NodeType as NodeTypeParent, TerminalNode
 from lib.decorators import register_node_types
 
 @register_node_types
@@ -77,3 +77,35 @@ class SinglePath(NodeTypeParent):
 
 
 
+# @register_node_types
+class SourceNode(TerminalNode):
+    """
+    """
+
+    __internal_var = 4
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._node_type = "source node"
+
+        self._range_input_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
+        self._range_output_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+
+        return
+
+
+# @register_node_types
+class SinkNode(TerminalNode):
+    """
+    """
+
+    __internal_var = 4
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._node_type = "source node"
+
+        self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+        self._range_output_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
+
+        return

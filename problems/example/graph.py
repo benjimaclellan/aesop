@@ -25,34 +25,37 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes = dict(), edges = list(), propagate_on_edges = False, coupling_efficiency=1):
+    def __init__(self, nodes: dict, edges: dict):
         """
         """
         super().__init__()
 
         for node, model in nodes.items():
             self.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
+        for edge, model in edges.items():
+            self.add_edge(edge[0], edge[1], **{'model': model, 'name': model.__class__.__name__, 'lock': False})
+        sources = [node for node in self.nodes if self.get_in_degree(node) == 0]
+        sinks = [node for node in self.nodes if self.get_out_degree(node) == 0]
+        for source in sources: self.nodes[source]['source-sink'] = 'source'
+        for sink in sinks: self.nodes[source]['source-sink'] = 'sink'
 
-        # add the models to the edges if propagating on edges (fibers, paths etc)
-        #TODO: this maybe could be improved - its a little hacky (but it works for now, so leave for now)
-
-        for edge in edges:
-            if len(edge) == 2:
-                self.add_edge(edge[0], edge[1])
-            elif len(edge) > 2:
-                self.add_edge(edge[0], edge[1], **{'model': edge[2], 'name': "FUNCTIONALITY NOT IMPLEMENTED", 'lock': False, 'states':None})
-            else:
-                raise TypeError("Incorrect number of arguments in the {} edge connection tuple".format(edge))
-        self._propagate_on_edges = propagate_on_edges
+        # for edge in edges:
+        #     if len(edge) == 2:
+        #         self.add_edge(edge[0], edge[1])
+        #     elif len(edge) > 2:
+        #         self.add_edge(edge[0], edge[1], **{'model': edge[2], 'name': "FUNCTIONALITY NOT IMPLEMENTED", 'lock': False, 'states':None})
+        #     else:
+        #         raise TypeError("Incorrect number of arguments in the {} edge connection tuple".format(edge))
+        # self._propagate_on_edges = propagate_on_edges
 
         self._propagation_order = None
 
         self._propagator_saves = {}
 
-        self.coupling_efficiency = coupling_efficiency
-        if coupling_efficiency < 0 or coupling_efficiency > 1:
-            raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
-        
+        # self.coupling_efficiency = coupling_efficiency
+        # if coupling_efficiency < 0 or coupling_efficiency > 1:
+        #     raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
+        #
         # initialize description needed for speciation
         self.speciation_descriptor = None
 
@@ -115,13 +118,13 @@ class Graph(GraphParent):
 
     def get_in_edges(self, node):
         """ """
-        # return [(u, v, k) for (u, v, k) in self.edges if v == node]
-        return [(u, v) for (u, v) in self.edges if v == node]
+        return [(u, v, k) for (u, v, k) in self.edges if v == node]
+        # return [(u, v) for (u, v) in self.edges if v == node]
 
     def get_out_edges(self, node):
         """ """
-        # return [(u, v, k) for (u, v, k) in self.edges if u == node]
-        return [(u, v) for (u, v) in self.edges if u == node]
+        return [(u, v, k) for (u, v, k) in self.edges if u == node]
+        # return [(u, v) for (u, v) in self.edges if u == node]
 
     def suc(self, node):
         """Return the successors of a node (nodes which follow the current one) as a list
@@ -263,41 +266,81 @@ class Graph(GraphParent):
         Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
         """
 
-        self._propagator_saves = {}  # will save each propagator here
+        raise RuntimeError('this has not be re-implemented yet')
 
-        for node in self.propagation_order:  # loop through nodes in the prescribed, physical order
-            if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-                tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
+        self._propagator_saves = {}  # will save each propagator here
+        propagation_order = list(nx.topological_sort(self))  # this should be made once, along with func, hess, etc when graph changes
+        self.propagation_order = propagation_order
+        print(propagation_order)
+
+        for node in propagation_order:
+            print(f'current node {node}')
+            # get the incoming optical field
+            if not self.pre(node):
+                tmp_states = [propagator.state]
             else:  # if we have incoming nodes to get the propagator from
                 tmp_states = []  # initialize list to add all incoming propagators to
-                for edge in self.get_in_edges(node):  # loop through incoming edges
-                    if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
-                        signal = self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1, save_transforms=save_transforms)
-                        
-                        # add noise to propagation
-                        noise_model = self.edges[edge]['model'].noise_model
-                        if (noise_model is not None):
-                            signal = noise_model.add_noise_to_propagation(signal, propagator)
+                for incoming_edge in self.get_in_edges(node):  # loop through incoming edges
+                    tmp_states.append(self._propagator_saves[incoming_edge])
 
-                        tmp_states += signal
-                    else:
-                        tmp_states += self._propagator_saves[edge]
 
-            # save the list of propagators at that node locations (deepcopy required throughout)
             states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
-
             # add noise to propagation
             noise_model = self.nodes[node]['model'].noise_model
             if (noise_model is not None):
                 for i in range(len(states)):
                     states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
 
-            for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-                self._propagator_saves[edge] = [np.sqrt(self.coupling_efficiency) * state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
+            if len(states) != self.get_out_degree(node):
+                raise RuntimeError(f'Mismatched number of paths at node {node}')
 
-            self._propagator_saves[node] = states
+            for edge_index, outgoing_edge in enumerate(self.get_out_edges(node)):
+                signal = self.edges[outgoing_edge]['model'].propagate(states[edge_index], propagator, 1, 1, save_transforms=save_transforms)
+
+                # add noise to propagation
+                noise_model = self.edges[outgoing_edge]['model'].noise_model
+                if (noise_model is not None):
+                    signal = noise_model.add_noise_to_propagation(signal, propagator)
+
+                self._propagator_saves[outgoing_edge] = signal  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
 
         return self
+
+
+
+        # for node in self.propagation_order:  # loop through nodes in the prescribed, physical order
+        #     if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
+        #         tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
+        #     else:  # if we have incoming nodes to get the propagator from
+        #         tmp_states = []  # initialize list to add all incoming propagators to
+        #         for edge in self.get_in_edges(node):  # loop through incoming edges
+        #             if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
+        #                 signal = self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1, save_transforms=save_transforms)
+        #
+        #                 # add noise to propagation
+        #                 noise_model = self.edges[edge]['model'].noise_model
+        #                 if (noise_model is not None):
+        #                     signal = noise_model.add_noise_to_propagation(signal, propagator)
+        #
+        #                 tmp_states += signal
+        #             else:
+        #                 tmp_states += self._propagator_saves[edge]
+        #
+        #     # save the list of propagators at that node locations (deepcopy required throughout)
+        #     states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
+        #
+        #     # add noise to propagation
+        #     noise_model = self.nodes[node]['model'].noise_model
+        #     if (noise_model is not None):
+        #         for i in range(len(states)):
+        #             states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
+        #
+        #     for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
+        #         self._propagator_saves[edge] = [np.sqrt(self.coupling_efficiency) * state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
+        #
+        #     self._propagator_saves[node] = states
+        #
+        # return self
 
     def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
         return self._propagator_saves[node][0]
@@ -346,33 +389,79 @@ class Graph(GraphParent):
         plt.show()
         return
 
-    def draw(self, ax=None, labels=None, legend=False, method='planar', ignore_warnings=True):
-        """
-        custom plotting function to more closely resemble schematic diagrams
-
-        :param ax:
-        :param labels:
-        :return:
-        """
+    def draw(self, ax=None, labels=None, method='grid', ignore_warnings=True, debug=False):
         if ignore_warnings: warnings.simplefilter('ignore', category=(FutureWarning, cb.mplDeprecation))
 
         if ax is None:
             fig, ax = plt.subplots(1,1)
 
-        if labels is None:
-            labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
+        pos = {}
+        order = list(nx.topological_sort(self))
+        current_row = set([order[0]])
+        nodes_remaining = set(order)
+        rows = {}
 
-        if method == 'planar':
-            pos = nx.planar_layout(self)
-        elif method == 'kamada_kawai':
-            pos = nx.kamada_kawai_layout(self)
-        else:
-            pos = nx.planar_layout(self) # planar as default, though on occasion can fail with system graph
+        flag = True
+        row_i, col_i = 0, 0
+        while flag:
 
-        nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
+            if len(nodes_remaining) == 0:
+                flag = False
+                break
+
+            next_row = set()
+            for i, node_i in enumerate(list(current_row)):
+                pos[node_i] = (row_i, np.random.rand())
+                next_row.update(set(self.suc(node_i)))
+
+            nodes_to_remove = set()
+            for node_i in next_row:
+                for node_j in next_row:
+                    ancestors = nx.algorithms.ancestors(self, node_i)
+                    if debug:
+                        print(f'current_row:{current_row}, next_row:{next_row}, node_i:{node_i}, node_j:{node_j}, nodes_to_remove:{nodes_to_remove}, ancestors:{ancestors}')
+                    if node_j in nx.algorithms.ancestors(self, node_i):
+                        nodes_to_remove.update(set([node_i]))
+            next_row -= nodes_to_remove
+
+            row_i += 1
+            nodes_remaining -= current_row
+            current_row = next_row
+
+        # pos = {node:(x, np.random.rand()) for x, node in enumerate(order)}
+
+        nx.draw_networkx(self, ax=ax, pos=pos, alpha=1.0, node_color='darkgrey')
 
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
         return
+
+    # def draw(self, ax=None, labels=None, legend=False, method='planar', ignore_warnings=True):
+    #     """
+    #     custom plotting function to more closely resemble schematic diagrams
+    #
+    #     :param ax:
+    #     :param labels:
+    #     :return:
+    #     """
+    #     if ignore_warnings: warnings.simplefilter('ignore', category=(FutureWarning, cb.mplDeprecation))
+    #
+    #     if ax is None:
+    #         fig, ax = plt.subplots(1,1)
+    #
+    #     if labels is None:
+    #         labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
+    #
+    #     if method == 'planar':
+    #         pos = nx.planar_layout(self)
+    #     elif method == 'kamada_kawai':
+    #         pos = nx.kamada_kawai_layout(self)
+    #     else:
+    #         pos = nx.planar_layout(self) # planar as default, though on occasion can fail with system graph
+    #
+    #     nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
+    #
+    #     if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
+    #     return
 
 
     @property

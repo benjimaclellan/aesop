@@ -107,7 +107,7 @@ class Evaluator(object):
 
 
 
-class Graph(networkx.DiGraph):
+class Graph(networkx.MultiDiGraph):
     """Parent class
     """
 
@@ -119,6 +119,17 @@ class Graph(networkx.DiGraph):
 
 
 class EvolutionOperators(object):
+    """Parent class
+    """
+
+    __internal_var = None
+
+    def __init__(self, **attr):
+        super().__init__(**attr)
+        return
+
+
+class TerminalNode(object):
     """Parent class
     """
 
