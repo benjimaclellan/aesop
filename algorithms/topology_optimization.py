@@ -2,13 +2,14 @@
 Random search for topology for benchmarking
 """
 import time
-import numpy as np
+import autograd.numpy as np
 import matplotlib.pyplot as plt
 import copy
 import ray
 import random
-import networkx as nx
+from autograd.numpy.numpy_boxes import ArrayBox
 
+import networkx as nx
 import config.config as config
 
 from algorithms.functions import logbook_update, logbook_initialize
@@ -25,8 +26,13 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           cluster_address=None, local_mode=False, include_dashboard=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
+    # prev test we were using
     random.seed(18)
     np.random.seed(1040)
+
+    # new test
+    # random.seed(15)
+    # np.random.seed(10480)
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
@@ -115,6 +121,10 @@ def plot_hof(hof, propagator, evaluator, io):
     for i, (score, graph) in enumerate(hof):
         graph.score = score
         graph.propagate(propagator, save_transforms=False)
+        hof_i_score = evaluator.evaluate_graph(graph, propagator)
+        if score != hof_i_score: print(f"HOF final score calculation does not match. Score saved: {score}, calculated score eval: {hof_i_score}")
+
+        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
 
         state = graph.measure_propagator(-1)
         if len(hof) > 1:
@@ -141,7 +151,6 @@ def save_scores_to_graph(population):
 def init_hof(n_hof):
     hof = [(None, None) for i in range(n_hof)]
     return hof
-
 
 def graph_kernel_map_to_nodetypes(_graph):
     graph_relabelled = nx.relabel_nodes(_graph, {node: _graph.nodes[node]['model'].node_acronym for node in _graph.nodes})
@@ -250,7 +259,7 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
                         pass
         if insert: # places this graph into the insert_ind index in the halloffame
             hof[remove_ind] = 'x'
-            hof.insert(insert_ind, (score, graph))
+            hof.insert(insert_ind, (score, copy.deepcopy(graph)))
             hof.remove('x')
             if verbose: print(f'Replacing HOF individual {remove_ind}, new score of {score}')
         else:
@@ -269,7 +278,7 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
             try:
                 graph_tmp.assert_number_of_edges()
             except:
-                print(f'Could not evolve this graph.{[node for node in graph_tmp.nodes()]}')
+                print(f'Could not evolve this graph.{[node for node in graph_tmp.nodes()]}\n {graph}')
                 continue
 
             if len(x0) == 0:
@@ -362,9 +371,20 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     break_probability = 1 / most_fit_reproduction_mean * (score_array / np.min(score_array))**(1 / preferentiality_param)
 
     print(f'break prob: {break_probability}')
+
     for i, (score, graph) in enumerate(population):
+        x, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+        parent_parameters = copy.deepcopy(x)
         while True:
             graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+            try:
+                graph.distribute_parameters_from_list(parent_parameters, node_edge_index, parameter_index) # This is a hacky fix because smh graph parameters are occasionally modified through the deepcopy
+            except IndexError as e:
+                print(e)
+                print(graph)
+                print(f'parent parameters: {parent_parameters}')
+                raise e
+
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
@@ -377,12 +397,9 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
             new_pop.append((None, graph_tmp))
             if random.random() < break_probability[i]:
                 break
-    # speciation manager reverses fitness sharing to get raw score. Generation - 1 is given, since we're reversing the sharing of the previous generation in this case
+
     from_last_gen = population[0:len(population) // 10 + 1]
-    # print(f'from last gen before fitness reversal: {from_last_gen}')
-    # if population[0][0] is not None:
-    #     SPECIATION_MANAGER.reverse_fitness_sharing(from_last_gen, hyperparameters['generation_num'] - 1)
-    # print(f'from last gen after fitness reversal: {from_last_gen}')
+
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 
@@ -481,6 +498,7 @@ def parameters_optimize_complete(ind, evaluator, propagator):
         return score, graph
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')
+        raise e
         return 99999999, graph
 
 

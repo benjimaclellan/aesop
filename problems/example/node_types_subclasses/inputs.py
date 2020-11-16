@@ -53,7 +53,7 @@ class PulsedLaser(Input):
         elif pulse_shape == 'sech':
             pulse = self.sech(unwrapped_t, pulse_width)
         else:
-            raise RuntimeError("Pulsed Laser: Not a defined pulse shape")
+            raise RuntimeError(f"Pulsed Laser: {pulse_shape} is not a defined pulse shape")
 
         state = pulse * np.sqrt(peak_power)
         return state

@@ -5,7 +5,7 @@ sys.path.append('..')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-import numpy as np
+import autograd.numpy as np
 
 import config.config as config
 

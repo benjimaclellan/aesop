@@ -17,7 +17,7 @@ from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
 from .assets.additive_noise import AdditiveNoise
 from lib.functions import scale_units
-
+from lib.autodiff_helpers import unwrap_arraybox_list
 
 class Graph(GraphParent):
     """Parent class
@@ -67,15 +67,15 @@ class Graph(GraphParent):
         self.func = None
         self.grad = None
         self.hess = None
-        self.scaled_hess = None
+        # Attribute: self.scaled_hess
 
         self.score = None
     
-    # def __str__(self):
-    #     string_rep = ""
-    #     for i in self.nodes:
-    #         string_rep += f"{self.nodes[i]['model'].node_acronym} "
-    #     return string_rep
+    def __str__(self):
+        str_rep = ''
+        for node in self.nodes:
+            str_rep += f"{node}: {self.nodes[node]['model']}\n"
+        return str_rep
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
@@ -99,16 +99,16 @@ class Graph(GraphParent):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
         hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
-        # def hess_tmp(parameters):
-        #     return hessian(self.func)(np.array(parameters))
-        # self.hess = hess_tmp #lambda parameters: hess_tmp(np.array(parameters))
         self.hess = lambda parameters: hess_tmp(np.array(parameters))
 
+    @property
+    def scaled_hess(self):
         attributes = self.extract_attributes_to_list_experimental(['parameter_imprecisions'])
         parameter_imprecisions = np.expand_dims(np.array(attributes['parameter_imprecisions']), axis=1)
+
         scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
-        self.scaled_hess = lambda parameters: hess_tmp(np.array(parameters)) * scale_matrix
-        return
+
+        return lambda parameters: self.hess(np.array(parameters)) * scale_matrix 
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))
@@ -501,40 +501,6 @@ class Graph(GraphParent):
                 if 'model' in self.edges[edge]:
                     self.edges[edge]['model'].assert_number_of_edges(1, 1)  # by definition, edges have 1 in, 1 out
         return
-    
-    def attempt_topology_fix(self):
-        """
-        Does not fix loops
-        Goes through nodes with a nonphysical number of inputs/outputs and removes them. It keeps removing till we have hit a physical state again
-
-        This is mostly meant to deal with the case where a node is stranded with no output (which can arise when removing interferometer paths)
-        Results are not guaranteed, but it will never break a working graph
-        """
-
-        # 1. Check all nodes, if one is unphysical then
-        # 2. Remove that node, and recurse through successors and predecessors (start with predecessors due to our target problem) removing each that ends up being unphysical
-        # 3. Once that's done, check the whole graph again till it all passes
-        while True:
-            all_models_physical = True
-            for node in self.nodes:
-                try:
-                    number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
-                    self.nodes[node]['model'].assert_number_of_edges(number_input_edges, number_output_edges)
-                except TypeError:
-                    all_models_physical = False
-                    while (number_input_edges not in self.nodes[node]['model']._range_input_edges) or \
-                          (number_output_edges not in self.nodes[node]['model']._range_output_edges):
-                        next_node = self.pre(node)
-                        current_node = node
-                        self.remove_node(node)
-                        current_node = next_node
-                        if current_node == -1: # if we're trying to remove the top node
-                            raise AssertionError('Topology could not be fixed')
-                        number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
-
-            if all_models_physical:    
-                break
-
 
     def sample_parameters(self, probability_dist='uniform', **kwargs):
         """ Samples new parameters for each node-type """
@@ -672,7 +638,7 @@ class Graph(GraphParent):
         lower_bounds = model_attributes['lower_bounds']
         upper_bounds = model_attributes['upper_bounds']
 
-        return parameters, node_edge_index, parameter_index, lower_bounds, upper_bounds
+        return unwrap_arraybox_list(parameters), node_edge_index, parameter_index, lower_bounds, upper_bounds
 
     def distribute_parameters_from_list(self, parameters, node_edge_index, parameter_index):
         """ from the lists created in 'extract_parameters_to_list', we distribute these (or altered versions, like in scipy.optimize.minimize) back to the graph"""
@@ -714,7 +680,7 @@ class Graph(GraphParent):
 
 
     @staticmethod
-    def sample_parameters_callable(parameters_current, lower_bounds, upper_bounds, data_types, step_sizes, probability_dist = 'uniform', **kwargs):
+    def sample_parameters_callable(parameters_current, lower_bounds, upper_bounds, data_types, step_sizes, probability_dist='uniform', **kwargs):
         """ Samples the new parameters from a given distribution and parameter bounds """
         parameter_details = zip(parameters_current, lower_bounds, upper_bounds, data_types, step_sizes)
         parameters = []

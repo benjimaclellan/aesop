@@ -138,7 +138,7 @@ class Speciation():
         
         print(f'post speciation, species pop size: {len(self.individual_species_map)}')
     
-    def execute_fitness_sharing(self, population, generation_num):
+    def execute_fitness_sharing(self, population, generation_num, minimization=True):
         """
         Changes population scores to reflect effects of fitness sharing
         This assumes that each item in the population if already scored
@@ -155,11 +155,14 @@ class Speciation():
         for i in range(len(population)):
             graph = population[i][1]
             species_size = self.species[self.individual_species_map[graph]]
-            denominator = max(1, np.exp(-coeff * generation_num) * species_size)
+            scaling_coeff = max(1, np.exp(-coeff * generation_num) * species_size)
 
-            population[i] = (population[i][0] / denominator, graph) # adjust fitness score
+            if minimization:
+                population[i] = (population[i][0] * scaling_coeff, graph)
+            else:
+                population[i] = (population[i][0] / scaling_coeff, graph) # adjust fitness score
 
-    def reverse_fitness_sharing(self, population, generation_num):
+    def reverse_fitness_sharing(self, population, generation_num, minimization=True):
         if self.protection_half_life is None:
             coeff = 0
         else:
@@ -168,9 +171,12 @@ class Speciation():
         for i in range(len(population)):
             graph = population[i][1]
             species_size = self.species[self.individual_species_map[graph]]
-            denominator = max(1, np.exp(-coeff * generation_num) * species_size)
+            scaling_coeff = max(1, np.exp(-coeff * generation_num) * species_size)
 
-            population[i] = (population[i][0] * denominator, graph)
+            if minimization:
+                population[i] = (population[i][0] / scaling_coeff, graph)
+            else:
+                population[i] = (population[i][0] * scaling_coeff, graph)
     
     def get_crossover_candidates(self, graph, population):
         """

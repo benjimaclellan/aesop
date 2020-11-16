@@ -189,7 +189,7 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         self.node_lock = False
 
         self.number_of_parameters = 3
-        self.default_parameters = [1.0, 1.0e9, 0.0]
+        self.default_parameters = [1.0, 1.0e9, 0.010001]
 
         self.upper_bounds = [np.pi, 50.0e9, 2 * np.pi]
         self.lower_bounds = [0.001, 10.0e6, 0.01]

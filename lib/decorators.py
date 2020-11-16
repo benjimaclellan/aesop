@@ -32,6 +32,14 @@ def register_reduction_operators(cls):
     return cls
 
 
+def register_path_reduction_operators(cls):
+    """
+    Register evolution operators which shrink graph sizes, into a global config dictionary for use elsewhere
+    """
+    configuration.PATH_REDUCTION_EVO_OPERATORS[cls.__name__] = cls
+    return cls
+
+
 def register_crossover_operators(cls):
     """
     Register all crossover operators into global config dictionary for use elsewhere

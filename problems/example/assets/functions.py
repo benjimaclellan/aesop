@@ -5,7 +5,6 @@
 """
 
 import autograd.numpy as np
-import numpy
 
 def power_(state):
     """Power of a signal, as the square of the absolute value

@@ -1,11 +1,16 @@
-import numpy as np
+import autograd.numpy as np
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
 import pickle
 
+# TODO: remove once debugging complete
+import copy 
+from autograd.numpy.numpy_boxes import ArrayBox
+# -------------------------------
+
 import config.config as configuration
-from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators
+from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators,register_path_reduction_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
 from algorithms.speciation import Speciation
 from problems.example.graph import Graph
@@ -167,6 +172,8 @@ class SwapNode(EvolutionOperators):
         return self.apply_evolution_at(graph, node_to_swap, verbose=verbose)
 
     def apply_evolution_at(self, graph, node, save=False, verbose=False):
+        pre_swap_params, *_ = copy.deepcopy(graph.extract_parameters_to_list())
+
         model_to_swap = graph.nodes[node]['model']
         node_type_set = set(configuration.NODE_TYPES_ALL[model_to_swap.__class__.__bases__[0].__name__].values())
 
@@ -177,6 +184,7 @@ class SwapNode(EvolutionOperators):
 
         if verbose:
             print('Evolution operator: SwapNode | Swapping node {} from model {} to model {}'.format(node, model_to_swap, new_model))
+
         return graph
 
     def collect_potential_nodes_to_swap(self, graph):
@@ -298,6 +306,7 @@ class AddInterferometer(EvolutionOperators):
 
 @register_evolution_operators
 @register_reduction_operators
+@register_path_reduction_operators
 class RemoveOneInterferometerPath(EvolutionOperators):
     """
     Collapses an interferometer structure to a single path (if possible)

@@ -25,7 +25,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver, CrossoverMaker, StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
+from problems.example.evolver import Evolver, CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.evolution_operators.evolution_operators import SwapNode
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     target = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width * (p / q), rep_t=rep_t * (p / q), peak_power=peak_power * (p / q))
     evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-    evolver = StochMatrixEvolver(verbose=False)
+    evolver = ProbabilityLookupEvolver(verbose=False)
 
     nodes = {0:input_laser,
              -1:MeasurementDevice()}

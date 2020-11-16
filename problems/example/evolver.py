@@ -1,11 +1,16 @@
 import autograd.numpy as np
+from autograd import jacobian
 import random
 import matplotlib.pyplot as plt
 import pickle
+import copy
+from autograd.numpy.numpy_boxes import ArrayBox
 
+import problems.example.assets.hessian_graph_analysis as hessian_analysis
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
 
+#TODO: fix the reinforcement learning one...
 
 class Evolver(object):
     """
@@ -71,7 +76,7 @@ class Evolver(object):
         return graph
 
 
-class StochMatrixEvolver(object):
+class ProbabilityLookupEvolver(object):
     """
     Evolver object will take in and update graphs based on a stochastic probability matrix
     It will have a set of rules for updating a graph's stochastic matrix, in order to update the graph next time
@@ -84,27 +89,36 @@ class StochMatrixEvolver(object):
     This class has the most basic probability selection: if a given operator can possibly be run on a node/edge, it will be assigned a value of one.
     If it is not possible, it is assigned a value of zero. Probability are normalized prior to selecting the operator
     """
-    def __init__(self, verbose=False, permanent_nodes=None, **attr):
+
+    def __init__(self, verbose=False, debug=False, permanent_nodes=None, **attr):
         self.verbose = verbose
+        self.debug = debug
         self.evo_op_list = list(configuration.EVOLUTION_OPERATORS.values()) # we pick these out because technically dictionary values are not ordered
                                                                             # so because we need our matrix order to be consistent, 
         self.permanent_nodes = permanent_nodes
         super().__init__(**attr)
     
-    def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False):
+    def evolve_graph(self, graph, evaluator, generation=None):
         """
         Evolves graph according to the stochastic matrix probabilites
 
         :param graph: the graph to evolve
         :param evaluator: not used in the base implementation, but may be useful in the future
         """
-        if graph.evo_probabilities_matrix is None:
-            self.create_graph_matrix(graph, evaluator)
+
+        # note: graph update has been moved to the start of the evolution function rather than the end BECAUSE the Hessian
+        # evolvers need to function on the already optimized parameter space
+
+        self.update_graph_matrix(graph, evaluator)
 
         if self.permanent_nodes is not None:
             # here we will have custom rules to ensure nodes are permanent
             self.ensure_permanent_nodes(graph)
             graph.evo_probabilities_matrix.normalize_matrix()
+
+        if self.verbose:
+            print(f'evolving graph:')
+            print(graph)
 
         if debug:
             print(f'evolution probability matrix for graph {graph}')
@@ -112,10 +126,20 @@ class StochMatrixEvolver(object):
             print()
 
         node_or_edge, evo_op = graph.evo_probabilities_matrix.sample_matrix()
-        graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=verbose)
-
-        self.update_graph_matrix(graph, evaluator, evo_op, node_or_edge)
+        graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=self.verbose)
         
+        if self.verbose:
+            print(f'\nevolving on: {node_or_edge}, with operator: {evo_op}\n')
+        
+        if self.verbose:
+            print(f'evolved graph:')
+            print(graph)
+            print()
+       
+        x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+
+        assert np.logical_and(lower_bounds <= x, x <= upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
+
         return graph, evo_op
 
     def ensure_permanent_nodes(self, graph):
@@ -139,18 +163,18 @@ class StochMatrixEvolver(object):
         graph.evo_probabilities_matrix.normalize_matrix()
         graph.evo_probabilities_matrix.verify_matrix()
 
-    def update_graph_matrix(self, graph, evaluator, last_evo_op, last_node_or_edge):
+    def update_graph_matrix(self, graph, evaluator):
         """
         Function does not use evaluator, last_evo_op, or last_node_or_edge in this implementation. However, they may be valid parameters to modify later
         """
         self.create_graph_matrix(graph, evaluator) # just fully remakes the graph matrix for now
 
-    def random_graph(self, graph, evaluator, n_evolutions=10, view_evo=False, verbose=False, debug=False):
+    def random_graph(self, graph, evaluator, n_evolutions=10, view_evo=False):
         for n in range(n_evolutions):
-            if verbose:
+            if self.verbose:
                 print(f'Starting evolution number {n}')
             try:
-                graph_tmp, evo_op = self.evolve_graph(graph, evaluator, generation=n, verbose=verbose, debug=debug)
+                graph_tmp, evo_op = self.evolve_graph(graph, evaluator, generation=n)
                 graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
                 if view_evo:
@@ -215,13 +239,26 @@ class StochMatrixEvolver(object):
             """
             return self.matrix[:, self.op_to_index[op]]
         
+        def get_largest_prob_node_or_edge_and_op(self):
+            """
+            Returns the node/edge and operator associated with the largest value. If multiple node/edge and operator
+            pairs have the same value, returns a random pair (all same-valued options are returned with equal probability)
+
+            :Pre-condition: the matrix is populated
+            """
+            max = np.amax(self.matrix)
+            locations = np.where(np.isclose(self.matrix, max))
+            possibilities = list(zip(locations[0].tolist(), locations[1].tolist()))
+            (row, col) = random.choice(possibilities)
+            return self.index_to_node_or_edge[row], self.index_to_op[col]
+
         def __str__(self):
             string_rep = f'operator to index: {self.op_to_index}\n' + f'node/edge to index: {self.node_or_edge_to_index}\n' + \
                          f'matrix: \n{self.matrix}'
             return string_rep
 
 
-class SizeAwareMatrixEvolver(StochMatrixEvolver):
+class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
     """
     The size aware stochastic matrix evolver updates probabilities of certain operators being used based on the size of the graph.
     The algorithm considers "growth" operators (add nodes or edges), and "reduction" operators (remove nodes or edges). Any operators not marked
@@ -235,7 +272,7 @@ class SizeAwareMatrixEvolver(StochMatrixEvolver):
        and 1 + alpha to reduction operators. Alpha is clipped at +=0.9 by default, but can be clipped at any amplitude between 0 and 1 if desired
     4. alpha = alpha(delta) is an odd function (where alpha < 0 where delta < 0), where delta = <# of nodes in the graph> - <ideal # of nodes>. alpha(0) = 0
     """
-    def __init__(self, verbose=False, ideal_node_num=8, alpha_func=lambda delta: (delta / 10)**3, alpha_bound=0.9, **attr):
+    def __init__(self,ideal_node_num=8, alpha_func=lambda delta: (delta / 10)**3, alpha_bound=0.9, **attr):
         """
         Initializes SizeAwareMatrixEvolver (see class description above)
 
@@ -248,7 +285,7 @@ class SizeAwareMatrixEvolver(StochMatrixEvolver):
         Only the ideal node number is intended to be updated over the course of the object's existence (there's a useful case for it I can see, unlike the other params)
         That said, updates to any of these parameters is possible (i.e. the code will use new alpha_func and alpha_max if their values are changed)
         """
-        super().__init__(verbose=verbose, **attr)
+        super().__init__(**attr)
         self.ideal_node_num = ideal_node_num
         self.alpha_func = alpha_func
 
@@ -294,7 +331,7 @@ class SizeAwareMatrixEvolver(StochMatrixEvolver):
         return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
 
 
-class ReinforcementMatrixEvolver(StochMatrixEvolver):
+class ReinforcementLookupEvolver(ProbabilityLookupEvolver):
     """
     Loosely based on reinforcement learning ideas, where only the operator selection is reinforcement based (node selection remains arbitrary)
     The "state" of the graph is solely defined by the number of nodes, for simplicity
@@ -313,7 +350,7 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
     # TODO: consider making value less based on immediate reward
     # TODO: consider decaying epsilon scheme instead of constant epsilon value
     """
-    def __init__(self, verbose=False, starting_value_matrix=None, epsilon=0.4, **attr):
+    def __init__(self, starting_value_matrix=None, epsilon=0.4, **attr):
         """
         Creates a ReinforcementMatrixEvolver (reinforcement is used a bit loosely here)
 
@@ -327,7 +364,7 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
 
                                       If a string, this is the string to a pickle file of a previous run
         """
-        super().__init__(verbose=verbose, **attr)
+        super().__init__(**attr)
         self.epsilon = epsilon
         
         if starting_value_matrix is None:
@@ -412,7 +449,7 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
         # 2. no max valued option is available
         raise ValueError('No possible operator found')
 
-    def evolve_graph(self, graph, evaluator, generation=None, verbose=False, debug=False):
+    def evolve_graph(self, graph, evaluator, generation=None):
         """
         Evolves graph according to the stochastic matrix probabilites
         The probabilities for operators are based on a epsilon-greedy learning method
@@ -422,7 +459,7 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
         :param evaluator: not used in the base implementation, but may be useful in the future
         """
         pre_evo_state = len(graph.nodes)
-        graph, evo_op = super().evolve_graph(graph, evaluator, generation=generation, verbose=verbose, debug=debug)
+        graph, evo_op = super().evolve_graph(graph, evaluator, generation=generation)
         if graph.last_evo_record is None:
             graph.last_evo_record = {}
         graph.last_evo_record['op'] = evo_op
@@ -434,6 +471,150 @@ class ReinforcementMatrixEvolver(StochMatrixEvolver):
     def close(self):
         with open(f'reinforcement_evolver_value_matrix.pkl', 'wb') as handle:
             pickle.dump(self.value_matrix, handle)
+
+
+class EGreedyHessianEvolver(ProbabilityLookupEvolver):
+    """
+    The epsilon-greedy Hessian evolver assigns value to different actions (action = an operator and the node/edge on which it applied)
+    based on the 0th order and 2nd order derivatve information of our fitness function with respect to the parameter space. 
+
+    Once all actions are assigned a value, it executes the action with the largest value with probability 1 - epsilon, and a random
+    action with probability epsilon. EPSILON CAN (and likely should) BE A GENERATION DEPENDENT FUNCTION.
+
+    The value of an action is determined by a relevent base score i.e. log10(free wheeling node score) = W, log10(terminal node score) = T, multiplied by
+    a scaling coefficient (which weighs importance of various factors). These scaling coefficients are hyperparameters, to be tuned as needed.
+
+    The action-node/edge values, V(O, N) are assigned as such, with floats a, b, c, d, e >= 0 as the scaling coefficients
+    
+    Remove Path (on source/sink node, i.e. multipath): V = -a * T, a = <terminal_path_removal_coeff>
+        - If a multipath node is terminal, it's likely directing all the signal to one branch or another.
+          Therefore it should be likely we remove the other branch
+    Remove Path (on single-path node): V = max(-a * T_source * W, -a * T_sink * W)
+        - If we have a long path with a terminal source, we axe it. How do we know we're on the right branch?
+          Well the nodes should be free-wheeling if the source is terminal pointing away from this branch!
+    Remove Node (on single-path node): V = max(-c * W, -d * T>, c = <freewheel_removal_coeff>, d = terminal_removal_coeff
+        - A free-wheeling node is likely doing nothing, so might as well boot it
+        - Also, a terminal node Might be in passive state, so we can try booting it as well
+
+    TODO: implement later if it still seems like a good idea
+    Duplicate Node (on single-path node): V = -b * T, b = <terminal_duplicate_coeff>
+        - If a node is terminal, it's possible that it just needs more JUICE rather than being quasi-passive
+          (e.g. an EDFA might be at max gain, so chaining them might help!).
+          So we can also try duplicating that component to beef things up
+
+    Other operators: V = e = <default_val>
+    """
+    def __init__(self, epsilon=1, freewheel_removal_coeff=1, terminal_removal_coeff=0.5, terminal_duplicate_coeff=1,
+                freewheel_path_removal_coeff=0.3, terminal_path_removal_coeff=5, default_val=1, **attr):
+        """
+        Creates a Hessian based evolver (which simplifies graphs based on the Hessian)
+
+        :param epsilon: probability epsilon with which a random node/edge, operator combo is selected
+                        epsilon can be a number or a function of the generation
+        :param freewheel_removal_coeff: hyperparameter which scales the base value for removing a free-wheeling node
+
+        """
+        if type(epsilon) == float or type(epsilon) == int:
+            self.epsilon = epsilon
+        else:
+            AssertionError('function based epsilon not implemented yet')
+            self.epsilon = epsilon
+        
+        # hyperparameters
+        self.freewheel_removal_coeff = freewheel_path_removal_coeff
+        self.terminal_removal_coeff = terminal_removal_coeff
+        self.terminal_duplicate_coeff = terminal_duplicate_coeff
+        self.freewheel_path_removal_coeff = freewheel_path_removal_coeff
+        self.terminal_path_removal_coeff = terminal_path_removal_coeff
+        self.default_val = default_val
+
+        super().__init__(**attr)
+    
+
+    def create_graph_matrix(self, graph, evaluator):
+        """
+        :param graph: the graph to evolve
+        :param evaluator: not used in this implementation, but may be useful in the future
+        """
+        super().create_graph_matrix(graph, evaluator) # get basic matrix with 1 for possible combos and 0 for impossible combos
+        
+        x, *_ = graph.extract_parameters_to_list()
+
+        value_matrix = self._get_action_value_matrix(graph, evaluator) # we don't actually need the matrix, just the top val.
+                                                                       # BUT it's useful to see the full matrix for tuning/debugging purposes 
+        greedy_node_or_edge, greedy_op = value_matrix.get_largest_prob_node_or_edge_and_op()
+
+        non_greedy_prob = self.epsilon / np.sum(graph.evo_probabilities_matrix.matrix)
+
+        for node_or_edge in list(graph.nodes) + list(graph.edges):
+            for op in self.evo_op_list:
+                if graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(node_or_edge, op) != 0:
+                    if node_or_edge == greedy_node_or_edge and op == greedy_op:
+                        likelihood = 1 - self.epsilon + non_greedy_prob # we can save the generation on the graph I guess
+                    else:
+                        likelihood = non_greedy_prob
+                else: 
+                    likelihood = 0
+                
+                graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, node_or_edge, op)
+        
+        graph.evo_probabilities_matrix.normalize_matrix()
+        graph.evo_probabilities_matrix.verify_matrix()
+        if self.debug:
+            print(f'value matrix:')
+            print(value_matrix)
+
+    def _get_action_value_matrix(self, graph, evaluator):
+        """
+        The matrix is actually not needed for the implementation, but it's def needed for tuning hyperparameters and debugging
+        
+        The action-node/edge values, V(O, N) are assigned as such, with floats a, b, c, d, e >= 0 as the scaling coefficients
+        
+        Remove Path (on source/sink node, i.e. multipath): V = -a * T, a = <terminal_path_removal_coeff>
+            - If a multipath node is terminal, it's likely directing all the signal to one branch or another.
+            Therefore it should be likely we remove the other branch
+        Remove Path (on single-path node): V = max(-a * T_source * W, -a * T_sink * W)
+            - If we have a long path with a terminal source, we axe it. How do we know we're on the right branch?
+            Well the nodes should be free-wheeling if the source is terminal pointing away from this branch!
+        Remove Node (on single-path node): V = max(-c * W, -d * T>, c = <freewheel_removal_coeff>, d = terminal_removal_coeff
+            - A free-wheeling node is likely doing nothing, so might as well boot it
+            - Also, a terminal node Might be in passive state, so we can try booting it as well
+        """
+        # ------------ test to see if it'll crash on the first grad and hess
+        x, *_ = graph.extract_parameters_to_list()
+        graph.grad(x)
+        graph.hess(x)
+        # --------------- end test
+
+        terminal_node_scores, free_wheeling_node_scores = hessian_analysis.get_all_node_scores(graph)
+
+        value_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges)) # using this to build our value matrix
+
+        for node_or_edge in list(graph.nodes) + list(graph.edges):
+            for op in self.evo_op_list:
+                if graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(node_or_edge, op) != 0:
+                    if op in configuration.PATH_REDUCTION_EVO_OPERATORS.values():
+                        if EGreedyHessianEvolver._is_multipath_node(graph, node_or_edge):
+                            val = -1 * self.terminal_path_removal_coeff * terminal_node_scores[node_or_edge]
+                        elif node_or_edge in graph.nodes: # single path node
+                            # TODO: add a dependency on the terminality of the source (see equation defined in class docstring)!
+                            val = -1 * self.freewheel_path_removal_coeff * free_wheeling_node_scores[node_or_edge]
+                    elif op in configuration.REDUCTION_EVO_OPERATORS.values() and node_or_edge in graph.nodes:
+                        val = max(-1 * self.freewheel_removal_coeff * free_wheeling_node_scores[node_or_edge],
+                                -1 * self.terminal_removal_coeff * terminal_node_scores[node_or_edge])
+                    else: # else case covers all operators on edges, and any growth/swap operators
+                        val = self.default_val
+                else:
+                    val = -1 * np.inf
+                value_matrix.set_prob_by_nodeEdge_op(val, node_or_edge, op)
+
+        return value_matrix
+    
+    @staticmethod
+    def _is_multipath_node(graph, node_or_edge):
+        if node_or_edge in graph.nodes and (graph.get_in_degree(node_or_edge) > 1 or graph.get_out_degree(node_or_edge) > 1):
+            return True
+        return False
 
 
 class CrossoverMaker(object):

@@ -1,4 +1,4 @@
-import numpy as np
+import autograd.numpy as np
 import dill
 import random
 import string

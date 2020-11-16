@@ -25,7 +25,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver, CrossoverMaker, StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
+from problems.example.evolver import Evolver, CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver, EGreedyHessianEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -47,8 +47,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 8,
-               'n_population': 16, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 3,
+               'n_population': 5, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -56,9 +56,10 @@ if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     # evolver = Evolver(verbose=False)
-    # evolver = StochMatrixEvolver(verbose=False)
-    # evolver = SizeAwareMatrixEvolver(verbose=False)
-    evolver = ReinforcementMatrixEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
+    evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
+    # evolver = SizeAwareLookupEvolver(verbose=False)
+    # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
+    # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}
