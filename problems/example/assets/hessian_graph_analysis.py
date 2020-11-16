@@ -16,15 +16,6 @@ def get_all_node_scores(graph, as_log=True):
             scores[node] = 0 if as_log else 1
         return scores, scores
 
-    # if type(x[0]) == ArrayBox:
-    #     print(f'x[0]._value._value: {x[0]._value._value}')
-    # else:
-    #     print(f'x = {x}')
-    # print(f'node_or_edge_index: {node_or_edge_index}')
-    # print(f'parameter_index: {parameter_index}')
-    # for node in graph.nodes:
-    #     print(f"graph model: {graph.nodes[node]['model']}")
-
     hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
     
     return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
@@ -120,90 +111,3 @@ def _extract_average_over_node(graph, vector_to_average, as_log=False):
             node_scores[node] = 0 if as_log else 1
     
     return node_scores
-
-
-
-
-
-
-
-
-
-
-# ----------------------------------- Useful? -----------------------------------------
-
-def free_wheeling_param(graph, i, grad_thresh=1e-5, hess_thresh=1e-5, test_point_num=2):
-    """
-    Operates on a single parameter
-    Returns True if the parameter is deemed free-wheeling, False otherwise
-
-    :pre-condition: Hessian must be properly normalized, exclude_locked_params = True in the grad/hess initializations
-
-    TODO: verify that parameters do in fact need to be restored.. I suspect not
-    """
-    # 1. Save graph parameters such that they can be restored
-    x, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-    
-    # 2. test free-wheeling 
-    params = x
-    for _ in range(test_point_num):
-        if not _free_wheeling_at_point(graph.grad(params), graph.scaled_hess(params), i, grad_thresh, hess_thresh):
-            return False
-
-        params = graph.sample_parameters_to_list()
-
-    return True
-
-
-def _free_wheeling_at_point(gradient, hessian, param_index, grad_thresh, hess_thresh):
-    if type(gradient) == ArrayBox:
-        gradient = gradient._value
-    if type(hessian) == ArrayBox:
-        hessian = hessian._value
-
-    second_orders = np.concatenate((hessian[param_index, :], hessian[:, param_index]))
-    is_free_wheeling = (np.abs(gradient[param_index]) < grad_thresh) and all(np.abs(second_orders) < hess_thresh)
-
-    return is_free_wheeling
-
-
-def get_all_free_wheeling_params(graph, grad_thresh=1e-7, hess_thresh=1e-5, test_point_num=1):
-    """
-    Returns node_edge_index (1D numpy array), parameter_index (1D numpy array) of all free wheeling params
-    """
-    x, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-
-    grad_assessment = np.abs(graph.grad(x)) < grad_thresh
-    hessian_assessment = np.abs(graph.scaled_hess(x)) < hess_thresh
-    hessian_part1 = np.all(hessian_assessment, axis=0)
-    hessian_part2 = np.all(hessian_assessment, axis=1)
-
-    is_free_wheeling = np.bitwise_and(grad_assessment, np.bitwise_and(hessian_part1, hessian_part2))
-    for _ in range(test_point_num - 1):
-        p = graph.sample_parameters_to_list()
-        grad_assessment = np.abs(graph.grad(p)) < grad_thresh
-        hessian_assessment = np.abs(graph.scaled_hess(p)) < hess_thresh
-        hessian_part1 = np.all(hessian_assessment, axis=0)
-        hessian_part2 = np.all(hessian_assessment, axis=1)
-
-        is_free_wheeling = np.bitwise_and(is_free_wheeling, np.bitwise_and(grad_assessment, np.bitwise_and(hessian_part1, hessian_part2)))
-
-    return np.array(node_edge_index)[is_free_wheeling], np.array(parameter_index)[is_free_wheeling]
-
-
-def get_all_free_wheeling_nodes_params(graph, grad_thresh=1e-5, hess_thresh=1e-5, test_point_num=1):
-    """
-    Returns set of free wheeling nodes, np array of node edge indices of all free-wheeling params, np array of parameter indices of all free-wheeling params
-    
-    Note: this is a binary scheme: either you're free-wheeling or you're not
-    """
-    free_wheeling = set()
-    node_edge_index, parameter_index = get_all_free_wheeling_params(graph, grad_thresh=grad_thresh, hess_thresh=hess_thresh, test_point_num=test_point_num)
-
-    for node in graph.nodes:
-        node_model = graph.nodes[node]['model']
-        total_unlocked_node_num = node_model.number_of_parameters - np.count_nonzero(np.array(node_model.parameter_locks))
-        if (np.count_nonzero(node_edge_index == node) == total_unlocked_node_num) and (total_unlocked_node_num != 0):
-            free_wheeling.add(node)
-    
-    return free_wheeling, node_edge_index, parameter_index

@@ -180,7 +180,7 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
             try:
                 graph_tmp.assert_number_of_edges()
             except:
-                print(f'Could not evolve this graph.{[node for node in graph_tmp.nodes()]}')
+                print(f'Could not evolve this graph.{[node for node in graph_tmp.nodes()]}\n {graph}')
                 continue
 
             if len(x0) == 0:
@@ -277,7 +277,13 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
         parent_parameters = copy.deepcopy(x)
         while True:
             graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
-            graph.distribute_parameters_from_list(parent_parameters, node_edge_index, parameter_index) # This is a hacky fix because smh graph parameters are occasionally modified through the deepcopy
+            try:
+                graph.distribute_parameters_from_list(parent_parameters, node_edge_index, parameter_index) # This is a hacky fix because smh graph parameters are occasionally modified through the deepcopy
+            except IndexError as e:
+                print(e)
+                print(graph)
+                print(f'parent parameters: {parent_parameters}')
+                raise e
 
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
@@ -291,12 +297,8 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
             new_pop.append((None, graph_tmp))
             if random.random() < break_probability[i]:
                 break
-    # speciation manager reverses fitness sharing to get raw score. Generation - 1 is given, since we're reversing the sharing of the previous generation in this case
+
     from_last_gen = population[0:len(population) // 10 + 1]
-    # print(f'from last gen before fitness reversal: {from_last_gen}')
-    # if population[0][0] is not None:
-    #     SPECIATION_MANAGER.reverse_fitness_sharing(from_last_gen, hyperparameters['generation_num'] - 1)
-    # print(f'from last gen after fitness reversal: {from_last_gen}')
 
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 

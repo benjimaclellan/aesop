@@ -47,8 +47,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 5,
-               'n_population': 10, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 3,
+               'n_population': 5, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -56,10 +56,10 @@ if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     # evolver = Evolver(verbose=False)
-    # evolver = ProbabilityLookupEvolver(verbose=False)
+    evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
     # evolver = SizeAwareLookupEvolver(verbose=False)
     # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
-    evolver = EGreedyHessianEvolver(verbose=True, debug=True)
+    # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {0:ContinuousWaveLaser(),
              -1:Photodiode()}

@@ -233,7 +233,7 @@ class ProbabilityLookupEvolver(object):
             :Pre-condition: the matrix is populated
             """
             max = np.amax(self.matrix)
-            locations = np.where(self.matrix >= max)
+            locations = np.where(np.isclose(self.matrix, max))
             possibilities = list(zip(locations[0].tolist(), locations[1].tolist()))
             (row, col) = random.choice(possibilities)
             return self.index_to_node_or_edge[row], self.index_to_op[col]
