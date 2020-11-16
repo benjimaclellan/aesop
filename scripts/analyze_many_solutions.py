@@ -18,7 +18,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 if __name__ == "__main__":
@@ -28,8 +28,8 @@ if __name__ == "__main__":
              1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
              2:WaveShaper(),
              3:MeasurementDevice()}
-    edges = [(0,1, CorningFiber(parameters=[0])),
-             (1,2, CorningFiber(parameters=[0])),
+    edges = [(0, 1, DispersiveFiber(parameters=[0])),
+             (1, 2, DispersiveFiber(parameters=[0])),
              (2,3)]
 
     graph = Graph(nodes, edges, propagate_on_edges = False)

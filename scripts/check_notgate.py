@@ -19,7 +19,7 @@ from problems.example.assets.additive_noise import AdditiveNoise
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser, BitStream
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine, ProgrammableFilter, EDFA
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine, ProgrammableFilter, EDFA
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_optimization import parameters_optimize

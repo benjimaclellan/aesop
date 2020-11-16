@@ -13,7 +13,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
@@ -50,8 +50,8 @@ def get_graph():
              3: DelayLine(),
              4: MeasurementDevice()
              }
-    edges = [(0,1, CorningFiber(parameters=[0])),
-             (1,2, CorningFiber(parameters=[0])),
+    edges = [(0, 1, DispersiveFiber(parameters=[0])),
+             (1, 2, DispersiveFiber(parameters=[0])),
              (2,3),
              (3,4)]
 

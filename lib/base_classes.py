@@ -143,7 +143,7 @@ class EvolutionOperators(object):
         raise NotImplementedError('Base class evolution operator is an interface, has no implementation itself')
 
 
-class TerminalNode(object):
+class TerminalNode(NodeType):
     """Parent class
     """
 

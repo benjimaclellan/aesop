@@ -7,7 +7,7 @@ from scipy.constants import Boltzmann, elementary_charge
 from pint import UnitRegistry
 unit = UnitRegistry()
 
-from ..node_types import Output
+from ..node_types import SinkModel
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, power_
@@ -16,7 +16,7 @@ from problems.example.assets.additive_noise import AdditiveNoise
 
 
 @register_node_types_all
-class MeasurementDevice(Output):
+class MeasurementDevice(SinkModel):
     node_acronym = 'MD'
     number_of_parameters = 0
     def __init__(self, **kwargs):
@@ -42,7 +42,7 @@ class MeasurementDevice(Output):
 
 
 @register_node_types_all
-class Photodiode(Output):
+class Photodiode(SinkModel):
     """
     Assumptions:
         1. Responsivity is (roughly) constant in the relevant frequency range
@@ -88,19 +88,14 @@ class Photodiode(Output):
         self.filter = Filter(shape='butterworth lowpass', transition_f=self._bandwidth, dc_gain=1, order=self._filter_order)
         self.update_noise_model()
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
+    def propagate(self, state, propagator, save_transforms=False):
         """
         Assumes that if you get multiple input states, they all linearly superpose
         """
-        state = states[0]
-        for i in range(1, len(states)):
-            state = state + states[i]
-        
-        power_in = power_(state) # ok so this is the power input 
+        power_in = power_(state)  # power input
         voltage = self.get_photocurrent(power_in) * self._load_resistance
         voltage = self.filter.get_filtered_time(voltage, propagator)
-
-        return [voltage]
+        return voltage
     
     def get_photocurrent(self, P_in):
         """

@@ -34,10 +34,11 @@ class Graph(GraphParent):
             self.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
         for edge, model in edges.items():
             self.add_edge(edge[0], edge[1], **{'model': model, 'name': model.__class__.__name__, 'lock': False})
+
         sources = [node for node in self.nodes if self.get_in_degree(node) == 0]
         sinks = [node for node in self.nodes if self.get_out_degree(node) == 0]
         for source in sources: self.nodes[source]['source-sink'] = 'source'
-        for sink in sinks: self.nodes[source]['source-sink'] = 'sink'
+        for sink in sinks: self.nodes[sink]['source-sink'] = 'sink'
 
         # for edge in edges:
         #     if len(edge) == 2:
@@ -70,7 +71,13 @@ class Graph(GraphParent):
         # Attribute: self.scaled_hess
 
         self.score = None
-    
+
+    def update_graph(self):
+        propagation_order = list(nx.topological_sort(self))
+        self.propagation_order = propagation_order
+
+
+
     def __str__(self):
         str_rep = ''
         for node in self.nodes:
@@ -98,7 +105,7 @@ class Graph(GraphParent):
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
         self.func = self.function_wrapper(propagator, evaluator, exclude_locked=exclude_locked)
         self.grad = grad(self.func)
-        hess_tmp = hessian(self.func) # hessian requires a numpy array, so wrap in this way
+        hess_tmp = hessian(self.func)  # hessian requires a numpy array, so wrap in this way
         self.hess = lambda parameters: hess_tmp(np.array(parameters))
 
     @property
@@ -136,20 +143,20 @@ class Graph(GraphParent):
         """
         return list(self.predecessors(node))
     
-    @property
-    def propagate_on_edges(self):
-        return self._propagate_on_edges
+    # @property
+    # def propagate_on_edges(self):
+    #     return self._propagate_on_edges
 
-    def clear_propagation(self):
-        self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems
-        for node in self.nodes:
-            if 'states' in self.nodes[node]:
-                self.nodes[node].pop('states')
-
-        for edge in self.edges:
-            if 'states' in self.edges[edge]:
-                self.edges[edge].pop('states')
-        return
+    # def clear_propagation(self):
+    #     self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems
+    #     for node in self.nodes:
+    #         if 'states' in self.nodes[node]:
+    #             self.nodes[node].pop('states')
+    #
+    #     for edge in self.edges:
+    #         if 'states' in self.edges[edge]:
+    #             self.edges[edge].pop('states')
+    #     return
     
     def get_output_signal(self, propagator, node=None, save_transforms=False):
         """
@@ -266,15 +273,15 @@ class Graph(GraphParent):
         Instead, the propagator object at each nodes is saved to a separate dictionary, where the key is the node
         """
 
-        raise RuntimeError('this has not be re-implemented yet')
+        # raise RuntimeError('this has not be re-implemented yet')
 
         self._propagator_saves = {}  # will save each propagator here
-        propagation_order = list(nx.topological_sort(self))  # this should be made once, along with func, hess, etc when graph changes
-        self.propagation_order = propagation_order
-        print(propagation_order)
+        propagation_order = nx.topological_sort(self)
+        # propagation_order = self.propagation_order
 
         for node in propagation_order:
             print(f'current node {node}')
+
             # get the incoming optical field
             if not self.pre(node):
                 tmp_states = [propagator.state]
@@ -283,23 +290,17 @@ class Graph(GraphParent):
                 for incoming_edge in self.get_in_edges(node):  # loop through incoming edges
                     tmp_states.append(self._propagator_saves[incoming_edge])
 
-
             states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
-            # add noise to propagation
-            noise_model = self.nodes[node]['model'].noise_model
-            if (noise_model is not None):
-                for i in range(len(states)):
-                    states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
 
-            if len(states) != self.get_out_degree(node):
-                raise RuntimeError(f'Mismatched number of paths at node {node}')
+            if self.get_out_degree(node) == 0:
+                self._propagator_saves[node] = states[0] # save the final state at the source node
 
             for edge_index, outgoing_edge in enumerate(self.get_out_edges(node)):
-                signal = self.edges[outgoing_edge]['model'].propagate(states[edge_index], propagator, 1, 1, save_transforms=save_transforms)
+                signal = self.edges[outgoing_edge]['model'].propagate(states[edge_index], propagator, save_transforms=save_transforms)
 
                 # add noise to propagation
                 noise_model = self.edges[outgoing_edge]['model'].noise_model
-                if (noise_model is not None):
+                if noise_model is not None:
                     signal = noise_model.add_noise_to_propagation(signal, propagator)
 
                 self._propagator_saves[outgoing_edge] = signal  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
@@ -307,43 +308,8 @@ class Graph(GraphParent):
         return self
 
 
-
-        # for node in self.propagation_order:  # loop through nodes in the prescribed, physical order
-        #     if not self.pre(node):  # check if current node has any incoming edges, if not, pass the node the null input propagator directly
-        #         tmp_states = [propagator.state]  # nodes take a list of propagators as default, to account for multipath
-        #     else:  # if we have incoming nodes to get the propagator from
-        #         tmp_states = []  # initialize list to add all incoming propagators to
-        #         for edge in self.get_in_edges(node):  # loop through incoming edges
-        #             if self._propagate_on_edges and 'model' in self.edges[edge]:  # this also simulates components stored on the edges, if there is a model on that edge
-        #                 signal = self.edges[edge]['model'].propagate(self._propagator_saves[edge], propagator, 1, 1, save_transforms=save_transforms)
-        #
-        #                 # add noise to propagation
-        #                 noise_model = self.edges[edge]['model'].noise_model
-        #                 if (noise_model is not None):
-        #                     signal = noise_model.add_noise_to_propagation(signal, propagator)
-        #
-        #                 tmp_states += signal
-        #             else:
-        #                 tmp_states += self._propagator_saves[edge]
-        #
-        #     # save the list of propagators at that node locations (deepcopy required throughout)
-        #     states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
-        #
-        #     # add noise to propagation
-        #     noise_model = self.nodes[node]['model'].noise_model
-        #     if (noise_model is not None):
-        #         for i in range(len(states)):
-        #             states[i] = noise_model.add_noise_to_propagation(states[i], propagator)
-        #
-        #     for i, (edge, state) in enumerate(zip(self.get_out_edges(node), states)):
-        #         self._propagator_saves[edge] = [np.sqrt(self.coupling_efficiency) * state]  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
-        #
-        #     self._propagator_saves[node] = states
-        #
-        # return self
-
-    def measure_propagator(self, node):  # get the propagator state now that it is saved in a dictionary to avoid deepcopy
-        return self._propagator_saves[node][0]
+    def measure_propagator(self, edge):
+        return self._propagator_saves[edge]
 
     def visualize_transforms_dof(self, ax, propagator, dof='f', label_verbose=1):
         for node in self.nodes():
