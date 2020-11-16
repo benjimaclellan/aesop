@@ -21,7 +21,7 @@ from problems.example.evaluator_subclasses.evaluator_phase_sensitivity import Pe
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper, DelayLine
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 # from algorithms.parameter_random_search import parameters_random_search
@@ -40,8 +40,8 @@ if __name__ == "__main__":
                                                   'pulse_width':1.0e-10,
                                                   'peak_power':1,
                                                   't_rep':1e-9, 'central_wl':1.55e6, 'train':True}),
-             1: CorningFiber(parameters=[50]),
-             2: CorningFiber(parameters=[10]),
+             1: DispersiveFiber(parameters=[50]),
+             2: DispersiveFiber(parameters=[10]),
              3: WaveShaper(),
              4: MeasurementDevice()}
     edges = [(0, 1), (1, 2), (2, 3), (3, 4)]

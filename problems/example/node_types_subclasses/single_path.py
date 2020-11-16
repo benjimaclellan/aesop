@@ -19,7 +19,7 @@ from ..assets.additive_noise import AdditiveNoise
 
 
 @register_node_types_all
-class CorningFiber(SinglePath):
+class DispersiveFiber(SinglePath):
     """
 
     """

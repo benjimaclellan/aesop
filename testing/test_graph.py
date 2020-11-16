@@ -35,7 +35,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import CorningFiber, PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     edges = {('source', 0): ContinuousWaveLaser(),
              (0, 1): PhaseModulator(),
-             (0, 1): CorningFiber(),
+             (0, 1): DispersiveFiber(),
              (1, 'sink'):Photodiode(),
              }
 

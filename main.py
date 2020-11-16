@@ -14,7 +14,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, EDFA, CorningFiber, VariableOpticalAttenuator
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, EDFA, DispersiveFiber, VariableOpticalAttenuator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from problems.example.evolver import CrossoverMaker
@@ -37,7 +37,7 @@ def crossover_main():
     graph0.assert_number_of_edges()
 
     nodes1 = {0: PulsedLaser(),
-              1: CorningFiber(),
+              1: DispersiveFiber(),
               2: VariablePowerSplitter(),
               3: VariableOpticalAttenuator(),
               4: EDFA(),
