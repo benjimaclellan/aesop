@@ -52,8 +52,7 @@ class CorningFiber(SinglePath):
 
     # TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
     # TODO : check this, and every other model for correctness (so far its been about logic flow)
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         length = self.parameters[0]
 
         _lambda0 = speed_of_light/((propagator.central_frequency))
@@ -70,7 +69,7 @@ class CorningFiber(SinglePath):
         state = ifft_( ifft_shift_(np.exp(1j * (propagation_constant)), ax=0) * fft_(state, propagator.dt), propagator.dt)
         state = state * dB_to_amplitude_ratio(self._alpha * length/1000.0)
 
-        return [state]
+        return state
 
 @register_node_types_all
 class VariableOpticalAttenuator(SinglePath):
@@ -98,8 +97,7 @@ class VariableOpticalAttenuator(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         attenuation = self.parameters[0]
 
         if save_transforms:
@@ -108,7 +106,7 @@ class VariableOpticalAttenuator(SinglePath):
             self.transform = None
 
         state = state * dB_to_amplitude_ratio(attenuation)
-        return [state]
+        return state
 
 @register_node_types_all
 class PhaseModulator(SinglePath):
@@ -159,9 +157,7 @@ class PhaseModulator(SinglePath):
         """
         self.update_noise_model()
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
-
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         depth = self.parameters[0]
         frequency = self.parameters[1]
 
@@ -173,7 +169,7 @@ class PhaseModulator(SinglePath):
 
         state = state * np.exp(1j * transform)
         state = state * dB_to_amplitude_ratio(self._loss_dB)
-        return [state]
+        return state
     
     def update_noise_model(self):
         self.noise_model = AdditiveNoise(noise_type='phase noise from linewidth', noise_param=self.parameters[3], noise_on=False)
@@ -207,9 +203,7 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
 
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1,
-                  save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, states, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         depth = self.parameters[0]
         frequency = self.parameters[1]
@@ -225,7 +219,7 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         state = state/2.0 + state / 2.0 * np.exp(1j * transform)
         state = state * dB_to_amplitude_ratio(self._loss_dB)
 
-        return [state]
+        return state
 
 
 @register_node_types_all
@@ -270,8 +264,7 @@ class WaveShaper(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         # Slice at into the first half (amp) and last half (phase)
         amplitudes = self.parameters[:self._number_of_bins]
@@ -307,7 +300,7 @@ class WaveShaper(SinglePath):
         else:
             self.transform = None
 
-        return [state]
+        return state
 
 
 # @register_node_types_all
@@ -342,8 +335,7 @@ class IntegratedSplitAndDelayLine(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         coupling_ratios = self.parameters
 
         # field is in the spectral domain here now
@@ -378,7 +370,7 @@ class IntegratedSplitAndDelayLine(SinglePath):
         else:
             self.transform = None
 
-        return [ifft_(field_short, propagator.dt) * dB_to_amplitude_ratio(self._loss_dB)]
+        return ifft_(field_short, propagator.dt) * dB_to_amplitude_ratio(self._loss_dB)
 
 
 @register_node_types_all
@@ -441,11 +433,10 @@ class EDFA(SinglePath):
         #
         self.set_parameters_as_attr()
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         """
         """
         self.set_parameters_as_attr()
-        state = states[0]
 
         state_f = fft_(state, propagator.dt)
 
@@ -456,7 +447,7 @@ class EDFA(SinglePath):
         if save_transforms:
             self.transform = (('f', 10 * np.log10(ifft_shift_(np.sqrt(gain))), 'gain (dB)'),)
 
-        return [ifft_(np.sqrt(gain) * state_f, propagator.dt)] # sqrt of gain, because gain is a ratio of power, not amplitude
+        return ifft_(np.sqrt(gain) * state_f, propagator.dt) # sqrt of gain, because gain is a ratio of power, not amplitude
     
     def get_ASE_filter(self, propagator):
         """
@@ -634,8 +625,7 @@ class ProgrammableFilter(SinglePath):
             y += coeff * self.bernstein(t, i=m, n=len(coeffs) - 1)
         return y
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, states, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         # Slice at into the first half (amp) and last half (phase)
         bernstein_amp_coeffs = self.parameters[:self._number_of_bases]
@@ -661,7 +651,7 @@ class ProgrammableFilter(SinglePath):
             self.transform = (('f', amplitude_mask, 'amplitude'), ('f', phase_mask, 'phase'),)
         else:
             self.transform = None
-        return [state]
+        return state
 
 
 @register_node_types_all
@@ -693,8 +683,7 @@ class DelayLine(SinglePath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         delay = self.parameters[0]
 
         length = (propagator.speed_of_light / self._n) * delay
@@ -710,7 +699,7 @@ class DelayLine(SinglePath):
         else:
             self.transform = None
 
-        return [state]
+        return state
 
 
 
@@ -750,8 +739,7 @@ class PhaseShifter(NodeType):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
-        state = states[0]
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         phase = self.parameters[0]
 
         delay = propagator.central_wl / (2.0 * np.pi) * phase
@@ -765,4 +753,4 @@ class PhaseShifter(NodeType):
             self.transform = (('t', transform, 'delay'),)
         else:
             self.transform = None
-        return [state]
+        return state

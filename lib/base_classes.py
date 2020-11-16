@@ -129,7 +129,7 @@ class EvolutionOperators(object):
         return
 
 
-class TerminalNode(object):
+class TerminalNode(NodeType):
     """Parent class
     """
 
