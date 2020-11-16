@@ -17,11 +17,11 @@ from problems.example.assets.additive_noise import AdditiveNoise
 
 @register_node_types_all
 class MeasurementDevice(Output):
+    node_acronym = 'MD'
+    number_of_parameters = 0
     def __init__(self, **kwargs):
         self.node_lock = True
-        self.node_acronym = 'MD'
 
-        self.number_of_parameters = 0
         self.upper_bounds = []
         self.lower_bounds = []
         self.data_types = []
@@ -60,13 +60,15 @@ class Photodiode(Output):
     Noise sources:
     https://depts.washington.edu/mictech/optics/me557/detector.pdf
     """
+
+    node_acronym = 'PD'
+    number_of_parameters = 7
     def __init__(self, **kwargs):
         """
         Uses butterworth filter of provided degree
         """
         self.node_lock = True
-        self.node_acronym = 'PD'
-        self.number_of_parameters = 7
+
         self.lower_bounds = [0.01, 1e9, 1, 1e-5, 1.0, 273.0, 0.0]
         self.upper_bounds = [1.0, 200e9, 20, 1e-1, 1e3, 320.0, 1e-6]
 

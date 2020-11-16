@@ -18,10 +18,11 @@ from ..node_types import Input
 class PulsedLaser(Input):
     """
     """
+    node_acronym = 'PL'
+    number_of_parameters = 7
+
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'PL'
-        self.number_of_parameters = 7
 
         # self.default_parameters = ['gaussian', 3e-3, 1.0, 10e-9, 1.56e-6, True]
         self.default_parameters = ['gaussian', 100e-12, 1.0, 10e-9, 1.56e-6, True, 1e3]
@@ -77,11 +78,12 @@ class PulsedLaser(Input):
 class ContinuousWaveLaser(Input):
     """
     """
+    node_acronym = 'CW'
+    number_of_parameters = 4
 
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'CW'
-        self.number_of_parameters = 4
+
         self.default_parameters = [0.04, 1.55e-6, 55.0, 0.1e3] # default OSNR and linewidth from: https://www.nktphotonics.com/lasers-fibers/product/koheras-adjustik-low-noise-single-frequency-lasers/
 
         self.upper_bounds = [0.04, 1.56e-6, 200.0, 1.0e6] # upper bound for osnr randomly set

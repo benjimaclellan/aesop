@@ -10,6 +10,8 @@ unit = UnitRegistry()
 import autograd.numpy as np
 
 from ..node_types import SinglePath
+from lib.base_classes import NodeType
+
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_, dB_to_amplitude_ratio
@@ -21,10 +23,9 @@ class CorningFiber(SinglePath):
     """
 
     """
-
+    node_acronym = 'DF'
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'DF'
 
         self.number_of_parameters = 1
         self.default_parameters = [1.0]
@@ -76,10 +77,10 @@ class VariableOpticalAttenuator(SinglePath):
     """
 
     """
+    node_acronym = 'VOA'
 
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'VOA'
 
         self.number_of_parameters = 1
         self.default_parameters = [0.0]
@@ -113,6 +114,7 @@ class VariableOpticalAttenuator(SinglePath):
 class PhaseModulator(SinglePath):
     """
     """
+    node_acronym = 'PM'
 
     def __init__(self, phase_noise_points=None, **kwargs):
         # fixing this up, because phase noise points isn't a proper parameter, just a way to GET the proper param
@@ -124,8 +126,6 @@ class PhaseModulator(SinglePath):
                 kwargs['parameters_from_name']['FWHM_linewidth'] = FWHM
 
         self.node_lock = False
-        self.node_acronym = 'PM'
-
 
         self.number_of_parameters = 4
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
@@ -183,10 +183,10 @@ class IntensityModulator(SinglePath):
     """
 https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/application-reports/ixblue/introduction-to-modulator-bias-controllers.pdf
     """
+    node_acronym = 'IM'
 
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'IM'
 
         self.number_of_parameters = 3
         self.default_parameters = [1.0, 1.0e9, 0.010001]
@@ -237,10 +237,10 @@ class WaveShaper(SinglePath):
     number_of_bins = 15
     frequency_bin_width = 12e9
     extinction_ratio = 10 ** (-35 / 10)
+    node_acronym = 'WS'
 
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'WS'
 
         number_of_bins = self.number_of_bins
         self._number_of_bins = number_of_bins
@@ -314,11 +314,11 @@ class WaveShaper(SinglePath):
 class IntegratedSplitAndDelayLine(SinglePath):
     """
     """
+    node_acronym = 'SDL'
+    number_of_parameters = 8
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'SDL'
 
-        self.number_of_parameters = 8
 
         self.default_parameters = [0.1] * self.number_of_parameters
 
@@ -402,6 +402,9 @@ class EDFA(SinglePath):
 
     TODO: figure out how to handle too powerful input signals (which are 'invalid inputs')
     """
+    node_acronym = 'EDFA'
+    number_of_parameters = 9
+
     def __init__(self, **kwargs):
         """
         Possible values to include in kwargs
@@ -415,9 +418,7 @@ class EDFA(SinglePath):
         :param alpha : parameter alpha, as defined in [1] (default value of 1 seems reasonable)
         """
         self.node_lock = False
-        self.node_acronym = 'EDFA'
 
-        self.number_of_parameters = 9
         self.upper_bounds = [50.0, 1612e-9, 1600e-9, 1625e-9, 10.0, 10.0, 15.0, 1.5, 10.0]
         self.lower_bounds = [1.0, 1535e-9, 1530e-9, 1540e-9, 1e-4, 1e-7, 0.0, 0.0, 3.0]
         self.data_types = ['float'] * self.number_of_parameters
@@ -590,17 +591,17 @@ class EDFA(SinglePath):
 
 @register_node_types_all
 class ProgrammableFilter(SinglePath):
+    node_acronym = 'PF'
+
+    number_of_bases = 10
+    _number_of_bases = number_of_bases
+    band_width = 5e12
+    extinction_ratio = 10 ** (-35 / 10)
+    number_of_parameters = 2 * number_of_bases
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'PF'
 
-        number_of_bases = 10
-        self._number_of_bases = number_of_bases
-        self.band_width = 5e12
-        self.extinction_ratio = 10 ** (-35 / 10)
-
-        self.number_of_parameters = 2 * number_of_bases
-
+        number_of_bases = self.number_of_bases
         self.default_parameters = [1.0] * number_of_bases + [0.0] * number_of_bases
 
         self.upper_bounds = [1.0] * number_of_bases + [2 * np.pi] * number_of_bases
@@ -667,11 +668,11 @@ class ProgrammableFilter(SinglePath):
 class DelayLine(SinglePath):
     """
     """
+    node_acronym = 'DL'
+    number_of_parameters = 1
     def __init__(self, **kwargs):
         self.node_lock = False
-        self.node_acronym = 'DL'
 
-        self.number_of_parameters = 1
 
         self.default_parameters = [10.0e-9]
 
@@ -709,4 +710,59 @@ class DelayLine(SinglePath):
         else:
             self.transform = None
 
+        return [state]
+
+
+
+
+class PhaseShifter(NodeType):
+    """
+    This will be used in ASOPE to search for 'sensing' setups, i.e. ones for which an objective function has the largest
+    sensitivity to a phase shift (i.e. large first-order derivative w.r.t. this phase value)
+    """
+    node_acronym = 'PS'
+    number_of_parameters = 1
+
+    def __init__(self, **kwargs):
+        self.node_lock = True
+        self._node_type = "signal node"
+
+        self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+        self._range_output_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
+
+
+        self.default_parameters = [0.5*np.pi]
+
+        self.upper_bounds = [+1.0*np.pi]
+        self.lower_bounds = [-1.0*np.pi]
+        self.data_types = ['float']
+        self.step_sizes = [None]
+        self.parameter_imprecisions = [0.1*np.pi]
+        self.parameter_units = [unit.rad]
+        self.parameter_locks = [True]
+        self.parameter_names = ['phase']
+        self.parameter_symbols = [r"$x_{\phi}$"]
+
+        self._loss_dB = -0.0 # dB
+
+        self._n = 1.444
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, states, propagator, num_inputs=1, num_outputs=1, save_transforms=False):  # node propagate functions always take a list of propagators
+        state = states[0]
+        phase = self.parameters[0]
+
+        delay = propagator.central_wl / (2.0 * np.pi) * phase
+        length = (propagator.speed_of_light / self._n) * delay
+        beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
+        state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
+        if save_transforms:
+            transform = np.zeros_like(propagator.t).astype('float')
+            transform[(np.abs(propagator.t - (-delay))).argmin()] = 1
+            self.transform = (('t', transform, 'delay'),)
+        else:
+            self.transform = None
         return [state]

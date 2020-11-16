@@ -33,7 +33,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         t1 = time.process_time()
         res = scipy.optimize.minimize(graph.func, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 50},
+                                      options={'disp': verbose, 'maxiter': 5},
                                       callback=(callback if log_callback else null_callback),
                                       jac=graph.grad)
         t2 = time.process_time()
@@ -43,6 +43,10 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         log = pd.DataFrame(LOG)
         log['time'] = log['iteration']/np.max(log['iteration']) * (t2-t1)
         return graph, x, graph.func(x), log
+
+    if method == 'NULL':
+        if verbose: print("Null parameter optimization - only for testing topology optimization. No parameter optimization will occur.")
+        return graph, x0, graph.func(x0), None
 
     if method == 'L-BFGS+PSO':
         from pyswarm import pso

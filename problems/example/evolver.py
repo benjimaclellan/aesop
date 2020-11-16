@@ -89,11 +89,13 @@ class ProbabilityLookupEvolver(object):
     This class has the most basic probability selection: if a given operator can possibly be run on a node/edge, it will be assigned a value of one.
     If it is not possible, it is assigned a value of zero. Probability are normalized prior to selecting the operator
     """
-    def __init__(self, verbose=False, debug=False, **attr):
+
+    def __init__(self, verbose=False, debug=False, permanent_nodes=None, **attr):
         self.verbose = verbose
+        self.debug = debug
         self.evo_op_list = list(configuration.EVOLUTION_OPERATORS.values()) # we pick these out because technically dictionary values are not ordered
                                                                             # so because we need our matrix order to be consistent, 
-        self.debug = debug
+        self.permanent_nodes = permanent_nodes
         super().__init__(**attr)
     
     def evolve_graph(self, graph, evaluator, generation=None):
@@ -109,12 +111,17 @@ class ProbabilityLookupEvolver(object):
 
         self.update_graph_matrix(graph, evaluator)
 
+        if self.permanent_nodes is not None:
+            # here we will have custom rules to ensure nodes are permanent
+            self.ensure_permanent_nodes(graph)
+            graph.evo_probabilities_matrix.normalize_matrix()
+
         if self.verbose:
             print(f'evolving graph:')
             print(graph)
 
-        if self.debug:
-            print(f'evolution probability matrix for graph')
+        if debug:
+            print(f'evolution probability matrix for graph {graph}')
             print(graph.evo_probabilities_matrix)
             print()
 
@@ -134,6 +141,13 @@ class ProbabilityLookupEvolver(object):
         assert np.logical_and(lower_bounds <= x, x <= upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
 
         return graph, evo_op
+
+    def ensure_permanent_nodes(self, graph):
+        # for node in self.permanent_nodes:
+        #     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(0.0, node, SwapNode)
+        #     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(0.0, node, RemoveNode)
+        #     print(f'ensuring we dont swap {node}')
+            return
 
     def create_graph_matrix(self, graph, evaluator):
         """

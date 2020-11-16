@@ -9,6 +9,9 @@ import ray
 import random
 from autograd.numpy.numpy_boxes import ArrayBox
 
+import networkx as nx
+import config.config as config
+
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
 from algorithms.speciation import Speciation, NoSpeciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT
@@ -20,7 +23,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           crossover_maker=None,
                           ga_opts=None, update_rule='random',
                           target_species_num=4, protection_half_life=None,
-                          cluster_address=None, local_mode=False):
+                          cluster_address=None, local_mode=False, include_dashboard=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
     # prev test we were using
@@ -53,8 +56,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
     # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=False, ignore_reinit_error=True)
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
+
+    # start_graph = ray.put(copy.deepcopy(graph))
+
 
     # save the objects for analysis later
     io.save_json(ga_opts, 'ga_opts.json')
@@ -98,42 +104,43 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         # update logbook and hall of fame
         logbook_update(generation, population, log, log_metrics, time=(time.time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
-    # save a figure which quickly demonstrates the results of the run as a .pdf files
-    fig, axs = plt.subplots(nrows=ga_opts['n_hof'], ncols=2, figsize=[5, 2*ga_opts['n_hof']])
-    for i, (score, graph) in enumerate(hof):
-        graph.score = score
-
-        graph.propagate(propagator, save_transforms=False)
-        hof_i_score = evaluator.evaluate_graph(graph, propagator)
-        # ---- Investigating the HoF not matching weirdness
-        x, *_ = graph.extract_parameters_to_list()
-        graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-        hof_i_score_from_graph = graph.func(x)
-
-        print(f'HoF: {graph}')
-        x, *_ = graph.extract_parameters_to_list()
-        print(f'{x}\n')
-        # -------------------------------------------------
-        if score != hof_i_score: print(f"HOF final score calculation does not match. Score saved: {score}, calculated score eval: {hof_i_score}, calculated score graph: {hof_i_score_from_graph}")
-
-        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
-
-        state = graph.measure_propagator(-1)
-        if ga_opts['n_hof'] > 1:
-            graph.draw(ax=axs[i,0], legend=True)
-            axs[i,1].plot(propagator.t, evaluator.target, label='Target')
-            axs[i,1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
-        else:
-            graph.draw(ax=axs[0], legend=True)
-            axs[1].plot(propagator.t, evaluator.target, label='Target')
-            axs[1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
-
-    io.save_fig(fig=fig, filename='halloffame.png')
     io.save_object(log, 'log.pkl')
 
     io.close_logging()
     evolver.close()
-    return hof[0][1], hof[0][0], log # hof is actually a list in and of itself, so we only look at the top element
+    return hof, log # hof is actually a list in and of itself, so we only look at the top element
+
+def save_hof(hof, io):
+    for i, (score, graph) in enumerate(hof):
+        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
+    return
+
+def plot_hof(hof, propagator, evaluator, io):
+    # save a figure which quickly demonstrates the results of the run as a .pdf files
+    fig, axs = plt.subplots(nrows=len(hof), ncols=3, figsize=[5, 2 * len(hof)])
+    for i, (score, graph) in enumerate(hof):
+        graph.score = score
+        graph.propagate(propagator, save_transforms=False)
+        hof_i_score = evaluator.evaluate_graph(graph, propagator)
+        if score != hof_i_score: print(f"HOF final score calculation does not match. Score saved: {score}, calculated score eval: {hof_i_score}")
+
+        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
+
+        state = graph.measure_propagator(-1)
+        if len(hof) > 1:
+            np.expand_dims(axs, 0)
+
+        graph.draw(ax=axs[i, 0], legend=True)
+        axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
+        axs[i, 1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+        axs[i, 2].set(xticks=[], yticks=[])
+        axs[i, 2].grid = False
+        axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
+        # else:
+        #     graph.draw(ax=axs[0], legend=True)
+        #     axs[1].plot(propagator.t, evaluator.target, label='Target')
+        #     axs[1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+    io.save_fig(fig=fig, filename='halloffame.png')
 
 
 def save_scores_to_graph(population):
@@ -145,29 +152,120 @@ def init_hof(n_hof):
     hof = [(None, None) for i in range(n_hof)]
     return hof
 
+def graph_kernel_map_to_nodetypes(_graph):
+    graph_relabelled = nx.relabel_nodes(_graph, {node: _graph.nodes[node]['model'].node_acronym for node in _graph.nodes})
+    all_node_relabels = []
+    for node_subtypes in config.NODE_TYPES_ALL.values():
+        for node_subtype in node_subtypes.values():
+            all_node_relabels.append(node_subtype.node_acronym)
+    graph_relabelled.add_nodes_from(all_node_relabels)
+    return graph_relabelled
 
-def update_hof(hof, population, verbose=False):
-    for ind_i, (score, ind) in enumerate(population):
-        for hof_j, (hof_score, hof_ind) in enumerate(hof):
-            if hof_score is None:
-                hof.insert(hof_j, (score, copy.deepcopy(ind)))
-                if verbose:
-                    print(f'Replacing HOF individual {hof_j}, new score of {score}')
-                    print(f'New HoF: {ind}')
-                    x, *_ = ind.extract_parameters_to_list()
-                    print(f'{x}\n')
-                hof.pop()
+def similarity_full_ged(_graph1, _graph2):
+    sim = next(nx.algorithms.similarity.optimize_graph_edit_distance(_graph1, _graph2))  # faster, but less accurate
+    return sim
+
+def similarity_reduced_ged(_graph1, _graph2):
+    g1, g2 = graph_kernel_map_to_nodetypes(_graph1), graph_kernel_map_to_nodetypes(_graph2)
+    for _graph in (g1, g2):
+        for node in _graph.nodes:
+            _graph.nodes[node]['type'] = node
+
+    def node_match(v1, v2):
+        if v1['type'] == v2['type']:
+            return True
+        else:
+            return False
+        # return nx.algorithms.similarity.graph_edit_distance(g1, g2, node_match=node_match)
+    sim =  next(nx.algorithms.similarity.optimize_graph_edit_distance(g1, g2, node_match=node_match)) # faster, but less accurate
+    return sim
+
+def update_hof(hof, population, similarity_measure='reduced_ged', threshold_value=0.0, verbose=False):
+    """
+
+    :param hof: list of N tuples, where each tuple is (score, graph) and are the best performing of the entire run so far
+    :param population: current population of graphs, list of M tuples, with each tuple (score, graph)
+    :param similarity_measure: string identifier for which similarity/distance measure to use. currently implemented are
+        'reduced_ged': a graph reduction method before using the Graph Edit Distance measurement,
+        'full_ged': directly using the Graph Edit Distance measurement on the system graphs
+    :param threshold_value: positive float. two graphs with similarity below this value are considered to be the same structure
+    :param verbose: debugging to print, boolean
+    :return: returns the updated hof, list of tuples same as input
+    """
+    debug = False
+
+    if similarity_measure == 'reduced_ged':
+        similarity_function = similarity_reduced_ged
+    elif similarity_measure == 'full_ged':
+        similarity_function = similarity_full_ged
+    else:
+        raise NotImplementedError('this is not an implemented graph measure function. please use reduced_ged or full_ged.')
+
+
+    for i, (score, graph) in enumerate(population):
+        if debug: print(f'\n\nNow checking with population index {i}')
+
+        insert = False
+        insert_ind = None
+        remove_ind = -1
+        check_similarity = True
+        for j, (hof_j_score, hof_j) in enumerate(hof):
+            print(f'checking score against index {j} of the hof')
+            if hof_j_score is None:
+                insert = True
+                insert_ind = j
+                check_similarity = True
                 break
 
-            if score < hof_score:
-                hof.insert(hof_j, (score, copy.deepcopy(ind)))
-                if verbose:
-                    print(f'Replacing HOF individual {hof_j}, new score of {score}')
-                    print(f'New HoF: {ind}')
-                    x, *_ = ind.extract_parameters_to_list()
-                    print(f'{x}\n')
-                hof.pop()
+            # if performing better, go to the next hof candidate with the next best score
+            elif score < hof_j_score:
+                insert = True
+                insert_ind = j
+                check_similarity = True
+                if debug: print(f'Better score than index {j} of the hof')
                 break
+
+            else:
+                # no need to check similarity if the score is worse than all hof graphs
+                check_similarity = False
+
+        if not check_similarity:
+            if debug: print(f'There is no need to check the similarity')
+
+
+        if check_similarity and (similarity_measure is not None):
+            # similarity check with all HoF graphs
+            for k, (hof_k_score, hof_k) in enumerate(hof):
+                if debug: print(f'Comparing similarity of with population index {i} with hof index {k}')
+
+                if hof_k is not None:
+                    sim = similarity_function(graph, hof_k)
+
+                    if sim < threshold_value:
+                        # there is another, highly similar graph in the hof
+                        if k < j:
+                            # there is a similar graph with a better score, do not add graph to hof
+                            insert = False
+                            if debug: print(f'A similar, but better performing graph exists - the current graph will not be added')
+                            break # breaks out of 'k' loop
+                        elif k >= j:
+                            # there is a similar graph with a worse score, add in that location instead
+                            insert = True
+                            remove_ind = k
+                            if debug: print(f'A similar graph exists at index {k} of the hof. The current graph scores better and will be added')
+                            break
+                    else:
+                        # if verbose: print(f'Similarity of {sim} is not below the threshold')
+                        pass
+        if insert: # places this graph into the insert_ind index in the halloffame
+            hof[remove_ind] = 'x'
+            hof.insert(insert_ind, (score, copy.deepcopy(graph)))
+            hof.remove('x')
+            if verbose: print(f'Replacing HOF individual {remove_ind}, new score of {score}')
+        else:
+            if verbose: print(f'Not adding population index {i} into the hof')
+
+
     return hof
 
 
@@ -192,6 +290,8 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
 
     return population
 
+
+#%%
 
 # def update_population_crossover_test(population, evolver, evaluator, **hyperparameters):
 #     graph0 = population[0][1]
@@ -393,7 +493,7 @@ def parameters_optimize_complete(ind, evaluator, propagator):
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
         x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='L-BFGS+GA', verbose=False)
+        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='NULL', verbose=True)
 
         return score, graph
     except Exception as e:

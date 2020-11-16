@@ -127,3 +127,14 @@ class EvolutionOperators(object):
     def __init__(self, **attr):
         super().__init__(**attr)
         return
+
+
+class TerminalNode(object):
+    """Parent class
+    """
+
+    __internal_var = None
+
+    def __init__(self, **attr):
+        super().__init__(**attr)
+        return
