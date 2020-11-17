@@ -32,6 +32,7 @@ from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from problems.example.assets.additive_noise import AdditiveNoise
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
@@ -46,26 +47,35 @@ from algorithms.topology_optimization import topology_optimization
 
 plt.close('all')
 
+
+AdditiveNoise.noise_on = False
+
 if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
 
-    nodes = {'source':TerminalSource(),
-             0:VariablePowerSplitter(),
-             'sink':TerminalSink()}
+    # nodes = {'source':TerminalSource(),
+    #          0:VariablePowerSplitter(),
+    #          'sink':TerminalSink()}
+    #
+    # edges = {('source', 0):ContinuousWaveLaser(),
+    #          (0,'sink'):Photodiode(),
+    #          }
 
-    edges = {('source', 0):ContinuousWaveLaser(),
-             (0,'sink'):PhaseModulator(),
-             }
+    # num_inputs, num_outputs = 6, 10
+    # states = VariablePowerSplitter().propagate(num_inputs*[propagator.state], propagator, num_inputs, num_outputs)
+    # print(len(states))
+    # print(states[0].shape)
 
     nodes = {'source': TerminalSource(),
              0: VariablePowerSplitter(),
              1: VariablePowerSplitter(),
              'sink': TerminalSink()}
 
-    edges = {('source', 0): ContinuousWaveLaser(),
-             (0, 1): PhaseModulator(),
-             (0, 1): DispersiveFiber(),
-             (1, 'sink'):Photodiode(),
+    edges = {('source', 0): ContinuousWaveLaser(parameters=[1]),
+             (0, 1, 0): PhaseModulator(parameters=[1, 6e9, 0, 0]),
+             (0, 1, 1): DispersiveFiber(parameters=[0]),
+             (0, 1, 2): PhaseModulator(parameters=[0.3, 24e9, 0, 1]),
+             (1, 'sink'):MeasurementDevice(),
              }
 
     graph = Graph(nodes, edges)
