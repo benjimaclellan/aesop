@@ -151,9 +151,31 @@ class SwapComponent(EvolutionOperators):
         super().__init__(**attr)
         return
     
-    def apply_evolution(self, graph, interface):
-        pass
-    
+    def apply_evolution(self, graph, node_edge):
+        if node_edge in graph.nodes: #
+            node_set = self.node_models - set([graph.nodes[node_edge]['model'].__class__])
+            self._swap_if_possible(graph, node_edge, node_set, True)
+        elif graph.nodes[node_edge[0]]['model']._node_type == 'source node':
+            source_set = self.source_models - set([graph.edges[node_edge]['model'].__class__])
+            self._swap_if_possible(graph, node_edge, source_set, False)
+        elif graph.nodes[node_edge[1]]['model']._node_type == 'sink node':
+            sink_set = self.sink_models - set([graph.edges[node_edge]['model'].__class__])
+            self._swap_if_possible(graph, node_edge, sink_set, False)
+        else:
+            edge_set = self.edge_models - set([graph.edges[node_edge]['model'].__class__])
+            self._swap_if_possible(graph, node_edge, source_set, False)
+
+        return graph
+
+    def _swap_if_possible(self, graph, node_edge, swap_set, is_node):
+        if len(swap_set) != 0:
+            if is_node:
+                graph.nodes[node_edge]['model'] = random.sample(swap_set, 1)[0]()
+            else:
+                graph.edges[node_edge]['model'] = random.sample(swap_set, 1)[0]()
+        elif self.verbose:
+            print(f'WARNING: no valid source models to swap with, swap was not executed')
+
     def possible_evo_locations(self, graph):
         edges = [edge for edge in graph.edges if not graph.edges[edge]['model'].protected]
         nodes = [node for node in graph.nodes if (not graph.nodes[node]['model'].protected and \

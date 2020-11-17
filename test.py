@@ -29,7 +29,7 @@ from problems.example.node_types_subclasses.single_path import DispersiveFiber, 
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent
 
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
@@ -270,34 +270,45 @@ def get_test_graph0():
     # print(f'graph interfaces: {graph.interfaces}')
     return graph
 
-
-def test_evo_op_add_comp():
-    graph = get_test_graph0()
-    evo_op = AddSeriesComponent()
+def test_evo_op(graph, evo_op):
     print(f'Allowed evolution locations for this comp:')
-    print(evo_op.possible_evo_locations(graph))
-    new_graph = evo_op.apply_evolution(graph, {'node':1, 'edge':(1, 'sink', 0)})
+    possible_locations = evo_op.possible_evo_locations(graph)
+    print(f'possible locations: {possible_locations}')
+    location = random.choice(possible_locations)
+    print(f'location: {location}')
+    new_graph = evo_op.apply_evolution(graph, location)
     print(f'new graph: \n{new_graph}')
     for edge in graph.edges:
         print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
+
+
+def test_evo_op_add_comp():
+    graph = get_test_graph0()
+    print('ADD IN SERIES:')
+    evo_op = AddSeriesComponent()
+    test_evo_op(graph, evo_op)
 
 
 def test_evo_op_remove_comp():
     graph = get_test_graph0()
+    print('REMOVE COMP:')
     evo_op = RemoveComponent()
-    print(f'Allowed evolution locations for this comp:')
-    print(evo_op.possible_evo_locations(graph))
-    new_graph = evo_op.apply_evolution(graph, {'node':1, 'edge':(0, 1, 0)})
-    print(f'new graph: \n{new_graph}')
-    for edge in graph.edges:
-        print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
-    print(f"splitter param: {new_graph.nodes[0]['model'].parameters}")
+    test_evo_op(graph, evo_op)
+
+
+def test_evo_op_swap_comp():
+    graph = get_test_graph0()
+    print('SWAP COMP:')
+    evo_op = SwapComponent(verbose=True)
+    test_evo_op(graph, evo_op)
+
 
 if __name__ == "__main__":
-    random.seed(5)
+    random.seed(3)
     np.random.seed(5)
     test_evo_op_add_comp()
     test_evo_op_remove_comp()
+    test_evo_op_swap_comp()
     # unittest.main()
     # test_differentiability()
     # test_differentiability_graphical(include_locked=True)

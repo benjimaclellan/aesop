@@ -119,8 +119,11 @@ class EvolutionOperators(object):
     """Parent class
     """
 
-    def __init__(self, **attr):
+    def __init__(self, verbose=False, **attr):
         super().__init__(**attr)
+        self.verbose = verbose
+        self.source_models = set(configuration.NODE_TYPES_ALL['SourceModel'].values())
+        self.sink_models = set(configuration.NODE_TYPES_ALL['SinkModel'].values())
         self.edge_models = set(configuration.NODE_TYPES_ALL['SinglePath'].values())
         self.node_models = set(configuration.NODE_TYPES_ALL['MultiPath'].values())
     
