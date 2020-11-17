@@ -12,11 +12,13 @@ from problems.example.graph import Graph
 
 
 # TODO: add hashable key to edges, to manage multidigraphs
+# TODO: add verbose mode
 # TODO: handle implementation assumptions
 """
 Assumptions on implementation:
 1. Connectors automatically scale to # of inputs / outputs
 2. Connectors hold instance vars called max_in, and max_out, which describe their max number of inputs and outputs
+3. Models are protected: nodes/edges themselves are not. I.e. nodes / edges have a property s.t. graph.nodes[node]['model'].protected is a boolean
 """
 
 
@@ -84,8 +86,6 @@ class AddParallelComponent(EvolutionOperators):
     
     TODO: consider input and output caps
     """
-    potential_node_types = set(['SinglePath'])
-
     def __init__(self, **attr):
         super().__init__(**attr)
         return
@@ -104,24 +104,39 @@ class AddParallelComponent(EvolutionOperators):
 class RemoveComponent(EvolutionOperators):
     """
     REMOVE EDGE:
-    randomly select one edge (excluding the edges connected to source/sink, i.e. where laser/PD models are)
-    remove the selected edge, and if there are no other paths between U, V of the selected edge then merge them
-    
-    Note: protected edges/nodes/connectors must not be touched. Definition of protected is given below in SwapComponent
+    randomly select one interface (excluding the interfaces of source/sink, i.e. where laser/PD models are)
+    remove the selected interface's edge, and if there are no other paths between U, V of the selected edge then merge them
+    while keeping the connector-type of the interface's node.
+
+    Note: only the edge of the interface matters, UNLESS there are no other paths between U, V
+    Note: protected edges/nodes must not be touched. Definition of protected is given below in SwapComponent
     TODO: make rule about which model is kept
 
     """
-    potential_node_types = set(['SinglePath'])
-
     def __init__(self, **attr):
         super().__init__(**attr)
         return
     
     def apply_evolution(self, graph, interface):
-        pass
+        # 1. Remove the edge
+        # TODO: fix such that the edges have a hashable key
+        graph.remove_edge(interface['edge'][0], interface['edge'][1])
+
+        # 2. check whether we need to merge nodes
+        if not nx.algorithms.shortest_paths.generic.has_path(graph, interface['edge'][0], interface['edge'][1]):
+            # 3. If not, merge U, V keeping the datatype of U if interface['node'] == U, keeping the datatype of V otherwise
+            # note: the merge leaves the label of U in the graph, regardless of which model we keep
+            save_node_dict = graph.nodes[interface['node']]
+            nx.algorithms.minors.contracted_nodes(graph, interface['edge'][0], interface['edge'][1], self_loops=False, copy=False)
+            graph.nodes[interface['edge'][0]].update(**save_node_dict)
+            # TODO: function call to update the connector model on U
+        
+        return graph
     
     def possible_evo_locations(self, graph):
-        pass
+        interfaces = [interface for interface in graph.interfaces if \
+                     (interface['edge'][0] != 'source' and interface['edge'][1] != 'sink' and not graph.edges[interface['edge']]['model'].protected)]
+        return interfaces
 
 
 @register_evolution_operators
@@ -132,8 +147,6 @@ class SwapComponent(EvolutionOperators):
     i.e. source or sink models for some problems with a fixed laser,
     or in the 'sensing' problem, a phase shift element is fixed and must be kept)
     """
-    potential_node_types = set(['SinglePath', 'MultiPath'])
-
     def __init__(self, **attr):
         super().__init__(**attr)
         return
@@ -142,4 +155,8 @@ class SwapComponent(EvolutionOperators):
         pass
     
     def possible_evo_locations(self, graph):
-        pass
+        edges = [edge for edge in graph.edges if not graph.edges[edge]['model'].protected]
+        nodes = [node for node in graph.nodes if (not graph.nodes[node]['model'].protected and \
+                                                      graph.nodes[node]['model']._node_type != 'source node' and \
+                                                      graph.nodes[node]['model']._node_type != 'sink node')]
+        return nodes + edges

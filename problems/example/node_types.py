@@ -100,7 +100,7 @@ class TerminalSink(NodeTypeParent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._node_type = "source node"
+        self._node_type = "sink node"
 
         self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
         self._range_output_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children

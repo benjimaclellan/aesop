@@ -29,7 +29,7 @@ from problems.example.node_types_subclasses.single_path import DispersiveFiber, 
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent
 
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
@@ -252,32 +252,52 @@ def test_distributed_computing():
     ray.shutdown()
     return
 
-def get_test_graph():
+def get_test_graph0():
+    diff_splitter = VariablePowerSplitter()
+    diff_splitter.parameters[0] = 0.1
+
     nodes = {'source':TerminalSource(),
             0:VariablePowerSplitter(),
-            1:VariablePowerSplitter(),
+            1:diff_splitter,
             'sink':TerminalSink()}
     edges = {('source', 0):ContinuousWaveLaser(),
              (0, 1):PhaseModulator(),
-            (1,'sink'):Photodiode(),
+             (1,'sink'):Photodiode(),
             }
     graph = Graph(nodes, edges)
     # graph.assert_number_of_edges()
-    print(f'graph edges: {graph.edges}')
-    print(f'graph interfaces: {graph.interfaces}')
+    # print(f'graph edges: {graph.edges}')
+    # print(f'graph interfaces: {graph.interfaces}')
     return graph
 
-def test_evo_op():
-    random.seed(5)
-    graph = get_test_graph()
+
+def test_evo_op_add_comp():
+    graph = get_test_graph0()
     evo_op = AddSeriesComponent()
+    print(f'Allowed evolution locations for this comp:')
+    print(evo_op.possible_evo_locations(graph))
     new_graph = evo_op.apply_evolution(graph, {'node':1, 'edge':(1, 'sink', 0)})
     print(f'new graph: \n{new_graph}')
     for edge in graph.edges:
         print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
 
+
+def test_evo_op_remove_comp():
+    graph = get_test_graph0()
+    evo_op = RemoveComponent()
+    print(f'Allowed evolution locations for this comp:')
+    print(evo_op.possible_evo_locations(graph))
+    new_graph = evo_op.apply_evolution(graph, {'node':1, 'edge':(0, 1, 0)})
+    print(f'new graph: \n{new_graph}')
+    for edge in graph.edges:
+        print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
+    print(f"splitter param: {new_graph.nodes[0]['model'].parameters}")
+
 if __name__ == "__main__":
-    test_evo_op()
+    random.seed(5)
+    np.random.seed(5)
+    test_evo_op_add_comp()
+    test_evo_op_remove_comp()
     # unittest.main()
     # test_differentiability()
     # test_differentiability_graphical(include_locked=True)
