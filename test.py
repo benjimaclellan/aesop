@@ -285,14 +285,14 @@ def test_evo_op(graph, evo_op):
 def test_evo_op_add_comp_series():
     graph = get_test_graph0()
     print('ADD IN SERIES:')
-    evo_op = AddSeriesComponent()
+    evo_op = AddSeriesComponent(verbose=True)
     test_evo_op(graph, evo_op)
 
 
 def test_evo_op_remove_comp():
     graph = get_test_graph0()
     print('REMOVE COMP:')
-    evo_op = RemoveComponent()
+    evo_op = RemoveComponent(verbose=True)
     test_evo_op(graph, evo_op)
 
 
@@ -311,7 +311,7 @@ def test_evo_op_add_comp_parallel():
     """
     graph = get_test_graph0()
     print(f'ADD IN PARALLEL:')
-    evo_op = AddParallelComponent()
+    evo_op = AddParallelComponent(verbose=True)
     test_evo_op(graph, evo_op)
 
 if __name__ == "__main__":

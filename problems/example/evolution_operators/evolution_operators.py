@@ -41,14 +41,16 @@ class AddSeriesComponent(EvolutionOperators):
     def apply_evolution(self, graph, interface):  
         # 1. Pick/create new models
         new_edge_model = random.sample(self.edge_models, 1)[0]()
+        new_edge_model_name = new_edge_model.__class__.__name__
         new_node_model = random.sample(self.node_models, 1)[0]()
+        new_node_model_name = new_node_model.__class__.__name__
         node_id = graph.get_next_valid_node_ID()
         # 2. Save previous edge model / other info
         interface_edge_dict = graph.edges[interface['edge']]
 
         # 3. Add node and edge, and connect properly
-        graph.add_node(node_id, **{'model':new_node_model, 'name':new_node_model.__class__.__name__, 'lock': False})
-        edge_dict = {'model':new_edge_model, 'name':new_edge_model.__class__.__name__, 'lock':False}
+        graph.add_node(node_id, **{'model':new_node_model, 'name': new_node_model_name, 'lock': False})
+        edge_dict = {'model':new_edge_model, 'name':new_edge_model_name, 'lock':False}
         # TODO: use the key attribute to pick specific edge!
         graph.remove_edge(interface['edge'][0], interface['edge'][1])
 
@@ -60,6 +62,10 @@ class AddSeriesComponent(EvolutionOperators):
             graph.add_edge(node_id, interface['node'], **edge_dict)
 
         # 4. TODO: call function call which updates connectors if need be
+
+        if self.verbose:
+            print(f"Evo Op: AddSeriesComponent | Added edge ({new_edge_model_name}) and node ({new_node_model_name}) \
+                    at the interface between node {interface['node']} and edge {interface['edge']}")
 
         return graph
 
@@ -93,7 +99,11 @@ class AddParallelComponent(EvolutionOperators):
     
     def apply_evolution(self, graph, node_tuple):
         new_edge_model = random.sample(self.edge_models, 1)[0]()
-        graph.add_edge(node_tuple[0], node_tuple[1], **{'model':new_edge_model, 'name':new_edge_model.__class__.__name__, 'lock':False})
+        new_edge_model_name = new_edge_model.__class__.__name__
+        graph.add_edge(node_tuple[0], node_tuple[1], **{'model':new_edge_model, 'name':new_edge_model_name, 'lock':False})
+        
+        if self.verbose:
+            print(f"Evo Op: AddParallelComponent | Added edge ({new_edge_model_name}) between nodes {node_tuple[0]} and {node_tuple[1]}")
         return graph
     
     def possible_evo_locations(self, graph):
@@ -133,8 +143,10 @@ class RemoveComponent(EvolutionOperators):
     def apply_evolution(self, graph, interface):
         # 1. Remove the edge
         # TODO: fix such that the edges have a hashable key
+        edge_model_name = graph.edges[interface['edge']]['model'].__class__.__name__
         graph.remove_edge(interface['edge'][0], interface['edge'][1])
 
+        merged_nodes = False
         # 2. check whether we need to merge nodes
         if not nx.algorithms.shortest_paths.generic.has_path(graph, interface['edge'][0], interface['edge'][1]):
             # 3. If not, merge U, V keeping the datatype of U if interface['node'] == U, keeping the datatype of V otherwise
@@ -143,7 +155,14 @@ class RemoveComponent(EvolutionOperators):
             nx.algorithms.minors.contracted_nodes(graph, interface['edge'][0], interface['edge'][1], self_loops=False, copy=False)
             graph.nodes[interface['edge'][0]].update(**save_node_dict)
             # TODO: function call to update the connector model on U
+            merged_nodes = True
         
+        if self.verbose:
+            message = f"Evo Op: RemoveComponent | Removed edge {interface['edge']} ({edge_model_name})"
+            if merged_nodes:
+                message += f" | Merged nodes {interface['edge'][0]} and {interface['edge'][1]} into a single {save_node_dict['model'].__class__.__name__}"
+            print(message)
+
         return graph
     
     def possible_evo_locations(self, graph):
@@ -167,29 +186,46 @@ class SwapComponent(EvolutionOperators):
         return
     
     def apply_evolution(self, graph, node_edge):
-        if node_edge in graph.nodes: #
+        if node_edge in graph.nodes: # swap node
+            initial_model_name = graph.nodes[node_edge]['model'].__class__.__name__
             node_set = self.node_models - set([graph.nodes[node_edge]['model'].__class__])
-            self._swap_if_possible(graph, node_edge, node_set, True)
-        elif graph.nodes[node_edge[0]]['model']._node_type == 'source node':
-            source_set = self.source_models - set([graph.edges[node_edge]['model'].__class__])
-            self._swap_if_possible(graph, node_edge, source_set, False)
-        elif graph.nodes[node_edge[1]]['model']._node_type == 'sink node':
-            sink_set = self.sink_models - set([graph.edges[node_edge]['model'].__class__])
-            self._swap_if_possible(graph, node_edge, sink_set, False)
-        else:
-            edge_set = self.edge_models - set([graph.edges[node_edge]['model'].__class__])
-            self._swap_if_possible(graph, node_edge, source_set, False)
+            new_model_name = self._swap_if_possible(graph, node_edge, node_set, True)
+        else: # swap edge
+            initial_model = graph.edges[node_edge]['model'].__class__
+            initial_model_name = initial_model.__name__
+            if graph.nodes[node_edge[0]]['model']._node_type == 'source node':
+                source_set = self.source_models - set([initial_model])
+                new_model_name = self._swap_if_possible(graph, node_edge, source_set, False)
+            elif graph.nodes[node_edge[1]]['model']._node_type == 'sink node':
+                sink_set = self.sink_models - set([initial_model])
+                new_model_name = self._swap_if_possible(graph, node_edge, sink_set, False)
+            else:
+                edge_set = self.edge_models - set([initial_model])
+                new_model_name = self._swap_if_possible(graph, node_edge, source_set, False)
+
+        if self.verbose:
+            print(f"Evo Op: SwapComponent | Swapped model at {node_edge} from {initial_model_name} to {new_model_name}")
 
         return graph
 
     def _swap_if_possible(self, graph, node_edge, swap_set, is_node):
+        """
+        Swaps the model at location node_edge in graph, with a value from the swap_set. Returns the name of the new model class
+        (or name of the old model class, if there is no new class. This happens if swap_set contains only the model already at node_edge)
+        """
         if len(swap_set) != 0:
             if is_node:
                 graph.nodes[node_edge]['model'] = random.sample(swap_set, 1)[0]()
+                return graph.nodes[node_edge]['model'].__class__.__name__
             else:
                 graph.edges[node_edge]['model'] = random.sample(swap_set, 1)[0]()
+                return graph.edges[node_edge]['model'].__class__.__name__
         elif self.verbose:
             print(f'WARNING: no valid source models to swap with, swap was not executed')
+            if is_node:
+                return graph.nodes[node_edge]['model'].__class__.__name__
+            else:
+                return graph.edges[node_edge]['model'].__class__.__name__
 
     def possible_evo_locations(self, graph):
         edges = [edge for edge in graph.edges if not graph.edges[edge]['model'].protected]
