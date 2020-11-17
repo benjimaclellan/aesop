@@ -292,7 +292,6 @@ class Graph(GraphParent):
 
         return self
 
-
     def measure_propagator(self, edge):
         return self._propagator_saves[edge]
 
@@ -391,23 +390,7 @@ class Graph(GraphParent):
     def propagation_order(self):
         """Returns the sorted order of nodes (based on which reverse walking the graph)
         """
-        if nx.algorithms.recursive_simple_cycles(self):  # do not proceed if there is a cycle in the graph
-            raise ValueError("There is a loop in the graph - current versions cannot simulate loops")
-
-        _propagation_order = []  # initialize the list which defines the order nodes are visited
-        node_set = set(self.nodes)  # use set type to compare which nodes have already been added
-        for it in range(len(self.nodes)):  # maximum number of times the graph needs to be checked
-            # for all nodes that haven't been added to _propagation_order, check which ones have no outgoing edges (terminal)
-            terminal_nodes = [node for node in node_set if set(self.suc(node)).issubset(set(_propagation_order))]
-            for terminal_node in terminal_nodes:
-                _propagation_order = [terminal_node] + _propagation_order  # add these terminal nodes to the beginning of the order
-            node_set = node_set - set(terminal_nodes)  # remove these terminal nodes from the our comparator set
-        return _propagation_order
-
-    @propagation_order.setter
-    def propagation_order(self, propagation_order):
-        self._propagation_order = propagation_order
-        return
+        return self._propagation_order
 
     def assert_number_of_edges(self):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
@@ -434,7 +417,7 @@ class Graph(GraphParent):
                                                      model_attributes['step_sizes'], probability_dist=probability_dist, **kwargs)
 
         self.distribute_parameters_from_list(parameters,
-                                             model_attributes['node_edge_index'],
+                                             model_attributes['models'],
                                              model_attributes['parameter_index'])
         return
 
@@ -485,26 +468,6 @@ class Graph(GraphParent):
         
         return param_infos
 
-    @staticmethod
-    def extract_attributes(_node_edge, _model, _attributes, _model_attributes, exclude_locked=True, *args):
-        """ appends into _lst all unlocked attributes (from string _attribute) in _model
-        args is always args[0] = node_edge_indices, and args[1] = parameter_indices
-        """
-        for i in range(_model.number_of_parameters):
-
-            if _model.parameter_locks[i] and exclude_locked:
-                continue
-
-            for _attribute in _attributes:
-                _model_attributes[_attribute].append(getattr(_model, _attribute)[i])
-
-            if args:
-                args[0].append(_node_edge)
-                args[1].append(i)
-
-        return
-
-
     def extract_attributes_to_list_experimental(self, attributes, get_location_indices=True, exclude_locked=True):
         """ experimental: to extract model variables to a list, based on a list of variables names """
 
@@ -512,38 +475,22 @@ class Graph(GraphParent):
         model_attributes = {}
         for attribute in attributes:
             model_attributes[attribute] = []
-
         if get_location_indices:
-            model_attributes['node_edge_index'], model_attributes['parameter_index'] = [], []  # these will help translate from a list of parameters/parameter info to a graph structure
+            model_attributes['models'], model_attributes['parameter_index'] = [], []
+            # these will help translate from a list of parameters/parameter info to a graph structure
 
-
-        # we loop through all nodes and add the relevant info (bounds, etc.)
-        for node in self.nodes:
-            model = self.nodes[node]['model']
-            if model.node_lock and exclude_locked:
-                continue
-            if get_location_indices:
-                self.extract_attributes(node, model, attributes, model_attributes, exclude_locked,
-                                        model_attributes['node_edge_index'],
-                                        model_attributes['parameter_index'])
-            else:
-                self.extract_attributes(node, model, attributes, model_attributes)
-
-
-        # here, if considering edges too, we loop through and add them to each list (instead of a node hash, it is the edge tuple)
-        if self._propagate_on_edges:
-            for edge in self.edges:
-                if 'model' in self.edges[edge]:
-                    model = self.edges[edge]['model']
-                    if model.node_lock and exclude_locked:
-                        continue
-                    if get_location_indices:
-                        self.extract_attributes(edge, model, attributes, model_attributes, exclude_locked,
-                                                model_attributes['node_edge_index'],
-                                                model_attributes['parameter_index'])
-                    else:
-                        self.extract_attributes(edge, model, attributes, model_attributes)
+        models = [self.nodes[node]['model'] for node in self.nodes] + [self.edges[edge]['model'] for edge in self.edges]
+        for model in models:
+            if not model.node_lock:
+                for i, lock in enumerate(model.parameter_locks):
+                    if not lock:
+                        for attribute in attributes:
+                            model_attributes[attribute].append(getattr(model, attribute)[i])
+                        if get_location_indices:
+                            model_attributes['models'].append(model)
+                            model_attributes['parameter_index'].append(i)
         return model_attributes
+
 
     # TODO: we need to have this extract a dynamic selection (or always all) of the model characteristics (bounds, names, type, ...)
     def extract_parameters_to_list(self, exclude_locked=True):
@@ -556,20 +503,17 @@ class Graph(GraphParent):
                                                                         exclude_locked=exclude_locked)
 
         parameters = model_attributes['parameters']
-        node_edge_index = model_attributes['node_edge_index']
+        models = model_attributes['models']
         parameter_index = model_attributes['parameter_index']
         lower_bounds = model_attributes['lower_bounds']
         upper_bounds = model_attributes['upper_bounds']
 
         return unwrap_arraybox_list(parameters), node_edge_index, parameter_index, lower_bounds, upper_bounds
 
-    def distribute_parameters_from_list(self, parameters, node_edge_index, parameter_index):
+    def distribute_parameters_from_list(self, parameters, models, parameter_index):
         """ from the lists created in 'extract_parameters_to_list', we distribute these (or altered versions, like in scipy.optimize.minimize) back to the graph"""
-        for i, (parameter, node_edge, parameter_ind) in enumerate(zip(parameters, node_edge_index, parameter_index)):
-            if type(node_edge) is tuple:  # then we know this is an edge
-                self.edges[node_edge]['model'].parameters[parameter_ind] = parameter
-            else:  # anything else is a node
-                self.nodes[node_edge]['model'].parameters[parameter_ind] = parameter
+        for i, (parameter, model, parameter_ind) in enumerate(zip(parameters, models, parameter_index)):
+            model.parameters[parameter_ind] = parameter
         return
 
     def inspect_parameters(self):

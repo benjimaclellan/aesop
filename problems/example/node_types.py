@@ -81,6 +81,21 @@ class TerminalSource(NodeTypeParent):
         super().__init__(**kwargs)
         self._node_type = "source node"
 
+        self.node_lock = True
+
+        self.default_parameters = []
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+
+        self.parameter_symbols = []
+        self.parameters = self.default_parameters
+
         self._range_input_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
         self._range_output_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
 
@@ -101,6 +116,21 @@ class TerminalSink(NodeTypeParent):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._node_type = "sink node"
+
+        self.node_lock = True
+
+        self.default_parameters = []
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+
+        self.parameter_symbols = []
+        self.parameters = self.default_parameters
 
         self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
         self._range_output_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
