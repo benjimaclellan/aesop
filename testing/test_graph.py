@@ -49,6 +49,7 @@ plt.close('all')
 
 
 AdditiveNoise.noise_on = False
+ContinuousWaveLaser.protected = True
 
 if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
@@ -74,7 +75,6 @@ if __name__ == '__main__':
     edges = {('source', 0): ContinuousWaveLaser(parameters=[1]),
              (0, 1, 0): PhaseModulator(parameters=[1, 6e9, 0, 0]),
              (0, 1, 1): DispersiveFiber(parameters=[0]),
-             (0, 1, 2): PhaseModulator(parameters=[0.3, 24e9, 0, 1]),
              (1, 'sink'):MeasurementDevice(),
              }
 

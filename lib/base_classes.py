@@ -8,7 +8,7 @@ class NodeType(object):
     """Parent class for node-type
     """
 
-    __internal_var = 4
+    protected = False
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -99,8 +99,6 @@ class Evaluator(object):
     """Parent class
     """
 
-    __internal_var = None
-
     def __init__(self):
         super().__init__()
         return
@@ -111,8 +109,6 @@ class Graph(networkx.MultiDiGraph):
     """Parent class
     """
 
-    __internal_var = None
-
     def __init__(self, **attr):
         super().__init__(**attr)
         return
@@ -121,8 +117,6 @@ class Graph(networkx.MultiDiGraph):
 class EvolutionOperators(object):
     """Parent class
     """
-
-    __internal_var = None
 
     def __init__(self, **attr):
         super().__init__(**attr)
@@ -133,7 +127,7 @@ class TerminalNode(NodeType):
     """Parent class
     """
 
-    __internal_var = None
+    protected = True
 
     def __init__(self, **attr):
         super().__init__(**attr)
