@@ -4,7 +4,6 @@
 """
 
 """
-
 import config.config as configuration
 
 def register_node_types_all(cls):

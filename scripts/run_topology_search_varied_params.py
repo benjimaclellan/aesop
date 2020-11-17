@@ -36,6 +36,7 @@ from problems.example.node_types_subclasses.inputs import PulsedLaser, Continuou
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types import SourceNode, SinkNode
 
 from algorithms.topology_optimization import topology_optimization
 
@@ -61,12 +62,13 @@ if __name__ == '__main__':
     # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
     # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
     crossover_maker = CrossoverMaker(verbose=True)
-    nodes = {0:ContinuousWaveLaser(),
-             -1:Photodiode()}
-    edges = [(0,-1)]
-
-    start_graph = Graph(nodes, edges, propagate_on_edges = False)
-    start_graph.assert_number_of_edges()
+    nodes = {'source':SourceNode(),
+            0:VariablePowerSplitter(),
+            'sink':SinkNode()}
+    edges = {('source', 0):ContinuousWaveLaser(),
+            (0,'sink'):PhaseModulator(),
+            }
+    start_graph = Graph(nodes, edges)
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     # update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']

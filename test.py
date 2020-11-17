@@ -8,6 +8,7 @@ import autograd
 import warnings
 import matplotlib.pyplot as plt
 from scipy.stats import shapiro
+import random
 
 import config.config as config
 
@@ -23,10 +24,12 @@ from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types import TerminalSource, TerminalSink
 
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent
 
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
@@ -249,8 +252,33 @@ def test_distributed_computing():
     ray.shutdown()
     return
 
+def get_test_graph():
+    nodes = {'source':TerminalSource(),
+            0:VariablePowerSplitter(),
+            1:VariablePowerSplitter(),
+            'sink':TerminalSink()}
+    edges = {('source', 0):ContinuousWaveLaser(),
+             (0, 1):PhaseModulator(),
+            (1,'sink'):Photodiode(),
+            }
+    graph = Graph(nodes, edges)
+    # graph.assert_number_of_edges()
+    print(f'graph edges: {graph.edges}')
+    print(f'graph interfaces: {graph.interfaces}')
+    return graph
+
+def test_evo_op():
+    random.seed(5)
+    graph = get_test_graph()
+    evo_op = AddSeriesComponent()
+    new_graph = evo_op.apply_evolution(graph, {'node':1, 'edge':(1, 'sink', 0)})
+    print(f'new graph: \n{new_graph}')
+    for edge in graph.edges:
+        print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
+
 if __name__ == "__main__":
+    test_evo_op()
     # unittest.main()
     # test_differentiability()
-    test_differentiability_graphical(include_locked=True)
+    # test_differentiability_graphical(include_locked=True)
     # test_distributed_computing()

@@ -13,11 +13,15 @@ import matplotlib.cbook as cb
 from itertools import cycle
 import warnings
 
+from uuid import uuid4
+
 from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
 from .assets.additive_noise import AdditiveNoise
 from lib.functions import scale_units
 from lib.autodiff_helpers import unwrap_arraybox_list
+
+from problems.example.node_types import TerminalSource, TerminalSink 
 
 class Graph(GraphParent):
     """Parent class
@@ -63,13 +67,17 @@ class Graph(GraphParent):
         propagation_order = list(nx.topological_sort(self))
         self.propagation_order = propagation_order
 
-
-
     def __str__(self):
         str_rep = ''
         for node in self.nodes:
             str_rep += f"{node}: {self.nodes[node]['model']}\n"
         return str_rep
+    
+    @property
+    def interfaces(self):
+        interfaces = [{'node': edge[0], 'edge': edge} for edge in self.edges if edge[0] != 'source'] + \
+                     [{'node':edge[1], 'edge': edge} for edge in self.edges if edge[1] != 'sink']
+        return interfaces
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
@@ -127,6 +135,9 @@ class Graph(GraphParent):
         """Return the predeccessors of a node (nodes which lead to the current one) as a list
         """
         return list(self.predecessors(node))
+    
+    def get_next_valid_node_ID(self):
+        return uuid4()
     
     def clear_propagation(self):
         self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems

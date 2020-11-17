@@ -3,6 +3,7 @@
 
 import networkx
 import uuid
+import config.config as configuration
 
 class NodeType(object):
     """Parent class for node-type
@@ -120,7 +121,23 @@ class EvolutionOperators(object):
 
     def __init__(self, **attr):
         super().__init__(**attr)
-        return
+        self.edge_models = set(configuration.NODE_TYPES_ALL['SinglePath'].values())
+        self.node_models = set(configuration.NODE_TYPES_ALL['MultiPath'].values())
+
+    
+    def apply_evolution(self, graph, location):
+        """
+        Applies evolution operator at location,
+        where location is a node, edge, or interface.
+        """
+        raise NotImplementedError('Base class evolution operator is an interface, has no implementation itself')
+
+    def check_evolution(self, graph):
+        """
+        Returns a set of all possible locations on which the evolution may be applied
+        Locations can be nodes, edges, or interfaces, depending on the evolution operator
+        """
+        raise NotImplementedError('Base class evolution operator is an interface, has no implementation itself')
 
 
 class TerminalNode(NodeType):
