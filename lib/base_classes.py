@@ -3,6 +3,7 @@
 
 import networkx
 import uuid
+import config.config as configuration
 
 class NodeType(object):
     """Parent class for node-type
@@ -123,10 +124,12 @@ class EvolutionOperators(object):
     """
 
     __internal_var = None
-
+ 
     def __init__(self, **attr):
         super().__init__(**attr)
-        return
+        self.edge_models = set(configuration.NODE_TYPES_ALL['SinglePath'].values())
+        self.node_models = set(configuration.NODE_TYPES_ALL['MultiPath'].values())
+
     
     def apply_evolution(self, graph, location):
         """
