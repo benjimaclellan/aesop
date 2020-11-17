@@ -33,6 +33,7 @@ class Graph(GraphParent):
         for node, model in nodes.items():
             self.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
         for edge, model in edges.items():
+            print(f'add edge {edge}')
             self.add_edge(edge[0], edge[1], **{'model': model, 'name': model.__class__.__name__, 'lock': False})
 
         sources = [node for node in self.nodes if self.get_in_degree(node) == 0]
@@ -40,23 +41,9 @@ class Graph(GraphParent):
         for source in sources: self.nodes[source]['source-sink'] = 'source'
         for sink in sinks: self.nodes[sink]['source-sink'] = 'sink'
 
-        # for edge in edges:
-        #     if len(edge) == 2:
-        #         self.add_edge(edge[0], edge[1])
-        #     elif len(edge) > 2:
-        #         self.add_edge(edge[0], edge[1], **{'model': edge[2], 'name': "FUNCTIONALITY NOT IMPLEMENTED", 'lock': False, 'states':None})
-        #     else:
-        #         raise TypeError("Incorrect number of arguments in the {} edge connection tuple".format(edge))
-        # self._propagate_on_edges = propagate_on_edges
-
         self._propagation_order = None
-
         self._propagator_saves = {}
 
-        # self.coupling_efficiency = coupling_efficiency
-        # if coupling_efficiency < 0 or coupling_efficiency > 1:
-        #     raise ValueError(f'Coupling efficiency: {coupling_efficiency} is unphysical (0 <= efficiency <= 1)')
-        #
         # initialize description needed for speciation
         self.speciation_descriptor = None
 
@@ -126,12 +113,10 @@ class Graph(GraphParent):
     def get_in_edges(self, node):
         """ """
         return [(u, v, k) for (u, v, k) in self.edges if v == node]
-        # return [(u, v) for (u, v) in self.edges if v == node]
 
     def get_out_edges(self, node):
         """ """
         return [(u, v, k) for (u, v, k) in self.edges if u == node]
-        # return [(u, v) for (u, v) in self.edges if u == node]
 
     def suc(self, node):
         """Return the successors of a node (nodes which follow the current one) as a list
@@ -143,21 +128,9 @@ class Graph(GraphParent):
         """
         return list(self.predecessors(node))
     
-    # @property
-    # def propagate_on_edges(self):
-    #     return self._propagate_on_edges
+    def clear_propagation(self):
+        self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems
 
-    # def clear_propagation(self):
-    #     self._propagator_saves = {}  # maybe this fixes weird, unphysical results from systems
-    #     for node in self.nodes:
-    #         if 'states' in self.nodes[node]:
-    #             self.nodes[node].pop('states')
-    #
-    #     for edge in self.edges:
-    #         if 'states' in self.edges[edge]:
-    #             self.edges[edge].pop('states')
-    #     return
-    
     def get_output_signal(self, propagator, node=None, save_transforms=False):
         """
         Propagates (with noise) through the graph, and returns the signal at node (if node is None, output node picked)
@@ -291,6 +264,7 @@ class Graph(GraphParent):
                     tmp_states.append(self._propagator_saves[incoming_edge])
 
             states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
+            print(f"In degree {self.in_degree(node)}, out degree {self.out_degree(node)}")
 
             if self.get_out_degree(node) == 0:
                 self._propagator_saves[node] = states[0] # save the final state at the source node
@@ -400,34 +374,6 @@ class Graph(GraphParent):
 
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
         return
-
-    # def draw(self, ax=None, labels=None, legend=False, method='planar', ignore_warnings=True):
-    #     """
-    #     custom plotting function to more closely resemble schematic diagrams
-    #
-    #     :param ax:
-    #     :param labels:
-    #     :return:
-    #     """
-    #     if ignore_warnings: warnings.simplefilter('ignore', category=(FutureWarning, cb.mplDeprecation))
-    #
-    #     if ax is None:
-    #         fig, ax = plt.subplots(1,1)
-    #
-    #     if labels is None:
-    #         labels = {node:f"{node}|{self.nodes[node]['model'].node_acronym}" for node in self.nodes}
-    #
-    #     if method == 'planar':
-    #         pos = nx.planar_layout(self)
-    #     elif method == 'kamada_kawai':
-    #         pos = nx.kamada_kawai_layout(self)
-    #     else:
-    #         pos = nx.planar_layout(self) # planar as default, though on occasion can fail with system graph
-    #
-    #     nx.draw_networkx(self, ax=ax, pos=pos, labels=labels, alpha=1.0, node_color='darkgrey')
-    #
-    #     if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
-    #     return
 
 
     @property

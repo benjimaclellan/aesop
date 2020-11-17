@@ -32,7 +32,16 @@ class VariablePowerSplitter(MultiPath):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 2, save_transforms=False):
+    def propagate(self, states, propagator, num_inputs, num_outputs, save_transforms=False):
+        i, j = np.arange(0, num_inputs, 1), np.arange(0, num_outputs, 1)
+        I, J = np.meshgrid(i, j)
+        S = np.exp(1j * 2 * np.pi * I * J / num_outputs)
+        states_tmp = np.stack(states, 1)
+
+        states_scattered = np.matmul(S, states_tmp)
+        states_scattered_lst = [states_scattered[:,i,:] for i in range(states_scattered.shape[1])]
+        return states_scattered_lst
+
         # theta = self.parameters[0] * np.pi/2
         #
         # C = np.array([[np.cos(theta), -1j * np.sin(theta)],
@@ -47,7 +56,6 @@ class VariablePowerSplitter(MultiPath):
         #     return states
         # else:
         #     raise ValueError("Not implemented yet: splitters should only be 2x1 or 1x2 for simplicity")
-        return [ states[0] ] * num_outputs  #TODO obviously very incorrect, just a place holder for now
 
 
 # @register_node_types_all
