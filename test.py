@@ -29,7 +29,7 @@ from problems.example.node_types_subclasses.single_path import DispersiveFiber, 
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
@@ -282,7 +282,7 @@ def test_evo_op(graph, evo_op):
         print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
 
 
-def test_evo_op_add_comp():
+def test_evo_op_add_comp_series():
     graph = get_test_graph0()
     print('ADD IN SERIES:')
     evo_op = AddSeriesComponent()
@@ -302,13 +302,25 @@ def test_evo_op_swap_comp():
     evo_op = SwapComponent(verbose=True)
     test_evo_op(graph, evo_op)
 
+def test_evo_op_add_comp_parallel():
+    """
+    TODO: test cases
+    1. No parallel possible because not enough nodes
+    2. No parallel possible due to max input/output size
+    3. Multiple options!
+    """
+    graph = get_test_graph0()
+    print(f'ADD IN PARALLEL:')
+    evo_op = AddParallelComponent()
+    test_evo_op(graph, evo_op)
 
 if __name__ == "__main__":
     random.seed(3)
     np.random.seed(5)
-    test_evo_op_add_comp()
+    test_evo_op_add_comp_series()
     test_evo_op_remove_comp()
     test_evo_op_swap_comp()
+    test_evo_op_add_comp_parallel()
     # unittest.main()
     # test_differentiability()
     # test_differentiability_graphical(include_locked=True)

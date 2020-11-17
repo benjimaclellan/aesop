@@ -75,8 +75,8 @@ class Graph(GraphParent):
     
     @property
     def interfaces(self):
-        interfaces = [{'node': edge[0], 'edge': edge} for edge in self.edges if edge[0] != 'source'] + \
-                     [{'node':edge[1], 'edge': edge} for edge in self.edges if edge[1] != 'sink']
+        interfaces = [{'node': edge[0], 'edge': edge} for edge in self.edges if self.in_degree[edge[0]] != 0] + \
+                     [{'node': edge[1], 'edge': edge} for edge in self.edges if self.out_degree[edge[1]] != 0]
         return interfaces
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):

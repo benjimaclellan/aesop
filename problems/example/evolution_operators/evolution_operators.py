@@ -3,6 +3,7 @@ import random
 import networkx as nx
 import matplotlib.pyplot as plt
 import pickle
+import itertools
 
 import config.config as configuration
 from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators,register_path_reduction_operators
@@ -16,9 +17,9 @@ from problems.example.graph import Graph
 # TODO: handle implementation assumptions
 """
 Assumptions on implementation:
-1. Connectors automatically scale to # of inputs / outputs
-2. Connectors hold instance vars called max_in, and max_out, which describe their max number of inputs and outputs
-3. Models are protected: nodes/edges themselves are not. I.e. nodes / edges have a property s.t. graph.nodes[node]['model'].protected is a boolean
+1. Connectors automatically scale to # of inputs / outputs (with a potential function call)
+2. Connectors models hold instance vars _range_input_edges, which describe their max number of inputs and outputs (this is true for now)
+3. Models are protected: nodes/edges themselves are not. I.e. nodes / edges have a property s.t. graph.nodes[node]['model'].protected is a boolean (true for now)
 """
 
 
@@ -69,7 +70,7 @@ class AddSeriesComponent(EvolutionOperators):
         
         :param graph: graph to evolve
         
-        :returns
+        :returns the interfaces (which are possible evo locations)
         """
         return graph.interfaces
 
@@ -90,14 +91,26 @@ class AddParallelComponent(EvolutionOperators):
         super().__init__(**attr)
         return
     
-    def apply_evolution(self, graph, interface):
-        pass
+    def apply_evolution(self, graph, node_tuple):
+        new_edge_model = random.sample(self.edge_models, 1)[0]()
+        graph.add_edge(node_tuple[0], node_tuple[1], **{'model':new_edge_model, 'name':new_edge_model.__class__.__name__, 'lock':False})
+        return graph
     
     def possible_evo_locations(self, graph):
         """
-        An edge can be added between 
+        An edge can be added between any two nodes ASSUMING
+        1. The nodes aren't terminal
+        2. The nodes aren't protected
+        3. The nodes haven't maxed out their in-out degree
         """
-        pass
+        # TODO: verify that the order is provided correctly (i.e. all tuples are in the correct topological sort). I think it is...
+        nodes = [node for node in nx.algorithms.dag.topological_sort(graph) \
+                                                if (graph.in_degree[node] != 0 and \
+                                                    graph.out_degree[node] != 0 and \
+                                                    not graph.nodes[node]['model'].protected and \
+                                                    graph.in_degree[node] < graph.nodes[node]['model']._range_input_edges[1] and \
+                                                    graph.out_degree[node] < graph.nodes[node]['model']._range_input_edges[1])]
+        return list(itertools.combinations(nodes, 2))
 
 @register_reduction_operators
 @register_evolution_operators
@@ -135,7 +148,9 @@ class RemoveComponent(EvolutionOperators):
     
     def possible_evo_locations(self, graph):
         interfaces = [interface for interface in graph.interfaces if \
-                     (interface['edge'][0] != 'source' and interface['edge'][1] != 'sink' and not graph.edges[interface['edge']]['model'].protected)]
+                      (graph.in_degree[interface['edge'][0]] != 0 and \
+                       graph.out_degree[interface['edge'][1]] != 0 and \
+                       not graph.edges[interface['edge']]['model'].protected)]
         return interfaces
 
 
@@ -179,6 +194,6 @@ class SwapComponent(EvolutionOperators):
     def possible_evo_locations(self, graph):
         edges = [edge for edge in graph.edges if not graph.edges[edge]['model'].protected]
         nodes = [node for node in graph.nodes if (not graph.nodes[node]['model'].protected and \
-                                                      graph.nodes[node]['model']._node_type != 'source node' and \
-                                                      graph.nodes[node]['model']._node_type != 'sink node')]
+                                                      graph.in_degree[node] != 0 and \
+                                                      graph.out_degree[node] != 0)]
         return nodes + edges
