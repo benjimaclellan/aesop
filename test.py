@@ -253,12 +253,9 @@ def test_distributed_computing():
     return
 
 def get_test_graph0():
-    diff_splitter = VariablePowerSplitter()
-    diff_splitter.parameters[0] = 0.1
-
     nodes = {'source':TerminalSource(),
             0:VariablePowerSplitter(),
-            1:diff_splitter,
+            1:VariablePowerSplitter(),
             'sink':TerminalSink()}
     edges = {('source', 0):ContinuousWaveLaser(),
              (0, 1):PhaseModulator(),
@@ -318,7 +315,7 @@ def test_evolver_base_lookup():
     graph = get_test_graph0()
     evaluator = Evaluator()
     evolver = ProbabilityLookupEvolver(verbose=True)
-    evolver.random_graph(graph, evaluator, view_evo=False)
+    evolver.random_graph(graph, evaluator, view_evo=True)
 
 if __name__ == "__main__":
     random.seed(3)

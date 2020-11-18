@@ -201,7 +201,7 @@ class SwapComponent(EvolutionOperators):
                 new_model_name = self._swap_if_possible(graph, node_edge, sink_set, False)
             else:
                 edge_set = self.edge_models - set([initial_model])
-                new_model_name = self._swap_if_possible(graph, node_edge, source_set, False)
+                new_model_name = self._swap_if_possible(graph, node_edge, edge_set, False)
 
         if self.verbose:
             print(f"Evo Op: SwapComponent | Swapped model at {node_edge} from {initial_model_name} to {new_model_name}")
