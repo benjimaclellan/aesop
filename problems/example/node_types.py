@@ -115,7 +115,7 @@ class TerminalSink(NodeTypeParent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._node_type = "source node"
+        self._node_type = "sink node"
 
         self.node_lock = True
 

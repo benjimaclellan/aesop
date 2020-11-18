@@ -29,7 +29,7 @@ from problems.example.node_types_subclasses.single_path import DispersiveFiber, 
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
@@ -252,32 +252,75 @@ def test_distributed_computing():
     ray.shutdown()
     return
 
-def get_test_graph():
+def get_test_graph0():
+    diff_splitter = VariablePowerSplitter()
+    diff_splitter.parameters[0] = 0.1
+
     nodes = {'source':TerminalSource(),
             0:VariablePowerSplitter(),
-            1:VariablePowerSplitter(),
+            1:diff_splitter,
             'sink':TerminalSink()}
     edges = {('source', 0):ContinuousWaveLaser(),
              (0, 1):PhaseModulator(),
-            (1,'sink'):Photodiode(),
+             (1,'sink'):Photodiode(),
             }
     graph = Graph(nodes, edges)
     # graph.assert_number_of_edges()
-    print(f'graph edges: {graph.edges}')
-    print(f'graph interfaces: {graph.interfaces}')
+    # print(f'graph edges: {graph.edges}')
+    # print(f'graph interfaces: {graph.interfaces}')
     return graph
 
-def test_evo_op():
-    random.seed(5)
-    graph = get_test_graph()
-    evo_op = AddSeriesComponent()
-    new_graph = evo_op.apply_evolution(graph, {'node':1, 'edge':(1, 'sink', 0)})
+def test_evo_op(graph, evo_op):
+    print(f'Allowed evolution locations for this comp:')
+    possible_locations = evo_op.possible_evo_locations(graph)
+    print(f'possible locations: {possible_locations}')
+    location = random.choice(possible_locations)
+    print(f'location: {location}')
+    new_graph = evo_op.apply_evolution(graph, location)
     print(f'new graph: \n{new_graph}')
     for edge in graph.edges:
         print(f"edge: {edge}, model: {graph.edges[edge]['model'].__class__.__name__}")
 
+
+def test_evo_op_add_comp_series():
+    graph = get_test_graph0()
+    print('ADD IN SERIES:')
+    evo_op = AddSeriesComponent(verbose=True)
+    test_evo_op(graph, evo_op)
+
+
+def test_evo_op_remove_comp():
+    graph = get_test_graph0()
+    print('REMOVE COMP:')
+    evo_op = RemoveComponent(verbose=True)
+    test_evo_op(graph, evo_op)
+
+
+def test_evo_op_swap_comp():
+    graph = get_test_graph0()
+    print('SWAP COMP:')
+    evo_op = SwapComponent(verbose=True)
+    test_evo_op(graph, evo_op)
+
+def test_evo_op_add_comp_parallel():
+    """
+    TODO: test cases
+    1. No parallel possible because not enough nodes
+    2. No parallel possible due to max input/output size
+    3. Multiple options!
+    """
+    graph = get_test_graph0()
+    print(f'ADD IN PARALLEL:')
+    evo_op = AddParallelComponent(verbose=True)
+    test_evo_op(graph, evo_op)
+
 if __name__ == "__main__":
-    test_evo_op()
+    random.seed(3)
+    np.random.seed(5)
+    test_evo_op_add_comp_series()
+    test_evo_op_remove_comp()
+    test_evo_op_swap_comp()
+    test_evo_op_add_comp_parallel()
     # unittest.main()
     # test_differentiability()
     # test_differentiability_graphical(include_locked=True)

@@ -119,11 +119,13 @@ class EvolutionOperators(object):
     """Parent class
     """
 
-    def __init__(self, **attr):
+    def __init__(self, verbose=False, **attr):
         super().__init__(**attr)
+        self.verbose = verbose
+        self.source_models = set(configuration.NODE_TYPES_ALL['SourceModel'].values())
+        self.sink_models = set(configuration.NODE_TYPES_ALL['SinkModel'].values())
         self.edge_models = set(configuration.NODE_TYPES_ALL['SinglePath'].values())
         self.node_models = set(configuration.NODE_TYPES_ALL['MultiPath'].values())
-
     
     def apply_evolution(self, graph, location):
         """
@@ -132,7 +134,7 @@ class EvolutionOperators(object):
         """
         raise NotImplementedError('Base class evolution operator is an interface, has no implementation itself')
 
-    def check_evolution(self, graph):
+    def possible_evo_locations(self, graph):
         """
         Returns a set of all possible locations on which the evolution may be applied
         Locations can be nodes, edges, or interfaces, depending on the evolution operator
