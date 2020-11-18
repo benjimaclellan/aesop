@@ -337,7 +337,7 @@ class Graph(GraphParent):
         plt.show()
         return
 
-    def optical_system_layout(self):
+    def optical_system_layout(self, debug=False):
         pos = {}
         order = list(nx.topological_sort(self))
         current_row = set([order[0]])
@@ -362,8 +362,7 @@ class Graph(GraphParent):
                 for node_j in next_row:
                     ancestors = nx.algorithms.ancestors(self, node_i)
                     if debug:
-                        print(
-                            f'current_row:{current_row}, next_row:{next_row}, node_i:{node_i}, node_j:{node_j}, nodes_to_remove:{nodes_to_remove}, ancestors:{ancestors}')
+                        print(f'current_row:{current_row}, next_row:{next_row}, node_i:{node_i}, node_j:{node_j}, nodes_to_remove:{nodes_to_remove}, ancestors:{ancestors}')
                     if node_j in nx.algorithms.ancestors(self, node_i):
                         nodes_to_remove.update(set([node_i]))
             next_row -= nodes_to_remove
