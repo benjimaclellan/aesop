@@ -352,18 +352,37 @@ class Graph(GraphParent):
                         xytext=p, textcoords='data',
                         va='center', ha='center'
                         )
+        
+        def _arrow_center(pos_start, pos_end, rad):
+            """
+            Radius sign determines whether the arrow goes clockwise (neg radius) or counterclockwise (pos radius)
+            See: https://matplotlib.org/3.1.1/gallery/userdemo/connectionstyle_demo.html
+            """
+            # 1. Find centre of circle
+            dist = np.sum(np.power(pos_end - pos_start, 2))
+            pos_avg = pos_start / 2 + pos_end / 2
+
+            # 2. Find angle of the line perpendicular to the line between start and end
+            theta = np.arctan2(pos_end[1] - pos_start[1], pos_end[0] - pos_start[0]) - np.pi / 2 
+            perp_vector = rad * dist * np.array([np.cos(theta), np.sin(theta)]) 
+            
+            # 3. New centre
+            arrow_centre = pos_avg + perp_vector
+            return arrow_centre
+
         for e in self.edges:
+            rad = 0.4 * e[2]
             ax.annotate('',
                         xy=pos[e[1]], xycoords='data',
                         xytext=pos[e[0]], textcoords='data',
                         arrowprops=dict(arrowstyle="-|>", color="0.1",
                                         shrinkA=5, shrinkB=5,
                                         patchA=None, patchB=None,
-                                        connectionstyle="arc3,rad=rrr".replace('rrr', str(0.4 * e[2])),
+                                        connectionstyle="arc3,rad=rrr".replace('rrr', str(rad)),
                                         ),
             )
             ax.annotate(self.edges[e]['model'].node_acronym,
-                        xy=pos[e[0]] / 2 + pos[e[1]] / 2 , xycoords='data',
+                        xy=_arrow_center(pos[e[0]], pos[e[1]], rad), xycoords='data',
                         )
 
         plt.axis('off')

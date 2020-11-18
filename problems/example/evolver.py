@@ -78,7 +78,6 @@ class ProbabilityLookupEvolver(object):
         TODO: can we refactor to only add possible locations and evo ops? But without traversing more...
         """
         node_pair_list = list(itertools.combinations(nx.algorithms.dag.topological_sort(graph), 2))
-        print(f'node pair list: {node_pair_list}')
         graph.evo_probabilities_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges), graph.interfaces, node_pair_list)
         for evo_op in self.evo_op_list:
             locations = evo_op.possible_evo_locations(graph)

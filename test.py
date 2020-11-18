@@ -315,7 +315,7 @@ def test_evolver_base_lookup():
     graph = get_test_graph0()
     evaluator = Evaluator()
     evolver = ProbabilityLookupEvolver(verbose=True)
-    evolver.random_graph(graph, evaluator, view_evo=True)
+    evolver.random_graph(graph, evaluator, view_evo=True, n_evolutions=20)
 
 if __name__ == "__main__":
     random.seed(3)
