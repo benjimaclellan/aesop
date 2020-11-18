@@ -128,10 +128,10 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 4
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
-        self.upper_bounds = [2*np.pi, 48.0e9, 2*np.pi, 1e9]
-        self.lower_bounds = [0.001, 2.0e9, 0.01, 0.0]
+        self.upper_bounds = [2*np.pi, 50.0e9, 2*np.pi, 1e9]
+        self.lower_bounds = [0.001, 10.0e6, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
-        self.step_sizes = [None, 2e9, None, None]
+        self.step_sizes = [None, None, None, None]
         self.parameter_imprecisions = [1.0, 1.0, 0.1, 1.0]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
         self.parameter_locks = [False, False, False, True]
@@ -185,12 +185,12 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         self.node_lock = False
 
         self.number_of_parameters = 3
-        self.default_parameters = [1.0, 1.0e9, 0.010001]
+        self.default_parameters = [1.0, 1.0e9, 0.0]
 
-        self.upper_bounds = [np.pi, 50.0e9, 2 * np.pi]
-        self.lower_bounds = [0.001, 10.0e6, 0.01]
+        self.upper_bounds = [2*np.pi, 48.0e9, 2 * np.pi]
+        self.lower_bounds = [0.0, 6.0e9, 0.0]
         self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, None, None]
+        self.step_sizes = [None, 6.0e9, None]
         self.parameter_imprecisions = [1.0, 1.0, 0.1]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad]
         self.parameter_locks = [False, False, False]
@@ -203,7 +203,7 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
 
         return
 
-    def propagate(self, states, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         depth = self.parameters[0]
         frequency = self.parameters[1]
@@ -213,7 +213,6 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
 
         if save_transforms:
             self.transform = (('t', power_( np.ones_like(state)/2.0 + np.ones_like(state) / 2.0 * np.exp(1j * transform)), 'modulation'),)
-            # self.transform = (('t', transform, 'modulation'),)
         else:
             self.transform = None
         state = state/2.0 + state / 2.0 * np.exp(1j * transform)
@@ -234,15 +233,10 @@ class WaveShaper(SinglePath):
     node_acronym = 'WS'
 
     def __init__(self, **kwargs):
-        self.node_lock = False
 
         number_of_bins = self.number_of_bins
-        self._number_of_bins = number_of_bins
-        # self.frequency_bin_width = 12e9
-        # self.extinction_ratio = 10 **( -35 / 10)
 
-        #TODO: add test to make sure (at initialization that all these variables are the same length)
-        # Then: also add one at runtime that ensure the .parameters variable is the same length
+        self.node_lock = False
         self.number_of_parameters = 2 * number_of_bins
 
         self.default_parameters = [1.0] * number_of_bins + [0.1] * number_of_bins
@@ -253,7 +247,7 @@ class WaveShaper(SinglePath):
         self.step_sizes = [None] * number_of_bins + [None] * number_of_bins
         self.parameter_imprecisions = [0.1] * number_of_bins + [0.1 * 2 * np.pi] * number_of_bins
         self.parameter_units = [None] * number_of_bins + [unit.rad] * number_of_bins
-        self.parameter_locks = 2 * self.number_of_parameters * [False]
+        self.parameter_locks = 2 * number_of_bins * [False]
         self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bins)] + \
                                ['phase{}'.format(ind) for ind in range(number_of_bins)]
         self.parameter_symbols = [r"$x_{a_{"+"{:+d}".format(ind)+r"}}$" for ind in range(-(number_of_bins-1)//2, (number_of_bins-1)//2+1)] + \
@@ -267,11 +261,11 @@ class WaveShaper(SinglePath):
     def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         # Slice at into the first half (amp) and last half (phase)
-        amplitudes = self.parameters[:self._number_of_bins]
-        phases = self.parameters[self._number_of_bins:]
+        amplitudes = self.parameters[:self.number_of_bins]
+        phases = self.parameters[self.number_of_bins:]
 
-        n = np.floor(propagator.n_samples / ((1 / propagator.dt) / self.frequency_bin_width)).astype('int')
         N = np.shape(propagator.f)[0]
+        n = np.floor(propagator.n_samples / ((1 / propagator.dt) / self.frequency_bin_width)).astype('int')
         tmp = np.ones((n, 1))
 
         a = np.array([i * tmp for i in amplitudes])
@@ -279,18 +273,23 @@ class WaveShaper(SinglePath):
 
         amp1 = np.concatenate(a)
         phase1 = np.concatenate(p)
-    
+
+
         left = np.floor((propagator.n_samples - amp1.shape[0]) / 2).astype('int')
         right = propagator.n_samples - np.ceil((propagator.n_samples - amp1.shape[0]) / 2).astype('int')
 
-        # we will pad amp1 and phase1 with zeros so they are the correct size
-        pad_left = np.ones((left, 1)) * self.extinction_ratio
-        pad_right = np.ones((N - right, 1)) * self.extinction_ratio
+        if left < 0:
+            amplitude_mask = amp1[-left:right, :]
+            phase_mask = phase1[-left:right, :]
+        else:
+            # we will pad amp1 and phase1 with zeros so they are the correct size
+            pad_left = np.ones((left, 1)) * self.extinction_ratio
+            pad_right = np.ones((N - right, 1)) * self.extinction_ratio
 
-        # Concatenate the arrays together
-        # We cannot use array assignment as it is not supported by autograd
-        amplitude_mask = np.concatenate((pad_left, amp1, pad_right), axis=0)
-        phase_mask = np.concatenate((pad_left, phase1, pad_right), axis=0)
+            # Concatenate the arrays together
+            # We cannot use array assignment as it is not supported by autograd
+            amplitude_mask = np.concatenate((pad_left, amp1, pad_right), axis=0)
+            phase_mask = np.concatenate((pad_left, phase1, pad_right), axis=0)
 
         state = ifft_(ifft_shift_(amplitude_mask * np.exp(1j * phase_mask), ax=0) * fft_(state, propagator.dt), propagator.dt)
         state = state * dB_to_amplitude_ratio(self._loss_dB)
@@ -374,7 +373,7 @@ class IntegratedSplitAndDelayLine(SinglePath):
 
 
 @register_node_types_all
-class EDFA(SinglePath):
+class OpticalAmplifier(SinglePath):
     """
     EDFA modelled as follows:
 

@@ -7,7 +7,7 @@ from problems.example.assets.propagator import Propagator
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, EDFA, DispersiveFiber, VariableOpticalAttenuator, IntensityModulator, DelayLine
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber, VariableOpticalAttenuator, IntensityModulator, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.graph import Graph
 

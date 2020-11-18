@@ -14,7 +14,7 @@ from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequency
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, EDFA, DispersiveFiber, VariableOpticalAttenuator
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber, VariableOpticalAttenuator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from problems.example.evolver import CrossoverMaker
@@ -40,7 +40,7 @@ def crossover_main():
               1: DispersiveFiber(),
               2: VariablePowerSplitter(),
               3: VariableOpticalAttenuator(),
-              4: EDFA(),
+              4: OpticalAmplifier(),
               5: VariablePowerSplitter(),
               -1: Photodiode()
              }
@@ -63,7 +63,7 @@ def max_output_main():
     nodes = {0:ContinuousWaveLaser(),
              1:PhaseModulator(),
              2:WaveShaper(),
-             3:EDFA(parameters_from_name={'max_small_signal_gain_dB':50}),
+             3:OpticalAmplifier(parameters_from_name={'max_small_signal_gain_dB':50}),
             -1:Photodiode()
             }
     edges = [(0, 1), (1, 2), (2, 3), (3, -1)]

@@ -19,16 +19,27 @@ class VariablePowerSplitter(MultiPath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        self.upper_bounds = [1.0]
-        self.lower_bounds = [0.0]
-        self.data_types = ['float']
-        self.step_sizes = [None]
-        self.parameter_imprecisions = [0.1]
-        self.parameter_units = [None]
-        self.parameter_locks = [False]
-        self.parameter_names = ['coupling_ratio']
-        self.default_parameters = [0.5]
-        self.parameter_symbols = [r"$x_r$"]
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+        self.default_parameters = []
+        self.parameter_symbols = []
+
+        # self.upper_bounds = [1.0]
+        # self.lower_bounds = [0.0]
+        # self.data_types = ['float']
+        # self.step_sizes = [None]
+        # self.parameter_imprecisions = [0.1]
+        # self.parameter_units = [None]
+        # self.parameter_locks = [False]
+        # self.parameter_names = ['coupling_ratio']
+        # self.default_parameters = [0.5]
+        # self.parameter_symbols = [r"$x_r$"]
         super().__init__(**kwargs)
         return
 
