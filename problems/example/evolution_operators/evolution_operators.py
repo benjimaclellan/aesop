@@ -46,26 +46,26 @@ class AddSeriesComponent(EvolutionOperators):
         new_node_model_name = new_node_model.__class__.__name__
         node_id = graph.get_next_valid_node_ID()
         # 2. Save previous edge model / other info
-        interface_edge_dict = graph.edges[interface['edge']]
+        interface_edge_dict = graph.edges[interface.edge]
 
         # 3. Add node and edge, and connect properly
         graph.add_node(node_id, **{'model':new_node_model, 'name': new_node_model_name, 'lock': False})
         edge_dict = {'model':new_edge_model, 'name':new_edge_model_name, 'lock':False}
         # TODO: use the key attribute to pick specific edge!
-        graph.remove_edge(interface['edge'][0], interface['edge'][1])
+        graph.remove_edge(interface.edge[0], interface.edge[1])
 
-        if interface['node'] == interface['edge'][0]: # i.e. we have a NODE -> EDGE interface, and should add our components as EDGE -> NODE
-            graph.add_edge(interface['node'], node_id, **edge_dict)
-            graph.add_edge(node_id, interface['edge'][1], **interface_edge_dict)
+        if interface.node == interface.edge[0]: # i.e. we have a NODE -> EDGE interface, and should add our components as EDGE -> NODE
+            graph.add_edge(interface.node, node_id, **edge_dict)
+            graph.add_edge(node_id, interface.edge[1], **interface_edge_dict)
         else: # we have an EDGE -> NODE interface
-            graph.add_edge(interface['edge'][0], node_id, **interface_edge_dict)
-            graph.add_edge(node_id, interface['node'], **edge_dict)
+            graph.add_edge(interface.edge[0], node_id, **interface_edge_dict)
+            graph.add_edge(node_id, interface.node, **edge_dict)
 
         # 4. TODO: call function call which updates connectors if need be
 
         if self.verbose:
             print(f"Evo Op: AddSeriesComponent | Added edge ({new_edge_model_name}) and node ({new_node_model_name}) \
-                    at the interface between node {interface['node']} and edge {interface['edge']}")
+                    at the interface between node {interface.node} and edge {interface.edge}")
 
         return graph
 
@@ -143,33 +143,33 @@ class RemoveComponent(EvolutionOperators):
     def apply_evolution(self, graph, interface):
         # 1. Remove the edge
         # TODO: fix such that the edges have a hashable key
-        edge_model_name = graph.edges[interface['edge']]['model'].__class__.__name__
-        graph.remove_edge(interface['edge'][0], interface['edge'][1])
+        edge_model_name = graph.edges[interface.edge]['model'].__class__.__name__
+        graph.remove_edge(interface.edge[0], interface.edge[1])
 
         merged_nodes = False
         # 2. check whether we need to merge nodes
-        if not nx.algorithms.shortest_paths.generic.has_path(graph, interface['edge'][0], interface['edge'][1]):
-            # 3. If not, merge U, V keeping the datatype of U if interface['node'] == U, keeping the datatype of V otherwise
+        if not nx.algorithms.shortest_paths.generic.has_path(graph, interface.edge[0],  interface.edge[1]):
+            # 3. If not, merge U, V keeping the datatype of U if interface.node == U, keeping the datatype of V otherwise
             # note: the merge leaves the label of U in the graph, regardless of which model we keep
-            save_node_dict = graph.nodes[interface['node']]
-            nx.algorithms.minors.contracted_nodes(graph, interface['edge'][0], interface['edge'][1], self_loops=False, copy=False)
-            graph.nodes[interface['edge'][0]].update(**save_node_dict)
+            save_node_dict = graph.nodes[interface.node]
+            nx.algorithms.minors.contracted_nodes(graph,  interface.edge[0],  interface.edge[1], self_loops=False, copy=False)
+            graph.nodes[interface.edge[0]].update(**save_node_dict)
             # TODO: function call to update the connector model on U
             merged_nodes = True
         
         if self.verbose:
-            message = f"Evo Op: RemoveComponent | Removed edge {interface['edge']} ({edge_model_name})"
+            message = f"Evo Op: RemoveComponent | Removed edge {interface.edge} ({edge_model_name})"
             if merged_nodes:
-                message += f" | Merged nodes {interface['edge'][0]} and {interface['edge'][1]} into a single {save_node_dict['model'].__class__.__name__}"
+                message += f" | Merged nodes { interface.edge[0]} and {interface.edge[1]} into a single {save_node_dict['model'].__class__.__name__}"
             print(message)
 
         return graph
     
     def possible_evo_locations(self, graph):
         interfaces = [interface for interface in graph.interfaces if \
-                      (graph.in_degree[interface['edge'][0]] != 0 and \
-                       graph.out_degree[interface['edge'][1]] != 0 and \
-                       not graph.edges[interface['edge']]['model'].protected)]
+                      (graph.in_degree[interface.edge[0]] != 0 and \
+                       graph.out_degree[interface.edge[1]] != 0 and \
+                       not graph.edges[interface.edge]['model'].protected)]
         return interfaces
 
 
@@ -201,7 +201,7 @@ class SwapComponent(EvolutionOperators):
                 new_model_name = self._swap_if_possible(graph, node_edge, sink_set, False)
             else:
                 edge_set = self.edge_models - set([initial_model])
-                new_model_name = self._swap_if_possible(graph, node_edge, source_set, False)
+                new_model_name = self._swap_if_possible(graph, node_edge, edge_set, False)
 
         if self.verbose:
             print(f"Evo Op: SwapComponent | Swapped model at {node_edge} from {initial_model_name} to {new_model_name}")
