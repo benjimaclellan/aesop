@@ -14,6 +14,7 @@ from itertools import cycle
 import warnings
 
 from uuid import uuid4
+from collections import namedtuple
 
 from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
@@ -70,13 +71,16 @@ class Graph(GraphParent):
     def __str__(self):
         str_rep = ''
         for node in self.nodes:
-            str_rep += f"{node}: {self.nodes[node]['model']}\n"
+            str_rep += f"{node}: {self.nodes[node]['model'].__class__.__name__}\n"
+        for edge in self.edges:
+            str_rep += f"{edge}: {self.edges[edge]['model'].__class__.__name__}\n"
         return str_rep
     
     @property
     def interfaces(self):
-        interfaces = [{'node': edge[0], 'edge': edge} for edge in self.edges if self.in_degree[edge[0]] != 0] + \
-                     [{'node': edge[1], 'edge': edge} for edge in self.edges if self.out_degree[edge[1]] != 0]
+        Interface = namedtuple('Interface', 'node edge')
+        interfaces = [Interface(node=edge[0], edge=edge) for edge in self.edges if self.in_degree[edge[0]] != 0] + \
+                     [Interface(node=edge[1], edge=edge) for edge in self.edges if self.out_degree[edge[1]] != 0]
         return interfaces
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
@@ -508,7 +512,7 @@ class Graph(GraphParent):
         lower_bounds = model_attributes['lower_bounds']
         upper_bounds = model_attributes['upper_bounds']
 
-        return unwrap_arraybox_list(parameters), node_edge_index, parameter_index, lower_bounds, upper_bounds
+        return unwrap_arraybox_list(parameters), models, parameter_index, lower_bounds, upper_bounds
 
     def distribute_parameters_from_list(self, parameters, models, parameter_index):
         """ from the lists created in 'extract_parameters_to_list', we distribute these (or altered versions, like in scipy.optimize.minimize) back to the graph"""

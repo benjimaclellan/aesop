@@ -15,7 +15,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
+from problems.example.evolver import ProbabilityLookupEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -314,13 +314,20 @@ def test_evo_op_add_comp_parallel():
     evo_op = AddParallelComponent(verbose=True)
     test_evo_op(graph, evo_op)
 
+def test_evolver_base_lookup():
+    graph = get_test_graph0()
+    evaluator = Evaluator()
+    evolver = ProbabilityLookupEvolver(verbose=True)
+    evolver.random_graph(graph, evaluator, view_evo=False)
+
 if __name__ == "__main__":
     random.seed(3)
     np.random.seed(5)
-    test_evo_op_add_comp_series()
-    test_evo_op_remove_comp()
-    test_evo_op_swap_comp()
-    test_evo_op_add_comp_parallel()
+    test_evolver_base_lookup()
+    # test_evo_op_add_comp_series()
+    # test_evo_op_remove_comp()
+    # test_evo_op_swap_comp()
+    # test_evo_op_add_comp_parallel()
     # unittest.main()
     # test_differentiability()
     # test_differentiability_graphical(include_locked=True)
