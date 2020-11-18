@@ -337,12 +337,50 @@ class Graph(GraphParent):
         plt.show()
         return
 
-    def draw(self, ax=None, ignore_warnings=True):
+    def optical_system_layout(self):
+        pos = {}
+        order = list(nx.topological_sort(self))
+        current_row = set([order[0]])
+        nodes_remaining = set(order)
+        rows = {}
+
+        flag = True
+        row_i, col_i = 0, 0
+        while flag:
+
+            if len(nodes_remaining) == 0:
+                flag = False
+                break
+
+            next_row = set()
+            for i, node_i in enumerate(list(current_row)):
+                pos[node_i] = (row_i, np.random.rand())
+                next_row.update(set(self.suc(node_i)))
+
+            nodes_to_remove = set()
+            for node_i in next_row:
+                for node_j in next_row:
+                    ancestors = nx.algorithms.ancestors(self, node_i)
+                    if debug:
+                        print(
+                            f'current_row:{current_row}, next_row:{next_row}, node_i:{node_i}, node_j:{node_j}, nodes_to_remove:{nodes_to_remove}, ancestors:{ancestors}')
+                    if node_j in nx.algorithms.ancestors(self, node_i):
+                        nodes_to_remove.update(set([node_i]))
+            next_row -= nodes_to_remove
+
+            row_i += 1
+            nodes_remaining -= current_row
+            current_row = next_row
+            return pos
+
+    def draw(self, ax=None, labels=None, method='grid', ignore_warnings=True, debug=False):
         if ignore_warnings: warnings.simplefilter('ignore', category=(FutureWarning, cb.mplDeprecation))
+
         if ax is None:
             fig, ax = plt.subplots(1,1)
         
-        pos = nx.spring_layout(self)
+        # pos = nx.spring_layout(self)
+        pos = self.optical_system_layout()
 
         nx.draw_networkx_nodes(self, pos, ax=ax, node_color='r',
                                label=[self.nodes[node]['model'].node_acronym for node in self.nodes])

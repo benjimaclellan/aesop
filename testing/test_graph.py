@@ -87,8 +87,8 @@ if __name__ == '__main__':
     # graph.propagate(propagator)
     #
     #
-    # fig, ax = plt.subplots(1,1)
-    # graph.draw(ax=ax)
+    fig, ax = plt.subplots(1,1)
+    graph.draw(ax=ax)
     #
     # state = graph.measure_propagator('sink')
     # fig, ax = plt.subplots(1, 1)
