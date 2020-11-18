@@ -14,13 +14,14 @@ import itertools
 LOG = []
 ITER = itertools.count(0,1)
 
+
 #  default use a minimizing function
 def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_callback=False, **kwargs):
-    _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
-
+    _, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
     def callback(xk):
-        # scipy.optimize.minimize unfortunately does not pass score to callback, meaning to log score we need to re-calculate (doubles computation time)
+        # scipy.optimize.minimize unfortunately does not pass score to callback,
+        # meaning to log score we need to re-calculate (doubles computation time)
         LOG.append({'iteration':next(ITER), 'score':graph.func(xk)})
         return
 
@@ -37,7 +38,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
                                       callback=(callback if log_callback else null_callback),
                                       jac=graph.grad)
         t2 = time.process_time()
-        graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
 
         log = pd.DataFrame(LOG)
@@ -55,8 +56,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         # t1 = time.process_time()
         xopt, fopt = pso(graph.func, lower_bounds, upper_bounds, f_ieqcons=None,
-                         args=(), kwargs={}, swarmsize=30, omega=0.5, phip=0.5,
-                         phig=0.5, maxiter=10, minstep=1e-8, minfunc=1e-8, debug=False)
+                         args=(), kwargs={}, swarmsize=40, omega=0.5, phip=0.5,
+                         phig=0.5, maxiter=30, minstep=1e-8, minfunc=1e-8, debug=verbose)
         # t2 = time.process_time()
         #
         # total_log = pd.DataFrame(columns=['iteration','time','score'])
@@ -81,7 +82,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         # print(total_log['time'].iloc[-1])
         # total_log = pd.concat([total_log, log], sort=True)
 
-        graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
         return graph, x, graph.func(x), fopt#total_log
 
@@ -89,8 +90,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
         t1 = time.process_time()
-        x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.8,
-                                                   rate_crx=0.8, verbose=verbose)
+        x, hof, log = parameters_genetic_algorithm(graph, n_generations=25, n_population=25, rate_mut=0.8,
+                                                   rate_crx=0.3, verbose=verbose)
         t2 = time.process_time()
 
         total_log = pd.DataFrame(columns=['iteration','time','score'])
@@ -115,31 +116,31 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         # print(total_log['time'].iloc[-1])
         total_log = pd.concat([total_log, log], sort=True)
 
-        graph.distribute_parameters_from_list(res.x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
         return graph, x, graph.func(x), total_log
     elif method == 'PSO':
         from pyswarm import pso
 
         if verbose: print("Parameter optimization: PSO algorithm")
-        _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+        _, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         xopt, fopt = pso(graph.func, lower_bounds, upper_bounds, f_ieqcons=None,
                          args=(), kwargs={}, swarmsize=30, omega=0.5, phip=0.5,
                          phig=0.5, maxiter=10, minstep=1e-8, minfunc=1e-8, debug=False)
         print(fopt)
-        graph.distribute_parameters_from_list(xopt, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(xopt, models, parameter_index)
         return graph, xopt, graph.func(xopt), fopt
 
     elif method == 'CMA':
         if verbose: print("Parameter optimization: CMA algorithm")
 
-        _, node_edge_index, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+        _, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         es = cma.CMAEvolutionStrategy(x0, 0.999,
                                       {'verb_disp': int(verbose), 'maxfevals': 1000, 'bounds': [lower_bounds, upper_bounds]})
         es.optimize(graph.func)
         res = es.result
         x = res.xbest
-        graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(x, models, parameter_index)
         return graph, x, graph.func(x), res
         
     elif method == 'ADAM':
@@ -149,7 +150,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
                                           num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
                                           eps=10 ** -8, m=None, v=None, verbose=verbose)
         res = {"iterations":num_iters}
-        graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(x, models, parameter_index)
         return graph, x, graph.func(x), res
 
     if method == 'ADAM+GA':
@@ -162,7 +163,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
                                           num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
                                           eps=10 ** -8, m=None, v=None, verbose=verbose)
         res = {"iterations": num_iters}
-        graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(x, models, parameter_index)
         return graph, x, graph.func(x), res
 
     elif method == 'GA':
@@ -170,7 +171,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         x, hof, log = parameters_genetic_algorithm(graph, n_generations=15, n_population=15, rate_mut=0.9,
                                                    rate_crx=0.9,verbose=verbose)
-        graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
+        graph.distribute_parameters_from_list(x, models, parameter_index)
         return graph, x, graph.func(x), log
 
 
@@ -237,15 +238,12 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
     return x, num_iters, m, v
 
 
-
-#
-def parameters_genetic_algorithm(graph, n_generations = 25, n_population = 25, rate_mut = 0.9, rate_crx = 0.9, verbose=False):
+def parameters_genetic_algorithm(graph, n_generations=25, n_population=25, rate_mut=0.9, rate_crx=0.9, verbose=False):
     # hyper-parameters, will later be added as function arguments to change dynamically
     crossover = crossover_singlepoint
     mutation_operator = 'uniform'
     mut_kwargs = {}
     log, log_metrics = logbook_initialize()
-    n_cores = 6
     new_individuals_divisor = 20
 
     # first we grab the information we will need about the parameters before running

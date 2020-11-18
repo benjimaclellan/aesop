@@ -1,9 +1,9 @@
 """ """
 
 import autograd.numpy as np
-from autograd.numpy.fft import rfft
 import scipy.signal as signal
 import matplotlib.pyplot as plt
+from numpy.fft import rfft
 
 from ..evaluator import Evaluator
 from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_
@@ -13,13 +13,19 @@ from lib.functions import scale_units
 
 class RadioFrequencyWaveformGeneration(Evaluator):
     """  """
-    def __init__(self, propagator, **kwargs):
+    def __init__(self, propagator, target_harmonic=12e9, target_amplitude=0.02, target_waveform='saw', **kwargs):
         super().__init__(**kwargs)
-        # self.evaluation_node = 3  # TODO this is just a placeholder for testing, need dynamic setting
 
-        self.target_harmonic = 12e9  # target pattern repetition in Hz
+        self.target_harmonic = target_harmonic  # target pattern repetition in Hz
 
-        self.target = 0.5 * 0.02 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
+        if target_waveform == 'saw':
+            waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
+        if target_waveform == 'square':
+            waveform = 0.5 * (signal.square(2 * np.pi * self.target_harmonic * propagator.t, 0.7) + 1)
+        else:
+            raise NotImplementedError('this is not a valid target waveform')
+
+        self.target = target_amplitude * waveform
 
         self.target_f = np.fft.fft(self.target, axis=0)
         self.target_rf = rfft(self.target)
@@ -95,57 +101,3 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         scale_units(ax, unit='Hz', axes=['x'])
         plt.show()
         return
-
-
-
-
-
-#
-#
-# class PulseShaping(Evaluator):
-#     """  """
-#     def __init__(self, propagator, **kwargs):
-#         super().__init__(**kwargs)
-#         self.evaluation_node = 3  # TODO this is just a placeholder for testing, need dynamic setting
-#
-#         train = False
-#         t_rep = 500e-12 # 100 MHz
-#         self.pulse_width = 25e-12  # pulse width target in s
-#
-#         if train:
-#             duty_cycle = self.pulse_width/t_rep
-#             self.target = (signal.square(2*np.pi * propagator.t/t_rep, duty_cycle) + 1)/2
-#         else:
-#             self.target = np.zeros_like(propagator.t)
-#             self.target[abs(propagator.t) < self.pulse_width/2 ] = 1
-#
-#         self.normalize = True
-#         return
-#
-#     def evaluate_graph(self, graph, propagator):
-#         graph.propagate(propagator)
-#         state = graph.nodes[self.evaluation_node]['states'][0]
-#         score = self.waveform_temporal_similarity(state, propagator)
-#         return score
-#
-#     def waveform_temporal_similarity(self, state, propagator):
-#         generated = power_(state)
-#         return -np.sum(generated * self.target) / np.sum(generated * np.logical_not(self.target).astype('float'))
-#         # if self.normalize:
-#         #     generated = generated / np.max(generated)
-#         # overlap_integral = np.sum(np.abs(self.target - generated)) / propagator.n_samples
-#         # return overlap_integral
-#
-#     def compare(self, graph, propagator):
-#         fig, ax = plt.subplots(1, 1)
-#         state = graph.nodes[self.evaluation_node]['states'][0]
-#         generated = power_(state)
-#         if self.normalize:
-#             generated = generated / np.max(generated)
-#         ax.plot(propagator.t, generated, label='Measured State')
-#         ax.plot(propagator.t, self.target, label='Target State')
-#         ax.set(xlabel='Time', ylabel='Power a.u.')
-#         ax.legend()
-#         scale_units(ax, unit='s', axes=['x'])
-#         plt.show()
-#         return

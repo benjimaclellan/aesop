@@ -11,7 +11,7 @@ from problems.example.assets.functions import power_, ifft_, ifft_shift_, fft_, 
 from problems.example.graph import Graph
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
+from problems.example.node_types_subclasses.single_path import OpticalAmplifier, WaveShaper, PhaseModulator
 
 SKIP_GRAPHICAL_TEST = True
 
@@ -259,7 +259,7 @@ def test_ADJUSTIK_phase_amplitude(ADJ_X15_graph_output, ADJ_E15_graph_output, AD
 def get_amp_graph(**kwargs):
     # no laser noise added, such that input power is exactly as wanted
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-6, 'central_wl': 1.55e-6, 'osnr_dB':1000, 'FWHM_linewidth':0}),
-             1: EDFA(parameters_from_name=kwargs),
+             1: OpticalAmplifier(parameters_from_name=kwargs),
              2: MeasurementDevice()
             }
 

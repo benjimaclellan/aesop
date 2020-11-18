@@ -38,7 +38,6 @@ class Graph(GraphParent):
         for node, model in nodes.items():
             self.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
         for edge, model in edges.items():
-            print(f'add edge {edge}')
             self.add_edge(edge[0], edge[1], **{'model': model, 'name': model.__class__.__name__, 'lock': False})
 
         sources = [node for node in self.nodes if self.get_in_degree(node) == 0]
@@ -48,6 +47,7 @@ class Graph(GraphParent):
 
         self._propagation_order = None
         self._propagator_saves = {}
+        self.update_graph()
 
         # initialize description needed for speciation
         self.speciation_descriptor = None
@@ -66,7 +66,8 @@ class Graph(GraphParent):
 
     def update_graph(self):
         propagation_order = list(nx.topological_sort(self))
-        self.propagation_order = propagation_order
+        self._propagation_order = propagation_order
+        return
 
     def __str__(self):
         str_rep = ''
@@ -86,8 +87,8 @@ class Graph(GraphParent):
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
         """ returns a function handle that accepts only parameters and returns the score. used to initialize the hessian analysis """
 
-        def _function(_parameters, _graph, _propagator, _evaluator, _node_edge_index, _parameter_index):
-            _graph.distribute_parameters_from_list(_parameters, _node_edge_index, _parameter_index)
+        def _function(_parameters, _graph, _propagator, _evaluator, _models, _parameter_index):
+            _graph.distribute_parameters_from_list(_parameters, _models, _parameter_index)
             _graph.propagate(_propagator)
             score = _evaluator.evaluate_graph(_graph, _propagator)
             return score
@@ -95,10 +96,7 @@ class Graph(GraphParent):
         info = self.extract_attributes_to_list_experimental([], get_location_indices=True,
                                                                 exclude_locked=exclude_locked)
 
-        # def func(parameters):
-        #     return _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
-        func = lambda parameters: _function(parameters, self, propagator, evaluator, info['node_edge_index'], info['parameter_index'])
-
+        func = lambda parameters: _function(parameters, self, propagator, evaluator, info['models'], info['parameter_index'])
         return func
 
     def initialize_func_grad_hess(self, propagator, evaluator, exclude_locked=True):
@@ -268,8 +266,6 @@ class Graph(GraphParent):
         # propagation_order = self.propagation_order
 
         for node in propagation_order:
-            print(f'current node {node}')
-
             # get the incoming optical field
             if not self.pre(node):
                 tmp_states = [propagator.state]
@@ -279,7 +275,6 @@ class Graph(GraphParent):
                     tmp_states.append(self._propagator_saves[incoming_edge])
 
             states = self.nodes[node]['model'].propagate(tmp_states, propagator, self.in_degree(node), self.out_degree(node), save_transforms=save_transforms)
-            print(f"In degree {self.in_degree(node)}, out degree {self.out_degree(node)}")
 
             if self.get_out_degree(node) == 0:
                 self._propagator_saves[node] = states[0] # save the final state at the source node
@@ -293,7 +288,6 @@ class Graph(GraphParent):
                     signal = noise_model.add_noise_to_propagation(signal, propagator)
 
                 self._propagator_saves[outgoing_edge] = signal  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
-
         return self
 
     def measure_propagator(self, edge):
@@ -389,7 +383,6 @@ class Graph(GraphParent):
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
         return
 
-
     @property
     def propagation_order(self):
         """Returns the sorted order of nodes (based on which reverse walking the graph)
@@ -399,17 +392,7 @@ class Graph(GraphParent):
     def assert_number_of_edges(self):
         """Loops through all nodes and checks that the proper number of input/output edges are connected
         """
-        # check for loops
-        if nx.algorithms.recursive_simple_cycles(self):
-            raise RuntimeError('There are loops in the topology')
-
-        for node in self.nodes:
-            number_input_edges, number_output_edges = len(self.pre(node)), len(self.suc(node))
-            self.nodes[node]['model'].assert_number_of_edges(number_input_edges, number_output_edges)
-        if self._propagate_on_edges:
-            for edge in self.edges:
-                if 'model' in self.edges[edge]:
-                    self.edges[edge]['model'].assert_number_of_edges(1, 1)  # by definition, edges have 1 in, 1 out
+        assert nx.is_directed_acyclic_graph(self)
         return
 
     def sample_parameters(self, probability_dist='uniform', **kwargs):
@@ -448,29 +431,10 @@ class Graph(GraphParent):
         model_attributes = self.extract_attributes_to_list_experimental(attributes, get_location_indices=False)
         
         return np.array(model_attributes['lower_bounds']), np.array(model_attributes['upper_bounds'])
-    
-    def get_parameter_info(self, exclude_locked=True):
-        """
-        Returns the node number and parameter name of each parameter, in the order returned by all other functions
 
-        :Return: for each parameter: 'node A: type <ModelType>: param N <ParamName>'
-        """
-        info = self.extract_attributes_to_list_experimental(['parameter_names'], exclude_locked=exclude_locked)
-        param_names = info['parameter_names']
-        node_nums = info['node_edge_index']
-        param_indices = info['parameter_index']
-        
-        param_infos = ''
 
-        for i in range(len(param_indices)):
-            node_num = node_nums[i]
-            node_type = type(self.nodes[node_nums[i]]['model'])
-            param_i = param_indices[i]
-            param_name_i = param_names[i]
-            info_string = f'node {node_num}, type {node_type}, param {param_i}={param_name_i}'
-            param_infos += info_string + '\n'
-        
-        return param_infos
+    def get_models(self):
+        return [self.nodes[node]['model'] for node in self.nodes] + [self.edges[edge]['model'] for edge in self.edges]
 
     def extract_attributes_to_list_experimental(self, attributes, get_location_indices=True, exclude_locked=True):
         """ experimental: to extract model variables to a list, based on a list of variables names """
@@ -483,7 +447,7 @@ class Graph(GraphParent):
             model_attributes['models'], model_attributes['parameter_index'] = [], []
             # these will help translate from a list of parameters/parameter info to a graph structure
 
-        models = [self.nodes[node]['model'] for node in self.nodes] + [self.edges[edge]['model'] for edge in self.edges]
+        models = self.get_models()
         for model in models:
             if not model.node_lock:
                 for i, lock in enumerate(model.parameter_locks):
@@ -495,8 +459,6 @@ class Graph(GraphParent):
                             model_attributes['parameter_index'].append(i)
         return model_attributes
 
-
-    # TODO: we need to have this extract a dynamic selection (or always all) of the model characteristics (bounds, names, type, ...)
     def extract_parameters_to_list(self, exclude_locked=True):
         """ Extracts the current parameters, bounds and information for re-distributing from the graph structure """
 
@@ -522,12 +484,8 @@ class Graph(GraphParent):
 
     def inspect_parameters(self):
         """ Loops through all nodes & edge (if enabled) and prints information about the parameters """
-        for node in self.nodes:
-            self.nodes[node]['model'].inspect_parameters()
-        if self._propagate_on_edges:
-            for edge in self.edges:
-                if 'model' in self.edges[edge]:
-                    self.edges[edge]['model'].inspect_parameters()
+        for model in self.get_models():
+            model.inspect_parameters()
 
     def inspect_state(self, propagator, freq_log_scale=False, title=''):
         """ we loop through all nodes and plot the optical state *after* the node"""

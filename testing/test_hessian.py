@@ -15,9 +15,6 @@ from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.evaluator_subclasses.evaluator_phase_sensitivity import PeakPower
-
-### TODO: for each model, we could prepare the function once at the beginning (especially for locked models)
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
@@ -26,6 +23,7 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 
 # from algorithms.parameter_random_search import parameters_random_search
 # from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
+from problems.example.node_types import TerminalSource, TerminalSink
 
 from lib.hessian import get_hessian, get_scaled_hessian, plot_eigenvectors, lha_analysis
 
@@ -36,37 +34,28 @@ if __name__ == "__main__":
     plt.close('all')
 
     propagator = Propagator(window_t=1e-7, n_samples=2 ** 14, central_wl=1.55e-6)
-    nodes = {0: PulsedLaser(parameters_from_name={'pulse_shape':'gaussian',
-                                                  'pulse_width':1.0e-10,
-                                                  'peak_power':1,
-                                                  't_rep':1e-9, 'central_wl':1.55e6, 'train':True}),
-             1: DispersiveFiber(parameters=[50]),
-             2: DispersiveFiber(parameters=[10]),
-             3: WaveShaper(),
-             4: MeasurementDevice()}
-    edges = [(0, 1), (1, 2), (2, 3), (3, 4)]
 
-    # propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
-    # nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-    #          1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
-    #          2:WaveShaper(),
-    #          3:MeasurementDevice()}
-    # edges = [(0,1), (1,2), (2,3)]
+    nodes = {'source': TerminalSource(),
+             0: VariablePowerSplitter(),
+             1: VariablePowerSplitter(),
+             2: VariablePowerSplitter(),
+             3: VariablePowerSplitter(),
+             'sink': TerminalSink()}
 
-    # propagator = Propagator(window_t = 1e-9, n_samples = 2**16, central_wl=1.55e-6)
-    # nodes = {0:PulsedLaser(parameters_from_name={'pulse_shape':'gaussian',
-    #                                              'pulse_width':0.1e-12,
-    #                                              'peak_power':1,
-    #                                              't_rep':1e-9, 'central_wl':1.55e6, 'train':False}),
-    #          1:DelayLine(parameters=[1,0.5,0.5,1]),
-    #          2:MeasurementDevice()}
-    # edges = [(0,1), (1,2)]
+    edges = {('source', 0): PulsedLaser(parameters_from_name={'pulse_shape': 'gaussian',
+                                                              'pulse_width': 1.0e-10,
+                                                              'peak_power': 1,
+                                                              't_rep': 1e-9, 'central_wl': 1.55e6, 'train': True}),
+             (0,1): DispersiveFiber(parameters=[50]),
+             (1,2): DispersiveFiber(parameters=[10]),
+             (2,3): WaveShaper(),
+             (3,'sink'): MeasurementDevice()}
 
-    graph = Graph(nodes, edges, propagate_on_edges=False, deep_copy=False)
+    graph = Graph(nodes, edges)
     graph.assert_number_of_edges()
 
     # %%
-    evaluator = PeakPower(propagator)
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
     # evaluator.evaluate_graph(graph, propagator)
 
     # %%
@@ -81,9 +70,9 @@ if __name__ == "__main__":
 
     #%%
 
-    graph.propagate(propagator, save_transforms=True)
+    graph.propagate(propagator)
     # graph.inspect_state(propagator)
-    state = graph.measure_propagator(2)
+    state = graph.measure_propagator('sink')
     fig, ax = plt.subplots(2, 1)
     ax[0].plot(propagator.t, np.power(np.abs(state),2))
 
@@ -91,7 +80,7 @@ if __name__ == "__main__":
 
     #%%
     exclude_locked = True
-    info = graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'], get_location_indices=True, exclude_locked=exclude_locked)
+    info = graph.extract_attributes_to_list_experimental(['parameters', 'parameter_names'], get_location_indices=True)
     hessian = get_hessian(graph, propagator, evaluator, exclude_locked=exclude_locked)
     # hessian = get_scaled_hessian(graph, propagator, evaluator, exclude_locked=exclude_locked)
 

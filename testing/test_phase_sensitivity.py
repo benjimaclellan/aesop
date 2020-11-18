@@ -28,7 +28,7 @@ from problems.example.evolver import Evolver, CrossoverMaker, StochMatrixEvolver
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
-from problems.example.node_types_subclasses.single_path import DelayLine, IntensityModulator, ProgrammableFilter, EDFA
+from problems.example.node_types_subclasses.single_path import DelayLine, IntensityModulator, ProgrammableFilter, OpticalAmplifier
 from problems.example.node_types_subclasses.single_path import PhaseShifter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 

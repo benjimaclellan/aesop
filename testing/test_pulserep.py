@@ -25,7 +25,7 @@ from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepeti
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine, IntensityModulator, ProgrammableFilter, EDFA
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine, IntensityModulator, ProgrammableFilter, OpticalAmplifier
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.parameter_optimization import parameters_optimize
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     nodes = {0:pl,
              1:IntensityModulator(parameters_from_name={'depth':np.pi*0.5, 'frequency':1/rep_t/2, 'bias':np.pi*0.5}),
-             2:EDFA(),
+             2:OpticalAmplifier(),
              -2:PhaseModulator(),
             -1: MeasurementDevice()}
     edges = [(0,1), (1,2), (2,-2), (-2,-1)]

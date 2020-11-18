@@ -12,7 +12,7 @@ from problems.example.assets.filter import Filter
 from problems.example.graph import Graph
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import EDFA, WaveShaper, PhaseModulator
+from problems.example.node_types_subclasses.single_path import OpticalAmplifier, WaveShaper, PhaseModulator
 
 """
 This document is intended to unite verification of noise into one document
@@ -304,7 +304,7 @@ def test_linewidth_with_osnr_large(propagator):
 # ----------------- EDFA tests ---------------------
 def get_amp_graph(**kwargs):
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
-             1: EDFA(parameters_from_name=kwargs),
+             1: OpticalAmplifier(parameters_from_name=kwargs),
              2: MeasurementDevice()
             }
 
@@ -320,7 +320,7 @@ def get_amp_graph_2(**kwargs):
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
              1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
              2: WaveShaper(),
-             3: EDFA(parameters_from_name=kwargs),
+             3: OpticalAmplifier(parameters_from_name=kwargs),
              4: MeasurementDevice()
             }
 
@@ -642,7 +642,7 @@ def get_laser_photodiode_graph_2(**kwargs):
     nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1e-4, 'central_wl': 1.55e-6, 'osnr_dB':20}),
              1: PhaseModulator(parameters_from_name={'depth': 9.87654321, 'frequency': 12e9}),
              2: WaveShaper(),
-             3: EDFA(),
+             3: OpticalAmplifier(),
              4: Photodiode(parameters_from_name=kwargs)
             }
 
