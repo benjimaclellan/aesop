@@ -79,6 +79,7 @@ class TerminalSource(NodeTypeParent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.node_acronym = 'SRC'
         self._node_type = "source node"
 
         self.node_lock = True
@@ -115,6 +116,7 @@ class TerminalSink(NodeTypeParent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.node_acronym = 'SNK'
         self._node_type = "sink node"
 
         self.node_lock = True

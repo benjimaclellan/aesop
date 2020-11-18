@@ -15,7 +15,7 @@ from ..assets.functions import power_, psd_, fft_, ifft_, ifft_shift_
 @register_node_types_all
 class VariablePowerSplitter(MultiPath):
     node_acronym = 'BS'
-    number_of_parameters = 1
+    number_of_parameters = 0
     def __init__(self, **kwargs):
         self.node_lock = False
 

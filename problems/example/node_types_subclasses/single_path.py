@@ -600,7 +600,7 @@ class ProgrammableFilter(SinglePath):
         self.step_sizes = [None] * number_of_bases + [None] * number_of_bases
         self.parameter_imprecisions = [0.1] * number_of_bases + [0.1 * 2 * np.pi] * number_of_bases
         self.parameter_units = [None] * number_of_bases + [unit.rad] * number_of_bases
-        self.parameter_locks = 2 * self.number_of_parameters * [False]
+        self.parameter_locks = self.number_of_parameters * [False]
         self.parameter_names = ['amplitude{}'.format(ind) for ind in range(number_of_bases)] + \
                                ['phase{}'.format(ind) for ind in range(number_of_bases)]
         self.parameter_symbols = [r"$x_{b_{" + "{:+d}".format(ind) + r"}}$" for ind in

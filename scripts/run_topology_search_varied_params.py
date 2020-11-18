@@ -25,7 +25,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver, CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver, EGreedyHessianEvolver
+from problems.example.evolver import CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver, EGreedyHessianEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_

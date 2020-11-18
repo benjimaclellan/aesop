@@ -14,6 +14,7 @@ from itertools import cycle
 import warnings
 
 from uuid import uuid4
+from collections import namedtuple
 
 from lib.base_classes import Graph as GraphParent
 from .assets.functions import power_, psd_
@@ -71,13 +72,16 @@ class Graph(GraphParent):
     def __str__(self):
         str_rep = ''
         for node in self.nodes:
-            str_rep += f"{node}: {self.nodes[node]['model']}\n"
+            str_rep += f"{node}: {self.nodes[node]['model'].__class__.__name__}\n"
+        for edge in self.edges:
+            str_rep += f"{edge}: {self.edges[edge]['model'].__class__.__name__}\n"
         return str_rep
     
     @property
     def interfaces(self):
-        interfaces = [{'node': edge[0], 'edge': edge} for edge in self.edges if self.in_degree[edge[0]] != 0] + \
-                     [{'node': edge[1], 'edge': edge} for edge in self.edges if self.out_degree[edge[1]] != 0]
+        Interface = namedtuple('Interface', 'node edge')
+        interfaces = [Interface(node=edge[0], edge=edge) for edge in self.edges if self.in_degree[edge[0]] != 0] + \
+                     [Interface(node=edge[1], edge=edge) for edge in self.edges if self.out_degree[edge[1]] != 0]
         return interfaces
 
     def function_wrapper(self, propagator, evaluator, exclude_locked=True):
@@ -380,7 +384,7 @@ class Graph(GraphParent):
         nx.draw_networkx(self, ax=ax, pos=pos, alpha=1.0, node_color='darkgrey')
 
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
-        return
+        return ax
 
     @property
     def propagation_order(self):

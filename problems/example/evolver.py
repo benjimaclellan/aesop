@@ -5,76 +5,15 @@ import matplotlib.pyplot as plt
 import pickle
 import copy
 from autograd.numpy.numpy_boxes import ArrayBox
+import itertools
+import networkx as nx
 
 import problems.example.assets.hessian_graph_analysis as hessian_analysis
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
 
-#TODO: fix the reinforcement learning one...
-
-class Evolver(object):
-    """
-    """
-    def __init__(self, verbose=False, operator_likelihood=None, **attr):
-        """
-        :param operator_likelihood: likelihood weighting the probability of each evolution operator being applied. If None, probability of each is equal
-                                    These likelihoods are not required to be probabilities: they are rescaled, but their relative values matter
-                                    operator_likelihood must be provided as a dictionary with (key, val) = (operator_class_name, likelihood)
-                                    likelihood can be a float, or a scalar function of the current generation, but the type must be consistent for each operator name (i.e. all floats, or all funcs)
-        """
-        self.verbose = verbose
-        self.time_dependent_likelihood = False
-        if operator_likelihood is None:
-            self.operator_likelihood = [1] *  len(configuration.EVOLUTION_OPERATORS)
-        elif callable(operator_likelihood.values()[0]):
-            self.time_dependent_likelihood = True
-            # maps generation to an array of the likelihood at time gen
-            self.operator_likelihood = lambda gen :[operator_likelihood[operator.__class__.__name__](gen) for operator in configuration.EVOLUTION_OPERATORS.values()]
-        else:
-            self.operator_likelihood = [operator_likelihood[operator.__class__.__name__] for operator in configuration.EVOLUTION_OPERATORS.values()]
-
-        super().__init__(**attr)
-        return
-
-
-    def evolve_graph(self, graph, evaluator, generation=None, verbose=False):
-        """
-        Function
-        """
-        # check if each evolution operator is possible
-        verification = [evo_op().verify_evolution(graph) for (_, evo_op) in configuration.EVOLUTION_OPERATORS.items()]
-
-        # choose one evolution from all possible
-        possible_evo_ops = [evo_op for (verify, evo_op) in zip(verification, configuration.EVOLUTION_OPERATORS.values()) if verify]
-
-        if self.time_dependent_likelihood:
-            if generation is None:
-                raise ValueError('Generation must be provided for time dependent likelihoods')
-            probability = np.array([prob for (prob, verify) in zip(self.operator_likelihood(generation), verification) if verify])
-        else:
-            probability = np.array([prob for (prob, verify) in zip(self.operator_likelihood, verification) if verify])
-
-        probability = probability / np.sum(probability)
-        evo_op_choice = np.random.choice(possible_evo_ops, p=probability)
-
-        # apply the chosen evolution
-        graph = evo_op_choice().apply_evolution(graph, verbose=self.verbose)
-
-        # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
-        return graph, evo_op_choice
-
-    def random_graph(self, graph, evaluator):
-        N_EVOLUTIONS = 10
-        for n in range(N_EVOLUTIONS):
-            try:
-                graph_tmp, evo_op = self.evolve_graph(graph, evaluator)
-                graph_tmp.assert_number_of_edges()
-                graph = graph_tmp
-            except:
-                continue
-
-        return graph
-
+# TODO: fix the reinforcement learning one...
+# TODO: stop regenerating the probability matrix each time: this is wasteful when we update it multiple times in a generation (i.e. for multiple children of the same graph)
 
 class ProbabilityLookupEvolver(object):
     """
@@ -93,9 +32,7 @@ class ProbabilityLookupEvolver(object):
     def __init__(self, verbose=False, debug=False, permanent_nodes=None, **attr):
         self.verbose = verbose
         self.debug = debug
-        self.evo_op_list = list(configuration.EVOLUTION_OPERATORS.values()) # we pick these out because technically dictionary values are not ordered
-                                                                            # so because we need our matrix order to be consistent, 
-        self.permanent_nodes = permanent_nodes
+        self.evo_op_list = [evo_op(verbose=self.verbose) for evo_op in configuration.EVOLUTION_OPERATORS.values()] # generate all evolution operators
         super().__init__(**attr)
     
     def evolve_graph(self, graph, evaluator, generation=None):
@@ -105,28 +42,19 @@ class ProbabilityLookupEvolver(object):
         :param graph: the graph to evolve
         :param evaluator: not used in the base implementation, but may be useful in the future
         """
-
-        # note: graph update has been moved to the start of the evolution function rather than the end BECAUSE the Hessian
-        # evolvers need to function on the already optimized parameter space
-
         self.update_graph_matrix(graph, evaluator)
-
-        if self.permanent_nodes is not None:
-            # here we will have custom rules to ensure nodes are permanent
-            self.ensure_permanent_nodes(graph)
-            graph.evo_probabilities_matrix.normalize_matrix()
 
         if self.verbose:
             print(f'evolving graph:')
             print(graph)
 
-        if debug:
+        if self.debug:
             print(f'evolution probability matrix for graph {graph}')
             print(graph.evo_probabilities_matrix)
             print()
 
         node_or_edge, evo_op = graph.evo_probabilities_matrix.sample_matrix()
-        graph = evo_op().apply_evolution_at(graph, node_or_edge, verbose=self.verbose)
+        graph = evo_op.apply_evolution(graph, node_or_edge)
         
         if self.verbose:
             print(f'\nevolving on: {node_or_edge}, with operator: {evo_op}\n')
@@ -142,30 +70,27 @@ class ProbabilityLookupEvolver(object):
 
         return graph, evo_op
 
-    def ensure_permanent_nodes(self, graph):
-        # for node in self.permanent_nodes:
-        #     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(0.0, node, SwapNode)
-        #     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(0.0, node, RemoveNode)
-        #     print(f'ensuring we dont swap {node}')
-            return
-
     def create_graph_matrix(self, graph, evaluator):
         """
         :param graph: the graph to evolve
         :param evaluator: not used in the base implementation, but may be useful in the future
+
+        TODO: can we refactor to only add possible locations and evo ops? But without traversing more...
         """
-        graph.evo_probabilities_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges))
-        for node_or_edge in list(graph.nodes) + list(graph.edges):
-            for op in self.evo_op_list:
-                likelihood = int(op().verify_evolution_at(graph, node_or_edge))
-                graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, node_or_edge, op)
+        node_pair_list = list(itertools.combinations(nx.algorithms.dag.topological_sort(graph), 2))
+        print(f'node pair list: {node_pair_list}')
+        graph.evo_probabilities_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges), graph.interfaces, node_pair_list)
+        for evo_op in self.evo_op_list:
+            locations = evo_op.possible_evo_locations(graph)
+            for loc in locations:
+                graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(1, loc, evo_op)
         
         graph.evo_probabilities_matrix.normalize_matrix()
         graph.evo_probabilities_matrix.verify_matrix()
 
     def update_graph_matrix(self, graph, evaluator):
         """
-        Function does not use evaluator, last_evo_op, or last_node_or_edge in this implementation. However, they may be valid parameters to modify later
+        Function does not use evaluator in this implementation. However, they may be valid parameters to modify later
         """
         self.create_graph_matrix(graph, evaluator) # just fully remakes the graph matrix for now
 
@@ -175,7 +100,7 @@ class ProbabilityLookupEvolver(object):
                 print(f'Starting evolution number {n}')
             try:
                 graph_tmp, evo_op = self.evolve_graph(graph, evaluator, generation=n)
-                graph_tmp.assert_number_of_edges()
+                # graph_tmp.assert_number_of_edges()
                 graph = graph_tmp
                 if view_evo:
                     graph.draw()
@@ -194,14 +119,13 @@ class ProbabilityLookupEvolver(object):
 
         Note that updates to the matrix can be done either through the provided function, or by direct manipulation of self.matrix
         """
-        def __init__(self, op_list, node_list, edge_list):
+        def __init__(self, op_list, node_list, edge_list, node_pairs_list, interface_list):
             self.op_to_index = {op: i for (i, op) in enumerate(op_list)}
             self.index_to_op = {i: op for (i, op) in enumerate(op_list)}
-            self.node_or_edge_to_index = {node_or_edge: i for (i, node_or_edge) in enumerate(node_list + edge_list)}
-            self.index_to_node_or_edge = {i: node_or_edge for (i, node_or_edge) in enumerate(node_list + edge_list)}
+            self.node_or_edge_to_index = {node_or_edge: i for (i, node_or_edge) in enumerate(node_list + edge_list + node_pairs_list + interface_list)}
+            self.index_to_node_or_edge = {i: node_or_edge for (i, node_or_edge) in enumerate(node_list + edge_list + node_pairs_list + interface_list)}
 
-            self.matrix = np.ones((len(self.node_or_edge_to_index), len(self.op_to_index)))
-            self.normalize_matrix()
+            self.matrix = np.zeros((len(self.node_or_edge_to_index), len(self.op_to_index)))
     
         def normalize_matrix(self):
             self.matrix = self.matrix / np.sum(self.matrix)
