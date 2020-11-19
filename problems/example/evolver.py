@@ -29,7 +29,7 @@ class ProbabilityLookupEvolver(object):
     If it is not possible, it is assigned a value of zero. Probability are normalized prior to selecting the operator
     """
 
-    def __init__(self, verbose=False, debug=False, permanent_nodes=None, **attr):
+    def __init__(self, verbose=False, debug=False, **attr):
         self.verbose = verbose
         self.debug = debug
         self.evo_op_list = [evo_op(verbose=self.verbose) for evo_op in configuration.EVOLUTION_OPERATORS.values()] # generate all evolution operators
@@ -112,6 +112,10 @@ class ProbabilityLookupEvolver(object):
     def close(self):
         pass
 
+    @staticmethod
+    def possible_operators():
+        return [evo_op for evo_op in configuration.EVOLUTION_OPERATORS.values()]
+
     class ProbabilityMatrix(object):
         """
         Probability matrix of (node/edge) v. Operator. The probability p(node_or_edge, operator) is the odd of operator being applied on node_or_edge
@@ -162,6 +166,9 @@ class ProbabilityLookupEvolver(object):
             """
             return self.matrix[:, self.op_to_index[op]]
         
+        def set_probs_at_operator(self, op, probs):
+            self.matrix[:, self.op_to_index[op]] = probs
+        
         def get_largest_prob_node_or_edge_and_op(self):
             """
             Returns the node/edge and operator associated with the largest value. If multiple node/edge and operator
@@ -179,6 +186,40 @@ class ProbabilityLookupEvolver(object):
             string_rep = f'operator to index: {self.op_to_index}\n' + f'node/edge to index: {self.node_or_edge_to_index}\n' + \
                          f'matrix: \n{self.matrix}'
             return string_rep
+
+
+class OperatorBasedProbEvolver(ProbabilityLookupEvolver):
+    """
+    This evolver allows us to set the relative probabilities of each operator (e.g. we could set p = 0.25 that each operator is selected)
+    In the case that an operator cannot be applied, the remaining probability is distributed to all other operator probabilities such that
+    their ratios remain the same.
+
+    Note that in this implementation, each possible location for a given evolution operator is selected with equal probability
+    """
+    def __init__(self, op_to_prob=None, **attr):
+        """
+        Sets up the operator based probability lookup evolver
+        TODO: add an option to make the operator based probability time variant
+
+        :param op_to_prob: a dictionary mapping an operator class to a probability. Note that the sum of probabilities DOES NOT need to be one. Normalization is handled in code
+        """
+        super().__init__(**attr)
+        if op_to_prob is None:
+            number_evo_ops = len(configuration.EVOLUTION_OPERATORS)
+            self.op_to_prob = {evo_op: 1 / number_evo_ops for evo_op in configuration.EVOLUTION_OPERATORS.values()}
+        else:
+            self.op_to_prob = op_to_prob
+    
+    def create_graph_matrix(self, graph, evaluator):
+        super().create_graph_matrix(graph, evaluator)
+        for evo_op in self.evo_op_list:
+            op_probs = graph.evo_probabilities_matrix.get_probs_at_operator(evo_op)
+            sum_probs =  np.sum(op_probs)
+            if np.sum(op_probs) != 0:
+                graph.evo_probabilities_matrix.set_probs_at_operator(evo_op, op_probs / sum_probs * self.op_to_prob[evo_op.__class__])
+        
+        graph.evo_probabilities_matrix.normalize_matrix()
+        graph.evo_probabilities_matrix.verify_matrix()
 
 
 class SizeAwareLookupEvolver(ProbabilityLookupEvolver):

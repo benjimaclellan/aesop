@@ -15,7 +15,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import ProbabilityLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -46,7 +46,7 @@ class Test(unittest.TestCase):
         n_repeats, n_evolutions = 2, 2
         propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
         evaluator = RadioFrequencyWaveformGeneration(propagator)
-        evolver = Evolver()
+        evolver = ProbabilityLookupEvolver()
         nodes = {0: ContinuousWaveLaser(parameters_from_name={'peak_power': 1, 'central_wl': 1.55e-6}),
                  -1: MeasurementDevice()}
         edges = [(0, -1)]
@@ -314,8 +314,8 @@ def test_evo_op_add_comp_parallel():
 def test_evolver_base_lookup():
     graph = get_test_graph0()
     evaluator = Evaluator()
-    evolver = ProbabilityLookupEvolver(verbose=True)
-    evolver.random_graph(graph, evaluator, view_evo=True, n_evolutions=20)
+    evolver = OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
+    evolver.random_graph(graph, evaluator, view_evo=False, n_evolutions=20)
 
 if __name__ == "__main__":
     random.seed(3)
