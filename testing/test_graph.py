@@ -26,7 +26,7 @@ import autograd.numpy as np
 import config.config as configuration
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
+from problems.example.evolver import ProbabilityLookupEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -78,7 +78,7 @@ if __name__ == '__main__':
              (1, 'sink'):MeasurementDevice(),
              }
 
-    graph = Graph(nodes, edges)
+    graph = Graph.init_graph(nodes=nodes, edges=edges)
     test = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
 
     attributes = graph.extract_attributes_to_list_experimental(['parameters', 'upper_bounds'])
@@ -87,8 +87,8 @@ if __name__ == '__main__':
     # graph.propagate(propagator)
     #
     #
-    fig, ax = plt.subplots(1,1)
-    graph.draw(ax=ax)
+    # fig, ax = plt.subplots(1,1)
+    graph.draw(debug=True)
     #
     # state = graph.measure_propagator('sink')
     # fig, ax = plt.subplots(1, 1)

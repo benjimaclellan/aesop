@@ -30,39 +30,44 @@ class Graph(GraphParent):
 
     __internal_var = None
 
-    def __init__(self, nodes: dict, edges: dict):
+    @classmethod
+    def init_graph(cls, nodes: dict, edges: dict):
+        graph = cls()
+        for node, model in nodes.items():
+            graph.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
+        for edge, model in edges.items():
+            graph.add_edge(edge[0], edge[1], **{'model': model, 'name': model.__class__.__name__, 'lock': False})
+
+        sources = [node for node in graph.nodes if graph.get_in_degree(node) == 0]
+        sinks = [node for node in graph.nodes if graph.get_out_degree(node) == 0]
+        for source in sources: graph.nodes[source]['source-sink'] = 'source'
+        for sink in sinks: graph.nodes[sink]['source-sink'] = 'sink'
+
+        graph._propagation_order = None
+        graph._propagator_saves = {}
+        graph.update_graph()
+
+        # initialize description needed for speciation
+        graph.speciation_descriptor = None
+
+        # initialize evolution probability matrix
+        graph.evo_probabilities_matrix = None
+        graph.last_evo_record = None
+
+        # initialize variables to store function handles for grad & hess
+        graph.func = None
+        graph.grad = None
+        graph.hess = None
+        # Attribute: self.scaled_hess
+
+        graph.score = None
+        return graph
+
+    def __init__(self):
         """
         """
         super().__init__()
 
-        for node, model in nodes.items():
-            self.add_node(node, **{'model': model, 'name': model.__class__.__name__, 'lock': False})
-        for edge, model in edges.items():
-            self.add_edge(edge[0], edge[1], **{'model': model, 'name': model.__class__.__name__, 'lock': False})
-
-        sources = [node for node in self.nodes if self.get_in_degree(node) == 0]
-        sinks = [node for node in self.nodes if self.get_out_degree(node) == 0]
-        for source in sources: self.nodes[source]['source-sink'] = 'source'
-        for sink in sinks: self.nodes[sink]['source-sink'] = 'sink'
-
-        self._propagation_order = None
-        self._propagator_saves = {}
-        self.update_graph()
-
-        # initialize description needed for speciation
-        self.speciation_descriptor = None
-
-        # initialize evolution probability matrix
-        self.evo_probabilities_matrix = None
-        self.last_evo_record = None
-
-        # initialize variables to store function handles for grad & hess
-        self.func = None
-        self.grad = None
-        self.hess = None
-        # Attribute: self.scaled_hess
-
-        self.score = None
 
     def update_graph(self):
         propagation_order = list(nx.topological_sort(self))
@@ -347,40 +352,44 @@ class Graph(GraphParent):
         flag = True
         row_i, col_i = 0, 0
         while flag:
-
+            # If there are no more nodes to find positions for, break out and continue plotting
             if len(nodes_remaining) == 0:
                 flag = False
                 break
 
+            # add all of the successors of the current row into a set. we will remove some of these in the next step
+            # each row is spaced evenly in the horizontal direction
             next_row = set()
             for i, node_i in enumerate(list(current_row)):
                 pos[node_i] = (row_i, np.random.rand())
                 next_row.update(set(self.suc(node_i)))
 
+            # we will remove some nodes that depend on other nodes further down the DAG. this is based on ancestry
             nodes_to_remove = set()
             for node_i in next_row:
                 for node_j in next_row:
                     ancestors = nx.algorithms.ancestors(self, node_i)
                     if debug:
-                        print(f'current_row:{current_row}, next_row:{next_row}, node_i:{node_i}, node_j:{node_j}, nodes_to_remove:{nodes_to_remove}, ancestors:{ancestors}')
-                    if node_j in nx.algorithms.ancestors(self, node_i):
+                        print(f'current_row:{current_row}, next_row:{next_row}, node_i:{node_i}, node_j:{node_j}, '
+                              f'nodes_to_remove:{nodes_to_remove}, ancestors:{ancestors}, '
+                              f'nodes_remainingL {nodes_remaining}')
+                    # if node_i has any other ancestors, we won't plot it in this row
+                    if node_j in ancestors:
                         nodes_to_remove.update(set([node_i]))
             next_row -= nodes_to_remove
 
             row_i += 1
             nodes_remaining -= current_row
             current_row = next_row
-            return pos
+        return pos
 
     def draw(self, ax=None, labels=None, method='grid', ignore_warnings=True, debug=False):
         if ignore_warnings: warnings.simplefilter('ignore', category=(FutureWarning, cb.mplDeprecation))
-
-        if ax is None:
-            fig, ax = plt.subplots(1,1)
         
         # pos = nx.spring_layout(self)
-        pos = self.optical_system_layout()
-
+        pos = self.optical_system_layout(debug=debug)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
         nx.draw_networkx_nodes(self, pos, ax=ax, node_color='r',
                                label=[self.nodes[node]['model'].node_acronym for node in self.nodes])
         for n, p in pos.items():
@@ -389,7 +398,7 @@ class Graph(GraphParent):
                         xytext=p, textcoords='data',
                         va='center', ha='center'
                         )
-        
+
         def _arrow_center(pos_start, pos_end, rad):
             """
             Radius sign determines whether the arrow goes clockwise (neg radius) or counterclockwise (pos radius)
@@ -400,9 +409,9 @@ class Graph(GraphParent):
             pos_avg = pos_start / 2 + pos_end / 2
 
             # 2. Find angle of the line perpendicular to the line between start and end
-            theta = np.arctan2(pos_end[1] - pos_start[1], pos_end[0] - pos_start[0]) - np.pi / 2 
-            perp_vector = rad * dist * np.array([np.cos(theta), np.sin(theta)]) 
-            
+            theta = np.arctan2(pos_end[1] - pos_start[1], pos_end[0] - pos_start[0]) - np.pi / 2
+            perp_vector = rad * dist * np.array([np.cos(theta), np.sin(theta)])
+
             # 3. New centre
             arrow_centre = pos_avg + perp_vector
             return arrow_centre
