@@ -236,7 +236,7 @@ class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
        and 1 + alpha to reduction operators. Alpha is clipped at +=0.9 by default, but can be clipped at any amplitude between 0 and 1 if desired
     4. alpha = alpha(delta) is an odd function (where alpha < 0 where delta < 0), where delta = <# of nodes in the graph> - <ideal # of nodes>. alpha(0) = 0
     """
-    def __init__(self,ideal_node_num=8, alpha_func=lambda delta: (delta / 10)**3, alpha_bound=0.9, **attr):
+    def __init__(self,ideal_edge_num=10, alpha_func=lambda delta: (delta / 10)**3, alpha_bound=0.9, **attr):
         """
         Initializes SizeAwareMatrixEvolver (see class description above)
 
@@ -250,7 +250,7 @@ class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
         That said, updates to any of these parameters is possible (i.e. the code will use new alpha_func and alpha_max if their values are changed)
         """
         super().__init__(**attr)
-        self.ideal_node_num = ideal_node_num
+        self.ideal_edge_num = ideal_edge_num
         self.alpha_func = alpha_func
 
         # verify that the alpha_max input is valid. We'd verify for alpha_funct too but it's too complicated so
@@ -272,26 +272,25 @@ class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
         :param graph: the graph to evolve
         :param evaluator: not used in this implementation, but may be useful in the future
         """
-        graph.evo_probabilities_matrix = self.ProbabilityMatrix(self.evo_op_list, list(graph.nodes), list(graph.edges))
+        super().create_graph_matrix(graph, evaluator)
         alpha = self._get_alpha_offset(graph)
-        for node_or_edge in list(graph.nodes) + list(graph.edges):
-            for op in self.evo_op_list:
-                evo_possible = op().verify_evolution_at(graph, node_or_edge)
+        for location in graph.evo_probabilities_matrix.node_or_edge_to_index.keys():
+            for op in graph.evo_probabilities_matrix.op_to_index.keys():
+                evo_possible = graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(location, op) != 0
                 if evo_possible:
-                    if op.__name__ in configuration.GROWTH_EVO_OPERATORS.keys():
+                    if op.__class__.__name__ in configuration.GROWTH_EVO_OPERATORS.keys():
                         likelihood = 1 - alpha
-                    elif op.__name__ in configuration.REDUCTION_EVO_OPERATORS.keys():
+                    elif op.__class__.__name__ in configuration.REDUCTION_EVO_OPERATORS.keys():
                         likelihood = 1 + alpha
-                    else: likelihood = 1
-                else: 
-                    likelihood = 0
-                graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, node_or_edge, op)
+                    else:
+                        likelihood = 1
+                    graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, location, op)
         
         graph.evo_probabilities_matrix.normalize_matrix()
         graph.evo_probabilities_matrix.verify_matrix()
 
     def _get_alpha_offset(self, graph):
-        delta = len(graph.nodes) - self.ideal_node_num
+        delta = len(graph.edges) - self.ideal_edge_num
         return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
 
 

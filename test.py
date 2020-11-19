@@ -15,7 +15,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver, SizeAwareLookupEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -314,7 +314,7 @@ def test_evo_op_add_comp_parallel():
 def test_evolver_base_lookup():
     graph = get_test_graph0()
     evaluator = Evaluator()
-    evolver = OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
+    evolver = SizeAwareLookupEvolver(verbose=True, debug=True) # OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
     evolver.random_graph(graph, evaluator, view_evo=False, n_evolutions=20)
 
 if __name__ == "__main__":
