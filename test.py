@@ -261,7 +261,7 @@ def get_test_graph0():
              (0, 1):PhaseModulator(),
              (1,'sink'):Photodiode(),
             }
-    graph = Graph(nodes, edges)
+    graph = Graph.init_graph(nodes=nodes, edges=edges)
     # graph.assert_number_of_edges()
     # print(f'graph edges: {graph.edges}')
     # print(f'graph interfaces: {graph.interfaces}')
@@ -315,7 +315,7 @@ def test_evolver_base_lookup():
     graph = get_test_graph0()
     evaluator = Evaluator()
     evolver = SizeAwareLookupEvolver(verbose=True, debug=True) # OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
-    evolver.random_graph(graph, evaluator, view_evo=False, n_evolutions=20)
+    evolver.random_graph(graph, evaluator, view_evo=True, n_evolutions=20)
 
 if __name__ == "__main__":
     random.seed(3)

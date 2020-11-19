@@ -361,7 +361,7 @@ class Graph(GraphParent):
             # each row is spaced evenly in the horizontal direction
             next_row = set()
             for i, node_i in enumerate(list(current_row)):
-                pos[node_i] = (row_i, np.random.rand())
+                pos[node_i] = (row_i, np.random.rand() * 4)
                 next_row.update(set(self.suc(node_i)))
 
             # we will remove some nodes that depend on other nodes further down the DAG. this is based on ancestry
@@ -404,8 +404,10 @@ class Graph(GraphParent):
             Radius sign determines whether the arrow goes clockwise (neg radius) or counterclockwise (pos radius)
             See: https://matplotlib.org/3.1.1/gallery/userdemo/connectionstyle_demo.html
             """
+            pos_start, pos_end = np.asarray(pos_start), np.asarray(pos_end)
+
             # 1. Find centre of circle
-            dist = np.sum(np.power(pos_end - pos_start, 2))
+            dist = np.sqrt(np.sum(np.power(pos_end - pos_start, 2)))
             pos_avg = pos_start / 2 + pos_end / 2
 
             # 2. Find angle of the line perpendicular to the line between start and end
@@ -413,8 +415,10 @@ class Graph(GraphParent):
             perp_vector = rad * dist * np.array([np.cos(theta), np.sin(theta)])
 
             # 3. New centre
-            arrow_centre = pos_avg + perp_vector
-            return arrow_centre
+            arrow_centre = pos_avg + perp_vector * 0.7
+            if debug:
+                print(f'start: {pos_start}, end: {pos_end}, avg: {pos_avg}, dist: {dist}, angle: {theta}, perp_vector: {perp_vector}, arrow_centre: {arrow_centre}')
+            return (arrow_centre[0], arrow_centre[1])
 
         for e in self.edges:
             rad = 0.4 * e[2]
@@ -427,11 +431,13 @@ class Graph(GraphParent):
                                         connectionstyle="arc3,rad=rrr".replace('rrr', str(rad)),
                                         ),
             )
+            arrow_centre = _arrow_center(pos[e[0]], pos[e[1]], rad)
+            print(f"rad: {rad}, node acronym: {self.edges[e]['model'].node_acronym}, xy: {arrow_centre}")
             ax.annotate(self.edges[e]['model'].node_acronym,
-                        xy=_arrow_center(pos[e[0]], pos[e[1]], rad), xycoords='data',
+                        xy=arrow_centre, xycoords='data',
                         )
-
-        plt.axis('off')
+        ax.set_aspect('equal')
+        plt.axis('on')
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
         return ax
 
