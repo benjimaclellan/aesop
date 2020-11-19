@@ -36,7 +36,7 @@ from problems.example.node_types_subclasses.inputs import PulsedLaser, Continuou
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types import SourceNode, SinkNode
+from problems.example.node_types import TerminalSource, TerminalSink
 
 from algorithms.topology_optimization import topology_optimization
 
@@ -62,9 +62,10 @@ if __name__ == '__main__':
     # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
     # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
     crossover_maker = CrossoverMaker(verbose=True)
-    nodes = {'source':SourceNode(),
-            0:VariablePowerSplitter(),
-            'sink':SinkNode()}
+    nodes = {'source':TerminalSource(),
+             0:VariablePowerSplitter(),
+             'sink':TerminalSink()
+            }
     edges = {('source', 0):ContinuousWaveLaser(),
             (0,'sink'):PhaseModulator(),
             }

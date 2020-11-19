@@ -20,10 +20,10 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
         if target_waveform == 'saw':
             waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
-        if target_waveform == 'square':
+        elif target_waveform == 'square':
             waveform = 0.5 * (signal.square(2 * np.pi * self.target_harmonic * propagator.t, 0.7) + 1)
         else:
-            raise NotImplementedError('this is not a valid target waveform')
+            raise NotImplementedError(f'{target_waveform} is not a valid target waveform')
 
         self.target = target_amplitude * waveform
 
