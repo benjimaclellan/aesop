@@ -5,20 +5,20 @@ import copy
 # TODO: if both get_all_free_wheeling and get free_wheeling_<>_scores are used in code, refactor such that hessian is only computed once (it takes a long time)
 
 
-def get_all_node_scores(graph, as_log=True):
+def get_all_edge_scores(graph, as_log=True):
     """
     Returns dictionary with (key, value) = (node, terminal score), dictionary with (key, value) = (node, free_wheeling score) 
     """
-    x, node_or_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+    x, *_ = graph.extract_parameters_to_list()
     if len(x) == 0: # with bitstream -> photodiode, it's possible to have no unlocked parameters
         scores = {}
-        for node in graph.nodes:
-            scores[node] = 0 if as_log else 1
+        for edge in graph.edges:
+            scores[edge] = 0 if as_log else 1
         return scores, scores
 
     hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
     
-    return terminal_node_scores(graph, as_log=as_log), free_wheeling_node_scores(graph, hess, as_log=as_log)
+    return free_wheeling_edge_scores(graph, hess, as_log=as_log)
 
 
 def normalize_hessian(hessian):
@@ -35,11 +35,7 @@ def normalize_hessian(hessian):
     return hessian / np.sum(hessian) * hessian.shape[0]**2
 
 
-def normalize_gradient(grad):
-    return grad / np.sum(grad) * grad.shape[0]
-
-
-def free_wheeling_node_scores(graph, hess, p=1, as_log=False):
+def free_wheeling_edge_scores(graph, hess, p=1, as_log=False):
     """
     The free-wheeling score for node i, n_i is defined as:
     avg(p_j) for all parameters j in the node parameters (def of p_j found in free_wheeling_param_scores docstring)
@@ -54,23 +50,10 @@ def free_wheeling_node_scores(graph, hess, p=1, as_log=False):
 
     if len(x) != hess.shape[0]:
         raise ValueError(f'Hessian and parameter dimensionality mismatch. Parameter: {len(x)}, Hessian: {hess.shape}')
-    #---------------------
+
     param_scores = free_wheeling_param_scores(hess, p=p)
-    # print(f'averaging free-wheeling param scores into fw node scores')
-    return _extract_average_over_node(graph, param_scores, as_log=as_log)
 
-
-def terminal_node_scores(graph, as_log=False):
-    x, _, _, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
-
-    x, lower_bounds, upper_bounds = np.array(x), np.array(lower_bounds), np.array(upper_bounds)
-    uncertainty_scaling = graph.extract_attributes_to_list_experimental(['parameter_imprecisions'],
-                                                                        get_location_indices=False,
-                                                                        exclude_locked=True)['parameter_imprecisions']
-    per_param_dist = np.minimum(x - lower_bounds, upper_bounds - x) / np.array(uncertainty_scaling) 
-
-    return _extract_average_over_node(graph, per_param_dist, as_log=as_log)
-
+    return _extract_average_over_edge(graph, param_scores, as_log=as_log)
 
 def free_wheeling_param_scores(hess, p=1):
     """
@@ -90,13 +73,16 @@ def free_wheeling_param_scores(hess, p=1):
     return (np.sum(hess_p, axis=0)**(1/p) + np.sum(hess_p, axis=1)**(1/p)) / (2 * hess.shape[0])
 
 
-def _extract_average_over_node(graph, vector_to_average, as_log=False):
-    node_scores = {}
-    _, node_edge_index, *_ = graph.extract_parameters_to_list()
-    # print(f'vector to average: {vector_to_average}')
-    # print(f'node_edge_indices: {node_edge_index}')
-    for node in graph.nodes:
-        filtered_scores = vector_to_average[np.array(node_edge_index) == node]
+def _extract_average_over_edge(graph, vector_to_average, as_log=False):
+    edge_scores = {}
+    
+    node_edge_list = graph.extract_attributes_to_list_experimental([], get_location_indices=False, \
+                                                                   get_node_edge_index=True, exclude_locked=True)['node_edge_index']
+    print(f'node_edge_index: {node_edge_list}')
+
+    for edge in graph.edges:
+        filter = np.array([node_edge == edge for node_edge in node_edge_list])
+        filtered_scores = vector_to_average[filter]
         if len(filtered_scores) != 0:
             score = np.mean(filtered_scores)
 
@@ -106,8 +92,8 @@ def _extract_average_over_node(graph, vector_to_average, as_log=False):
             if as_log:
                 score = np.log10(score)
 
-            node_scores[node] = score
+            edge_scores[edge] = score
         else:
-            node_scores[node] = 0 if as_log else 1
+            edge_scores[edge] = 0 if as_log else 1
     
-    return node_scores
+    return edge_scores

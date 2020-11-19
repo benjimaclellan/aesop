@@ -15,11 +15,13 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
+from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver, SizeAwareLookupEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 from problems.example.assets.additive_noise import AdditiveNoise
+from problems.example.assets.hessian_graph_analysis import get_all_edge_scores
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
@@ -314,17 +316,26 @@ def test_evo_op_add_comp_parallel():
 def test_evolver_base_lookup():
     graph = get_test_graph0()
     evaluator = Evaluator()
-    evolver = SizeAwareLookupEvolver(verbose=True, debug=True) # OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
+    evolver = SizeAwareLookupEvolver(verbose=True, debug=False) # OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
     evolver.random_graph(graph, evaluator, view_evo=True, n_evolutions=20)
+
+def test_hessian_evolver():
+    graph = get_test_graph0()
+    propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    graph.initialize_func_grad_hess(propagator, evaluator)
+    score = get_all_edge_scores(graph, as_log=False)
+    print(f'score: {score}')
 
 if __name__ == "__main__":
     random.seed(3)
     np.random.seed(5)
+    test_hessian_evolver()
     test_evolver_base_lookup()
-    # test_evo_op_add_comp_series()
-    # test_evo_op_remove_comp()
-    # test_evo_op_swap_comp()
-    # test_evo_op_add_comp_parallel()
+    test_evo_op_add_comp_series()
+    test_evo_op_remove_comp()
+    test_evo_op_swap_comp()
+    test_evo_op_add_comp_parallel()
     # unittest.main()
     # test_differentiability()
     # test_differentiability_graphical(include_locked=True)
