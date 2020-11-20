@@ -122,6 +122,7 @@ class AddParallelComponent(EvolutionOperators):
                                                     graph.out_degree[node] < graph.nodes[node]['model']._range_input_edges[1])]
         return list(itertools.combinations(nodes, 2))
 
+
 @register_reduction_operators
 @register_evolution_operators
 class RemoveComponent(EvolutionOperators):
@@ -169,7 +170,9 @@ class RemoveComponent(EvolutionOperators):
         interfaces = [interface for interface in graph.interfaces if \
                       (graph.in_degree[interface.edge[0]] != 0 and \
                        graph.out_degree[interface.edge[1]] != 0 and \
-                       not graph.edges[interface.edge]['model'].protected)]
+                       not graph.edges[interface.edge]['model'].protected and \
+                       not graph.nodes[interface.edge[0]]['model'].protected and \
+                       not graph.nodes[interface.edge[1]]['model'].protected)]
         return interfaces
 
 

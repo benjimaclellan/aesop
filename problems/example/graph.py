@@ -416,8 +416,6 @@ class Graph(GraphParent):
 
             # 3. New centre
             arrow_centre = pos_avg + perp_vector * 0.7
-            if debug:
-                print(f'start: {pos_start}, end: {pos_end}, avg: {pos_avg}, dist: {dist}, angle: {theta}, perp_vector: {perp_vector}, arrow_centre: {arrow_centre}')
             return (arrow_centre[0], arrow_centre[1])
 
         for e in self.edges:
@@ -432,7 +430,6 @@ class Graph(GraphParent):
                                         ),
             )
             arrow_centre = _arrow_center(pos[e[0]], pos[e[1]], rad)
-            print(f"rad: {rad}, node acronym: {self.edges[e]['model'].node_acronym}, xy: {arrow_centre}")
             ax.annotate(self.edges[e]['model'].node_acronym,
                         xy=arrow_centre, xycoords='data',
                         )
@@ -491,10 +488,12 @@ class Graph(GraphParent):
         return np.array(model_attributes['lower_bounds']), np.array(model_attributes['upper_bounds'])
 
 
-    def get_models(self):
-        return [self.nodes[node]['model'] for node in self.nodes] + [self.edges[edge]['model'] for edge in self.edges]
+    def get_models(self, include_node_edge=False):
+        if include_node_edge:
+            return [(self.nodes[node]['model'], node) for node in self.nodes] + [(self.edges[edge]['model'], edge) for edge in self.edges]
+        return [[self.nodes[node]['model']] for node in self.nodes] + [[self.edges[edge]['model']] for edge in self.edges]
 
-    def extract_attributes_to_list_experimental(self, attributes, get_location_indices=True, exclude_locked=True):
+    def extract_attributes_to_list_experimental(self, attributes, get_location_indices=True, get_node_edge_index=False, exclude_locked=True):
         """ experimental: to extract model variables to a list, based on a list of variables names """
 
         # first generate multiple empty lists for each attribute of attributes
@@ -503,18 +502,22 @@ class Graph(GraphParent):
             model_attributes[attribute] = []
         if get_location_indices:
             model_attributes['models'], model_attributes['parameter_index'] = [], []
+        if get_node_edge_index:
+            model_attributes['node_edge_index'] = []
             # these will help translate from a list of parameters/parameter info to a graph structure
 
-        models = self.get_models()
+        models = self.get_models(include_node_edge=get_node_edge_index)
         for model in models:
-            if not model.node_lock:
-                for i, lock in enumerate(model.parameter_locks):
+            if not model[0].node_lock:
+                for i, lock in enumerate(model[0].parameter_locks):
                     if not lock:
                         for attribute in attributes:
-                            model_attributes[attribute].append(getattr(model, attribute)[i])
+                            model_attributes[attribute].append(getattr(model[0], attribute)[i])
                         if get_location_indices:
-                            model_attributes['models'].append(model)
+                            model_attributes['models'].append(model[0])
                             model_attributes['parameter_index'].append(i)
+                        if get_node_edge_index:
+                            model_attributes['node_edge_index'].append(model[1])
         return model_attributes
 
     def extract_parameters_to_list(self, exclude_locked=True):
