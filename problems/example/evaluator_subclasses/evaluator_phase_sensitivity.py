@@ -10,25 +10,29 @@ from lib.functions import scale_units
 class PhaseSensitivity(Evaluator):
     """  """
 
-    def __init__(self, propagator, phase=0.0, phase_node='ps', **kwargs):
+    def __init__(self, propagator, phase=0.0, phase_model=None, **kwargs):
         super().__init__(**kwargs)
-        self.phase_node = phase_node
+        assert phase_model.protected is True
+
+        self.phase_model = phase_model
         self.phase = phase
         self.target = np.ones_like(propagator.t)
 
 
     def evaluate_graph(self, graph, propagator):
-        measurement_node = -1 #graph.get_output_node()  # finds node with no outgoing edges
 
-        def _function(_phase, _graph, _propagator, _node, _measurement_node):
-            _graph.nodes[_node]['model'].parameters = [_phase]
+        def _function(_phase, _graph, _propagator, _phase_model, _measurement_node):
+            # _graph.edges[_edge_node]['model'].parameters = [_phase]
+            _phase_model.parameters = [_phase]
             _graph.propagate(_propagator)
             _state = _graph.measure_propagator(_measurement_node)
             p = np.sum(power_(_state))
             return p
-        _f = lambda x: _function(x, graph, propagator, self.phase_node, measurement_node)
+
+        measurement_node = 'sink'
+        _f = lambda x: _function(x, graph, propagator, self.phase_model, measurement_node)
         sensitivity = -np.abs(grad(_f)(self.phase))
-        graph.nodes[self.phase_node]['model'].parameters = [self.phase]
+        self.phase_model.parameters = [self.phase]
         return sensitivity
 
 

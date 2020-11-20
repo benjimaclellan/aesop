@@ -84,13 +84,12 @@ if __name__ == '__main__':
     attributes = graph.extract_attributes_to_list_experimental(['parameters', 'upper_bounds'])
     parameters = graph.sample_parameters_to_list()
     graph.distribute_parameters_from_list(parameters, attributes['models'], attributes['parameter_index'])
-    # graph.propagate(propagator)
-    #
-    #
-    # fig, ax = plt.subplots(1,1)
-    graph.draw(debug=True)
-    #
-    # state = graph.measure_propagator('sink')
-    # fig, ax = plt.subplots(1, 1)
-    # ax.plot(propagator.t, power_(state))
-    # plt.show()
+    graph.propagate(propagator)
+
+    fig, ax = plt.subplots(1,1)
+    graph.draw(ax=ax, debug=True)
+
+    state = graph.measure_propagator('sink')
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(propagator.t, power_(state))
+    plt.show()
