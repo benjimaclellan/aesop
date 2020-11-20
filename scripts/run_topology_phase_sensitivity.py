@@ -54,13 +54,13 @@ from algorithms.topology_optimization import topology_optimization, plot_hof, sa
 plt.close('all')
 if __name__ == '__main__':
 
-    # io = InputOutput(directory='testing', verbose=True)
-    # io.init_save_dir(sub_path=None, unique_id=True)
-    # io.save_machine_metadata(io.save_path)
+    io = InputOutput(directory='testing', verbose=True)
+    io.init_save_dir(sub_path=None, unique_id=True)
+    io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 2,
-               'n_population': 3, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 10,
+               'n_population': 10,
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -80,7 +80,7 @@ if __name__ == '__main__':
              (0, 1, 0): phase_shifter,
              (1, 'sink'): MeasurementDevice(),
              }
-    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=phase_shifter)
+    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter)
 
     graph = Graph.init_graph(nodes=nodes, edges=edges)
 
@@ -91,23 +91,28 @@ if __name__ == '__main__':
     update_rule = 'random'
 
     #%%
-    for j in range(1):
-        fig, ax = plt.subplots(1, 1)
-        for i in range(50):
-            graph, evo_op = evolver.evolve_graph(graph, evaluator)
-            ax.cla()
-            graph.draw(ax=ax)
-            # plt.waitforbuttonpress()
-            print(evaluator.evaluate_graph(graph, propagator))
-            plt.pause(1)
 
+    io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
+
+    test_evolution = False
+    if test_evolution:
+        for j in range(1):
+            fig, ax = plt.subplots(1, 1)
+            for i in range(3):
+                graph, evo_op = evolver.evolve_graph(graph, evaluator)
+                ax.cla()
+                graph.draw(ax=ax, debug=False)
+                # plt.waitforbuttonpress()
+                print(evaluator.evaluate_graph(graph, propagator))
+                plt.pause(0.1)
+        io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
 
     #%%
-    # io.save_object(graph, 'test_graph.pkl')
-    #
-    # hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-    #                                  ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
-    #                                  include_dashboard=False, crossover_maker=None)
-    #
-    # save_hof(hof, io)
-    # plot_hof(hof, propagator, evaluator, io)
+    io.save_object(graph, 'test_graph.pkl')
+
+    hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
+                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
+                                     include_dashboard=False, crossover_maker=None)
+
+    save_hof(hof, io)
+    plot_hof(hof, propagator, evaluator, io)

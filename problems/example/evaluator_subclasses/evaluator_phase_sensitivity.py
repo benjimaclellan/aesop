@@ -22,7 +22,6 @@ class PhaseSensitivity(Evaluator):
     def evaluate_graph(self, graph, propagator):
 
         def _function(_phase, _graph, _propagator, _phase_model, _measurement_node):
-            # _graph.edges[_edge_node]['model'].parameters = [_phase]
             _phase_model.parameters = [_phase]
             _graph.propagate(_propagator)
             _state = _graph.measure_propagator(_measurement_node)
@@ -30,9 +29,12 @@ class PhaseSensitivity(Evaluator):
             return p
 
         measurement_node = 'sink'
-        _f = lambda x: _function(x, graph, propagator, self.phase_model, measurement_node)
+        phase_models = [graph.edges[edge]['model'] for edge in graph.edges if isinstance(graph.edges[edge]['model'], self.phase_model)]
+        assert len(phase_models) == 1
+        phase_model = phase_models[0]
+        _f = lambda x: _function(x, graph, propagator, phase_model, measurement_node)
         sensitivity = -np.abs(grad(_f)(self.phase))
-        self.phase_model.parameters = [self.phase]
+        phase_model.parameters = [self.phase]
         return sensitivity
 
 

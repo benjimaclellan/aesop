@@ -63,6 +63,18 @@ class Graph(GraphParent):
         graph.score = None
         return graph
 
+    @classmethod
+    def duplicate_and_simplify_graph(cls, graph):
+        # copy nodes and edges - used before saving to avoid potential recursion errors in serialization
+        nodes, edges = {}, {}
+        for node in graph.nodes:
+            nodes[node] = graph.nodes[node]['model']
+        for edge in graph.edges:
+            edges[edge] = graph.edges[edge]['model']
+
+        graph_copy = cls.init_graph(nodes=nodes,edges=edges)
+        return graph_copy
+
     def __init__(self):
         """
         """
@@ -73,6 +85,13 @@ class Graph(GraphParent):
         propagation_order = list(nx.topological_sort(self))
         self._propagation_order = propagation_order
         return
+
+    def clean_graph(self):
+        self.func = None
+        self.grad = None
+        self.hess = None
+        self.clear_propagation()
+
 
     def __str__(self):
         str_rep = ''
@@ -295,8 +314,8 @@ class Graph(GraphParent):
                 self._propagator_saves[outgoing_edge] = signal  # we can use the edge as a hashable key because it is immutable (so we can use tuples, but not lists)
         return self
 
-    def measure_propagator(self, edge):
-        return self._propagator_saves[edge]
+    def measure_propagator(self, node_edge):
+        return self._propagator_saves[node_edge]
 
     def visualize_transforms_dof(self, ax, propagator, dof='f', label_verbose=1):
         for node in self.nodes():
@@ -434,7 +453,7 @@ class Graph(GraphParent):
                         xy=arrow_centre, xycoords='data',
                         )
         ax.set_aspect('equal')
-        plt.axis('on')
+        plt.axis('off')
         if ignore_warnings: warnings.simplefilter('always', category=(FutureWarning, cb.mplDeprecation))
         return ax
 

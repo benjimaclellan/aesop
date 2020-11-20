@@ -112,7 +112,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
 def save_hof(hof, io):
     for i, (score, graph) in enumerate(hof):
-        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
+        io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
     return
 
 def plot_hof(hof, propagator, evaluator, io):
@@ -121,27 +121,19 @@ def plot_hof(hof, propagator, evaluator, io):
     for i, (score, graph) in enumerate(hof):
         graph.score = score
         graph.propagate(propagator, save_transforms=False)
-        hof_i_score = evaluator.evaluate_graph(graph, propagator)
-        if score != hof_i_score: print(f"HOF final score calculation does not match. Score saved: {score}, calculated score eval: {hof_i_score}")
 
-        io.save_object(object_to_save=graph, filename=f"graph_hof{i}.pkl")
-
-        state = graph.measure_propagator(-1)
+        measurement_node = 'sink'
+        state = graph.measure_propagator(measurement_node)
         if len(hof) > 1:
             np.expand_dims(axs, 0)
 
-        graph.draw(ax=axs[i, 0], legend=True)
+        graph.draw(ax=axs[i, 0], debug=False)
         axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
         axs[i, 1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
         axs[i, 2].set(xticks=[], yticks=[])
         axs[i, 2].grid = False
         axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
-        # else:
-        #     graph.draw(ax=axs[0], legend=True)
-        #     axs[1].plot(propagator.t, evaluator.target, label='Target')
-        #     axs[1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
     io.save_fig(fig=fig, filename='halloffame.png')
-
 
 def save_scores_to_graph(population):
     for (score, graph) in population:
