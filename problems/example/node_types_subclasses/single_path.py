@@ -739,6 +739,7 @@ class PhaseShifter(NodeType):
         return
 
     def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
+
         phase = self.parameters[0]
 
         delay = propagator.central_wl / (2.0 * np.pi) * phase

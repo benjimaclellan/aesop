@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     phase, phase_node = (0.5*np.pi, -2)
     phase_shifter = PhaseShifter(parameters=[phase])
-    evaluator = PhaseSensitivity(propagator, phase=phase, phase_node=phase_node)
+    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=phase_node)
     evolver = StochMatrixEvolver()
     cw = ContinuousWaveLaser(parameters_from_name={'peak_power':1.5})
     nodes = {0:cw,
