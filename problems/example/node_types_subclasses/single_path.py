@@ -624,7 +624,7 @@ class ProgrammableFilter(SinglePath):
             y += coeff * self.bernstein(t, i=m, n=len(coeffs) - 1)
         return y
 
-    def propagate(self, states, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         # Slice at into the first half (amp) and last half (phase)
         bernstein_amp_coeffs = self.parameters[:self._number_of_bases]
