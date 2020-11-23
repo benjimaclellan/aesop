@@ -67,7 +67,8 @@ if __name__ == '__main__':
 
     edges = {('source', 0): ContinuousWaveLaser(parameters=[1]),
              (0, 1): PhaseModulator(parameters=[1, 6e9, 0, 0]),
-             (1, 2): WaveShaper(),
+             (1, 2, 0): WaveShaper(),
+             (1, 2, 1): PhaseModulator(),
              (2, 3): IntensityModulator(),
              (3, 4): WaveShaper(),
              (4, 'sink'):MeasurementDevice(),

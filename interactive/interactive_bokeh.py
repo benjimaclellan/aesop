@@ -35,7 +35,7 @@ from bokeh.plotting import from_networkx
 from bokeh.models import ColumnDataSource
 from bokeh.models import Button, CustomJS, FileInput, TextInput, Select, Slider, Div
 from bokeh.palettes import Spectral6
-from bokeh.models import Paragraph
+from bokeh.models import Paragraph, FileInput
 from bokeh.models import ColumnDataSource, DataTable, DateFormatter, TableColumn, HTMLTemplateFormatter, NumberFormatter
 
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
@@ -52,20 +52,21 @@ from problems.example.assets.propagator import Propagator
 
 def edge_callback(attr,old,new):
     global main_graph
-    main_graph.propagate(propagator, save_transforms=True)
 
     if DEBUG: print(f"edge select {attr, old, new}")
-    # print(graph_renderer.edge_renderer.data_source.data)
-    text = ''
 
+    text = 'Selected edge models:\n'
+
+    data = {'parameters':[], 'parameter_names': []}
     for index in new:
         edge = graph_renderer.edge_renderer.data_source.data['edge'][index]
-        text +=  f"Selected edge model: {main_graph.edges[edge]['model'].node_acronym}\n\n"
+        text +=  f"\t{main_graph.edges[edge]['model'].node_acronym}\n\n"
 
-        table_source.data = dict(parameters=main_graph.edges[edge]['model'].parameters,
-                                 parameter_names=main_graph.edges[edge]['model'].parameter_names)
+        data['parameters'] += main_graph.edges[edge]['model'].parameters
+        data['parameter_names'] += main_graph.edges[edge]['model'].parameter_names
+    table_source.data = data
 
-        dropdown.options = main_graph.edges[edge]['model'].parameter_names
+        # dropdown.options = main_graph.edges[edge]['model'].parameter_names
 
     # here we change which lines are visible based on the selection policy of the graph
     for plot_id, plot in plots.items():
@@ -75,13 +76,14 @@ def edge_callback(attr,old,new):
                 for line in plot['lines'][edge]:
                     line.visible = True
 
-        for index in old:
+        for index in list(set(old) - set(new)):
             edge = graph_renderer.edge_renderer.data_source.data['edge'][index]
             if edge in plot['lines'].keys():
                 for line in plot['lines'][edge]:
                     line.visible = False
 
-    div.text = text
+    text_display.value = text
+    # text_display.text = text
 
 
 def text_summary_node(model):
@@ -96,11 +98,36 @@ def node_callback(attr, old, new):
         text += text_summary_node(main_graph.nodes[node]['model'])
 
 
+def update_plots():
+    global plots
+    global main_graph
+
+    main_graph.propagate(propagator, save_transforms=True)
+
+    for edge in main_graph.edges:
+        state = main_graph.measure_propagator(edge)
+
+        plots['prop_time']['sources'][edge][0].data['y'] = power_(state).astype('float')
+        # plots['prop_time']['sources'][edge][0] = ColumnDataSource(data=dict(x=propagator.f, y=power_(state).astype('float')))
+        plots['prop_freq']['sources'][edge][0].data['y'] = np.log10(psd_(state, dt=propagator.dt, df=propagator.df).astype('float'))
+        # plots['prop_freq']['sources'][edge][0] = ColumnDataSource(data=dict(x=propagator.f, y=np.log10(psd_(state, dt=propagator.dt, df=propagator.df).astype('float'))))
+
+        if main_graph.edges[edge]['model'].transform is not None:
+            for i, (dof, transform, label) in enumerate(main_graph.edges[edge]['model'].transform):
+                if dof == 't':
+                    plots['tran_time']['sources'][edge][i].data['y'] = transform.astype('float')
+                    # plots['tran_time']['sources'][edge][i] = ColumnDataSource(data=dict(x=propagator.t, y=transform.astype('float')))
+                elif dof == 'f':
+                    plots['tran_freq']['sources'][edge][i].data['y'] = transform.astype('float')
+                    # plots['tran_freq']['sources'][edge][i] = ColumnDataSource(data=dict(x=propagator.f, y=transform.astype('float')))
+
+
 def load_graph():
     global propagator
     global main_graph
     global plots
     global palette
+    global styles
 
     for plot_id, plot in plots.items():
         for id, lines in plot['lines'].items():
@@ -125,6 +152,7 @@ def load_graph():
     main_graph.propagate(propagator, save_transforms=True)
 
     for edge in main_graph.edges:
+
         state = main_graph.measure_propagator(edge)
 
         plots['prop_time']['sources'][edge] = [ColumnDataSource(data=dict(x=propagator.t, y=power_(state).astype('float')))]
@@ -134,7 +162,7 @@ def load_graph():
         plots['tran_freq']['sources'][edge] = []
 
         if main_graph.edges[edge]['model'].transform is not None:
-            for (dof, transform, label) in main_graph.edges[edge]['model'].transform:
+            for i, (dof, transform, label) in enumerate(main_graph.edges[edge]['model'].transform):
                 if dof == 't':
                     plots['tran_time']['sources'][edge].append(ColumnDataSource(data=dict(x=propagator.t, y=transform.astype('float'))))
                 elif dof == 'f':
@@ -142,33 +170,24 @@ def load_graph():
 
 
     for plot_id, plot in plots.items():
-        for id, sources in plot['sources'].items():
+        for i, (id, sources) in enumerate(plot['sources'].items()):
+            color = palette[i % len(palette)]
             plot['lines'][id] = []
-            for new_source in sources:
-                new_line = plot['plot'].line(x='x', y='y', source=new_source, alpha=0.8, line_color=next(palette), line_width=3.0, visible=False)
+            for j, new_source in enumerate(sources):
+                style = styles[j % len(styles)]
+                new_line = plot['plot'].line(x='x', y='y', source=new_source, alpha=0.8, line_color=color, line_width=3.0, visible=False)
                 plot['lines'][id] += [new_line]
+
+    layout, node_dict, edge_dict = disp_graph.export_as_dict(main_graph)
+    update_node_positions(layout, node_dict, edge_dict)
 
     return
 
 
 def button_callback():
-    global main_graph
-    global disp_graph
-
+    button.label = '... Loading graph'
     load_graph()
-
-    node_dict, edge_dict = disp_graph.export_as_dict(main_graph)
-    update_node_positions(disp_graph.get_layout(main_graph), node_dict, edge_dict)
-    div.text = f"File: {filepath_input.value}, Graph cardinality: {main_graph.number_of_nodes()}"
-
-
-def file_input_callback(attr,old,new):
-    if DEBUG: print(f'file input {attr, old, new}')
-
-
-def update_textbox(attr, old, new):
-    div.text = f"New edge selected: edge index {new}"
-
+    button.label = 'Load graph'
 
 def slider_callback(attr, old, new):
     if DEBUG: print(f'slider {attr, old, new}')
@@ -177,13 +196,12 @@ def slider_callback(attr, old, new):
 def dropdown_callback(attr, old, new):
     if DEBUG: print(f'select {attr, old, new}')
 
+
 def update_node_positions(layout, node_dict, edge_dict):
+    graph_renderer.layout_provider = StaticLayoutProvider(graph_layout=layout)
 
     graph_renderer.node_renderer.data_source.data = node_dict
     graph_renderer.edge_renderer.data_source.data = edge_dict
-
-    # graph_layout = main_graph.optical_system_layout()
-    graph_renderer.layout_provider = StaticLayoutProvider(graph_layout=layout)
 
 
 #%%
@@ -192,13 +210,14 @@ button = Button(label="Load graph", button_type="success")
 button.on_click(button_callback)
 
 filepath_input = TextInput(value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\interactive\example\test_graph.pkl', title='')
-filepath_input.on_change('value', file_input_callback)
 
-dropdown = Select(title="Parameter to control:", value="option1", options=["option1", "option2", "option3"])
+dropdown = Select(title="Parameter to control:", value="-", options=["-",])
 dropdown.on_change('value', dropdown_callback)
 
 slider = Slider(start=0.1, end=1.0, value=1, step=.1, title="Parameter value")
 slider.on_change('value', slider_callback)
+
+text_display = TextInput(value='', title='')
 
 table_source = ColumnDataSource(data=dict(parameter_names=[],
                                           parameters=[],))
@@ -214,12 +233,13 @@ data_table = DataTable(source=table_source, columns=columns, width=400, height=3
 
 div = Paragraph(text="""this is a HTML Div where the node info will be printed when an edge or node is selected in the graph""", sizing_mode='stretch_both')
 
-widgets = column(filepath_input, button, dropdown, slider, width=200, height=300)
+widgets = column(filepath_input, button, text_display, width=200, height=300)
 
 #%% main graph
 
-DEBUG = True
-palette = itertools.cycle(Spectral6)
+DEBUG = False
+palette = Spectral6
+styles = ['solid','dashed','dotted','dotdash','dashdot']
 
 propagator = None
 main_graph = Graph()
@@ -283,4 +303,4 @@ layout = column(row(widgets, data_table, plot_graph, height=300),
 curdoc().add_root(layout)
 curdoc().title = "ASOPE Photonic Circuit Design"
 
-load_graph()
+# load_graph()
