@@ -25,7 +25,7 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver, EGreedyHessianEvolver
+from problems.example.evolver import CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, HessianProbabilityEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -48,8 +48,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 3,
-               'n_population': 5, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 2,
+               'n_population': 2, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -57,10 +57,11 @@ if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     # evolver = Evolver(verbose=False)
-    evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
+    # evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
     # evolver = SizeAwareLookupEvolver(verbose=False)
     # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
     # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
+    evolver = HessianProbabilityEvolver(verbose=True, debug=False)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {'source':TerminalSource(),
              0:VariablePowerSplitter(),
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     edges = {('source', 0):ContinuousWaveLaser(),
             (0,'sink'):PhaseModulator(),
             }
-    start_graph = Graph(nodes, edges)
+    start_graph = Graph.init_graph(nodes=nodes, edges=edges)
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     # update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
@@ -83,7 +84,7 @@ if __name__ == '__main__':
                 continue
             print(f'Starting optimization with rule {rule}, crossover_maker: {cross_opt}')
             io = handle_io()
-            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
+            hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
             ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
             ax.plot(log['generation'], log['best'], label='Best')

@@ -666,26 +666,26 @@ class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
 #         return False
 
 
-# class CrossoverMaker(object):
-#     """
-#     An explicit class is not really necessary right now, but might become useful if we define more crossover operators
-#     """
-#     def __init__(self, verbose=False, **attr):
-#         self.verbose = verbose
+class CrossoverMaker(object):
+    """
+    An explicit class is not really necessary right now, but might become useful if we define more crossover operators
+    """
+    def __init__(self, verbose=False, **attr):
+        self.verbose = verbose
     
-#     def crossover_graphs(self, graph0, graph1):
-#         # check if each evolution operator is possible
-#         verification = [cross_op().verify_evolution(graph0, graph1) for (_, cross_op) in configuration.CROSSOVER_OPERATORS.items()]
+    def crossover_graphs(self, graph0, graph1):
+        # check if each evolution operator is possible
+        verification = [cross_op().verify_evolution(graph0, graph1) for (_, cross_op) in configuration.CROSSOVER_OPERATORS.items()]
 
-#         # choose one evolution from all possible
-#         possible_cross_ops = [cross_op for (verify, cross_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
-#         if len(possible_cross_ops) == 0:
-#             raise RuntimeError('No valid crossover operators')
+        # choose one evolution from all possible
+        possible_cross_ops = [cross_op for (verify, cross_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
+        if len(possible_cross_ops) == 0:
+            raise RuntimeError('No valid crossover operators')
 
-#         cross_op_choice = np.random.choice(possible_cross_ops)
+        cross_op_choice = np.random.choice(possible_cross_ops)
 
-#         # apply the chosen evolution
-#         child0, child1 = cross_op_choice().apply_evolution(graph0, graph1, verbose=self.verbose)
+        # apply the chosen evolution
+        child0, child1 = cross_op_choice().apply_evolution(graph0, graph1, verbose=self.verbose)
 
-#         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
-#         return child0, child1, cross_op_choice
+        # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
+        return child0, child1, cross_op_choice
