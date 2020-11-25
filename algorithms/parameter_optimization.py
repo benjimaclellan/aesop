@@ -29,9 +29,11 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         def func(params):
             score = graph.func(params)
-            print(f'logged score: {score}')
             logger.log_score(score)
             return score
+        
+        if 'ADAM' in method:
+            fitness_grad = autograd.grad(func)
 
         fitness_funct = func
 
@@ -47,7 +49,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         
         res = scipy.optimize.minimize(fitness_funct, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 5},
+                                      options={'disp': verbose, 'maxiter': 100},
                                       jac=graph.grad)
         graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
@@ -60,8 +62,9 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
     if method == 'NULL':
         if verbose: print("Null parameter optimization - only for testing topology optimization. No parameter optimization will occur.")
-        return graph, x0, graph.func(x0), None
-
+        if log_callback:
+            return graph, x0, graph.func(x0), None
+        return graph, x0, graph.func(x0)
     if method == 'L-BFGS+PSO':
         if verbose: print("Parameter optimization: L-BFGS + PSO algorithm")
         swarm_size = 40
@@ -75,7 +78,6 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
                          phig=0.5, maxiter=30, minstep=1e-8, minfunc=1e-8, debug=verbose)
 
         if log_callback:
-            print(f'xopt: {xopt}')
             logger.set_optimization_algorithm('L-BFGS')
 
         res = scipy.optimize.minimize(fitness_funct, xopt, method='L-BFGS-B',
@@ -95,16 +97,17 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     elif method == 'L-BFGS+GA':
         if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
-        x, hof, log = parameters_genetic_algorithm(graph, n_generations=25, n_population=25, rate_mut=0.8,
-                                                   rate_crx=0.3, verbose=verbose)
+        population_size = 25
 
-        total_log = pd.DataFrame(columns=['iteration','time','score'])
-        total_log['iteration'] = log['generation']
-        total_log['score'] = log['minimum']
-        total_log['time'] = 1.0 #log['generation']/np.max(log['generation']) * (t2 - t1)
-        total_log['method'] = 'GA'
+        if log_callback:
+            logger.set_optimization_algorithm('GA', pop_size=population_size)
+            logger.start_logger_time()
+    
+        x, score = parameters_genetic_algorithm(fitness_funct, x0, graph.sample_parameters_to_list, n_generations=25, n_population=population_size, rate_mut=0.8,
+                                                rate_crx=0.3, verbose=verbose)
 
-
+        if log_callback:
+            logger.set_optimization_algorithm('L-BFGS')
 
         res = scipy.optimize.minimize(fitness_funct, x, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
@@ -114,7 +117,13 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
-        return graph, x, graph.func(x), total_log
+
+        if log_callback:
+            log = logger.get_logs()
+            return graph, x, graph.func(x), log
+    
+        return graph, x, graph.func(x)
+
     elif method == 'PSO':
         if verbose: print("Parameter optimization: PSO algorithm")
       
@@ -128,12 +137,12 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         xopt, fopt = pso(fitness_funct, lower_bounds, upper_bounds, f_ieqcons=None,
                          args=(), kwargs={}, swarmsize=swarm_size, omega=0.5, phip=0.5,
                          phig=0.5, maxiter=10, minstep=1e-8, minfunc=1e-8, debug=False)
+        
+        graph.distribute_parameters_from_list(xopt, models, parameter_index)
 
         if log_callback:
             log = logger.get_logs()
             return graph, xopt, fopt, log
-        
-        graph.distribute_parameters_from_list(xopt, models, parameter_index)
 
         return graph, xopt, fopt
 
@@ -162,27 +171,51 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         
     elif method == 'ADAM':
         if verbose: print("Parameter optimization: ADAM algorithm")
-        x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), graph.grad, np.array(x0),
+
+        if log_callback:
+            logger.set_optimization_algorithm('ADAM')
+            logger.start_logger_time()
+    
+        x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), fitness_grad, np.array(x0),
                                           convergence_thresh_abs=0.00085, callback=None,
                                           num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
                                           eps=10 ** -8, m=None, v=None, verbose=verbose)
-        res = {"iterations":num_iters}
         graph.distribute_parameters_from_list(x, models, parameter_index)
-        return graph, x, graph.func(x), res
+
+        if log_callback:
+            log = logger.get_logs()
+            return graph, x, graph.func(x), log
+    
+        return graph, x, graph.func(x)
 
     if method == 'ADAM+GA':
         if verbose: print("Parameter optimization: GA + ADAM algorithm")
-        x, score = parameters_genetic_algorithm(fitness_funct, x0, graph.sample_parameters_to_list, n_generations=15, n_population=15, rate_mut=0.9,
+
+        population_size = 15 
+
+        if log_callback:
+            logger.set_optimization_algorithm('GA', pop_size=population_size)
+            logger.start_logger_time()
+
+        x, score = parameters_genetic_algorithm(fitness_funct, x0, graph.sample_parameters_to_list, n_generations=15, n_population=population_size, rate_mut=0.9,
                                                 rate_crx=0.9, verbose=verbose)
 
-        x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), graph.grad, np.array(x0),
+        if log_callback:
+            logger.set_optimization_algorithm('ADAM')
+
+        x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), fitness_grad, np.array(x0),
                                           convergence_thresh_abs=0.00085, callback=None,
                                           num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
                                           eps=10 ** -8, m=None, v=None, verbose=verbose)
-        res = {"iterations": num_iters}
+
         graph.distribute_parameters_from_list(x, models, parameter_index)
 
-        return graph, x, graph.func(x), res
+        if log_callback:
+            print(f'number of iterations: {num_iters}')
+            log = logger.get_logs()
+            return graph, x, graph.func(x), log
+    
+        return graph, x, graph.func(x)
 
     elif method == 'GA':
         if verbose: print("Parameter optimization: GA algorithm")
@@ -190,7 +223,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         population_size = 15 
 
         if log_callback:
-            logger.set_optimization_algorithm('PSO', pop_size=population_size)
+            logger.set_optimization_algorithm('GA', pop_size=population_size)
             logger.start_logger_time()
 
         x, score = parameters_genetic_algorithm(fitness_funct, x0, graph.sample_parameters_to_list, n_generations=15, n_population=population_size, rate_mut=0.9,

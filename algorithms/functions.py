@@ -7,6 +7,8 @@ import autograd.numpy as np
 import pandas as pd
 import time
 
+from lib.autodiff_helpers import unwrap_arraybox_val
+
 def logbook_update(generation, population, log, log_metrics, time=-1, best=None, verbose=False):
     """ updates the statistics log book. Runtime -1 means that the runtime of a generation was not calculated """
     scores = [score for score, _ in population]
@@ -81,11 +83,13 @@ class ParameterOptimizationLogger():
         self.scores_in_this_generation = np.zeros(pop_size)
     
     def log_score(self, score):
+        score = unwrap_arraybox_val(score)
+
         num_in_gen = self.log_number % self.current_population
         self.scores_in_this_generation[num_in_gen] = score
         
         for metric in self.log_metrics.keys():
-            self.dataframe.loc[self.last_row_num, metric] = self.log_metrics[metric](score)
+            self.dataframe.loc[self._last_row_num, metric] = self.log_metrics[metric](score)
         
         self.log_number += 1
 
@@ -93,7 +97,7 @@ class ParameterOptimizationLogger():
             self.scores_in_this_generation = np.zeros(self.current_population)
 
     @property
-    def last_row_num(self):
+    def _last_row_num(self):
         return self.row_offset + self.log_number // self.current_population
 
     def _update_mean(self, score):
@@ -110,7 +114,7 @@ class ParameterOptimizationLogger():
         if self.log_number % self.current_population == 0:
             return score
         
-        return min(score, self.dataframe.loc[self.last_row_num, 'minimum'])
+        return min(score, self.dataframe.loc[self._last_row_num, 'minimum'])
 
     def _update_max(self, score):
         """
@@ -120,4 +124,4 @@ class ParameterOptimizationLogger():
         if self.log_number % self.current_population == 0:
             return score
         
-        return max(score, self.dataframe.loc[self.last_row_num, 'maximum'])
+        return max(score, self.dataframe.loc[self._last_row_num, 'maximum'])

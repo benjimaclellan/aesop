@@ -331,18 +331,18 @@ def test_hessian_evolver():
     print(f'score: {score}')
     test_evolver_lookup(evolver_class=HessianProbabilityEvolver)
 
-def test_logging_l_bfgs():
+def test_logging_parameters():
     graph = get_test_graph0()
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-    opt_graph, params, score, log = parameters_optimize(graph, method='GA', log_callback=True)
+    opt_graph, params, score, log = parameters_optimize(graph, method='L-BFGS+GA', log_callback=True)
     print(log)
 
 if __name__ == "__main__":
     random.seed(3)
     np.random.seed(5)
-    test_logging_l_bfgs()
+    test_logging_parameters()
     # test_hessian_evolver()
     # test_evolver_lookup()
     # test_evo_op_add_comp_series()
