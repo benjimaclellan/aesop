@@ -33,6 +33,8 @@ from problems.example.node_types import TerminalSource, TerminalSink
 
 from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
+from algorithms.parameter_optimization import parameters_optimize
+
 class Test(unittest.TestCase):
     def test_all_available_nodes(self):
         propagator = Propagator(window_t=100e-12, n_samples=2 ** 14)
@@ -264,7 +266,7 @@ def get_test_graph0():
              (1,'sink'):Photodiode(),
             }
     graph = Graph.init_graph(nodes=nodes, edges=edges)
-    # graph.assert_number_of_edges()
+    graph.assert_number_of_edges()
     # print(f'graph edges: {graph.edges}')
     # print(f'graph interfaces: {graph.interfaces}')
     return graph
@@ -329,10 +331,19 @@ def test_hessian_evolver():
     print(f'score: {score}')
     test_evolver_lookup(evolver_class=HessianProbabilityEvolver)
 
+def test_logging_l_bfgs():
+    graph = get_test_graph0()
+    propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+    opt_graph, params, score, log = parameters_optimize(graph, method='GA', log_callback=True)
+    print(log)
+
 if __name__ == "__main__":
     random.seed(3)
     np.random.seed(5)
-    test_hessian_evolver()
+    test_logging_l_bfgs()
+    # test_hessian_evolver()
     # test_evolver_lookup()
     # test_evo_op_add_comp_series()
     # test_evo_op_remove_comp()

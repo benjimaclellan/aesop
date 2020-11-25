@@ -483,7 +483,7 @@ def parameters_optimize_complete(ind, evaluator, propagator):
     try:
         graph.clear_propagation()
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
-        x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
+        x0, model, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
         graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='NULL', verbose=True)
 
