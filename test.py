@@ -336,8 +336,13 @@ def test_logging_parameters():
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-    opt_graph, params, score, log = parameters_optimize(graph, method='L-BFGS+GA', log_callback=True)
-    print(log)
+
+    for alg in ['L-BFGS', 'GA', 'ADAM', 'ADAM+GA', 'L-BFGS+GA', 'PSO', 'L-BFGS+PSO', 'NULL']:
+        opt_graph, params, score, logger = parameters_optimize(graph, method=alg, log_callback=True)
+        if logger is not None:
+            print(logger.get_log())
+            logger.display_log()
+        opt_graph, params, score, logger = parameters_optimize(graph, method=alg, log_callback=False)
 
 if __name__ == "__main__":
     random.seed(3)

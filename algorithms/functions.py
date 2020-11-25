@@ -7,6 +7,10 @@ import autograd.numpy as np
 import pandas as pd
 import time
 
+# for plotting
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+
 from lib.autodiff_helpers import unwrap_arraybox_val
 
 def logbook_update(generation, population, log, log_metrics, time=-1, best=None, verbose=False):
@@ -30,12 +34,13 @@ class ParameterOptimizationLogger():
     """
     Logger for parameter optimizations
     """
-    def __init__(self, log_metrics=None, valid_algorithms=None):
+    def __init__(self, log_metrics=None, valid_algorithms=None, algorithm_colours=None):
         """
 
         :param log_metrics: dictionary with (key=metric name (string), value=function to extract metric)
                             Note that the functions to extract the metric don't take in the population! They take in a single new score
         :param valid algorithms: list or set of strings describing valid algorithms
+        :param algorithm_colours: a dictionary with key=algorithm name, value=colour for the algorithm when plotted
         """
         self.start_time = None
         self.valid_algorithms = set(['L-BFGS', 'PSO', 'CMA', 'ADAM', 'GA'])
@@ -59,9 +64,17 @@ class ParameterOptimizationLogger():
         else:
             self.log_metrics = log_metrics
         
+        if algorithm_colours is None:
+            colour_map = plt.get_cmap('nipy_spectral')
+            self.algorithm_colours = {}
+            for (i, alg) in enumerate(self.valid_algorithms):
+                self.algorithm_colours[alg] = colour_map(i / len(self.valid_algorithms))
+        else:
+            self.algorithm_colours = algorithm_colours
+        
         self.dataframe = pd.DataFrame(columns=list(self.log_metrics.keys()))
     
-    def get_logs(self):
+    def get_log(self):
         return self.dataframe
     
     def start_logger_time(self):
@@ -95,6 +108,23 @@ class ParameterOptimizationLogger():
 
         if self.log_number % self.current_population == 0:
             self.scores_in_this_generation = np.zeros(self.current_population)
+    
+    def display_log(self, ax=None, show=True, xaxis='process runtime (s)', yaxis='minimum'):
+        if ax is None:
+            _, ax = plt.subplots()
+        
+        algs_in_use = self.dataframe.algorithm.unique()
+
+        for alg in algs_in_use:
+            filtered_df = self.dataframe.loc[self.dataframe['algorithm'] == alg]
+            ax.scatter(filtered_df[xaxis], filtered_df[yaxis], color=self.algorithm_colours[alg], label=alg)
+
+        ax.legend()
+        ax.set_xlabel(xaxis)
+        ax.set_ylabel(yaxis)
+        if show:
+            plt.show()
+        return ax
 
     @property
     def _last_row_num(self):
