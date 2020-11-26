@@ -109,9 +109,9 @@ class ParameterOptimizationLogger():
         if self.log_number % self.current_population == 0:
             self.scores_in_this_generation = np.zeros(self.current_population)
     
-    def display_log(self, ax=None, show=True, xaxis='process runtime (s)', yaxis='minimum'):
+    def display_log(self, fig=None, ax=None, show=True, xaxis='process runtime (s)', yaxis='minimum'):
         if ax is None:
-            _, ax = plt.subplots()
+            fig, ax = plt.subplots()
         
         algs_in_use = self.dataframe.algorithm.unique()
 
@@ -124,7 +124,32 @@ class ParameterOptimizationLogger():
         ax.set_ylabel(yaxis)
         if show:
             plt.show()
-        return ax
+        return fig, ax
+
+    @staticmethod
+    def display_log_comparison(logger_dict, title='', fig=None, ax=None, show=True, xaxis='process runtime (s)', yaxis='minimum'):
+        """
+
+        :param logger_dict: ("data label", logger obj)
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        
+        colour_map = plt.get_cmap('brg')
+        print(f'logger dict items: {logger_dict.items()}')
+        print(f'enumerate logger dict items: {enumerate(logger_dict.items())}')
+        for i, (label, logger) in enumerate(logger_dict.items()):
+            data = logger.get_log()
+            ax.plot(data[xaxis], data[yaxis], label=label, color=colour_map(i / len(logger_dict)))
+        
+        ax.legend()
+        ax.set_xlabel(xaxis)
+        ax.set_ylabel(yaxis)
+        plt.title(title)
+        if show:
+            plt.show()
+        
+        return fig, ax
 
     @property
     def _last_row_num(self):

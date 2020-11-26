@@ -53,7 +53,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         
         res = scipy.optimize.minimize(fitness_funct, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 100},
+                                      options={'disp': verbose, 'maxiter': 150},
                                       jac=graph.grad)
         graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
@@ -80,7 +80,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         res = scipy.optimize.minimize(fitness_funct, xopt, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 50},
+                                      options={'disp': verbose, 'maxiter': 100},
                                       jac=graph.grad)
 
         graph.distribute_parameters_from_list(res.x, models, parameter_index)
@@ -161,7 +161,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     
         x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), fitness_grad, np.array(x0),
                                           convergence_thresh_abs=0.00085, callback=None,
-                                          num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
+                                          num_iters=1000, step_size=0.001, b1=0.9, b2=0.999,
                                           eps=10 ** -8, m=None, v=None, verbose=verbose)
         graph.distribute_parameters_from_list(x, models, parameter_index)
 
@@ -177,7 +177,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
             logger.start_logger_time()
 
         x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list, \
-                                                logger=(logger if log_callback else None), n_generations=15, \
+                                                logger=(logger if log_callback else None), n_generations=20, \
                                                 n_population=population_size, rate_mut=0.9,
                                                 rate_crx=0.9, verbose=verbose)
 
@@ -186,7 +186,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         x, num_iters, m, v = adam_bounded(np.array(lower_bounds), np.array(upper_bounds), fitness_grad, np.array(x),
                                           convergence_thresh_abs=0.00085, callback=None,
-                                          num_iters=100, step_size=0.001, b1=0.9, b2=0.999,
+                                          num_iters=150, step_size=0.001, b1=0.9, b2=0.999,
                                           eps=10 ** -8, m=None, v=None, verbose=verbose)
 
         graph.distribute_parameters_from_list(x, models, parameter_index)
@@ -202,7 +202,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
             logger.set_optimization_algorithm('GA', pop_size=population_size)
             logger.start_logger_time()
 
-        x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list, logger=(logger if log_callback else None), n_generations=15, n_population=population_size, rate_mut=0.9,
+        x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list, logger=(logger if log_callback else None), n_generations=30, n_population=population_size, rate_mut=0.9,
                                                 rate_crx=0.9, verbose=verbose)
         graph.distribute_parameters_from_list(x, models, parameter_index)
       

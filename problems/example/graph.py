@@ -506,7 +506,6 @@ class Graph(GraphParent):
         
         return np.array(model_attributes['lower_bounds']), np.array(model_attributes['upper_bounds'])
 
-
     def get_models(self, include_node_edge=False):
         if include_node_edge:
             return [(self.nodes[node]['model'], node) for node in self.nodes] + [(self.edges[edge]['model'], edge) for edge in self.edges]
