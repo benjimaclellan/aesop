@@ -129,9 +129,9 @@ class PhaseModulator(SinglePath):
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
         self.upper_bounds = [2*np.pi, 50.0e9, 2*np.pi, 1e9]
-        self.lower_bounds = [0.001, 10.0e6, 0.01, 0.0]
+        self.lower_bounds = [0.001, 1.0e9, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
-        self.step_sizes = [None, None, None, None]
+        self.step_sizes = [None, 1e9, None, None]
         self.parameter_imprecisions = [1.0, 1.0, 0.1, 1.0]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
         self.parameter_locks = [False, False, False, True]
@@ -187,10 +187,10 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         self.number_of_parameters = 3
         self.default_parameters = [1.0, 1.0e9, 0.0]
 
-        self.upper_bounds = [2*np.pi, 48.0e9, 2 * np.pi]
-        self.lower_bounds = [0.0, 6.0e9, 0.0]
+        self.upper_bounds = [2*np.pi, 50.0e9, 2 * np.pi]
+        self.lower_bounds = [0.0, 1.0e9, 0.0]
         self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, 6.0e9, None]
+        self.step_sizes = [None, 1.0e9, None]
         self.parameter_imprecisions = [1.0, 1.0, 0.1]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad]
         self.parameter_locks = [False, False, False]

@@ -20,7 +20,7 @@ import config.config as configuration
 SPECIATION_MANAGER = NoSpeciation() 
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
-                          crossover_maker=None,
+                          crossover_maker=None, parameter_opt_method='L-BFGS+GA',
                           ga_opts=None, update_rule='random',
                           target_species_num=4, protection_half_life=None,
                           cluster_address=None, local_mode=False, include_dashboard=False):
@@ -89,7 +89,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         print(f'population length after update: {len(population)}')
         
         # optimize parameters on each node/CPU
-        population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id) for ind in population])
+        population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id, method=parameter_opt_method) for ind in population])
         save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
         SPECIATION_MANAGER.speciate(population)
@@ -500,7 +500,7 @@ def update_population_topology_preferential_photoNEAT(population, evolver, evalu
     return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
 
 
-def parameters_optimize_complete(ind, evaluator, propagator):
+def parameters_optimize_complete(ind, evaluator, propagator, method='NULL'):
     score, graph = ind
     if score is not None:
         return score, graph
@@ -510,7 +510,7 @@ def parameters_optimize_complete(ind, evaluator, propagator):
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
         x0, model, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method='NULL', verbose=True)
+        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=True)
 
         return score, graph
     except Exception as e:
@@ -520,5 +520,5 @@ def parameters_optimize_complete(ind, evaluator, propagator):
 
 
 @ray.remote
-def parameters_optimize_multiprocess(ind, evaluator, propagator):
-    return parameters_optimize_complete(ind, evaluator, propagator)
+def parameters_optimize_multiprocess(ind, evaluator, propagator, method='NULL'):
+    return parameters_optimize_complete(ind, evaluator, propagator, method=method)

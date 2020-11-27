@@ -80,7 +80,7 @@ if __name__ == '__main__':
              (0, 1, 0): phase_shifter,
              (1, 'sink'): MeasurementDevice(),
              }
-    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter)
+    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter())
 
     graph = Graph.init_graph(nodes=nodes, edges=edges)
 
@@ -92,27 +92,39 @@ if __name__ == '__main__':
 
     #%%
 
-    io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
-
-    test_evolution = False
-    if test_evolution:
-        for j in range(1):
-            fig, ax = plt.subplots(1, 1)
-            for i in range(3):
-                graph, evo_op = evolver.evolve_graph(graph, evaluator)
-                ax.cla()
-                graph.draw(ax=ax, debug=False)
-                # plt.waitforbuttonpress()
-                print(evaluator.evaluate_graph(graph, propagator))
-                plt.pause(0.1)
-        io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
+    # io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
+    #
+    # test_evolution = False
+    # if test_evolution:
+    #     for j in range(1):
+    #         fig, ax = plt.subplots(1, 1)
+    #         for i in range(3):
+    #             graph, evo_op = evolver.evolve_graph(graph, evaluator)
+    #             ax.cla()
+    #             graph.draw(ax=ax, debug=False)
+    #             # plt.waitforbuttonpress()
+    #             print(evaluator.evaluate_graph(graph, propagator))
+    #             plt.pause(0.1)
+    #     io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
 
     #%%
     io.save_object(graph, 'test_graph.pkl')
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                     parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)
+
+    fig, ax = plt.subplots(1, 1, figsize=[5, 3])
+    ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
+    ax.plot(log['generation'], log['best'], label='Best')
+    ax.plot(log['generation'], log['mean'], label='Population mean')
+    ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
+    ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
+    ax.set(xlabel='Generation', ylabel='Cost')
+    ax.legend()
+
+    io.save_fig(fig, 'topology_log.png')
