@@ -54,14 +54,14 @@ from algorithms.topology_optimization import topology_optimization, plot_hof, sa
 plt.close('all')
 if __name__ == '__main__':
 
-    io = InputOutput(directory='testing', verbose=True)
+    io = InputOutput(directory='phase_sensitivity', verbose=True)
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 10,
-               'n_population': 10,
-               'n_hof': 2,
+    ga_opts = {'n_generations': 20,
+               'n_population': 20,
+               'n_hof': 6,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
@@ -89,23 +89,6 @@ if __name__ == '__main__':
 
     # update_rule = 'preferential'
     update_rule = 'random'
-
-    #%%
-
-    # io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
-    #
-    # test_evolution = False
-    # if test_evolution:
-    #     for j in range(1):
-    #         fig, ax = plt.subplots(1, 1)
-    #         for i in range(3):
-    #             graph, evo_op = evolver.evolve_graph(graph, evaluator)
-    #             ax.cla()
-    #             graph.draw(ax=ax, debug=False)
-    #             # plt.waitforbuttonpress()
-    #             print(evaluator.evaluate_graph(graph, propagator))
-    #             plt.pause(0.1)
-    #     io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
 
     #%%
     io.save_object(graph, 'test_graph.pkl')

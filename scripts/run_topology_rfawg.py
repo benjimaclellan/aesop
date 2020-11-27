@@ -42,19 +42,19 @@ from algorithms.topology_optimization import topology_optimization, plot_hof, sa
 
 plt.close('all')
 if __name__ == '__main__':
-    io = InputOutput(directory='testing', verbose=True)
+    io = InputOutput(directory='rf_awg', verbose=True)
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 8,
-               'n_population': 8,
-               'n_hof': 3,
+    ga_opts = {'n_generations': 20,
+               'n_population': 20,
+               'n_hof': 6,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t=1e-9, n_samples=2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9,
-                                                 target_amplitude=0.02, target_waveform='saw',)
+                                                 target_amplitude=0.02, target_waveform='square',)
     evolver = ProbabilityLookupEvolver(verbose=False)
 
     pd = Photodiode()
