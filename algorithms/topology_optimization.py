@@ -26,9 +26,9 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           cluster_address=None, local_mode=False, include_dashboard=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
-    # prev test we were using
-    random.seed(18)
-    np.random.seed(1040)
+    # # prev test we were using
+    # random.seed(18)
+    # np.random.seed(1040)
 
     # new test
     # random.seed(15)

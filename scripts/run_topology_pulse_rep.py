@@ -42,18 +42,20 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 
+from lib.functions import parse_command_line_args
+
 plt.close('all')
-
 if __name__ == '__main__':
+    options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput(directory='pulse_rep_rate', verbose=True)
-    io.init_save_dir(sub_path=None, unique_id=True)
+    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
+    io.init_save_dir(sub_path='pulse_rep_rate', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 20,
-               'n_population': 20,
+    ga_opts = {'n_generations': 8,
+               'n_population': 8,
                'n_hof': 6,
-               'verbose': True,
+               'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t=100e-9, n_samples=2**14, central_wl=1.55e-6)

@@ -50,19 +50,21 @@ from problems.example.node_types import TerminalSource, TerminalSink
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 
+from lib.functions import parse_command_line_args
 
 plt.close('all')
 if __name__ == '__main__':
+    options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput(directory='phase_sensitivity', verbose=True)
-    io.init_save_dir(sub_path=None, unique_id=True)
+    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
+    io.init_save_dir(sub_path='phase_sensitivity', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 20,
-               'n_population': 20,
+    ga_opts = {'n_generations': 8,
+               'n_population': 8,
                'n_hof': 6,
-               'verbose': True,
+               'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t=10e-9, n_samples=2 ** 14, central_wl=1.55e-6)
@@ -91,11 +93,10 @@ if __name__ == '__main__':
     update_rule = 'random'
 
     #%%
-    io.save_object(graph, 'test_graph.pkl')
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='L-BFGS+GA',
+                                     parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

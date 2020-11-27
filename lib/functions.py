@@ -8,9 +8,18 @@ from pathlib import Path, PurePath
 import sys
 
 import platform, socket, re, uuid, json, psutil, logging
-
-#%%
 import sys
+import argparse
+
+
+# Declare function to define command-line arguments
+def parse_command_line_args(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser(description="The parsing commands lists.")
+    parser.add_argument("-d", "--dir", help="Directory to save all results.", nargs='?', default='data', type=str)
+    parser.add_argument("-v", "--verbose", help="Print status during optimization.", nargs='?', default=True, type=bool)
+    opts = parser.parse_args(args)
+    return opts
+
 
 class Tee(object):
     """
