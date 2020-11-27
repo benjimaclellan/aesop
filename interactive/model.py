@@ -8,15 +8,6 @@ class AccessGraph(object):
     def __init__(self):
         return
 
-    # @classmethod
-    # def from_asope_graph(cls, asope_graph):
-    #     G = cls()
-    #     # asope_graph = nx.convert_node_labels_to_integers(asope_graph, first_label=0, ordering='default', label_attribute=None)
-    #     for i, node in enumerate(asope_graph.nodes):
-    #         G.add_node(node, test_attr=asope_graph.nodes[node]['model'].node_acronym)
-    #     for j, edge in enumerate(asope_graph.edges):
-    #         G.add_edge(edge[0], edge[1], test_attr='edge_test_attr')
-    #     return G
 
     @staticmethod
     def get_graph_positions(graph):
@@ -34,7 +25,7 @@ class AccessGraph(object):
         return node_dict, edge_dict
 
     def export_as_dict(self, graph):
-        ### Draw quadratic bezier paths
+        ### Draw cubic bezier paths
         def bezier(start, end, control1, control2, steps):
             return [(1 - s) ** 3 * start + 3 * (1 - s) ** 2 * s * control1 + 3 * (1 - s) * s ** 2 * control2 + s ** 3 * end for s in steps]
 
