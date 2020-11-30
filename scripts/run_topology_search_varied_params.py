@@ -23,7 +23,8 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import CrossoverMaker, ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver, EGreedyHessianEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -54,12 +55,9 @@ if __name__ == '__main__':
 
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    # evolver = Evolver(verbose=False)
-    evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
-    # evolver = SizeAwareLookupEvolver(verbose=False)
-    # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
-    # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
-    crossover_maker = CrossoverMaker(verbose=True)
+    # evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
+    evolver = OperatorBasedProbEvolver(verbose=False, debug=False, op_to_prob={AddSeriesComponent:0.5, RemoveComponent:1, SwapComponent:1, AddParallelComponent:0.5})
+
     nodes = {'source':TerminalSource(),
              0:VariablePowerSplitter(),
              'sink':TerminalSink()
@@ -67,11 +65,11 @@ if __name__ == '__main__':
     edges = {('source', 0):ContinuousWaveLaser(),
             (0,'sink'):PhaseModulator(),
             }
-    start_graph = Graph(nodes, edges)
+    start_graph = Graph.init_graph(nodes=nodes, edges=edges)
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     # update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
-    update_rules = ['preferential']
+    update_rules = ['roulette']
 
     # crossover_option = [None, crossover_maker]
     crossover_option = [None]
