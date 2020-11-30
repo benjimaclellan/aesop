@@ -1,7 +1,5 @@
 """
 Test of topology optimization routines
-
-TODO: HoF should be taken prior to speciation!!!!!
 """
 
 # place main ASOPE directory on the path which will be accessed by all ray workers

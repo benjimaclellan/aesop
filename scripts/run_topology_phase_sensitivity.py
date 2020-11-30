@@ -50,19 +50,21 @@ from problems.example.node_types import TerminalSource, TerminalSink
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 
+from lib.functions import parse_command_line_args
 
 plt.close('all')
 if __name__ == '__main__':
+    options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput(directory='testing', verbose=True)
-    io.init_save_dir(sub_path=None, unique_id=True)
+    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
+    io.init_save_dir(sub_path='phase_sensitivity', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 10,
-               'n_population': 10,
-               'n_hof': 2,
-               'verbose': True,
+    ga_opts = {'n_generations': 8,
+               'n_population': 8,
+               'n_hof': 6,
+               'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()}
 
     propagator = Propagator(window_t=10e-9, n_samples=2 ** 14, central_wl=1.55e-6)
@@ -80,7 +82,7 @@ if __name__ == '__main__':
              (0, 1, 0): phase_shifter,
              (1, 'sink'): MeasurementDevice(),
              }
-    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter)
+    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter())
 
     graph = Graph.init_graph(nodes=nodes, edges=edges)
 
@@ -92,27 +94,21 @@ if __name__ == '__main__':
 
     #%%
 
-    io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
-
-    test_evolution = False
-    if test_evolution:
-        for j in range(1):
-            fig, ax = plt.subplots(1, 1)
-            for i in range(3):
-                graph, evo_op = evolver.evolve_graph(graph, evaluator)
-                ax.cla()
-                graph.draw(ax=ax, debug=False)
-                # plt.waitforbuttonpress()
-                print(evaluator.evaluate_graph(graph, propagator))
-                plt.pause(0.1)
-        io.save_object(graph.duplicate_and_simplify_graph(graph), 'test_graph.pkl')
-
-    #%%
-    io.save_object(graph, 'test_graph.pkl')
-
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                     parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)
+
+    fig, ax = plt.subplots(1, 1, figsize=[5, 3])
+    ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
+    ax.plot(log['generation'], log['best'], label='Best')
+    ax.plot(log['generation'], log['mean'], label='Population mean')
+    ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
+    ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
+    ax.set(xlabel='Generation', ylabel='Cost')
+    ax.legend()
+
+    io.save_fig(fig, 'topology_log.png')

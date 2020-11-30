@@ -24,6 +24,7 @@ import seaborn as sns
 import autograd.numpy as np
 
 import config.config as configuration
+from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
 from problems.example.evolver import ProbabilityLookupEvolver
@@ -36,17 +37,16 @@ from problems.example.assets.additive_noise import AdditiveNoise
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, IntensityModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
-from problems.example.evolver import ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
+# from problems.example.evolver import ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
 
 from algorithms.parameter_optimization import parameters_optimize
 from algorithms.topology_optimization import topology_optimization
 
 plt.close('all')
-
 
 AdditiveNoise.noise_on = False
 ContinuousWaveLaser.protected = True
@@ -54,28 +54,24 @@ ContinuousWaveLaser.protected = True
 if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
 
-    # nodes = {'source':TerminalSource(),
-    #          0:VariablePowerSplitter(),
-    #          'sink':TerminalSink()}
-    #
-    # edges = {('source', 0):ContinuousWaveLaser(),
-    #          (0,'sink'):Photodiode(),
-    #          }
-
-    # num_inputs, num_outputs = 6, 10
-    # states = VariablePowerSplitter().propagate(num_inputs*[propagator.state], propagator, num_inputs, num_outputs)
-    # print(len(states))
-    # print(states[0].shape)
+    io = InputOutput(directory='interactive', verbose=True)
+    io.init_save_dir(sub_path='example', unique_id=False)
 
     nodes = {'source': TerminalSource(),
              0: VariablePowerSplitter(),
              1: VariablePowerSplitter(),
+             2: VariablePowerSplitter(),
+             3: VariablePowerSplitter(),
+             4: VariablePowerSplitter(),
              'sink': TerminalSink()}
 
     edges = {('source', 0): ContinuousWaveLaser(parameters=[1]),
-             (0, 1, 0): PhaseModulator(parameters=[1, 6e9, 0, 0]),
-             (0, 1, 1): DispersiveFiber(parameters=[0]),
-             (1, 'sink'):MeasurementDevice(),
+             (0, 1): PhaseModulator(parameters=[1, 6e9, 0, 0]),
+             (1, 2, 0): WaveShaper(),
+             (1, 2, 1): PhaseModulator(),
+             (2, 3): IntensityModulator(),
+             (3, 4): WaveShaper(),
+             (4, 'sink'):MeasurementDevice(),
              }
 
     graph = Graph.init_graph(nodes=nodes, edges=edges)
@@ -93,3 +89,6 @@ if __name__ == '__main__':
     fig, ax = plt.subplots(1, 1)
     ax.plot(propagator.t, power_(state))
     plt.show()
+
+    io.save_object(graph, 'test_graph.pkl')
+    io.save_object(propagator, 'propagator.pkl')
