@@ -192,26 +192,26 @@ class SwapComponent(EvolutionOperators):
         if node_edge in graph.nodes: # swap node
             initial_model_name = graph.nodes[node_edge]['model'].__class__.__name__
             node_set = self.node_models - set([graph.nodes[node_edge]['model'].__class__])
-            new_model_name = self._swap_if_possible(graph, node_edge, node_set, True)
+            new_model_name = self._swap_component(graph, node_edge, node_set, True)
         else: # swap edge
             initial_model = graph.edges[node_edge]['model'].__class__
             initial_model_name = initial_model.__name__
             if graph.nodes[node_edge[0]]['model']._node_type == 'source node':
                 source_set = self.source_models - set([initial_model])
-                new_model_name = self._swap_if_possible(graph, node_edge, source_set, False)
+                new_model_name = self._swap_component(graph, node_edge, source_set, False)
             elif graph.nodes[node_edge[1]]['model']._node_type == 'sink node':
                 sink_set = self.sink_models - set([initial_model])
-                new_model_name = self._swap_if_possible(graph, node_edge, sink_set, False)
+                new_model_name = self._swap_component(graph, node_edge, sink_set, False)
             else:
                 edge_set = self.edge_models - set([initial_model])
-                new_model_name = self._swap_if_possible(graph, node_edge, edge_set, False)
+                new_model_name = self._swap_component(graph, node_edge, edge_set, False)
 
         if self.verbose:
             print(f"Evo Op: SwapComponent | Swapped model at {node_edge} from {initial_model_name} to {new_model_name}")
 
         return graph
 
-    def _swap_if_possible(self, graph, node_edge, swap_set, is_node):
+    def _swap_component(self, graph, node_edge, swap_set, is_node):
         """
         Swaps the model at location node_edge in graph, with a value from the swap_set. Returns the name of the new model class
         (or name of the old model class, if there is no new class. This happens if swap_set contains only the model already at node_edge)
@@ -225,14 +225,24 @@ class SwapComponent(EvolutionOperators):
                 return graph.edges[node_edge]['model'].__class__.__name__
         elif self.verbose:
             print(f'WARNING: no valid source models to swap with, swap was not executed')
-            if is_node:
-                return graph.nodes[node_edge]['model'].__class__.__name__
+            raise ValueError(f'Swap set empty')
+    
+    def swap_possible(self, graph, node_edge):
+        if node_edge in graph.nodes: # swap node
+            return len(self.node_models) > 1
+        else: # swap edge
+            if graph.nodes[node_edge[0]]['model']._node_type == 'source node':
+                return len(self.source_models) > 1
+            elif graph.nodes[node_edge[1]]['model']._node_type == 'sink node':
+                return len(self.sink_models) > 1
             else:
-                return graph.edges[node_edge]['model'].__class__.__name__
+                return len(self.edge_models) > 1
 
     def possible_evo_locations(self, graph):
-        edges = [edge for edge in graph.edges if not graph.edges[edge]['model'].protected]
+        edges = [edge for edge in graph.edges if (not graph.edges[edge]['model'].protected and \
+                                                  self.swap_possible(graph, edge))]
         nodes = [node for node in graph.nodes if (not graph.nodes[node]['model'].protected and \
                                                       graph.in_degree[node] != 0 and \
-                                                      graph.out_degree[node] != 0)]
+                                                      graph.out_degree[node] != 0) and \
+                                                      self.swap_possible(graph, node)]
         return nodes + edges
