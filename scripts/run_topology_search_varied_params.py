@@ -54,11 +54,8 @@ if __name__ == '__main__':
 
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    # evolver = Evolver(verbose=False)
     # evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
     # evolver = SizeAwareLookupEvolver(verbose=False)
-    # evolver = ReinforcementLookupEvolver(verbose=False, starting_value_matrix='reinforcement_evolver_value_matrix.pkl')
-    # evolver = EGreedyHessianEvolver(verbose=True, debug=True, epsilon=0.4)
     evolver = HessianProbabilityEvolver(verbose=True, debug=False)
     crossover_maker = CrossoverMaker(verbose=True)
     nodes = {'source':TerminalSource(),
