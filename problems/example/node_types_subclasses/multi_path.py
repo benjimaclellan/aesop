@@ -30,43 +30,44 @@ class VariablePowerSplitter(MultiPath):
         self.default_parameters = []
         self.parameter_symbols = []
 
-        # self.upper_bounds = [1.0]
-        # self.lower_bounds = [0.0]
-        # self.data_types = ['float']
-        # self.step_sizes = [None]
-        # self.parameter_imprecisions = [0.1]
-        # self.parameter_units = [None]
-        # self.parameter_locks = [False]
-        # self.parameter_names = ['coupling_ratio']
-        # self.default_parameters = [0.5]
-        # self.parameter_symbols = [r"$x_r$"]
-        super().__init__(**kwargs)
+    def update_attributes(self, num_inputs, num_outputs):
+        num_parameters = num_outputs - 1
+
+        self.upper_bounds = [1.0] * num_parameters
+        self.lower_bounds = [0.0] * num_parameters
+        self.data_types = ['float'] * num_parameters
+        self.step_sizes = [None] * num_parameters
+        self.parameter_imprecisions = [0.05] * num_parameters
+        self.parameter_units = [None] * num_parameters
+        self.parameter_locks = [False] * num_parameters
+        self.parameter_names = [f'ratio-{i}' for i in range(num_parameters)]
+        self.default_parameters = [1 - 1 / i for i in range(num_parameters+1, 1, -1)]
+        self.parameter_symbols = [f'x_{i}' for i in range(num_parameters)]
+
+        self.parameters = self.default_parameters
         return
 
     def propagate(self, states, propagator, num_inputs, num_outputs, save_transforms=False):
+        DEBUG = False
+
+        a = self.parameters
+        w = [(1 - an) * np.product(a[:n]) for n, an in enumerate(a)] + [np.product(a)]
+        if DEBUG: print(a, w, sum(w))
         i, j = np.arange(0, num_inputs, 1), np.arange(0, num_outputs, 1)
         I, J = np.meshgrid(i, j)
-        S = np.exp(1j * 2 * np.pi * I * J / num_outputs)
+        I = I / num_inputs
+        J = J / num_outputs
+
+        _, X = np.meshgrid(i, np.sqrt(w))
+        if DEBUG: print(X)
+
+        S = X * np.exp(1j * np.pi * (I + J))
+        if DEBUG: print(S)
         states_tmp = np.stack(states, 1)
 
         states_scattered = np.matmul(S, states_tmp)
         states_scattered_lst = [states_scattered[:,i,:] for i in range(states_scattered.shape[1])]
         return states_scattered_lst
-
-        # theta = self.parameters[0] * np.pi/2
-        #
-        # C = np.array([[np.cos(theta), -1j * np.sin(theta)],
-        #               [-1j * np.sin(theta), np.cos(theta)]])
-        #
-        # if (num_inputs == 1) and (num_outputs == 2):
-        #     state = states[0]
-        #     return [C[0,0] * state, C[0,1] * state]
-        # elif (num_inputs == 2) and (num_outputs == 1):
-        #     return [C[1,0]*states[0] + C[0,0]*states[1]]
-        # elif (num_inputs == 1) and (num_outputs == 1):
-        #     return states
-        # else:
-        #     raise ValueError("Not implemented yet: splitters should only be 2x1 or 1x2 for simplicity")
 
 
 # @register_node_types_all
