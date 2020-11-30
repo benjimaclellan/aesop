@@ -57,13 +57,14 @@ def edge_callback(attr,old,new):
 
     text = 'Selected edge models:\n'
 
-    data = {'parameters':[], 'parameter_names': []}
+    data = {'parameters':[], 'parameter_names': [], 'model': []}
     for index in new:
         edge = graph_renderer.edge_renderer.data_source.data['edge'][index]
         text +=  f"\t{main_graph.edges[edge]['model'].node_acronym}\n\n"
 
         data['parameters'] += main_graph.edges[edge]['model'].parameters
         data['parameter_names'] += main_graph.edges[edge]['model'].parameter_names
+        data['model'] += [main_graph.edges[edge]['model'].node_acronym] * len(data['parameter_names'])
     table_source.data = data
 
         # dropdown.options = main_graph.edges[edge]['model'].parameter_names
@@ -221,7 +222,9 @@ slider.on_change('value', slider_callback)
 text_display = TextInput(value='', title='')
 
 table_source = ColumnDataSource(data=dict(parameter_names=[],
-                                          parameters=[],))
+                                          parameters=[],
+                                          model=[],
+                                          ))
 
 template="""
 <b><div style="background:<%= "NavajoWhite" %>;">
@@ -229,7 +232,8 @@ template="""
 """
 formatter = HTMLTemplateFormatter(template=template)
 columns = [TableColumn(field="parameters", title="Parameter", formatter=formatter),
-           TableColumn(field="parameter_names", title="Parameter Name"),]
+           TableColumn(field="parameter_names", title="Parameter Name"),
+           TableColumn(field="model", title="Model Type"),]
 data_table = DataTable(source=table_source, columns=columns, width=400, height=300, sizing_mode='stretch_both')
 
 div = Paragraph(text="""this is a HTML Div where the node info will be printed when an edge or node is selected in the graph""", sizing_mode='stretch_both')

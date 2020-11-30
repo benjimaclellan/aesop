@@ -6,11 +6,20 @@ from datetime import date
 import os
 from pathlib import Path, PurePath
 import sys
-
+from datetime import datetime,timezone
 import platform, socket, re, uuid, json, psutil, logging
-
-#%%
 import sys
+import argparse
+
+
+# Declare function to define command-line arguments
+def parse_command_line_args(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser(description="The parsing commands lists.")
+    parser.add_argument("-d", "--dir", help="Directory to save all results.", nargs='?', default='data', type=str)
+    parser.add_argument("-v", "--verbose", help="Print status during optimization.", nargs='?', default=True, type=bool)
+    opts = parser.parse_args(args)
+    return opts
+
 
 class Tee(object):
     """
@@ -195,6 +204,8 @@ class InputOutput(object):
     def get_machine_metadata():
         try:
             metadata = dict()
+            metadata['local-time'] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+            metadata['utc-time'] = datetime.now(timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
             metadata['platform'] = platform.system()
             metadata['platform-release'] = platform.release()
             metadata['platform-version'] = platform.version()
