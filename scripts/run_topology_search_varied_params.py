@@ -24,7 +24,6 @@ from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
 from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -47,8 +46,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 3,
-               'n_population': 5, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 2,
+               'n_population': 2, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -57,7 +56,6 @@ if __name__ == '__main__':
     evaluator = RadioFrequencyWaveformGeneration(propagator)
     # evolver = ProbabilityLookupEvolver(verbose=False, debug=False)
     evolver = OperatorBasedProbEvolver(verbose=False, debug=False, op_to_prob={AddSeriesComponent:0.5, RemoveComponent:1, SwapComponent:1, AddParallelComponent:0.5})
-
     nodes = {'source':TerminalSource(),
              0:VariablePowerSplitter(),
              'sink':TerminalSink()
@@ -79,7 +77,7 @@ if __name__ == '__main__':
                 continue
             print(f'Starting optimization with rule {rule}, crossover_maker: {cross_opt}')
             io = handle_io()
-            graph, score, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
+            hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
             ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
             ax.plot(log['generation'], log['best'], label='Best')

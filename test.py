@@ -319,8 +319,8 @@ def test_evolver_lookup(evolver_class=OperatorBasedProbEvolver):
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     graph = get_test_graph0()
     evaluator = RadioFrequencyWaveformGeneration(propagator)
-    evolver = evolver_class(verbose=True, debug=True) # OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
-    evolver.random_graph(graph, evaluator, propagator=propagator, view_evo=False, n_evolutions=20)
+    evolver = evolver_class(op_to_prob={AddSeriesComponent:0.5, AddParallelComponent:0.5, RemoveComponent:1, SwapComponent:1}, verbose=True, debug=True) # OperatorBasedProbEvolver(verbose=True) # ProbabilityLookupEvolver(verbose=True)
+    evolver.random_graph(graph, evaluator, propagator=propagator, view_evo=True, n_evolutions=20)
 
 def test_hessian_evolver():
     graph = get_test_graph0()

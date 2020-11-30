@@ -530,7 +530,6 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='NULL'):
         x0, model, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
         graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=True)
-
         return score, graph
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')
