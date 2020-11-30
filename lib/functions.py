@@ -6,7 +6,7 @@ from datetime import date
 import os
 from pathlib import Path, PurePath
 import sys
-
+from datetime import datetime,timezone
 import platform, socket, re, uuid, json, psutil, logging
 import sys
 import argparse
@@ -204,6 +204,8 @@ class InputOutput(object):
     def get_machine_metadata():
         try:
             metadata = dict()
+            metadata['local-time'] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+            metadata['utc-time'] = datetime.now(timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
             metadata['platform'] = platform.system()
             metadata['platform-release'] = platform.release()
             metadata['platform-version'] = platform.version()
