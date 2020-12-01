@@ -56,7 +56,7 @@ if __name__ == '__main__':
                'n_population': 8,
                'n_hof': 6,
                'verbose': options_cl.verbose,
-               'num_cpus': psutil.cpu_count()}
+               'num_cpus': psutil.cpu_count()-1}
 
     propagator = Propagator(window_t=100e-9, n_samples=2**14, central_wl=1.55e-6)
 
