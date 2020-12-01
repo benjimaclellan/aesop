@@ -59,8 +59,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # start_graph = ray.put(copy.deepcopy(graph))
