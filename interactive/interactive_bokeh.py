@@ -211,6 +211,7 @@ button = Button(label="Load graph", button_type="success")
 button.on_click(button_callback)
 
 filepath_input = TextInput(value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\interactive\example\test_graph.pkl', title='')
+# filepath_input = TextInput(value=r'/mnt/c/Users/ResearchSummer2020/Documents/asope_data/interactive/example/test_graph.pkl', title='')
 
 dropdown = Select(title="Parameter to control:", value="-", options=["-",])
 dropdown.on_change('value', dropdown_callback)
