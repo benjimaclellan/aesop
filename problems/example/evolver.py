@@ -226,36 +226,53 @@ class OperatorBasedProbEvolver(ProbabilityLookupEvolver):
     def scale_within_operator(self, graph, evo_op, op_probs):
         """
         Allows the relative probabilities of locations (for a single evolution operators) to be adjusted
+
+        Default implementation leaves each location with equal probability
         """
-        pass
+        return op_probs
 
 
 class HessianProbabilityEvolver(OperatorBasedProbEvolver):
     # TODO: add a constructor where the exact formula by which relative removal location probabilities are scaled can be set?
-    def __init__(self, probability_flattening=12, **attr):
+    def __init__(self, probability_flattening=3, max_prob_ratio=10, **attr):
         """
         TODO: make probability_flattening also (potentially) generation dependent
         :param probability_flattening: the larger probability_flattening, the less the "free-wheeling" differences affects the probabilities
                                        if the base relative probabilities coming out of the hessian are [a, b, c], the probabilities used are
                                        [a**(1/probability_flattening), b**(1/probability_flattening), c**(1/probability_flattening)]
+        :param max_prob_ratio: maximum ratio of probabilities allowed within a single operator
         """
         super().__init__(**attr)
         self.probability_flattening = probability_flattening
+        self.max_prob_ratio = max_prob_ratio
 
     def scale_within_operator(self, graph, evo_op, op_probs):
         if type(evo_op) == RemoveComponent: # is hardcoded to our evo operators, can't REALLY be helped
             edge_free_wheeling_scores = hessian_analysis.get_all_edge_scores(graph, as_log=False)
             print(f'free wheeling scores: {edge_free_wheeling_scores}')
-            reference = np.sum(np.array(list(edge_free_wheeling_scores.values())))
+            
+            score_array = np.array(list(edge_free_wheeling_scores.values()))
+            reference = np.sum(score_array)
+
             for i in range(len(op_probs)):
                 if np.isclose(op_probs[i], 0): # probability should stay zero, if operation is not possible
                     continue
                 try:
                     location = graph.evo_probabilities_matrix.index_to_node_or_edge[i] # locations should be interfaces
                     op_probs[i] = np.log10(reference / edge_free_wheeling_scores[location.edge])**(1 / self.probability_flattening)
-                    print(f'flattened_prob: {op_probs[i]}')
+                    print(f'\n\ncurrent location: {location}')
+                    print(f'current edge: {location.edge}')
+                    print(f'flattened_prob: {op_probs[i]}\n\n')
                 except KeyError:
                     pass # is fine, lots of locations aren't edges
+            
+            # limit max difference in probability
+            if np.count_nonzero(op_probs) != 0:
+                max_allowed_prob = np.min(op_probs[np.nonzero(op_probs)]) * self.max_prob_ratio
+                for i in range(len(op_probs)):
+                    if op_probs[i] > max_allowed_prob:
+                        op_probs[i] = max_allowed_prob
+
         return op_probs
 
     def random_graph(self, graph, evaluator, propagator=None, n_evolutions=10, view_evo=False):
@@ -649,26 +666,26 @@ class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
 #         return False
 
 
-# class CrossoverMaker(object):
-#     """
-#     An explicit class is not really necessary right now, but might become useful if we define more crossover operators
-#     """
-#     def __init__(self, verbose=False, **attr):
-#         self.verbose = verbose
+class CrossoverMaker(object):
+    """
+    An explicit class is not really necessary right now, but might become useful if we define more crossover operators
+    """
+    def __init__(self, verbose=False, **attr):
+        self.verbose = verbose
     
-#     def crossover_graphs(self, graph0, graph1):
-#         # check if each evolution operator is possible
-#         verification = [cross_op().verify_evolution(graph0, graph1) for (_, cross_op) in configuration.CROSSOVER_OPERATORS.items()]
+    def crossover_graphs(self, graph0, graph1):
+        # check if each evolution operator is possible
+        verification = [cross_op().verify_evolution(graph0, graph1) for (_, cross_op) in configuration.CROSSOVER_OPERATORS.items()]
 
-#         # choose one evolution from all possible
-#         possible_cross_ops = [cross_op for (verify, cross_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
-#         if len(possible_cross_ops) == 0:
-#             raise RuntimeError('No valid crossover operators')
+        # choose one evolution from all possible
+        possible_cross_ops = [cross_op for (verify, cross_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
+        if len(possible_cross_ops) == 0:
+            raise RuntimeError('No valid crossover operators')
 
-#         cross_op_choice = np.random.choice(possible_cross_ops)
+        cross_op_choice = np.random.choice(possible_cross_ops)
 
-#         # apply the chosen evolution
-#         child0, child1 = cross_op_choice().apply_evolution(graph0, graph1, verbose=self.verbose)
+        # apply the chosen evolution
+        child0, child1 = cross_op_choice().apply_evolution(graph0, graph1, verbose=self.verbose)
 
-#         # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
-#         return child0, child1, cross_op_choice
+        # maybe run hessian analysis here, maybe we can do something with it, maybe not (could have two classes)
+        return child0, child1, cross_op_choice
