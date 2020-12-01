@@ -85,12 +85,10 @@ if __name__ == '__main__':
              (0, 'sink'): md,
              }
     graph = Graph.init_graph(nodes=nodes, edges=edges)
-    update_rule = 'random'
 
-
-
+    update_rule = 'roulette'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=False, update_rule='random',
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 

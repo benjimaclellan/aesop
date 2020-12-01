@@ -89,9 +89,7 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
-    # update_rule = 'preferential'
-    update_rule = 'random'
-
+    update_rule = 'roulette'
     #%%
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
