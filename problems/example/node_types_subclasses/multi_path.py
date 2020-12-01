@@ -112,7 +112,6 @@ class FrequencySplitter(MultiPath):
         return
 
     def propagate(self, states, propagator, num_inputs, num_outputs, save_transforms=False):
-        DEBUG = True
 
         state = np.sum(np.stack(states, 1), axis=1)
 
@@ -121,23 +120,11 @@ class FrequencySplitter(MultiPath):
         w = [sum(g[:n]) for n in range(1, len(g))] + [1]
         left_cutoffs, right_cutoffs = w[:-1], w[1:]
 
-        if DEBUG: print(f'a {a} w {w}')
-        if DEBUG: print(left_cutoffs, right_cutoffs)
-
         k = 500
         new_states = []
-        fig, ax = plt.subplots(1,1)
-        ax.set_title(f'num in {num_inputs} num out {num_outputs} | a {a} w {w}')
         tmp_x = np.linspace(0, 1, propagator.f.shape[0]).reshape(propagator.f.shape)
         for j, (left_cutoff, right_cutoff) in enumerate(zip(left_cutoffs, right_cutoffs)):
-            if DEBUG: print(f'spatial_path {j}, left_cut {left_cutoff} right cut {right_cutoff}')
-
             logistic = ((1.0 / (1.0 + np.exp(-k * (tmp_x - left_cutoff))))
                         * (1.0 / (1.0 + np.exp(k * (tmp_x - right_cutoff)))))
             new_states.append(ifft_(ifft_shift_(logistic) * fft_(state, propagator.dt), propagator.dt))
-
-            ax.plot(tmp_x, logistic)
-            # plt.show()
-            # plt.waitforbuttonpress()
-
         return new_states

@@ -63,6 +63,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     if method == 'NULL':
         if verbose: print("Null parameter optimization - only for testing topology optimization. No parameter optimization will occur.")
         return graph, x0, graph.func(x0), logger
+
     if method == 'L-BFGS+PSO':
         if verbose: print("Parameter optimization: L-BFGS + PSO algorithm")
         swarm_size = 40

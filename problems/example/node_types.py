@@ -102,6 +102,9 @@ class TerminalSource(NodeTypeParent):
 
         return
 
+    def update_attributes(self, num_inputs, num_outputs):
+        return
+
     def propagate(self, states, propagator, num_inputs=0, num_outputs=1, save_transforms=False):
         return states
 
@@ -137,6 +140,9 @@ class TerminalSink(NodeTypeParent):
         self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
         self._range_output_edges = (0, 0)  # minimum, maximum number of input edges, may be changed in children
 
+        return
+
+    def update_attributes(self, num_inputs, num_outputs):
         return
 
     def propagate(self, states, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
