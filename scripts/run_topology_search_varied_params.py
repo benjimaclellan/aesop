@@ -22,13 +22,13 @@ import config.config as config
 
 from lib.functions import InputOutput
 
-from problems.example.evaluator import Evaluator
-from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
-
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+
+from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
@@ -46,8 +46,8 @@ def handle_io():
 
 plt.close('all')
 if __name__ == '__main__':
-    ga_opts = {'n_generations': 2,
-               'n_population': 2, # psutil.cpu_count(),
+    ga_opts = {'n_generations': 8,
+               'n_population': 8, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': True,
                'num_cpus': psutil.cpu_count()}
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     start_graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     # update_rules = ['random', 'preferential', 'preferential simple subpop scheme', 'preferential vectorDIFF', 'preferential photoNEAT']
-    update_rules = ['roulette']
+    update_rules = ['tournament', 'roulette', 'preferential']
 
     # crossover_option = [None, crossover_maker]
     crossover_option = [None]
@@ -79,7 +79,8 @@ if __name__ == '__main__':
             io = handle_io()
             hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=cross_opt)
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
-            ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
+
+            ax.fill_between(log['generation'].to_numpy(dtype='float'), log['best'].to_numpy(dtype='float'), log['mean'].to_numpy(dtype='float'), color='grey', alpha=0.2)
             ax.plot(log['generation'], log['best'], label='Best')
             ax.plot(log['generation'], log['mean'], label='Population mean')
             ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
