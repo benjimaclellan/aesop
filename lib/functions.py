@@ -16,7 +16,7 @@ import argparse
 def parse_command_line_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description="The parsing commands lists.")
     parser.add_argument("-d", "--dir", help="Directory to save all results.", nargs='?', default='data', type=str)
-    parser.add_argument("-v", "--verbose", help="Print status during optimization.", nargs='?', default=True, type=bool)
+    parser.add_argument("-v", "--verbose", help="Print status during optimization.", nargs='?', default=False, type=bool)
     opts = parser.parse_args(args)
     return opts
 

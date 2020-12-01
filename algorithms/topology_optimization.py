@@ -93,7 +93,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         print(f'population length after update: {len(population)}')
         
         # optimize parameters on each node/CPU
-        population = ray.get([parameters_optimize_multiprocess.remote(ind, evaluator_id, propagator_id, method=parameter_opt_method) for ind in population])
+        population = ray.get([parameters_optimize_multiprocess.remote(ind,
+                                                                      evaluator_id,
+                                                                      propagator_id,
+                                                                      method=parameter_opt_method,
+                                                                      verbose=ga_opts['verbose']) for ind in population])
         save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
         SPECIATION_MANAGER.speciate(population)
@@ -213,7 +217,6 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     :param verbose: debugging to print, boolean
     :return: returns the updated hof, list of tuples same as input
     """
-    debug = False
 
     if similarity_measure == 'reduced_ged':
         similarity_function = similarity_reduced_ged
@@ -224,14 +227,14 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
 
 
     for i, (score, graph) in enumerate(population):
-        if debug: print(f'\n\nNow checking with population index {i}')
+        if verbose: print(f'\n\nNow checking with population index {i}')
 
         insert = False
         insert_ind = None
         remove_ind = -1
         check_similarity = True
         for j, (hof_j_score, hof_j) in enumerate(hof):
-            print(f'checking score against index {j} of the hof')
+            if verbose: print(f'checking score against index {j} of the hof')
             if hof_j_score is None:
                 insert = True
                 insert_ind = j
@@ -243,7 +246,7 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
                 insert = True
                 insert_ind = j
                 check_similarity = True
-                if debug: print(f'Better score than index {j} of the hof')
+                if verbose: print(f'Better score than index {j} of the hof')
                 break
 
             else:
@@ -251,13 +254,13 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
                 check_similarity = False
 
         if not check_similarity:
-            if debug: print(f'There is no need to check the similarity')
+            if verbose: print(f'There is no need to check the similarity')
 
 
         if check_similarity and (similarity_measure is not None):
             # similarity check with all HoF graphs
             for k, (hof_k_score, hof_k) in enumerate(hof):
-                if debug: print(f'Comparing similarity of with population index {i} with hof index {k}')
+                if verbose: print(f'Comparing similarity of with population index {i} with hof index {k}')
 
                 if hof_k is not None:
                     sim = similarity_function(graph, hof_k)
@@ -267,16 +270,16 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
                         if k < j:
                             # there is a similar graph with a better score, do not add graph to hof
                             insert = False
-                            if debug: print(f'A similar, but better performing graph exists - the current graph will not be added')
+                            if verbose: print(f'A similar, but better performing graph exists - the current graph will not be added')
                             break # breaks out of 'k' loop
                         elif k >= j:
                             # there is a similar graph with a worse score, add in that location instead
                             insert = True
                             remove_ind = k
-                            if debug: print(f'A similar graph exists at index {k} of the hof. The current graph scores better and will be added')
+                            if verbose: print(f'A similar graph exists at index {k} of the hof. The current graph scores better and will be added')
                             break
                     else:
-                        # if verbose: print(f'Similarity of {sim} is not below the threshold')
+                        if verbose: print(f'Similarity of {sim} is not below the threshold')
                         pass
         if insert: # places this graph into the insert_ind index in the halloffame
             hof[remove_ind] = 'x'
@@ -530,17 +533,18 @@ def update_population_topology_preferential_photoNEAT(population, evolver, evalu
     return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
 
 
-def parameters_optimize_complete(ind, evaluator, propagator, method='NULL'):
+def parameters_optimize_complete(ind, evaluator, propagator, method='NULL', verbose=True):
     score, graph = ind
     if score is not None:
         return score, graph
 
     try:
+        graph.update_graph()  # updates propaation order and input/outputs on nodes
         graph.clear_propagation()
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
         x0, model, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
-        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=True)
+        graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=verbose)
         return score, graph
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')
@@ -549,5 +553,5 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='NULL'):
 
 
 @ray.remote
-def parameters_optimize_multiprocess(ind, evaluator, propagator, method='NULL'):
-    return parameters_optimize_complete(ind, evaluator, propagator, method=method)
+def parameters_optimize_multiprocess(ind, evaluator, propagator, method='NULL', verbose=True):
+    return parameters_optimize_complete(ind, evaluator, propagator, method=method, verbose=verbose)

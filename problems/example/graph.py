@@ -84,6 +84,10 @@ class Graph(GraphParent):
     def update_graph(self):
         propagation_order = list(nx.topological_sort(self))
         self._propagation_order = propagation_order
+
+        # tell node models how many incoming and outgoing nodes there are
+        for node in self.nodes:
+            self.nodes[node]['model'].update_attributes(self.get_in_degree(node), self.get_out_degree(node))
         return
 
     def clean_graph(self):
