@@ -38,6 +38,10 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         update_population = update_population_topology_random  # set which update rule to use
     elif update_rule == 'preferential':
         update_population = update_population_topology_preferential
+    elif update_rule == 'roulette':
+        update_population = update_population_topology_roulette
+    elif update_rule == 'tournament':
+        update_population = update_population_topology_tournament
     elif update_rule == 'random simple subpop scheme':
         update_population = update_population_topology_random_simple_subpopulation_scheme
     elif update_rule == 'preferential simple subpop scheme':
@@ -55,8 +59,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True)
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # start_graph = ray.put(copy.deepcopy(graph))
@@ -74,7 +78,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     # create initial population and hof
     hof = init_hof(ga_opts['n_hof'])
     population = []
-    score, graph = parameters_optimize_complete((None, graph), evaluator, propagator)
+    score, graph = parameters_optimize_complete((None, graph), evaluator, propagator, method=parameter_opt_method)
     graph.score = score
     for individual in range(ga_opts['n_population']):
         population.append((score, copy.deepcopy(graph)))
@@ -308,38 +312,6 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
     return population
 
 
-#%%
-
-# def update_population_crossover_test(population, evolver, evaluator, **hyperparameters):
-#     graph0 = population[0][1]
-#     graph1 = population[1][1]
-#     graph0.draw(legend=True)
-#     # graph1.draw(legend=True)
-#     # x00, node_edge_index0, parameter_index0, *_ = graph0.extract_parameters_to_list()
-#     # x01, node_edge_index1, parameter_index1, *_ = graph1.extract_parameters_to_list()
-#     # print(f'x0, node_edge_index, parameter_index (graph0, graph1): {(x00, x01)}, {(node_edge_index0, node_edge_index1)}, {(parameter_index0, parameter_index1)}')
-
-
-
-#     verification = [evo_op().verify_evolution(graph0, graph1) for (_, evo_op) in configuration.CROSSOVER_OPERATORS.items()]
-#     if not verification[0]:
-#         print(f'verification failed!')
-#         assert False
-#     possible_crossover_ops = [evo_op for (verify, evo_op) in zip(verification, configuration.CROSSOVER_OPERATORS.values()) if verify]
-    
-
-#     crossover = possible_crossover_ops[0]()
-
-#     child0, child1 = crossover.apply_evolution(graph0, graph1)
-
-#     # child0.draw(legend=True)
-#     # child1.draw(legend=True)
-#     # plt.show()
-#     population[0] = (None, child0)
-#     population[1] = (None, child1)
-
-#     return population
-
 def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
@@ -349,7 +321,6 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
 
     :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
     """
-    print(f'update population input population size: {len(population)}')
     most_fit_reproduction_mean = 2 # most fit element will on average reproduce this many additional times (everyone reproduces once at least)
     
     # 1. Initialize scores (only happens on generation 0)
@@ -360,28 +331,8 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
         most_fit_reproduction_mean = 1
     
     new_pop = []
-    # 2. Execute crossovers, if crossovers enabled
-    if hyperparameters['crossover_maker'] is not None:
-        # top 10% reproduce, reproduces with fitter mate with higher probability
-        will_reproduce = population[0:len(population) // 10 + 1]
-        could_reproduce = set(population)
-        for ind in will_reproduce:
-            if ind in could_reproduce:
-                could_reproduce.remove(ind)
-                compatible_mates = SPECIATION_MANAGER.get_crossover_candidates(ind, could_reproduce) # note: there's never reproduction on round 1, would be useless
-                if len(compatible_mates) == 0:
-                    continue
-                reproduction_prob = np.array([2**(len(compatible_mates) - i - 1) for i in range(len(compatible_mates))])
-                reproduction_prob = reproduction_prob / np.sum(reproduction_prob)
-                mate_indices = np.arange(0, len(compatible_mates))
-                mate = compatible_mates[np.random.choice(mate_indices, p=reproduction_prob)] # returns individual (score, Graph) not just graph
 
-                child0, child1, _ = hyperparameters['crossover_maker'].crossover_graphs(copy.deepcopy(ind[1]), copy.deepcopy(mate[1]))
-                new_pop.append((None, child0))
-                new_pop.append((None, child1))
-                could_reproduce.remove(mate)
-
-    # 3. Mutate existing elements (fitter individuals have a higher expectation value for number of reproductions)
+    # 2. Mutate existing elements (fitter individuals have a higher expectation value for number of reproductions)
     # basically after the initial reproduction, the most fit reproduces on average <most_fit_reproduction_mean> times, and the least fit never reproduces
     
     # TODO: test different ways of getting this probability (one that favours the top individuals less?)
@@ -420,6 +371,85 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 
+def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, **hyperparameters):
+    """
+    Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
+
+    So we want individuals to reproduce about once on average, more for the fitter, less for the less fit
+    Does not modify the original graphs in population, unlike the random update rule
+
+    :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
+    :param preferentiality_param: the larger the parameter, the more fitter individuals (lower score) are favoured
+    """    
+    # 1. Initialize scores (only happens on generation 0)
+    if (population[0][0] is not None):
+        score_array = np.array([score for (score, _) in population])
+    else:
+        score_array = np.ones(len(population)).reshape(len(population), 1)
+    
+    new_pop = []
+
+    # 2. Build roulette
+    probability_roulette = 1 / score_array**preferentiality_param
+    probability_roulette /= np.sum(probability_roulette)
+    print(f'scores: {score_array}')
+    print(f'probablities: {probability_roulette}')
+
+    # 3. Sample using roulette
+    for _ in range(len(population)):
+        reproduction_index = np.random.choice(np.arange(0, len(population)), p=probability_roulette)
+        graph = population[reproduction_index][1]
+        graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+        graph_tmp.assert_number_of_edges()
+        # TODO: determine whether the following is a correct check to make (or is it just alright?)
+        # x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
+        # if (len(x0)) == 0:
+        #     raise ValueError('This graph has no parameters')
+        new_pop.append((None, graph_tmp))
+    
+    return new_pop
+
+
+def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, **hyperparameters):
+    """
+    Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
+
+    So we want individuals to reproduce about once on average, more for the fitter, less for the less fit
+    Does not modify the original graphs in population, unlike the random update rule
+
+    :pre-condition: population is sorted in ascending order of score (i.e. most fit to least fit)
+    :param tournament_size_divisor: tournament size as ratio of total population size
+                                    (e.g. for population size = 9, tournament_size_divisor=3, tournament size = 9 / 3 = 3)
+    """    
+    # 1. Initialize scores (only happens on generation 0)
+    if (population[0][0] is not None):
+        score_array = np.array([score for (score, _) in population])
+    else:
+        score_array = np.ones(len(population)).reshape(len(population), 1)
+    
+    new_pop = []
+
+    # 2. Setup tournament
+    tournament_size = len(population) // tournament_size_divisor
+    if tournament_size == 0:
+        print(f'WARNING: tournament size is zero. Setting size to 1')
+        tournament_size = 1
+
+    # 3. Sample using tournament
+    for _ in range(len(population)):
+        tournament_indices = np.random.choice(np.arange(0, len(population)), size=tournament_size)
+        graph = population[min(tournament_indices)][1] # this works, because the vals were already sorted by fitness
+        print(f'tournament indices: {tournament_indices}')
+        print(f'graph index: {min(tournament_indices)}')
+        graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+        graph_tmp.assert_number_of_edges()
+        # TODO: determine whether the following is a correct check to make (or is it just alright?)
+        # x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
+        # if (len(x0)) == 0:
+        #     raise ValueError('This graph has no parameters')
+        new_pop.append((None, graph_tmp))
+    
+    return new_pop
 # ------------------------------- Speciation setup helpers -----------------------------------
 
 def _simple_subpopulation_setup(population, **hyperparameters):

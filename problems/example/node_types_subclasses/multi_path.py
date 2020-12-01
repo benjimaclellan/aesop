@@ -16,8 +16,9 @@ from ..assets.functions import power_, psd_, fft_, ifft_, ifft_shift_
 class VariablePowerSplitter(MultiPath):
     node_acronym = 'BS'
     number_of_parameters = 0
+    node_lock = False
+
     def __init__(self, **kwargs):
-        self.node_lock = False
 
         self.upper_bounds = []
         self.lower_bounds = []
@@ -29,9 +30,11 @@ class VariablePowerSplitter(MultiPath):
         self.parameter_names = []
         self.default_parameters = []
         self.parameter_symbols = []
+        super().__init__(**kwargs)
 
     def update_attributes(self, num_inputs, num_outputs):
         num_parameters = num_outputs - 1
+        self.number_of_parameters = num_parameters
 
         self.upper_bounds = [1.0] * num_parameters
         self.lower_bounds = [0.0] * num_parameters
@@ -66,53 +69,75 @@ class VariablePowerSplitter(MultiPath):
         states_tmp = np.stack(states, 1)
 
         states_scattered = np.matmul(S, states_tmp)
-        states_scattered_lst = [states_scattered[:,i,:] for i in range(states_scattered.shape[1])]
+        states_scattered_lst = [states_scattered[:, i, :] for i in range(states_scattered.shape[1])]
         return states_scattered_lst
 
 
-# @register_node_types_all
-# class WavelengthDivisionMultiplexer(MultiPath):
-#     node_lock = False
-#     node_acronym = 'WDM'
-#     def __init__(self, **kwargs):
-#
-#
-#         self.number_of_parameters = 1
-#         self.upper_bounds = [1.0]
-#         # self.upper_bounds = [196.27e12]
-#         # self.lower_bounds = [191.25e12]
-#         self.lower_bounds = [-1.0]
-#         self.data_types = ['float']
-#         self.step_sizes = [None]
-#         self.parameter_imprecisions = [1]
-#         self.parameter_units = [None]
-#         self.parameter_locks = [False]
-#         self.parameter_names = ['splitting_frequency']
-#         self.default_parameters = [0.0]
-#         self.parameter_symbols = [r"$x_f$"]
-#
-#         super().__init__(**kwargs)
-#         return
-#
-#     def propagate(self, states, propagator, num_inputs = 1, num_outputs = 2, save_transforms=False):
-#         frequency_split = self.parameters[0] # propagator.f[0] + (self.parameters[0]) * (propagator.f[-1] - propagator.f[0])
-#         k = 500
-#         logistic = 1.0 / (1.0 + np.exp(-k * (propagator.f / propagator.f[-1] - frequency_split)))
-#
-#         if save_transforms:
-#             self.transform = (('f', logistic, 'wdm'), )
-#         else:
-#             self.transform = None
-#
-#         if (num_inputs == 1) and (num_outputs == 2):
-#             state = states[0]
-#             left_path = ifft_(ifft_shift_(logistic) * fft_(state, propagator.dt), propagator.dt)
-#             right_path = ifft_(ifft_shift_(1.0-logistic) * fft_(state, propagator.dt), propagator.dt)
-#             return [left_path, right_path]
-#         elif (num_inputs == 2) and (num_outputs == 1):
-#             return [states[0] + states[1]]
-#         elif (num_inputs == 1) and (num_outputs == 1):
-#             return states
-#         else:
-#             raise ValueError("Not implemented yet: splitters should only be 2x1 or 1x2 for simplicity")
-#
+
+@register_node_types_all
+class FrequencySplitter(MultiPath):
+    node_acronym = 'FS'
+    number_of_parameters = 0
+    node_lock = False
+
+    def __init__(self, **kwargs):
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+        self.default_parameters = []
+        self.parameter_symbols = []
+        super().__init__(**kwargs)
+
+    def update_attributes(self, num_inputs, num_outputs):
+        num_parameters = num_outputs - 1
+        self.number_of_parameters = num_parameters
+
+        self.upper_bounds = [1.0] * num_parameters
+        self.lower_bounds = [0.0] * num_parameters
+        self.data_types = ['float'] * num_parameters
+        self.step_sizes = [None] * num_parameters
+        self.parameter_imprecisions = [0.05] * num_parameters
+        self.parameter_units = [None] * num_parameters
+        self.parameter_locks = [False] * num_parameters
+        self.parameter_names = [f'ratio-{i}' for i in range(num_parameters)]
+        self.default_parameters = [1 - 1 / i for i in range(num_parameters + 1, 1, -1)]
+        self.parameter_symbols = [f'x_{i}' for i in range(num_parameters)]
+
+        self.parameters = self.default_parameters
+        return
+
+    def propagate(self, states, propagator, num_inputs, num_outputs, save_transforms=False):
+        DEBUG = True
+
+        state = np.sum(np.stack(states, 1), axis=1)
+
+        a = self.parameters
+        g = [0] + [(1 - an) * np.product(a[:n]) for n, an in enumerate(a)] + [np.product(a)]
+        w = [sum(g[:n]) for n in range(1, len(g))] + [1]
+        left_cutoffs, right_cutoffs = w[:-1], w[1:]
+
+        if DEBUG: print(f'a {a} w {w}')
+        if DEBUG: print(left_cutoffs, right_cutoffs)
+
+        k = 500
+        new_states = []
+        fig, ax = plt.subplots(1,1)
+        ax.set_title(f'num in {num_inputs} num out {num_outputs} | a {a} w {w}')
+        tmp_x = np.linspace(0, 1, propagator.f.shape[0]).reshape(propagator.f.shape)
+        for j, (left_cutoff, right_cutoff) in enumerate(zip(left_cutoffs, right_cutoffs)):
+            if DEBUG: print(f'spatial_path {j}, left_cut {left_cutoff} right cut {right_cutoff}')
+
+            logistic = ((1.0 / (1.0 + np.exp(-k * (tmp_x - left_cutoff))))
+                        * (1.0 / (1.0 + np.exp(k * (tmp_x - right_cutoff)))))
+            new_states.append(ifft_(ifft_shift_(logistic) * fft_(state, propagator.dt), propagator.dt))
+
+            ax.plot(tmp_x, logistic)
+            # plt.show()
+            # plt.waitforbuttonpress()
+
+        return new_states
