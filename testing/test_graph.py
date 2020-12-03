@@ -55,8 +55,8 @@ if __name__ == '__main__':
     propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9,
                                                  target_amplitude=0.02, target_waveform='saw',)
-    # io = InputOutput(directory='interactive', verbose=True)
-    # io.init_save_dir(sub_path='example', unique_id=False)
+    io = InputOutput(directory='interactive', verbose=True)
+    io.init_save_dir(sub_path='example', unique_id=False)
 
     nodes = {'source': TerminalSource(),
              0: FrequencySplitter(),
@@ -84,8 +84,8 @@ if __name__ == '__main__':
     graph.distribute_parameters_from_list(parameters, attributes['models'], attributes['parameter_index'])
     graph.propagate(propagator)
     graph.initialize_func_grad_hess(propagator, evaluator)
-    f = graph.func(parameters)
-    g = graph.grad(parameters)
+    # f = graph.func(parameters)
+    # g = graph.grad(parameters)
     h = graph.hess(parameters)
     # fig, ax = plt.subplots(1,1)
     # graph.draw(ax=ax, debug=True)
@@ -95,6 +95,6 @@ if __name__ == '__main__':
     # ax.plot(propagator.t, power_(state))
     # plt.show()
 
-    # io.save_object(graph, 'test_graph.pkl')
-    # io.save_object(propagator, 'propagator.pkl')
-    # io.save_object(evaluator, 'evaluator.pkl')
+    io.save_object(graph, 'test_graph.pkl')
+    io.save_object(propagator, 'propagator.pkl')
+    io.save_object(evaluator, 'evaluator.pkl')

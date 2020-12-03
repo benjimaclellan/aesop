@@ -41,7 +41,7 @@ class View(object):
         """
             Add widgets for interaction 
         """
-        button = Button(label="Load graph", button_type="success", width=100, sizing_mode='fixed')
+        button = Button(label="Load graph", button_type="success", width=100, sizing_mode='stretch_height')
         button.on_click(self.button_callback)
 
         filepath_input = TextInput(
@@ -100,18 +100,18 @@ class View(object):
         plots['tran_freq']['plot'].x_range = plots['prop_freq']['plot'].x_range
         self.plots = plots
 
-        self.heatmap = self.create_heatmap()
+        self.heatmap, self.heatmap_colormap = self.create_heatmap()
 
         # Create two panels, one for each conference
         panel1_child = column(row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=300),
                               row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=300))
-        panel1 = Panel(child=panel1_child, title='Panel 2')
+        panel1 = Panel(child=panel1_child, title='Propagation & Transfer Functions')
 
 
-        panel2 = Panel(child=self.heatmap, title='Panel 2')
+        panel2 = Panel(child=self.heatmap, title='Sensitivity Analysis')
 
         # Assign the panels to Tabs
-        tabs = Tabs(tabs=[panel2, panel1])
+        tabs = Tabs(tabs=[panel1, panel2])
 
         """
         Build layout using grid
@@ -119,27 +119,16 @@ class View(object):
         layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=400),
                         tabs,
                         sizing_mode='scale_height')
-        # layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=400),
-        #                 row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=300),
-        #                 row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=300),
-        #                 sizing_mode='scale_height')
         self.layout = layout
         return
 
-    # def init_panel_plots(self):
     def create_heatmap(self):
-        graph_hessian_data = self.control.graph_hessian_data
-
-        mapper = LinearColorMapper(palette=Cividis256, low=np.min(graph_hessian_data['value']), high=np.max(graph_hessian_data['value']))
-
+        mapper = LinearColorMapper(palette=Cividis256)
         p = figure(plot_width=600, plot_height=600, title="Hessian",
                    x_axis_location="below", y_axis_location="right",
                    tools="hover,save,pan,box_zoom,reset,wheel_zoom", toolbar_location='above',
-                   tooltips=[('value', '@value'), ('index', '@index'), ('column', '@column')]
+                   tooltips=[('value', '@value'), ('i-th parameter', '@x_name'), ('j-th parameter', '@y_name')]
                    )
-
-        p.rect(x="index", y="column", width=1, height=1, source=ColumnDataSource(data=graph_hessian_data),
-               line_color=None, fill_color=transform('value', mapper))
 
         color_bar = ColorBar(color_mapper=mapper, location=(0, 0),
                              ticker=BasicTicker(desired_num_ticks=10))
@@ -151,8 +140,13 @@ class View(object):
         p.axis.major_label_text_font_size = "7px"
         p.axis.major_label_standoff = 0
         p.xaxis.major_label_orientation = 1.0
-        return p
+        return p, mapper
 
+    def add_hessian_matrix(self):
+        graph_hessian_data = self.control.graph_hessian_data  # this is a dictionary
+        self.heatmap.rect(x="x", y="y", width=1, height=1, source=ColumnDataSource(data=graph_hessian_data),
+                          line_color=None, fill_color=transform('value', self.heatmap_colormap))
+        return
 
     def set_graph_renderer_policies(self, graph_renderer):
         self.update_node_positions()
@@ -246,5 +240,6 @@ class View(object):
         self.add_sources()
         self.add_lines()
         self.update_node_positions()
+        self.add_hessian_matrix()
         self.button.label = 'Load graph'
         return

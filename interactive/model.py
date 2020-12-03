@@ -10,6 +10,7 @@ import pathlib
 import platform
 import os
 import numpy as np
+import copy
 
 # adds the ASOPE directory on any OS
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
@@ -38,7 +39,7 @@ class Model(object):
 
         self._graph_layout = {}
 
-        self.graph_hessian_data = np.empty([1,1])
+        self.graph_hessian_data = np.ones([1,1])
 
         self.table_edge_data = {}
         self.table_node_data = {}
@@ -65,12 +66,13 @@ class Model(object):
 
         graph.initialize_func_grad_hess(propagator, evaluator)
 
-        self.update_graph_hessian_data(graph)
-
         attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
 
         graph.func(attr['parameters'])
         graph.propagate(propagator, save_transforms=True)
+
+        self.update_graph_hessian_data(graph)
+        graph.func(attr['parameters'])
 
         self.graph = graph
         self.propagator = propagator
@@ -195,10 +197,12 @@ class Model(object):
         return xs, ys
 
     def update_graph_hessian_data(self, graph):
-        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
-        # self.graph_hessian_data = graph.hess(attr['parameters'])
-        self.graph_hessian_data = np.random.random([len(attr['parameters']), len(attr['parameters'])])
-        print(self.graph_hessian_data)
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
+        names_i, names_j = np.meshgrid(np.array(attr['parameter_names']),
+                                       np.array(attr['parameter_names']))
+        self.graph_hessian_data = dict(hess=graph.hess(attr['parameters']),
+                                       x_name=names_i,
+                                       y_name=names_j)
         return
 
     @property

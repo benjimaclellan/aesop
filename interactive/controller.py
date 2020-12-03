@@ -1,6 +1,9 @@
 import time
 import networkx as nx
 import numpy as np
+import string
+import random
+
 
 class Controller(object):
 
@@ -65,11 +68,13 @@ class Controller(object):
 
     @property
     def graph_hessian_data(self):
-        # hess = self.model.graph_hessian_data
-        hess = np.round(100 * np.random.random([5,5]))
-        I, J = np.meshgrid(np.arange(0, hess.shape[0], 1), np.arange(0, hess.shape[1], 1))
-        data = dict(index=I.flatten(),
-                    column=J.flatten(),
-                    value=hess.flatten()
+        hess = self.model.graph_hessian_data['hess']
+        # print(hess)
+        I, J = np.meshgrid(np.arange(0, hess.shape[0], 1), np.flip(np.arange(0, hess.shape[1], 1), 0))
+        data = dict(x=I.flatten(),
+                    y=J.flatten(),
+                    value=hess.flatten(),
+                    x_name=self.model.graph_hessian_data['x_name'].flatten(),
+                    y_name=self.model.graph_hessian_data['y_name'].flatten(),
                     )
         return data
