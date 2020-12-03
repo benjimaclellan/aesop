@@ -10,7 +10,7 @@ from bokeh.models import (BoxSelectTool, Circle, EdgesAndLinkedNodes, HoverTool,
 from bokeh.models import NodesOnly
 import bokeh.models.tools as tools
 from bokeh.models import GraphRenderer, StaticLayoutProvider
-from bokeh.palettes import Spectral4
+from bokeh.palettes import Spectral4, Magma256, Cividis256
 from bokeh.plotting import from_networkx
 from bokeh.models import ColumnDataSource
 from bokeh.models import Button, CustomJS, FileInput, TextInput, Select, Slider, Div
@@ -129,20 +129,20 @@ class View(object):
     # def init_panel_plots(self):
     def create_heatmap(self):
         graph_hessian_data = self.control.graph_hessian_data
-        print(graph_hessian_data)
-        colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
-        mapper = LinearColorMapper(palette=colors, low=np.min(graph_hessian_data['value']), high=np.max(graph_hessian_data['value']))
+
+        mapper = LinearColorMapper(palette=Cividis256, low=np.min(graph_hessian_data['value']), high=np.max(graph_hessian_data['value']))
 
         p = figure(plot_width=600, plot_height=600, title="Hessian",
-                   #=list(graph_hessian_data['index']), y_range=list(reversed(graph_hessian_data['column'])),
-                   toolbar_location=None, tools="", x_axis_location="above")
+                   x_axis_location="below", y_axis_location="right",
+                   tools="hover,save,pan,box_zoom,reset,wheel_zoom", toolbar_location='above',
+                   tooltips=[('value', '@value'), ('index', '@index'), ('column', '@column')]
+                   )
 
         p.rect(x="index", y="column", width=1, height=1, source=ColumnDataSource(data=graph_hessian_data),
                line_color=None, fill_color=transform('value', mapper))
 
         color_bar = ColorBar(color_mapper=mapper, location=(0, 0),
-                             ticker=BasicTicker(desired_num_ticks=len(colors)),
-                             formatter=PrintfTickFormatter(format="%d%%"))
+                             ticker=BasicTicker(desired_num_ticks=10))
 
         p.add_layout(color_bar, 'right')
 

@@ -64,12 +64,17 @@ class Model(object):
             evaluator = dill.load(file)
 
         graph.initialize_func_grad_hess(propagator, evaluator)
+
+        self.update_graph_hessian_data(graph)
+
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
+
+        graph.func(attr['parameters'])
         graph.propagate(propagator, save_transforms=True)
 
         self.graph = graph
         self.propagator = propagator
 
-        self.update_graph_hessian_data(graph)
         self.update_graph_layout(graph)
 
         self.get_graph_edge_data(graph)
@@ -140,7 +145,7 @@ class Model(object):
         plot_edge_data = {'prop_time': {}, 'prop_freq': {}, 'tran_time': {}, 'tran_freq': {}}
         for i, edge in enumerate(graph.edges):
             state = np.squeeze(self.graph.measure_propagator(edge))
-
+            # print(f'State to plot is type {type(state)}')
             plot_edge_data['prop_time'][i] = [dict(x=propagator.t, y=power_(state).astype('float'))]
             plot_edge_data['prop_freq'][i] = [dict(x=propagator.f, y=np.log10(psd_(state, dt=propagator.dt, df=propagator.df).astype('float')))]
 
@@ -191,7 +196,8 @@ class Model(object):
 
     def update_graph_hessian_data(self, graph):
         attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
-        self.graph_hessian_data = graph.scaled_hess(attr['parameters'])
+        # self.graph_hessian_data = graph.hess(attr['parameters'])
+        self.graph_hessian_data = np.random.random([len(attr['parameters']), len(attr['parameters'])])
         print(self.graph_hessian_data)
         return
 
