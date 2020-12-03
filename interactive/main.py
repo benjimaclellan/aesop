@@ -26,5 +26,7 @@ model = Model()
 controller = Controller(model)
 view = View(controller)
 
+view.button_callback()
+
 curdoc().add_root(view.layout)
 curdoc().title = "ASOPE Photonic System Design"

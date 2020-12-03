@@ -75,10 +75,10 @@ class Graph(GraphParent):
         graph_copy = cls.init_graph(nodes=nodes,edges=edges)
         return graph_copy
 
-    def __init__(self):
-        """
-        """
-        super().__init__()
+    # def __init__(self):
+    #     """
+    #     """
+    #     super().__init__()
 
 
     def update_graph(self):

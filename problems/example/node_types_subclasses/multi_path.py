@@ -52,16 +52,18 @@ class VariablePowerSplitter(MultiPath):
 
     def propagate(self, states, propagator, num_inputs, num_outputs, save_transforms=False):
         DEBUG = False
+        if DEBUG: print(f'PowerSplitter', num_inputs, num_outputs, len(self.parameters), self.parameters)
 
         a = self.parameters
-        w = [(1 - an) * np.product(a[:n]) for n, an in enumerate(a)] + [np.product(a)]
+        w = np.array([(1 - an) * np.product(a[:n]) for n, an in enumerate(a)] + [np.product(a)])
         if DEBUG: print(a, w, sum(w))
+
         i, j = np.arange(0, num_inputs, 1), np.arange(0, num_outputs, 1)
         I, J = np.meshgrid(i, j)
         I = I / num_inputs
         J = J / num_outputs
 
-        _, X = np.meshgrid(i, np.sqrt(w))
+        X = np.matmul(np.expand_dims(np.sqrt(np.array(w)), axis=1), np.expand_dims(np.ones_like(i), axis=0))
         if DEBUG: print(X)
 
         S = X * np.exp(1j * np.pi * (I + J))
@@ -71,7 +73,6 @@ class VariablePowerSplitter(MultiPath):
         states_scattered = np.matmul(S, states_tmp)
         states_scattered_lst = [states_scattered[:, i, :] for i in range(states_scattered.shape[1])]
         return states_scattered_lst
-
 
 
 @register_node_types_all
@@ -112,12 +113,14 @@ class FrequencySplitter(MultiPath):
         return
 
     def propagate(self, states, propagator, num_inputs, num_outputs, save_transforms=False):
+        DEBUG = False
+        if DEBUG: print(f'FrequencySplitter', num_inputs, num_outputs, len(self.parameters), self.parameters)
 
         state = np.sum(np.stack(states, 1), axis=1)
 
         a = self.parameters
-        g = [0] + [(1 - an) * np.product(a[:n]) for n, an in enumerate(a)] + [np.product(a)]
-        w = [sum(g[:n]) for n in range(1, len(g))] + [1]
+        g = np.array([0] + [(1 - an) * np.product(a[:n]) for n, an in enumerate(a)] + [np.product(a)])
+        w = np.array([sum(g[:n]) for n in range(1, len(g))] + [1])
         left_cutoffs, right_cutoffs = w[:-1], w[1:]
 
         k = 500
