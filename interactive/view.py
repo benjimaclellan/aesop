@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 from bokeh.layouts import gridplot, column, row
 from bokeh.models import BoxSelectTool, LassoSelectTool
 from bokeh.plotting import curdoc, figure
@@ -7,6 +7,7 @@ from bokeh.plotting import curdoc, figure
 from bokeh.io import output_file, show
 from bokeh.models import (BoxSelectTool, Circle, EdgesAndLinkedNodes, HoverTool,
                           MultiLine, NodesAndLinkedEdges, Plot, Range1d, TapTool,)
+from bokeh.colors import RGB
 from bokeh.models import NodesOnly
 import bokeh.models.tools as tools
 from bokeh.models import GraphRenderer, StaticLayoutProvider
@@ -22,6 +23,7 @@ from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
                           LinearColorMapper, PrintfTickFormatter,)
 from bokeh.plotting import figure
 from bokeh.transform import transform
+from bokeh.models import Range1d
 
 class View(object):
     """
@@ -81,34 +83,16 @@ class View(object):
         """
             Add interactive plots to visualize optical field and transformations on edges/nodes
         """
-        plots = {
-            'prop_time': {'title': 'Optical Intensity', 'xlabel': 'Time', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
-            'prop_freq': {'title': '', 'xlabel': 'Freq', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
-            'tran_time': {'title': 'Transfer Functions', 'xlabel': 'Time', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
-            'tran_freq': {'title': '', 'xlabel': 'Freq', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
-        }
-
-        for plot_id, plot in plots.items():
-            pfig = figure(tools=[tools.PanTool(), tools.BoxZoomTool(), tools.ResetTool(), tools.SaveTool()],
-                          sizing_mode="stretch_both", height=300, min_border=10, min_border_left=50,
-                          x_axis_label=plot['xlabel'], y_axis_label=plot['ylabel'],
-                          toolbar_location="left", title=plot['title'], title_location='above')
-            pfig.background_fill_color = "#fafafa"
-            plot['plot'] = pfig
-
-        plots['tran_time']['plot'].x_range = plots['prop_time']['plot'].x_range
-        plots['tran_freq']['plot'].x_range = plots['prop_freq']['plot'].x_range
+        plots = self.create_prop_tran_plots()
         self.plots = plots
-
         self.heatmap, self.heatmap_colormap = self.create_heatmap()
+        self.eigen_plot = self.create_eigen_plot()
 
         # Create two panels, one for each conference
-        panel1_child = column(row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=300),
-                              row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=300))
+        panel1_child = column(row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=250),
+                              row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=250))
         panel1 = Panel(child=panel1_child, title='Propagation & Transfer Functions')
-
-
-        panel2 = Panel(child=self.heatmap, title='Sensitivity Analysis')
+        panel2 = Panel(child=row(self.heatmap, self.eigen_plot, height=500), title='Sensitivity Analysis')
 
         # Assign the panels to Tabs
         tabs = Tabs(tabs=[panel1, panel2])
@@ -116,19 +100,48 @@ class View(object):
         """
         Build layout using grid
         """
-        layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=400),
+        layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=300),
                         tabs,
                         sizing_mode='scale_height')
         self.layout = layout
         return
 
+    def create_prop_tran_plots(self):
+        plots = {
+            'prop_time': {'title': 'Optical Intensity', 'xlabel': 'Time', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
+            'prop_freq': {'title': '', 'xlabel': 'Freq', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
+            'tran_time': {'title': 'Transfer Functions', 'xlabel': 'Time', 'ylabel': 'a.u.', 'sources': {},
+                          'lines': {}},
+            'tran_freq': {'title': '', 'xlabel': 'Freq', 'ylabel': 'a.u.', 'sources': {}, 'lines': {}},
+        }
+
+        for plot_id, plot in plots.items():
+            p = figure(tools=[tools.PanTool(), tools.BoxZoomTool(), tools.ResetTool(), tools.SaveTool()],
+                          sizing_mode="stretch_both", height=300, min_border=10, min_border_left=50,
+                          x_axis_label=plot['xlabel'], y_axis_label=plot['ylabel'],
+                          toolbar_location="left", title=plot['title'], title_location='above')
+            p.background_fill_color = "#fafafa"
+            plot['plot'] = p
+
+        plots['tran_time']['plot'].x_range = plots['prop_time']['plot'].x_range
+        plots['tran_freq']['plot'].x_range = plots['prop_freq']['plot'].x_range
+        return plots
+
+
     def create_heatmap(self):
         mapper = LinearColorMapper(palette=Cividis256)
-        p = figure(plot_width=600, plot_height=600, title="Hessian",
-                   x_axis_location="below", y_axis_location="right",
+        p = figure(plot_width=600, plot_height=600, title="Local Hessian Matrix",
+                   x_axis_location="below", y_axis_location="left", min_border=10, min_border_left=50,
+                   x_axis_label='Parameter i', y_axis_label='Parameter j',
                    tools="hover,save,pan,box_zoom,reset,wheel_zoom", toolbar_location='above',
-                   tooltips=[('value', '@value'), ('i-th parameter', '@x_name'), ('j-th parameter', '@y_name')]
+                   tooltips=[('value', '@value'), ('i-th parameter', '@x_name'), ('j-th parameter', '@y_name')],
+                   sizing_mode="stretch_both",
                    )
+
+        source = ColumnDataSource(data=dict(value=[], x=[], y=[]))
+        s = 0.05
+        mat = p.rect(x="x", y="y", width=1 - s, height=1 - s, source=source,
+                     line_color=None, fill_color=transform('value', mapper))
 
         color_bar = ColorBar(color_mapper=mapper, location=(0, 0),
                              ticker=BasicTicker(desired_num_ticks=10))
@@ -140,12 +153,76 @@ class View(object):
         p.axis.major_label_text_font_size = "7px"
         p.axis.major_label_standoff = 0
         p.xaxis.major_label_orientation = 1.0
+
+
+        self.hessian_heatmap_mat = mat
         return p, mapper
+
+    def create_eigen_plot(self):
+        p = figure(plot_width=600, plot_height=600, title="Eigen-analysis",title_location='above',
+                   x_axis_location="below", y_axis_location="left", sizing_mode="stretch_both",
+                   x_axis_label='Parameter', y_axis_label='', min_border=10, min_border_left=50,
+                   tools="hover,save,pan,box_zoom,reset,wheel_zoom", toolbar_location='above',
+                   tooltips=[('eigen-value', '@eigen_value'), ('parameter', '@parameter_name'), ('basis weight', '@weight')]
+                   )
+        p.axis.visible = False
+        data_vectors, data_total = self.initialize_eigen_analysis_data()
+        bar_total = p.vbar(source=ColumnDataSource(data=data_total),
+                           x=-2.0, width=2.0, bottom='bottom', top='top', alpha=0.3, color='grey')
+        bar = p.vbar(source=ColumnDataSource(data=data_vectors),
+                     x='x', width=0.5, bottom='bottom', top='top', alpha=1.0,color='color')
+
+        self.eigen_plot_bars = {'bar': bar, 'bar_total': bar_total}
+        return p
+
+    def initialize_eigen_analysis_data(self):
+        data_vectors = dict(x=[], top=[], bottom=[], parameter_name=[], eigen_value=[], weight=[], color=[])
+        data_total = dict(top=[], bottom=[], eigen_value=[], weight=[], parameter_name=[], )
+        return data_vectors, data_total
+
+    def add_lha_eigenvectors(self):
+        def map_eigenvalue_to_color(value, cmap, vmax=255, vmin=0):
+            color = tuple([int(round(255 * c)) for c in  cmap((value - vmin) / (vmax - vmin))])
+            new_color = RGB(color[0], color[1], color[2])
+            return new_color
+
+        cmap = plt.get_cmap('summer')
+        eig_vals, eig_vecs = self.control.graph_lha_data
+        graph_hessian_data = self.control.graph_hessian_data  # this is a dictionary
+
+        data_vectors, data_total = self.initialize_eigen_analysis_data()
+        data_vectors['parameter_name'] = graph_hessian_data['x_name']
+
+        for i, (eig_val) in enumerate(eig_vals):
+            eig_vec = eig_vecs[:, i]
+            base = 2.0*i
+
+            data_total['bottom'].append(base - 0.95)
+            data_total['top'].append(base + 0.95)
+            data_total['eigen_value'].append(eig_val)
+            data_total['weight'].append('-')
+            data_total['parameter_name'].append('-')
+
+            # color = map_eigenvalue_to_color(eig_val, cmap, vmax=np.max(eig_vals), vmin=np.min(eig_vals))
+            color = map_eigenvalue_to_color(i, cmap, vmax=eig_vals.shape[0], vmin=0.0)
+            for j, eig_vec_val in enumerate(eig_vec):
+                data_vectors['x'].append(j)
+                data_vectors['bottom'].append(base)
+                data_vectors['top'].append(base + eig_vec_val)
+                data_vectors['weight'].append(eig_vec_val)
+                data_vectors['eigen_value'].append(eig_val)
+                data_vectors['color'].append(color)
+
+        self.eigen_plot_bars['bar'].data_source.data = data_vectors
+        self.eigen_plot_bars['bar_total'].data_source.data = data_total
+
+        self.eigen_plot.x_range = Range1d(start=-3, end=eig_vals.shape[0]+1)
+        self.eigen_plot.y_range = Range1d(start=-3, end=eig_vals.shape[0]+1)
+        return
 
     def add_hessian_matrix(self):
         graph_hessian_data = self.control.graph_hessian_data  # this is a dictionary
-        self.heatmap.rect(x="x", y="y", width=1, height=1, source=ColumnDataSource(data=graph_hessian_data),
-                          line_color=None, fill_color=transform('value', self.heatmap_colormap))
+        self.hessian_heatmap_mat.data_source.data = graph_hessian_data
         return
 
     def set_graph_renderer_policies(self, graph_renderer):
@@ -241,5 +318,6 @@ class View(object):
         self.add_lines()
         self.update_node_positions()
         self.add_hessian_matrix()
+        self.add_lha_eigenvectors()
         self.button.label = 'Load graph'
         return
