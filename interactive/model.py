@@ -9,7 +9,7 @@ import sys
 import pathlib
 import platform
 import os
-import numpy as np
+import autograd.numpy as np
 
 # adds the ASOPE directory on any OS
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)

@@ -20,7 +20,7 @@ sys.path.append(parent_dir)
 import matplotlib.pyplot as plt
 import psutil
 import networkx as nx
-import numpy as np
+import autograd.numpy as np
 import types
 import ray
 from functools import wraps

@@ -539,7 +539,7 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='NULL', verb
         return score, graph
 
     try:
-        graph.update_graph()  # updates propaation order and input/outputs on nodes
+        graph.update_graph()  # updates propagation order and input/outputs on nodes
         graph.clear_propagation()
         graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
         x0, model, parameter_index, *_ = graph.extract_parameters_to_list()

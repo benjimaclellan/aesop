@@ -78,7 +78,6 @@ def _extract_average_over_edge(graph, vector_to_average, as_log=False):
     
     node_edge_list = graph.extract_attributes_to_list_experimental([], get_location_indices=False, \
                                                                    get_node_edge_index=True, exclude_locked=True)['node_edge_index']
-    print(f'node_edge_index: {node_edge_list}')
 
     for edge in graph.edges:
         filter = np.array([node_edge == edge for node_edge in node_edge_list])

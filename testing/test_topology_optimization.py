@@ -26,7 +26,6 @@ import autograd.numpy as np
 import config.config as configuration
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
@@ -38,28 +37,46 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice, Ph
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from problems.example.evolver import ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, HessianProbabilityEvolver, SizeAwareLookupEvolver, OperatorBasedProbEvolver
 
 from algorithms.parameter_optimization import parameters_optimize
 from algorithms.topology_optimization import topology_optimization
+from problems.example.node_types import TerminalSource, TerminalSink
+
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 random.seed(10)
 np.random.seed(0)
 plt.close('all')
 
 
-def matrix_evolver_basic_test():
-    evolver = ReinforcementLookupEvolver()
-
-    nodes = {0:ContinuousWaveLaser(),
-            -1:Photodiode()}
-    edges = [(0,-1)]
-
-    graph = Graph(nodes, edges, propagate_on_edges = False)
+def matrix_evolver_basic_test(evolver):
+    nodes = {'source':TerminalSource(),
+             0:VariablePowerSplitter(),
+             'sink':TerminalSink()
+            }
+    edges = {('source', 0):ContinuousWaveLaser(),
+            (0,'sink'):PhaseModulator(),
+            }
+    graph = Graph.init_graph(nodes=nodes, edges=edges)
     graph.assert_number_of_edges()
 
-    evolver.random_graph(graph, None, view_evo=False, verbose=True, n_evolutions=50, debug=True) # doesn't actually need an evaluator in this implementation
+    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
 
+    return evolver.random_graph(graph, evaluator, propagator=propagator, view_evo=True, n_evolutions=50) # doesn't actually need an evaluator in this implementation
+
+
+def test_topology_opt_evolvers():
+    for i in range(500):
+        print(f'i: {i}')
+        random.seed(i)
+        np.random.seed(i)
+        for evolver in [HessianProbabilityEvolver(debug=True, op_to_prob={AddSeriesComponent:0.5, RemoveComponent:0, SwapComponent:0, AddParallelComponent:0.5})]:# [ProbabilityLookupEvolver(), OperatorBasedProbEvolver(), HessianProbabilityEvolver(), SizeAwareLookupEvolver()]:
+            print(f'Using {evolver.__class__.__name__}')
+            graph = matrix_evolver_basic_test(evolver)
+            graph.draw()
+            plt.show()
 
 def topology_optimization_test():
     directory_main = os.path.join(Path(os.getcwd()).parent, 'results')
@@ -102,5 +119,5 @@ def topology_optimization_test():
 
 
 if __name__ == "__main__":
-    matrix_evolver_basic_test()
+    test_topology_opt_evolvers()
     # topology_optimization_test()

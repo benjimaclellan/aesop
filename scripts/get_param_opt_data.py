@@ -75,6 +75,8 @@ def compare_convergence_by_algorithm(save=True, show=True):
     logger_dict = {}
 
     for alg in ['L-BFGS', 'GA', 'ADAM', 'ADAM+GA', 'L-BFGS+GA', 'PSO', 'L-BFGS+PSO']:
+        random.seed(0)
+        np.random.seed(0)
         graph.distribute_parameters_from_list(copy.deepcopy(x0), models, param_index)
         _, params, _, logger = parameters_optimize(graph, method=alg, log_callback=True)
         logger_dict[alg] = logger
@@ -105,6 +107,8 @@ def compare_convergence_by_starting_point(save=True, show=True):
 
     for alg in ['L-BFGS', 'GA', 'ADAM', 'ADAM+GA', 'L-BFGS+GA', 'PSO', 'L-BFGS+PSO']:
         for i in range(num_startpoints):
+            random.seed(i)
+            np.random.seed(i)
             graph.sample_parameters()
             _, params, _, logger = parameters_optimize(graph, method=alg, log_callback=True)
             logger_dict[f'start point {i}'] = logger
@@ -122,5 +126,5 @@ def compare_convergence_by_starting_point(save=True, show=True):
 if __name__ == "__main__":
     random.seed(3030)
     np.random.seed(204544)
-    # compare_convergence_by_algorithm()
+    compare_convergence_by_algorithm()
     compare_convergence_by_starting_point()
