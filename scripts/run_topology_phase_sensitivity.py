@@ -65,7 +65,7 @@ if __name__ == '__main__':
                'n_population': 8,
                'n_hof': 6,
                'verbose': options_cl.verbose,
-               'num_cpus': psutil.cpu_count()}
+               'num_cpus': psutil.cpu_count()-1}
 
     propagator = Propagator(window_t=10e-9, n_samples=2 ** 14, central_wl=1.55e-6)
 
@@ -89,9 +89,7 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
-    # update_rule = 'preferential'
-    update_rule = 'random'
-
+    update_rule = 'roulette'
     #%%
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,

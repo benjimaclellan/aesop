@@ -56,7 +56,7 @@ if __name__ == '__main__':
                'n_population': 8,
                'n_hof': 6,
                'verbose': options_cl.verbose,
-               'num_cpus': psutil.cpu_count()}
+               'num_cpus': psutil.cpu_count()-1}
 
     propagator = Propagator(window_t=100e-9, n_samples=2**14, central_wl=1.55e-6)
 
@@ -85,12 +85,10 @@ if __name__ == '__main__':
              (0, 'sink'): md,
              }
     graph = Graph.init_graph(nodes=nodes, edges=edges)
-    update_rule = 'random'
 
-
-
+    update_rule = 'roulette'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=False, update_rule='random',
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 

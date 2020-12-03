@@ -47,18 +47,18 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='rf_awg', unique_id=True)
+    io.init_save_dir(sub_path='rfawg', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
     ga_opts = {'n_generations': 8,
                'n_population': 8,
                'n_hof': 6,
                'verbose': options_cl.verbose,
-               'num_cpus': psutil.cpu_count()}
+               'num_cpus': psutil.cpu_count()-1}
 
     propagator = Propagator(window_t=1e-9, n_samples=2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9,
-                                                 target_amplitude=0.02, target_waveform='square',)
+                                                 target_amplitude=0.02, target_waveform='saw',)
     evolver = ProbabilityLookupEvolver(verbose=False)
 
     pd = Photodiode()
@@ -75,8 +75,9 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
+    update_rule = 'roulette'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=False, update_rule='random',
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 

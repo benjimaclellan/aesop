@@ -10,6 +10,7 @@ import pathlib
 import platform
 import os
 import autograd.numpy as np
+import copy
 
 # adds the ASOPE directory on any OS
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
@@ -38,6 +39,8 @@ class Model(object):
 
         self._graph_layout = {}
 
+        self.graph_hessian_data = np.ones([1,1])
+
         self.table_edge_data = {}
         self.table_node_data = {}
 
@@ -56,7 +59,20 @@ class Model(object):
         with open(prop_filepath, 'rb') as file:
             propagator = dill.load(file)
 
+        prop_filepath = pathlib.Path(filepath).parent.joinpath('evaluator.pkl')
+        if self.verbose: print(f"Loading evaluator from {prop_filepath}")
+        with open(prop_filepath, 'rb') as file:
+            evaluator = dill.load(file)
+
+        graph.initialize_func_grad_hess(propagator, evaluator)
+
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
+
+        graph.func(attr['parameters'])
         graph.propagate(propagator, save_transforms=True)
+
+        self.update_graph_hessian_data(graph)
+        graph.func(attr['parameters'])
 
         self.graph = graph
         self.propagator = propagator
@@ -131,7 +147,7 @@ class Model(object):
         plot_edge_data = {'prop_time': {}, 'prop_freq': {}, 'tran_time': {}, 'tran_freq': {}}
         for i, edge in enumerate(graph.edges):
             state = np.squeeze(self.graph.measure_propagator(edge))
-
+            # print(f'State to plot is type {type(state)}')
             plot_edge_data['prop_time'][i] = [dict(x=propagator.t, y=power_(state).astype('float'))]
             plot_edge_data['prop_freq'][i] = [dict(x=propagator.f, y=np.log10(psd_(state, dt=propagator.dt, df=propagator.df).astype('float')))]
 
@@ -179,6 +195,15 @@ class Model(object):
                              layout[v][1],
                              steps))
         return xs, ys
+
+    def update_graph_hessian_data(self, graph):
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
+        names_i, names_j = np.meshgrid(np.array(attr['parameter_names']),
+                                       np.array(attr['parameter_names']))
+        self.graph_hessian_data = dict(hess=graph.hess(attr['parameters']),
+                                       x_name=names_i,
+                                       y_name=names_j)
+        return
 
     @property
     def graph_layout(self):
