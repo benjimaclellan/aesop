@@ -38,7 +38,7 @@ from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, IntensityModulator
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter, FrequencySplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
 # from problems.example.evolver import ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
@@ -59,20 +59,19 @@ if __name__ == '__main__':
     # io.init_save_dir(sub_path='example', unique_id=False)
 
     nodes = {'source': TerminalSource(),
-             0: VariablePowerSplitter(),
-             # 1: VariablePowerSplitter(),
-             # 2: VariablePowerSplitter(),
-             3: VariablePowerSplitter(),
-             # 4: VariablePowerSplitter(),
+             0: FrequencySplitter(),
+             1: VariablePowerSplitter(),
+             2: VariablePowerSplitter(),
              'sink': TerminalSink()}
 
     edges = {('source', 0): ContinuousWaveLaser(parameters=[1]),
-             # (0, 1): PhaseModulator(parameters=[1, 6e9, 0, 0]),
-             # (1, 2, 0): WaveShaper(),
-             # (1, 2, 1): PhaseModulator(),
-             (0, 3, 0): IntensityModulator(),
-             # (3, 4): WaveShaper(),
-             (3, 'sink'):MeasurementDevice(),
+             (0, 1, 0): PhaseModulator(parameters=[1, 6e9, 0, 0]),
+             (0, 1, 1): DispersiveFiber(),
+             (0, 1, 2): DispersiveFiber(),
+             (1, 2, 0): DispersiveFiber(),
+             (1, 2, 1): DispersiveFiber(),
+             (1, 2, 2): IntensityModulator(),
+             (2, 'sink'):MeasurementDevice(),
              }
 
     graph = Graph.init_graph(nodes=nodes, edges=edges)
@@ -85,12 +84,12 @@ if __name__ == '__main__':
     graph.distribute_parameters_from_list(parameters, attributes['models'], attributes['parameter_index'])
     graph.propagate(propagator)
     graph.initialize_func_grad_hess(propagator, evaluator)
-    graph.func(parameters)
-    graph.grad(parameters)
-    graph.hess(parameters)
+    f = graph.func(parameters)
+    g = graph.grad(parameters)
+    h = graph.hess(parameters)
     # fig, ax = plt.subplots(1,1)
     # graph.draw(ax=ax, debug=True)
-
+    #
     # state = graph.measure_propagator('sink')
     # fig, ax = plt.subplots(1, 1)
     # ax.plot(propagator.t, power_(state))

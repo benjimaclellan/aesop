@@ -68,7 +68,6 @@ class DispersiveFiber(SinglePath):
 
         state = ifft_( ifft_shift_(np.exp(1j * (propagation_constant)), ax=0) * fft_(state, propagator.dt), propagator.dt)
         state = state * dB_to_amplitude_ratio(self._alpha * length/1000.0)
-
         return state
 
 @register_node_types_all
