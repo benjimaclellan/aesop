@@ -38,6 +38,8 @@ class Model(object):
 
         self._graph_layout = {}
 
+        self.graph_hessian_data = np.empty([1,1])
+
         self.table_edge_data = {}
         self.table_node_data = {}
 
@@ -56,11 +58,18 @@ class Model(object):
         with open(prop_filepath, 'rb') as file:
             propagator = dill.load(file)
 
+        prop_filepath = pathlib.Path(filepath).parent.joinpath('evaluator.pkl')
+        if self.verbose: print(f"Loading evaluator from {prop_filepath}")
+        with open(prop_filepath, 'rb') as file:
+            evaluator = dill.load(file)
+
+        graph.initialize_func_grad_hess(propagator, evaluator)
         graph.propagate(propagator, save_transforms=True)
 
         self.graph = graph
         self.propagator = propagator
 
+        self.update_graph_hessian_data(graph)
         self.update_graph_layout(graph)
 
         self.get_graph_edge_data(graph)
@@ -179,6 +188,12 @@ class Model(object):
                              layout[v][1],
                              steps))
         return xs, ys
+
+    def update_graph_hessian_data(self, graph):
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
+        self.graph_hessian_data = graph.scaled_hess(attr['parameters'])
+        print(self.graph_hessian_data)
+        return
 
     @property
     def graph_layout(self):

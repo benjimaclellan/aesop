@@ -1,3 +1,5 @@
+import numpy as np
+
 from bokeh.layouts import gridplot, column, row
 from bokeh.models import BoxSelectTool, LassoSelectTool
 from bokeh.plotting import curdoc, figure
@@ -15,7 +17,11 @@ from bokeh.models import Button, CustomJS, FileInput, TextInput, Select, Slider,
 from bokeh.palettes import Spectral6
 from bokeh.models import Paragraph, FileInput
 from bokeh.models import ColumnDataSource, DataTable, DateFormatter, TableColumn, HTMLTemplateFormatter, NumberFormatter
-
+from bokeh.models.widgets import Tabs, Panel
+from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
+                          LinearColorMapper, PrintfTickFormatter,)
+from bokeh.plotting import figure
+from bokeh.transform import transform
 
 class View(object):
     """
@@ -94,15 +100,59 @@ class View(object):
         plots['tran_freq']['plot'].x_range = plots['prop_freq']['plot'].x_range
         self.plots = plots
 
+        self.heatmap = self.create_heatmap()
+
+        # Create two panels, one for each conference
+        panel1_child = column(row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=300),
+                              row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=300))
+        panel1 = Panel(child=panel1_child, title='Panel 2')
+
+
+        panel2 = Panel(child=self.heatmap, title='Panel 2')
+
+        # Assign the panels to Tabs
+        tabs = Tabs(tabs=[panel2, panel1])
+
         """
         Build layout using grid
         """
         layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=400),
-                        row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=300),
-                        row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=300),
+                        tabs,
                         sizing_mode='scale_height')
+        # layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=400),
+        #                 row(plots['prop_time']['plot'], plots['prop_freq']['plot'], height=300),
+        #                 row(plots['tran_time']['plot'], plots['tran_freq']['plot'], height=300),
+        #                 sizing_mode='scale_height')
         self.layout = layout
         return
+
+    # def init_panel_plots(self):
+    def create_heatmap(self):
+        graph_hessian_data = self.control.graph_hessian_data
+        print(graph_hessian_data)
+        colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
+        mapper = LinearColorMapper(palette=colors, low=np.min(graph_hessian_data['value']), high=np.max(graph_hessian_data['value']))
+
+        p = figure(plot_width=600, plot_height=600, title="Hessian",
+                   #=list(graph_hessian_data['index']), y_range=list(reversed(graph_hessian_data['column'])),
+                   toolbar_location=None, tools="", x_axis_location="above")
+
+        p.rect(x="index", y="column", width=1, height=1, source=ColumnDataSource(data=graph_hessian_data),
+               line_color=None, fill_color=transform('value', mapper))
+
+        color_bar = ColorBar(color_mapper=mapper, location=(0, 0),
+                             ticker=BasicTicker(desired_num_ticks=len(colors)),
+                             formatter=PrintfTickFormatter(format="%d%%"))
+
+        p.add_layout(color_bar, 'right')
+
+        p.axis.axis_line_color = None
+        p.axis.major_tick_line_color = None
+        p.axis.major_label_text_font_size = "7px"
+        p.axis.major_label_standoff = 0
+        p.xaxis.major_label_orientation = 1.0
+        return p
+
 
     def set_graph_renderer_policies(self, graph_renderer):
         self.update_node_positions()
