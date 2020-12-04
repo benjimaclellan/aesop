@@ -67,8 +67,8 @@ if __name__ == '__main__':
     edges = {('source', 0): ContinuousWaveLaser(parameters=[1]),
              (0, 1, 0): PhaseModulator(parameters=[1, 6e9, 0, 0]),
              (0, 1, 1): DispersiveFiber(),
-             (0, 1, 2): DispersiveFiber(),
-             (1, 2, 0): DispersiveFiber(),
+             # (0, 1, 2): DispersiveFiber(),
+             # (1, 2, 0): DispersiveFiber(),
              (1, 2, 1): DispersiveFiber(),
              (1, 2, 2): IntensityModulator(),
              (2, 'sink'):MeasurementDevice(),
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     graph.initialize_func_grad_hess(propagator, evaluator)
     # f = graph.func(parameters)
     # g = graph.grad(parameters)
-    h = graph.hess(parameters)
+    # h = graph.hess(parameters)
     # fig, ax = plt.subplots(1,1)
     # graph.draw(ax=ax, debug=True)
     #
@@ -95,6 +95,6 @@ if __name__ == '__main__':
     # ax.plot(propagator.t, power_(state))
     # plt.show()
 
-    io.save_object(graph, 'test_graph.pkl')
+    io.save_object(graph, 'test_graph1.pkl')
     io.save_object(propagator, 'propagator.pkl')
     io.save_object(evaluator, 'evaluator.pkl')

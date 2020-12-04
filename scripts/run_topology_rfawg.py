@@ -47,11 +47,11 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='rfawg', unique_id=False)
+    io.init_save_dir(sub_path='rfawg', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 8,
-               'n_population': 8,
+    ga_opts = {'n_generations': 14,
+               'n_population': psutil.cpu_count()-1,
                'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
@@ -83,8 +83,6 @@ if __name__ == '__main__':
 
     save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)
-
-
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
