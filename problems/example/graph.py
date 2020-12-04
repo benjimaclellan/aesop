@@ -68,10 +68,9 @@ class Graph(GraphParent):
         # copy nodes and edges - used before saving to avoid potential recursion errors in serialization
         nodes, edges = {}, {}
         for node in graph.nodes:
-            nodes[node] = graph.nodes[node]['model']
+            nodes[node] = copy.deepcopy(graph.nodes[node]['model'])
         for edge in graph.edges:
-            edges[edge] = graph.edges[edge]['model']
-
+            edges[edge] = copy.deepcopy(graph.edges[edge]['model'])
         graph_copy = cls.init_graph(nodes=nodes,edges=edges)
         return graph_copy
 
