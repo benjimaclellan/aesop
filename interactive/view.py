@@ -20,7 +20,7 @@ from bokeh.models import Paragraph, FileInput
 from bokeh.models import ColumnDataSource, DataTable, DateFormatter, TableColumn, HTMLTemplateFormatter, NumberFormatter
 from bokeh.models.widgets import Tabs, Panel
 from bokeh.models import (BasicTicker, ColorBar, ColumnDataSource,
-                          LinearColorMapper, PrintfTickFormatter,)
+                          LinearColorMapper, LogColorMapper, PrintfTickFormatter,)
 from bokeh.plotting import figure
 from bokeh.transform import transform
 from bokeh.models import Range1d
@@ -129,7 +129,12 @@ class View(object):
 
 
     def create_heatmap(self):
-        mapper = LinearColorMapper(palette=Cividis256)
+        scale = 'log'
+        if scale == 'lin':
+            mapper = LinearColorMapper(palette=Cividis256)
+        elif scale == 'log':
+            mapper = LogColorMapper(palette=Cividis256)
+
         p = figure(plot_width=600, plot_height=600, title="Local Hessian Matrix",
                    x_axis_location="below", y_axis_location="left", min_border=10, min_border_left=50,
                    x_axis_label='Parameter i', y_axis_label='Parameter j',
@@ -139,9 +144,9 @@ class View(object):
                    )
 
         source = ColumnDataSource(data=dict(value=[], x=[], y=[]))
-        s = 0.05
+        s = 0.0
         mat = p.rect(x="x", y="y", width=1 - s, height=1 - s, source=source,
-                     line_color=None, fill_color=transform('value', mapper))
+                     line_color=None, fill_color=transform('value' if scale == 'lin' else 'log_corrected_value', mapper))
 
         color_bar = ColorBar(color_mapper=mapper, location=(0, 0),
                              ticker=BasicTicker(desired_num_ticks=10))
@@ -153,7 +158,6 @@ class View(object):
         p.axis.major_label_text_font_size = "7px"
         p.axis.major_label_standoff = 0
         p.xaxis.major_label_orientation = 1.0
-
 
         self.hessian_heatmap_mat = mat
         return p, mapper
@@ -217,7 +221,7 @@ class View(object):
         self.eigen_plot_bars['bar_total'].data_source.data = data_total
 
         self.eigen_plot.x_range = Range1d(start=-3, end=eig_vals.shape[0]+1)
-        self.eigen_plot.y_range = Range1d(start=-3, end=eig_vals.shape[0]+1)
+        self.eigen_plot.y_range = Range1d(start=-1, end=eig_vals.shape[0]+2)
         return
 
     def add_hessian_matrix(self):

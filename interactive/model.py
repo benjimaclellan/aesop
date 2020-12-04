@@ -1,7 +1,7 @@
 import dill
 import networkx as nx
 import pathlib
-
+import itertools
 import networkx as nx
 import random
 import string
@@ -54,6 +54,20 @@ class Model(object):
             full_graph = dill.load(file)
         graph = nx.convert_node_labels_to_integers(full_graph, first_label=0, ordering='default', label_attribute=None)
 
+        model_type_counts = {}
+        for node_edge in list(graph.nodes) + list(graph.edges):
+            if type(node_edge) is tuple:
+                model = graph.edges[node_edge]['model']
+            else:
+                model = graph.nodes[node_edge]['model']
+            model_type = type(model)
+            if model_type not in model_type_counts.keys():
+                model_type_counts[model_type] = 0
+            else:
+                model_type_counts[model_type] += 1
+            model.components_name_numbers = model.number_of_parameters * [f'{model.node_acronym}{model_type_counts[model_type]}']
+            model.components_name_number = f'{model.node_acronym}{model_type_counts[model_type]}'
+
         prop_filepath = pathlib.Path(filepath).parent.joinpath('propagator.pkl')
         if self.verbose: print(f"Loading propagator from {prop_filepath}")
         with open(prop_filepath, 'rb') as file:
@@ -67,9 +81,6 @@ class Model(object):
         graph.initialize_func_grad_hess(propagator, evaluator)
 
         attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
-
-        graph.func(attr['parameters'])
-        graph.propagate(propagator, save_transforms=True)
 
         self.update_graph_hessian_data(graph)
         graph.func(attr['parameters'])
@@ -99,7 +110,7 @@ class Model(object):
         graph_edge_data = dict(index=[i for i in range(len(graph.edges))],
                                start=[edge[0] for edge in graph.edges],
                                end=[edge[1] for edge in graph.edges],
-                               component=[graph.edges[edge]['model'].node_acronym for edge in graph.edges],
+                               component=[graph.edges[edge]['model'].components_name_number for edge in graph.edges],
                                edge=[edge for edge in graph.edges],
                                xs=xs,
                                ys=ys,
@@ -111,7 +122,7 @@ class Model(object):
     def get_graph_node_data(self, graph):
         graph_node_data = dict(index=[node for node in graph.nodes],
                                type=[random.choice(string.ascii_lowercase) for _ in graph.nodes],
-                               component=[graph.nodes[node]['model'].node_acronym for node in graph.nodes]
+                               component=[graph.nodes[node]['model'].components_name_number for node in graph.nodes]
                                )
         self.graph_node_data = graph_node_data
         return
@@ -127,7 +138,7 @@ class Model(object):
             component = graph.edges[edge]['model']
             edge_data['parameters'] = component.parameters  # TODO: only getting unlock parameters here, but not elsewhere
             edge_data['parameter_names'] = component.parameter_names
-            edge_data['model'] = [component.node_acronym] * component.number_of_parameters
+            edge_data['model'] = component.components_name_numbers
 
             table_edge_data[i] = edge_data
 
@@ -197,9 +208,11 @@ class Model(object):
         return xs, ys
 
     def update_graph_hessian_data(self, graph):
-        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
-        names_i, names_j = np.meshgrid(np.array(attr['parameter_names']),
-                                       np.array(attr['parameter_names']))
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names', 'components_name_numbers'])
+
+        parameter_text = [f'{p}-{c}' for (p, c) in zip(attr['parameter_names'], attr['components_name_numbers'])]
+        names_i, names_j = np.meshgrid(np.array(parameter_text),
+                                       np.array(parameter_text))
         self.graph_hessian_data = dict(hess=graph.hess(attr['parameters']),
                                        x_name=names_i,
                                        y_name=names_j)
