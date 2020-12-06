@@ -4,83 +4,119 @@ sys.path.append('..')
 
 import time
 import matplotlib.pyplot as plt
-import autograd.numpy as np
+import numpy as np
+import seaborn as sns
+import winsound
+from scipy.interpolate import interp1d
 
 import config.config as configuration
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
+from lib.functions import InputOutput
+
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, OpticalAmplifier, IntensityModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types import TerminalSource, TerminalSink
 
 from algorithms.parameter_optimization import parameters_optimize
 
 plt.close('all')
 if __name__ == "__main__":
-    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
-    evaluator = RadioFrequencyWaveformGeneration(propagator)
-    evolver = Evolver()
-    nodes = {0:ContinuousWaveLaser(parameters_from_name={'peak_power':1, 'central_wl':1.55e-6}),
-             1:PhaseModulator(parameters_from_name={'depth':9.87654321, 'frequency':12e9}),
-             2:WaveShaper(),
-             -1:MeasurementDevice()}
-    edges = [(0,1),
-             (1,2),
-             (2,-1)]
+    random_seed = 1
+    np.random.seed(random_seed)
 
-    graph = Graph(nodes, edges, propagate_on_edges = False)
-    graph.assert_number_of_edges()
+    propagator = Propagator(window_t=10/12e9, n_samples=2**14, central_wl=1.55e-6)
+    evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9, target_waveform='saw')
+    io = InputOutput(directory='20201205_param_opt_comparison', verbose=True)
+    io.init_save_dir(sub_path=f'seed_{random_seed}__', unique_id=True)
+
+    nodes = {'source': TerminalSource(),
+             0: VariablePowerSplitter(),
+             1: VariablePowerSplitter(),
+             2: VariablePowerSplitter(),
+             'sink': TerminalSink()}
+
+    edges = {('source', 0): ContinuousWaveLaser(),
+             (0, 1): PhaseModulator(),
+             (1, 2): WaveShaper(),
+             (2, 'sink'): Photodiode(),
+             }
+
+    graph = Graph.init_graph(nodes, edges)
+    graph.update_graph()
     graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
 
     #%%
-    methods = ["L-BFGS", "ADAM", "GA", "CMA", "L-BFGS+GA", "ADAM+GA"]
-    n_runs = 10
-    comparison_results = {}
-    for method in methods:
-        comparison_results[method] = {'time': [], 'score': []}
+    methods = ["L-BFGS", "ADAM", "GA", "L-BFGS+GA", "ADAM+GA", "PSO", "L-BFGS+PSO"]
+    # methods = ["L-BFGS"]
+    palette = sns.color_palette('colorblind')
+    colors = {method: color for method, color in zip(methods, palette)}
 
+    n_runs = 5
+    starting_points = []
     for run in range(n_runs):
-        print("\n\tRun iteration: {}".format(run))
-        for method in methods:
-            t1 = time.time()
+        graph.sample_parameters(probability_dist='uniform')
+        x0, models, parameter_index, *_ = graph.extract_parameters_to_list()
+        starting_points.append(x0)
 
-            graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
-            x0, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
-            graph, x, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=False)
+    optimize = True
+    if optimize:
+        results = {method: [] for method in methods}
+        for run, starting_point in enumerate(starting_points):
+            for method in methods:
+                print(f"Run: {run}/{n_runs} | Method: {method}")
+                graph, x, score, log = parameters_optimize(graph, x0=starting_point, method=method,
+                                                           log_callback=True, verbose=False)
+                results[method].append(log)
+        io.save_object(results, 'results.pkl')
+    else:
+        results = io.load_object('results.pkl')
 
-            t2 = time.time()
+    #%%
+    fig, ax = plt.subplots(1, 1, figsize=[8, 5])
+    ax.set(xlabel='Process CPU time (s)', ylabel='Evaluation Score (a.u.)')
+    for method, logs in results.items():
+        for k, log in enumerate(logs):
+            ax.plot(log.dataframe['process runtime (s)'], log.dataframe['mean'], label=method if k == 0 else None,
+                    color=colors[method], alpha=0.8)
+    ax.legend()
+    io.save_fig(fig, 'results_all')
 
-            comparison_results[method]['time'].append(t2-t1)
-            comparison_results[method]['score'].append(score)
+    #%%
+    fig, ax = plt.subplots(1, 1, figsize=[8, 5])
+    ax.set(xlabel='Process CPU time (s)', ylabel='Evaluation Score (a.u.)')
+    for method, logs in results.items():
+        t_max, t_min = np.inf, 0
+        for k, log in enumerate(logs):
+            if np.max(log.dataframe['process runtime (s)']) < t_max:
+                t_max = np.max(log.dataframe['process runtime (s)'])
+        t = np.linspace(t_min, t_max, 1000)
 
-    fig, ax = plt.subplots(2, 2, figsize=[15, 10])
-    plt.title("Based on {} runs".format(n_runs))
-    ax[0,0].bar(methods, [np.mean(comparison_results[method]['time']) for method in methods])
-    ax[0,0].set_ylabel('Time - Mean (s)')
+        ys = np.zeros([t.shape[0], n_runs])
+        for k in range(n_runs):
+            log = logs[k]
+            f = interp1d(log.dataframe['process runtime (s)'].to_numpy(), log.dataframe['mean'].to_numpy(),
+                         bounds_error=False, fill_value=np.nan)
+            ys[:, k] = f(t)
+        yavg = np.nanmean(ys, axis=1)
+        ymin = np.nanmin(ys, axis=1)
+        ymax = np.nanmax(ys, axis=1)
+        yvar = np.sqrt(np.nanvar(ys, axis=1))
 
-    ax[0,1].bar(methods, [np.mean(comparison_results[method]['score']) for method in methods])
-    ax[0,1].set_ylabel('Score - Mean')
+        ax.plot(t, yavg, color=colors[method], alpha=1.0, label=method)
+        ax.fill_between(t, ymax, ymin, color=colors[method], alpha=0.5)
+        # ax.fill_between(t, yavg-yvar, yavg+yvar, color=colors[method], alpha=0.5)
 
-    ax[1,0].bar(methods, [np.std(comparison_results[method]['time']) for method in methods])
-    ax[1,0].set_ylabel('Time - SD (s)')
+    ax.legend()
+    io.save_fig(fig, 'results_condensed')
 
-    ax[1,1].bar(methods, [np.std(comparison_results[method]['score']) for method in methods])
-    ax[1,1].set_ylabel('Score - SD')
-
-
-    fig = plt.figure()
-    graph.draw()
-
-    # graph.distribute_parameters_from_list(x, node_edge_index, parameter_index)
-    # graph.propagate(propagator, save_transforms=False)
-    # state = graph.measure_propagator(-1)
-    # fig, ax = plt.subplots(2, 1)
-    # ax[0].plot(propagator.t, np.power(np.abs(state), 2))
+    #%%
+    # winsound.Beep(440, 3000)  # alert that it is finished
