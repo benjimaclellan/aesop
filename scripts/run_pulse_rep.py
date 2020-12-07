@@ -89,7 +89,7 @@ if __name__ == '__main__':
     update_rule = 'roulette'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='L-BFGS+GA',
+                                     parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

@@ -24,6 +24,12 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     else:
         _, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
+    print(x0)
+    if len(x0) == 0:  # if no parameters
+        logger = ParameterOptimizationLogger()
+        return graph, x0, graph.func(x0), logger
+
+
     if log_callback:
         logger = ParameterOptimizationLogger()
 

@@ -41,11 +41,13 @@ class DispersiveFiber(SinglePath):
         self.parameter_symbols = [r"$x_\beta$"]
         # self.beta = -26.3e3 * 1e-12 * 1e-12 #fs2/m * s/fs * s/fs
         self._n = 1.44
-        self._alpha = -0.015 # dB/km, from Corning SMF28 datasheet
+        self._alpha = -0.001 # dB/km, from Corning SMF28 datasheet
+        # self._alpha = -0.015 # dB/km, from Corning SMF28 datasheet
 
         self._zdw0 = 1310.0 * 1e-9 #nm * m/nm (zero-dispersion wavelength)
         # self._S0 = 0.092 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
-        self._S0 = -0.155 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
+        # self._S0 = -0.155 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
+        self._S0 = -0.8 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
 
         super().__init__(**kwargs)
         return
