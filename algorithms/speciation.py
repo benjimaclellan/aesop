@@ -1,6 +1,7 @@
 import autograd.numpy as np
 
 import config.config as config
+from algorithms.assets.graph_edit_distance import similarity_full_ged, similarity_reduced_ged
 
 """
 Module for speciation! Generally follows the model given by NEAT:
@@ -35,12 +36,12 @@ class Speciation():
 
     def __init__(self, target_species_num=None, d_thresh=0.4, protection_half_life=None, distance_func=None):
         """
-        :param target_species_num: target number of species (note: actual number will fluctuate)
+        :param target_species_num: target number of species (note: actual number will fluctuate). If none, the distance threshold never changes
         :param d_thresh: initial (start) delta threshold for 2 items to be considered the same species
         :param protection_half_life: species are "protected" by fitness sharing, such that a single species can't take everyone over
                                      this implementation allows the protection to decay over time, such that
                                      the individual's fitness is less and less affective (i.e. more greedy behaviour)
-        :param distance_funct: distance function determining whether or not 2 
+        :param distance_funct: distance function determining whether or not 2
         """
         self.target_species_num = target_species_num
 
@@ -52,6 +53,7 @@ class Speciation():
         self.individual_species_map = {} # maps most recent population individuals to their species representative
         self.distance_func = distance_func
         self.protection_half_life = protection_half_life
+        self.adjust_threshold = True
 
     def speciate(self, population, debug=True):
         """
@@ -122,22 +124,21 @@ class Speciation():
                 self.species[graph] = 1
 
         if debug:
-            print(f'POST SPECIATION')
+            print(f'post speciation, species pop size: {len(self.individual_species_map)}')
             print(f'species: {self.species}')
 
-        # 3. Update self.d_thresh with my awesome P(ID) method
-        if debug:
-            print(f'current d_thresh: {self.d_thresh}')
+        # 3. Update self.d_thresh with P(ID) method
+        if self.target_species_num is not None:
+            if debug:
+                print(f'current d_thresh: {self.d_thresh}')
+            
+            thresh_adjust_prop = THRESH_ADJUST_PROP_CONSTANT / np.sqrt(len(population)) # normalize adjustment factor to total number of individuals, since more individuals = likely larger diff in species #
+            delta = np.clip(-1 * (self.target_species_num - len(self.species)) * thresh_adjust_prop, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
+            self.d_thresh = delta + self.d_thresh
+            self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
+            if debug:
+                print(f'updated d_thresh: {self.d_thresh}')
         
-        thresh_adjust_prop = THRESH_ADJUST_PROP_CONSTANT / np.sqrt(len(population)) # normalize adjustment factor to total number of individuals, since more individuals = likely larger diff in species #
-        delta = np.clip(-1 * (self.target_species_num - len(self.species)) * thresh_adjust_prop, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
-        self.d_thresh = delta + self.d_thresh
-        self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
-        if debug:
-            print(f'updated d_thresh: {self.d_thresh}')
-        
-        print(f'post speciation, species pop size: {len(self.individual_species_map)}')
-    
     def execute_fitness_sharing(self, population, generation_num, minimization=True):
         """
         Changes population scores to reflect effects of fitness sharing
@@ -170,13 +171,16 @@ class Speciation():
 
         for i in range(len(population)):
             graph = population[i][1]
-            species_size = self.species[self.individual_species_map[graph]]
-            scaling_coeff = max(1, np.exp(-coeff * generation_num) * species_size)
+            try:
+                species_size = self.species[self.individual_species_map[graph]]
+                scaling_coeff = max(1, np.exp(-coeff * generation_num) * species_size)
 
-            if minimization:
-                population[i] = (population[i][0] / scaling_coeff, graph)
-            else:
-                population[i] = (population[i][0] * scaling_coeff, graph)
+                if minimization:
+                    population[i] = (population[i][0] / scaling_coeff, graph)
+                else:
+                    population[i] = (population[i][0] * scaling_coeff, graph)
+            except KeyError:
+                pass
     
     def get_crossover_candidates(self, graph, population):
         """
@@ -289,6 +293,9 @@ class vectorDIFF(DistanceEvaluatorInterface):
         for node in graph.nodes:
             model = type(graph.nodes[node]['model'])
             vector[self.vector_basis[model]] += 1
+        for edge in graph.edges:
+            model = type(graph.edges[edge]['model'])
+            vector[self.vector_basis[model]] += 1
         return vector
 
 
@@ -299,6 +306,7 @@ class photoNEAT(DistanceEvaluatorInterface):
     TODO: add disjoint genes (not just excess) if we get crossovers going. Not useful rn
     """
     def __init__(self, a1=0.7, a2=0.3):
+        raise ValueError('photoNEAt has not been upgraded to work with the new encoding yet')
         weights_sum = a1 + a2
         self.weights = (a1 / weights_sum, a2 / weights_sum)
     
@@ -322,4 +330,32 @@ class photoNEAT(DistanceEvaluatorInterface):
         # print(f'compositional_diff: {compositional_diff}')
 
         return self.weights[0] * structural_diff + self.weights[1] * compositional_diff
+
+
+class EditDistance(DistanceEvaluatorInterface):
+    def __init__(self, distance_rule='reduced_ged', threshold=0.01):
+        """
+        :param distance_rule: the function which calculates edit distance between two elements
+        :param threshold: edit distance above which two elements are considered a different species
+        """
+        self.threshold = threshold
+        self.distance_rule = distance_rule
+        if distance_rule != 'reduced_ged' and distance_rule != 'full_ged':
+            raise ValueError(f'Graph edit distance rule {distance_rule} not implemented. Accepted distance rules are reduced_ged, full_ged')
+
+    def distance(self, graph0, graph1):
+        if (graph0.speciation_descriptor['name'] != 'editDistance' or graph1.speciation_descriptor['name'] != 'editDistance'):
+            raise ValueError(f'speciation descriptor {graph0.speciation_descriptor}, {graph1.speciation_descriptor} does not match editDistance!')
+        
+        if self.distance_rule == 'reduced_ged':
+            similarity_func = similarity_reduced_ged 
+        else:
+            similarity_func = similarity_full_ged
+        
+        if similarity_func(graph0, graph1) > self.threshold:
+            return 1
+        
+        return 0
+        
+
         

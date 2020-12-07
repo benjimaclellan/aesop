@@ -4,6 +4,7 @@ import pathlib
 import os
 import platform
 import copy
+import pickle
 
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
 sep = ';' if platform.system() == 'Windows' else ':'
@@ -24,10 +25,9 @@ import config.config as config
 from lib.functions import InputOutput
 
 from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver, CrossoverMaker, StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
+from problems.example.evolver import ProbabilityLookupEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.evolution_operators.evolution_operators import SwapNode
 
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
@@ -43,12 +43,10 @@ from problems.example.node_types_subclasses.single_path import PhaseShifter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof, update_hof
-from algorithms.topology_optimization import similarity_full_ged, similarity_reduced_ged, graph_kernel_map_to_nodetypes
+from algorithms.assets.graph_edit_distance import similarity_full_ged, similarity_reduced_ged, graph_kernel_map_to_nodetypes
 
-
-plt.close('all')
-if __name__ == '__main__':
-    evolver = StochMatrixEvolver(verbose=False)
+def test0():
+    evolver = ProbabilityLookupEvolver(verbose=False)
     propagator = Propagator(window_t=1e-9, n_samples=2 ** 14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator)
 
@@ -110,3 +108,21 @@ if __name__ == '__main__':
             remove node: non-zero prob on all nodes, except persistent nodes
             after each addition, check if there are more than one unconnected edges - if so, connect in the correct order
     """
+
+def test_graph_similarity(graph0, graph1):
+    print(f'graph0: \n{graph0}\n\n graph1: \n\n{graph1}')
+    print(f'full graph edit distance: {similarity_full_ged(graph0, graph1)}')
+    print(f'reduced graph edit distance: {similarity_reduced_ged(graph0, graph1)}')
+
+
+def test1():
+    with open('graph_hof0.pkl', 'rb') as handle0:
+        graph0 = pickle.load(handle0)
+        with open('graph_hof1.pkl', 'rb') as handle1:
+            graph1 = pickle.load(handle1)
+            test_graph_similarity(graph0, graph1)
+
+plt.close('all')
+if __name__ == '__main__':
+    # test0()
+    test1()

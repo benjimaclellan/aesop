@@ -10,12 +10,11 @@ import random
 from autograd.numpy.numpy_boxes import ArrayBox
 
 import networkx as nx
-import config.config as config
 
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
-from algorithms.speciation import Speciation, NoSpeciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT
-import config.config as configuration
+from algorithms.speciation import Speciation, NoSpeciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT, EditDistance
+from algorithms.assets.graph_edit_distance import similarity_full_ged, similarity_reduced_ged
 
 SPECIATION_MANAGER = NoSpeciation() 
 
@@ -42,6 +41,10 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         update_population = update_population_topology_roulette
     elif update_rule == 'tournament':
         update_population = update_population_topology_tournament
+    elif update_rule == 'roulette edit distance':
+        update_population = update_population_topology_roulette_editDistance
+    elif update_rule == 'tournament edit distance':
+        update_population = update_population_topology_tournament_editDistance
     elif update_rule == 'random simple subpop scheme':
         update_population = update_population_topology_random_simple_subpopulation_scheme
     elif update_rule == 'preferential simple subpop scheme':
@@ -59,8 +62,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # start_graph = ray.put(copy.deepcopy(graph))
@@ -87,11 +90,18 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for generation in range(ga_opts['n_generations']):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
+        if generation != 0:
+            SPECIATION_MANAGER.speciate(population)
+            SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
                                                                        crossover_maker=crossover_maker)
-        print(f'population length after update: {len(population)}')
-        
+        if ga_opts['verbose']:
+            print(f'population length after update: {len(population)}')
+
+        if generation != 0:
+            SPECIATION_MANAGER.reverse_fitness_sharing(population, generation) # ensures log info is correct (fitness sharing is ONLY to select next gen)
+
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind,
                                                                       evaluator_id,
@@ -100,12 +110,9 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                                                                       verbose=ga_opts['verbose']) for ind in population])
         save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
-        SPECIATION_MANAGER.speciate(population)
-        SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
 
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
         population = population[0:ga_opts['n_population']] # get rid of extra params, if we have too many
-        SPECIATION_MANAGER.reverse_fitness_sharing(population, generation) # ensures log info is correct (fitness sharing is ONLY to select next gen)
         for (score, graph) in population:
             graph.clear_propagation()
 
@@ -118,10 +125,12 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     evolver.close()
     return hof, log # hof is actually a list in and of itself, so we only look at the top element
 
+
 def save_hof(hof, io):
     for i, (score, graph) in enumerate(hof):
         io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
     return
+
 
 def plot_hof(hof, propagator, evaluator, io):
     # save a figure which quickly demonstrates the results of the run as a .pdf files
@@ -143,6 +152,7 @@ def plot_hof(hof, propagator, evaluator, io):
         axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
     io.save_fig(fig=fig, filename='halloffame.png')
 
+
 def save_scores_to_graph(population):
     for (score, graph) in population:
         graph.score = score
@@ -152,59 +162,6 @@ def init_hof(n_hof):
     hof = [(None, None) for i in range(n_hof)]
     return hof
 
-def graph_kernel_map_to_nodetypes(_graph):
-    """
-    NOT SUPPORTED AFTER GRAPH ENCODING CHANGE.
-    A pre-processing step to collapse nodes to their model types.
-    :param _graph:
-    :return:
-    """
-    graph_relabelled = nx.relabel_nodes(_graph, {node: _graph.nodes[node]['model'].node_acronym for node in _graph.nodes})
-    all_node_relabels = []
-    for node_subtypes in config.NODE_TYPES_ALL.values():
-        for node_subtype in node_subtypes.values():
-            all_node_relabels.append(node_subtype.node_acronym)
-    graph_relabelled.add_nodes_from(all_node_relabels)
-    return graph_relabelled
-
-def similarity_full_ged(g1, g2):
-    """
-    Measures the Graph Edit Distance similarity between two graphs exactly. Can be slow, it is suggested use the
-    approximate (reduced) method instead
-    :param _graph1: Graph object
-    :param _graph2: Graph object
-    :return: similarity (integer number of steps needed to transform Graph 1 to Graph 2
-    """
-    sim = nx.algorithms.similarity.graph_edit_distance(g1, g2,
-                                                       edge_subst_cost=edge_node_match,
-                                                       node_subst_cost=edge_node_match,
-                                                       upper_bound=30.0,
-                                                       timeout=10.0,
-                                                       )
-    return sim
-
-def similarity_reduced_ged(g1, g2):
-    """
-    Approximated the Graph Edit Distance similarity between two graphs exactly.
-    :param _graph1: Graph object
-    :param _graph2: Graph object
-    :return: similarity (integer number of steps needed to transform Graph 1 to Graph 2
-    """
-    ged_approx = nx.algorithms.similarity.optimize_graph_edit_distance(g1, g2,
-                                                                       edge_subst_cost=edge_node_match,
-                                                                       node_subst_cost=edge_node_match,
-                                                                       upper_bound=30.0,
-                                                                       )
-    sim =  next(ged_approx) # faster, but less accurate
-    return sim
-
-def edge_node_match(e1, e2):
-    # provides the comparison for the cost of substituting two edges or two nodes in the GED calculation
-    if type(e1['model']) == type(e2['model']):
-        cost = 0.0
-    else:
-        cost = 1.0
-    return cost
 
 def update_hof(hof, population, similarity_measure='reduced_ged', threshold_value=0.0, verbose=False):
     """
@@ -217,6 +174,7 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     :param verbose: debugging to print, boolean
     :return: returns the updated hof, list of tuples same as input
     """
+    verbose = True
 
     if similarity_measure == 'reduced_ged':
         similarity_function = similarity_reduced_ged
@@ -256,7 +214,6 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
         if not check_similarity:
             if verbose: print(f'There is no need to check the similarity')
 
-
         if check_similarity and (similarity_measure is not None):
             # similarity check with all HoF graphs
             for k, (hof_k_score, hof_k) in enumerate(hof):
@@ -265,7 +222,7 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
                 if hof_k is not None:
                     sim = similarity_function(graph, hof_k)
 
-                    if sim < threshold_value:
+                    if sim <= threshold_value or np.isclose(sim, threshold_value):
                         # there is another, highly similar graph in the hof
                         if k < j:
                             # there is a similar graph with a better score, do not add graph to hof
@@ -288,7 +245,6 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
             if verbose: print(f'Replacing HOF individual {remove_ind}, new score of {score}')
         else:
             if verbose: print(f'Not adding population index {i} into the hof')
-
 
     return hof
 
@@ -374,7 +330,7 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 
-def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, **hyperparameters):
+def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, pass_top_frac=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -410,10 +366,14 @@ def update_population_topology_roulette(population, evolver, evaluator, preferen
         #     raise ValueError('This graph has no parameters')
         new_pop.append((None, graph_tmp))
     
-    return new_pop
+    population_pass_index = round(pass_top_frac * len(population))
+    if population_pass_index > len(population):
+        population_pass_index == len(population)
+
+    return new_pop + population[0:population_pass_index]
 
 
-def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, **hyperparameters):
+def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, pass_top_frac=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -442,8 +402,6 @@ def update_population_topology_tournament(population, evolver, evaluator, tourna
     for _ in range(len(population)):
         tournament_indices = np.random.choice(np.arange(0, len(population)), size=tournament_size)
         graph = population[min(tournament_indices)][1] # this works, because the vals were already sorted by fitness
-        print(f'tournament indices: {tournament_indices}')
-        print(f'graph index: {min(tournament_indices)}')
         graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
         graph_tmp.assert_number_of_edges()
         # TODO: determine whether the following is a correct check to make (or is it just alright?)
@@ -452,7 +410,13 @@ def update_population_topology_tournament(population, evolver, evaluator, tourna
         #     raise ValueError('This graph has no parameters')
         new_pop.append((None, graph_tmp))
     
-    return new_pop
+    population_pass_index = round(pass_top_frac * len(population))
+    if population_pass_index > len(population):
+        population_pass_index == len(population)
+
+    return new_pop + population[0:population_pass_index]
+
+
 # ------------------------------- Speciation setup helpers -----------------------------------
 
 def _simple_subpopulation_setup(population, **hyperparameters):
@@ -495,6 +459,15 @@ def _photoNEAT_setup(population, **hyperparameters):
                 node_marker_map[node] = i
             graph.speciation_descriptor = {'name':'photoNEAT', 'marker to node':marker_node_map, 'node to marker':node_marker_map}
 
+def _edit_distance_setup(population, **hyperparameters):
+    global SPECIATION_MANAGER
+    if population[0][1].speciation_descriptor is None:
+        dist_func = EditDistance().distance
+        SPECIATION_MANAGER = Speciation(target_species_num=None,
+                                        protection_half_life=hyperparameters['protection_half_life'],
+                                        distance_func=dist_func)
+        for i, (_, graph) in enumerate(population):
+            graph.speciation_descriptor = {'name':'editDistance'}
 
 # ---------------------------------- Speciated population update ------------------------------
 def update_population_topology_random_simple_subpopulation_scheme(population, evolver, evaluator, **hyperparameters):
@@ -531,6 +504,21 @@ def update_population_topology_random_photoNEAT(population, evolver, evaluator, 
 def update_population_topology_preferential_photoNEAT(population, evolver, evaluator, **hyperparameters):
     _photoNEAT_setup(population, **hyperparameters)
     return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
+
+
+def update_population_topology_preferential_editDistance(population, evolver, evaluator, **hyperparameters):
+    _edit_distance_setup(population, **hyperparameters)
+    return update_population_topology_preferential(population, evolver, evaluator, **hyperparameters)
+
+
+def update_population_topology_tournament_editDistance(population, evolver, evaluator, **hyperparameters):
+    _edit_distance_setup(population, **hyperparameters)
+    return update_population_topology_tournament(population, evolver, evaluator, **hyperparameters)
+
+
+def update_population_topology_roulette_editDistance(population, evolver, evaluator, **hyperparameters):
+    _edit_distance_setup(population, **hyperparameters)
+    return update_population_topology_roulette(population, evolver, evaluator, **hyperparameters)
 
 
 def parameters_optimize_complete(ind, evaluator, propagator, method='NULL', verbose=True):
