@@ -53,6 +53,8 @@ if __name__ == '__main__':
                   RadioFrequencyWaveformGeneration(propagator, target_harmonic=24e9, target_amplitude=0.02,
                                                    target_waveform='square', ),
                   RadioFrequencyWaveformGeneration(propagator, target_harmonic=36e9, target_amplitude=0.02,
+                                                   target_waveform='saw', ),
+                  RadioFrequencyWaveformGeneration(propagator, target_harmonic=10e9, target_amplitude=0.04,
                                                    target_waveform='saw', )
                   ]
 
