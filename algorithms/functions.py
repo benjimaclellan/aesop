@@ -2,7 +2,7 @@
 
 
 """
-
+import seaborn as sns
 import autograd.numpy as np
 import pandas as pd
 import time
@@ -10,6 +10,7 @@ import time
 # for plotting
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 from lib.autodiff_helpers import unwrap_arraybox_val
 
@@ -43,7 +44,7 @@ class ParameterOptimizationLogger():
         :param algorithm_colours: a dictionary with key=algorithm name, value=colour for the algorithm when plotted
         """
         self.start_time = None
-        self.valid_algorithms = set(['L-BFGS', 'PSO', 'CMA', 'ADAM', 'GA'])
+        self.valid_algorithms = list(['L-BFGS', 'PSO', 'CMA', 'ADAM', 'GA'])
         self.current_algorithm = None
         self.current_population = -1
         self.log_number = 0 # number of times we've logged. Equivalent to number of iterations for gradient descent algs, to num of individuals updated for other algs
@@ -65,10 +66,10 @@ class ParameterOptimizationLogger():
             self.log_metrics = log_metrics
         
         if algorithm_colours is None:
-            colour_map = plt.get_cmap('nipy_spectral')
+            self.colour_map = ListedColormap(sns.color_palette(palette='Accent'))
             self.algorithm_colours = {}
             for (i, alg) in enumerate(self.valid_algorithms):
-                self.algorithm_colours[alg] = colour_map(i / len(self.valid_algorithms))
+                self.algorithm_colours[alg] = self.colour_map(i / len(self.valid_algorithms))
         else:
             self.algorithm_colours = algorithm_colours
         
@@ -135,12 +136,11 @@ class ParameterOptimizationLogger():
         if ax is None:
             fig, ax = plt.subplots()
         
-        colour_map = plt.get_cmap('brg')
         print(f'logger dict items: {logger_dict.items()}')
         print(f'enumerate logger dict items: {enumerate(logger_dict.items())}')
         for i, (label, logger) in enumerate(logger_dict.items()):
             data = logger.get_log()
-            ax.plot(data[xaxis], data[yaxis], label=label, color=colour_map(i / len(logger_dict)))
+            ax.plot(data[xaxis], data[yaxis], label=label, color=logger.colour_map(i / len(logger_dict)))
         
         ax.legend()
         ax.set_xlabel(xaxis)

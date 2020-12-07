@@ -19,7 +19,7 @@ sys.path.append(parent_dir)
 # various imports
 import matplotlib.pyplot as plt
 import psutil
-import numpy as np
+import autograd.numpy as np
 import config.config as config
 
 from lib.functions import InputOutput

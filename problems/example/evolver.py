@@ -12,6 +12,7 @@ import problems.example.assets.hessian_graph_analysis as hessian_analysis
 from problems.example.evolution_operators.evolution_operators import RemoveComponent
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
+from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 # TODO: fix the reinforcement learning one...
 # TODO: stop regenerating the probability matrix each time: this is wasteful when we update it multiple times in a generation (i.e. for multiple children of the same graph)
@@ -65,6 +66,8 @@ class ProbabilityLookupEvolver(object):
             print(graph)
             print()
        
+        graph.update_graph()
+
         x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
         assert np.logical_and(lower_bounds <= x, x <= upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
@@ -249,7 +252,7 @@ class HessianProbabilityEvolver(OperatorBasedProbEvolver):
     def scale_within_operator(self, graph, evo_op, op_probs):
         if type(evo_op) == RemoveComponent: # is hardcoded to our evo operators, can't REALLY be helped
             edge_free_wheeling_scores = hessian_analysis.get_all_edge_scores(graph, as_log=False)
-            print(f'free wheeling scores: {edge_free_wheeling_scores}')
+            # print(f'free wheeling scores: {edge_free_wheeling_scores}')
             
             score_array = np.array(list(edge_free_wheeling_scores.values()))
             reference = np.sum(score_array)
@@ -260,9 +263,9 @@ class HessianProbabilityEvolver(OperatorBasedProbEvolver):
                 try:
                     location = graph.evo_probabilities_matrix.index_to_node_or_edge[i] # locations should be interfaces
                     op_probs[i] = np.log10(reference / edge_free_wheeling_scores[location.edge])**(1 / self.probability_flattening)
-                    print(f'\n\ncurrent location: {location}')
-                    print(f'current edge: {location.edge}')
-                    print(f'flattened_prob: {op_probs[i]}\n\n')
+                    # print(f'\n\ncurrent location: {location}')
+                    # print(f'current edge: {location.edge}')
+                    # print(f'flattened_prob: {op_probs[i]}\n\n')
                 except KeyError:
                     pass # is fine, lots of locations aren't edges
             

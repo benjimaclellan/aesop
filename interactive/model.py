@@ -9,7 +9,7 @@ import sys
 import pathlib
 import platform
 import os
-import numpy as np
+import autograd.numpy as np
 import copy
 
 # adds the ASOPE directory on any OS

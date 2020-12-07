@@ -3,7 +3,7 @@ import warnings
 # %% import public modules
 import matplotlib.pyplot as plt
 import autograd.numpy as np
-import numpy
+import autograd.numpy
 import matplotlib as mpl
 import matplotlib.colors as colors
 from mpl_toolkits.mplot3d import Axes3D
