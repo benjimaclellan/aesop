@@ -141,8 +141,8 @@ def plot_hof(hof, propagator, evaluator, io):
 
         measurement_node = 'sink'
         state = graph.measure_propagator(measurement_node)
-        if len(hof) > 1:
-            np.expand_dims(axs, 0)
+        if len(hof) == 1:
+            axs = np.expand_dims(axs, 0)
 
         graph.draw(ax=axs[i, 0], debug=False)
         axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
