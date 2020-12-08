@@ -17,15 +17,19 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         super().__init__(**kwargs)
 
         self.target_harmonic = target_harmonic  # target pattern repetition in Hz
+        print(type(target_waveform))
+        if type(target_waveform) == str:
+            if target_waveform == 'saw':
+                waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
+            elif target_waveform == 'square':
+                waveform = 0.5 * (signal.square(2 * np.pi * self.target_harmonic * propagator.t, 0.5) + 1)
+            else:
+                raise NotImplementedError(f'{target_waveform} is not a valid target waveform')
 
-        if target_waveform == 'saw':
-            waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
-        elif target_waveform == 'square':
-            waveform = 0.5 * (signal.square(2 * np.pi * self.target_harmonic * propagator.t, 0.5) + 1)
-        else:
-            raise NotImplementedError(f'{target_waveform} is not a valid target waveform')
+            self.target = target_amplitude * waveform
 
-        self.target = target_amplitude * waveform
+        elif type(target_waveform) is np.ndarray:
+            self.target = target_waveform
 
         self.target_f = np.fft.fft(self.target, axis=0)
         self.target_rf = rfft(self.target)

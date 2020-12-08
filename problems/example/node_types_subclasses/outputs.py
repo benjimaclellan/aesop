@@ -37,8 +37,8 @@ class MeasurementDevice(SinkModel):
         super().__init__(**kwargs)
         return
 
-    def propagate(self, states, propagator, num_inputs = 1, num_outputs = 0, save_transforms=False):
-        return states
+    def propagate(self, state, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
+        return np.abs(state)
 
 
 @register_node_types_all

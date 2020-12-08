@@ -24,6 +24,12 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     else:
         _, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
+    print(x0)
+    if len(x0) == 0:  # if no parameters
+        logger = ParameterOptimizationLogger()
+        return graph, x0, graph.func(x0), logger
+
+
     if log_callback:
         logger = ParameterOptimizationLogger()
 
@@ -53,7 +59,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         
         res = scipy.optimize.minimize(fitness_funct, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 150},
+                                      options={'disp': verbose, 'maxiter': 300},
                                       jac=graph.grad)
         graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
@@ -74,7 +80,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         xopt, fopt = pso(fitness_funct, lower_bounds, upper_bounds, f_ieqcons=None,
                          args=(), kwargs={}, swarmsize=swarm_size, omega=0.5, phip=0.5,
-                         phig=0.5, maxiter=30, minstep=1e-8, minfunc=1e-8, debug=verbose)
+                         phig=0.5, maxiter=40, minstep=1e-8, minfunc=1e-8, debug=verbose)
 
         if log_callback:
             logger.set_optimization_algorithm('L-BFGS')
@@ -92,22 +98,23 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     elif method == 'L-BFGS+GA':
         if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
-        population_size = 25
+        population_size = 30
 
         if log_callback:
             logger.set_optimization_algorithm('GA', pop_size=population_size)
             logger.start_logger_time()
     
-        x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list, logger=(logger if log_callback else None), \
-                                                n_generations=25, n_population=population_size, rate_mut=0.8, \
-                                                rate_crx=0.3, verbose=verbose)
+        x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
+                                                logger=(logger if log_callback else None),
+                                                n_generations=50, n_population=population_size, rate_mut=0.8,
+                                                rate_crx=0.35, verbose=verbose)
 
         if log_callback:
             logger.set_optimization_algorithm('L-BFGS')
 
         res = scipy.optimize.minimize(fitness_funct, x, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 50},
+                                      options={'disp': verbose, 'maxiter': 100},
                                       jac=graph.grad)
 
 
@@ -128,7 +135,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         _, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
         xopt, fopt = pso(fitness_funct, lower_bounds, upper_bounds, f_ieqcons=None,
                          args=(), kwargs={}, swarmsize=swarm_size, omega=0.5, phip=0.5,
-                         phig=0.5, maxiter=10, minstep=1e-8, minfunc=1e-8, debug=False)
+                         phig=0.5, maxiter=40, minstep=1e-8, minfunc=1e-8, debug=False)
         
         graph.distribute_parameters_from_list(xopt, models, parameter_index)
 
@@ -197,14 +204,16 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     elif method == 'GA':
         if verbose: print("Parameter optimization: GA algorithm")
 
-        population_size = 15 
+        population_size = 30
 
         if log_callback:
             logger.set_optimization_algorithm('GA', pop_size=population_size)
             logger.start_logger_time()
 
-        x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list, logger=(logger if log_callback else None), n_generations=30, n_population=population_size, rate_mut=0.9,
-                                                rate_crx=0.9, verbose=verbose)
+        x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
+                                                logger=(logger if log_callback else None),
+                                                n_generations=40, n_population=population_size, rate_mut=0.9,
+                                                rate_crx=0.30, verbose=verbose)
         graph.distribute_parameters_from_list(x, models, parameter_index)
       
         return graph, x, score, logger
@@ -271,7 +280,8 @@ def adam_bounded(lower_bounds, upper_bounds, grad, x, convergence_check_period=N
     return x, num_iters, m, v
 
 
-def parameters_genetic_algorithm(func, x0, generate_random_func, logger=None, n_generations=25, n_population=25, rate_mut=0.9, rate_crx=0.9, verbose=False):
+def parameters_genetic_algorithm(func, x0, generate_random_func, logger=None, n_generations=25,
+                                 n_population=25, rate_mut=0.9, rate_crx=0.9, verbose=False):
     # hyper-parameters, will later be added as function arguments to change dynamically
     crossover = crossover_singlepoint
     mutation_operator = 'uniform'
@@ -320,7 +330,8 @@ def parameters_genetic_algorithm(func, x0, generate_random_func, logger=None, n_
         population.sort(reverse=False)
         population = population[
                      :-(len(population) - n_population) or None]  # remove last N worst performing individuals
-        
+        if verbose: print(f'Parameter optimization, genetic algorithm: '
+                          f'generation {generation}/{n_generations}, best score {population[0][0]}')
         if logger is not None:
             for score, _ in population:
                 logger.log_score(score)
