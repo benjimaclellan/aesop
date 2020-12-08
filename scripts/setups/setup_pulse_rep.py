@@ -46,7 +46,7 @@ from lib.functions import parse_command_line_args
 
 plt.close('all')
 
-def run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser):
+def run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, param_opt='L-BFGS+GA'):
 
     io.init_save_dir(sub_path='pulse_rep_rate', unique_id=True)
     io.save_machine_metadata(io.save_path)
@@ -65,8 +65,7 @@ def run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser):
     update_rule = 'roulette'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     # parameter_opt_method='L-BFGS+GA',
-                                     parameter_opt_method='NULL',
+                                     parameter_opt_method=param_opt,
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

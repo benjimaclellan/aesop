@@ -52,9 +52,9 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path='pulse_rep_rate', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 14,
-               'n_population': psutil.cpu_count()-1,
-               'n_hof': 6,
+    ga_opts = {'n_generations': 2,
+               'n_population': 2,
+               'n_hof': 1,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 

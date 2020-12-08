@@ -50,47 +50,46 @@ plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='pulse_rep_rate', unique_id=True)
-    io.save_machine_metadata(io.save_path)
+    run_settings = [
+        dict(pq=(1, 2), pulse_width=0.3e-9, rep_t=20.0e-9, peak_power=1.0),
+        dict(pq=(2, 1), pulse_width=0.3e-9, rep_t=20.0e-9, peak_power=1.0),
+        dict(pq=(3, 1), pulse_width=0.5e-9, rep_t=20.0e-9, peak_power=1.0),
+        dict(pq=(1, 3), pulse_width=0.1e-9, rep_t=20.0e-9, peak_power=1.0),
+    ]
 
-    ga_opts = {'n_generations': 14,
-               'n_population': psutil.cpu_count()-1,
+    ga_opts = {'n_generations': 16,
+               'n_population': 16,
                'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
-    propagator = Propagator(window_t=100e-9, n_samples=2**14, central_wl=1.55e-6)
+    propagator = Propagator(window_t=300e-9, n_samples=2**14, central_wl=1.55e-6)
+    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
 
-    pulse_width, rep_t, peak_power = (0.3e-9, 20.0e-9, 1.0)
-    p, q = (1, 2)
+    for i, settings in enumerate(run_settings):
 
-    input_laser = PulsedLaser(parameters_from_name={'pulse_width': pulse_width, 'peak_power': peak_power,
-                                                    't_rep': rep_t, 'pulse_shape': 'gaussian',
-                                                    'central_wl': 1.55e-6, 'train': True})
-    input_laser.node_lock = True
-    input_laser.protected = True
+        pulse_width, rep_t, peak_power = (settings['pulse_width'], settings['rep_t'], settings['peak_power'])
+        p, q = settings['pq']
 
-    input = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
-    target = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width * (p / q), rep_t=rep_t * (p / q), peak_power=peak_power * (p / q))
-    evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
+        input_laser = PulsedLaser(parameters_from_name={'pulse_width': pulse_width,
+                                                        'peak_power': peak_power,
+                                                        't_rep': rep_t,
+                                                        'pulse_shape': 'gaussian',
+                                                        'central_wl': 1.55e-6,
+                                                        'train': True})
+        input_laser.node_lock = True
+        input_laser.protected = True
 
-    evolver = ProbabilityLookupEvolver(verbose=False)
+        input = input_laser.get_pulse_train(propagator.t,
+                                            pulse_width=pulse_width,
+                                            rep_t=rep_t,
+                                            peak_power=peak_power)
+        target = input_laser.get_pulse_train(propagator.t,
+                                             pulse_width=pulse_width * (p / q),
+                                             rep_t=rep_t * (p / q),
+                                             peak_power=peak_power * (p / q))
+        evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-    pulse_width, rep_t, peak_power = (0.3e-9, 20.0e-9, 1.0)
-    p, q = (1, 2)
+        evolver = ProbabilityLookupEvolver(verbose=False)
 
-    input_laser = PulsedLaser(parameters_from_name={'pulse_width': pulse_width, 'peak_power': peak_power,
-                                                    't_rep': rep_t, 'pulse_shape': 'gaussian',
-                                                    'central_wl': 1.55e-6, 'train': True})
-    input_laser.node_lock = True
-    input_laser.protected = True
-
-    input = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
-    target = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width * (p / q), rep_t=rep_t * (p / q), peak_power=peak_power * (p / q))
-    evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
-
-    md = MeasurementDevice()
-    md.protected = True
-
-    run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser)
+        run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, param_opt='L-BFGS+GA')
