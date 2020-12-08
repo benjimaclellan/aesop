@@ -115,6 +115,10 @@ class PhaseModulator(SinglePath):
     """
     node_acronym = 'PM'
 
+    max_frequency = 50.0e9
+    min_frequency = 1.0e9
+    step_frequency = 1.0e9
+
     def __init__(self, phase_noise_points=None, **kwargs):
         # fixing this up, because phase noise points isn't a proper parameter, just a way to GET the proper param
         if phase_noise_points is not None:
@@ -129,10 +133,10 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 4
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
-        self.upper_bounds = [2*np.pi, 50.0e9, 2*np.pi, 1e9]
-        self.lower_bounds = [0.001, 1.0e9, 0.01, 0.0]
+        self.upper_bounds = [2*np.pi, self.max_frequency, 2*np.pi, 1e9]
+        self.lower_bounds = [0.001, self.min_frequency, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
-        self.step_sizes = [None, None, None, None]
+        self.step_sizes = [None, self.step_frequency, None, None]
         self.parameter_imprecisions = [1.0, 1.0, 0.1, 1.0]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
         self.parameter_locks = [False, False, False, True]
@@ -181,6 +185,9 @@ class IntensityModulator(SinglePath):
 https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/application-reports/ixblue/introduction-to-modulator-bias-controllers.pdf
     """
     node_acronym = 'IM'
+    max_frequency = 50.0e9
+    min_frequency = 1.0e9
+    step_frequency = 1.0e9
 
     def __init__(self, **kwargs):
         self.node_lock = False
