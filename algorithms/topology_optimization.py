@@ -90,17 +90,18 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for generation in range(ga_opts['n_generations']):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
-        if generation != 0:
+        if generation != 0: # we want population update, and selection rules to depend on the speciated fitness (as to favour rarer individuals)
             SPECIATION_MANAGER.speciate(population)
             SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
-                                                                       crossover_maker=crossover_maker)
+                                                                       crossover_maker=crossover_maker,
+                                                                       verbose=ga_opts['verbose'])
+        if generation != 0:
+            SPECIATION_MANAGER.reverse_fitness_sharing(population, generation)
+
         if ga_opts['verbose']:
             print(f'population length after update: {len(population)}')
-
-        if generation != 0:
-            SPECIATION_MANAGER.reverse_fitness_sharing(population, generation) # ensures log info is correct (fitness sharing is ONLY to select next gen)
 
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind,
@@ -111,8 +112,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
 
+        SPECIATION_MANAGER.speciate(population) # we want the elements for the next generation to be picked as to maintain genetic diversity
+        SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
         population = population[0:ga_opts['n_population']] # get rid of extra params, if we have too many
+        SPECIATION_MANAGER.reverse_fitness_sharing(population, generation)
         for (score, graph) in population:
             graph.clear_propagation()
 
@@ -174,8 +178,6 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     :param verbose: debugging to print, boolean
     :return: returns the updated hof, list of tuples same as input
     """
-    verbose = True
-
     if similarity_measure == 'reduced_ged':
         similarity_function = similarity_reduced_ged
     elif similarity_measure == 'full_ged':
@@ -426,7 +428,8 @@ def _simple_subpopulation_setup(population, **hyperparameters):
         dist_func = SimpleSubpopulationSchemeDist().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func, 
+                                        verbose=hyperparameters['verbose'])
         for i, (_, graph) in enumerate(population):
             graph.speciation_descriptor = {'name':'simple subpopulation scheme', 'label':i % hyperparameters['target_species_num']}
 
@@ -438,7 +441,8 @@ def _vectorDIFF_setup(population, **hyperparameters):
         dist_func = vectorDIFF().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func, 
+                                        verbose=hyperparameters['verbose'])
         for _, graph in population:
             graph.speciation_descriptor = {'name':'vectorDIFF'}
 
@@ -450,7 +454,8 @@ def _photoNEAT_setup(population, **hyperparameters):
         dist_func = photoNEAT().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func, 
+                                        verbose=hyperparameters['verbose'])
         for i, (_, graph) in enumerate(population):
             marker_node_map = {}
             node_marker_map = {}
@@ -465,7 +470,8 @@ def _edit_distance_setup(population, **hyperparameters):
         dist_func = EditDistance().distance
         SPECIATION_MANAGER = Speciation(target_species_num=None,
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func,
+                                        verbose=hyperparameters['verbose'])
         for i, (_, graph) in enumerate(population):
             graph.speciation_descriptor = {'name':'editDistance'}
 

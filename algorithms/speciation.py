@@ -34,7 +34,7 @@ class Speciation():
     historical_marker = 1 # not always needed (only necessary for photoNEAT), but REALLY quite easy to maintain
                         # starts at one such that next returned marker is 2 (1st of all population two nodes all have the same markers)
 
-    def __init__(self, target_species_num=None, d_thresh=0.4, protection_half_life=None, distance_func=None):
+    def __init__(self, target_species_num=None, d_thresh=0.4, protection_half_life=None, distance_func=None, verbose=True):
         """
         :param target_species_num: target number of species (note: actual number will fluctuate). If none, the distance threshold never changes
         :param d_thresh: initial (start) delta threshold for 2 items to be considered the same species
@@ -54,8 +54,10 @@ class Speciation():
         self.distance_func = distance_func
         self.protection_half_life = protection_half_life
         self.adjust_threshold = True
+        # self.verbose = verbose
+        self.verbose = True
 
-    def speciate(self, population, debug=True):
+    def speciate(self, population):
         """
         Splits population into species
 
@@ -99,13 +101,13 @@ class Speciation():
         for redundant in redundant_set:
             self.species.pop(redundant)
 
-        if debug:
+        if self.verbose:
             print(f'PRIOR TO SPECIATION')
             print(f'species: {self.species}')
             print(f'map (individual->species): {self.individual_species_map}')
 
         # 2. Slot every other graph
-        if debug:
+        if self.verbose:
             print(f'population size to speciate: {len(population)}')
         for _, graph in population:
             if graph in self.species:
@@ -123,20 +125,20 @@ class Speciation():
                 self.individual_species_map[graph] = graph 
                 self.species[graph] = 1
 
-        if debug:
+        if self.verbose:
             print(f'post speciation, species pop size: {len(self.individual_species_map)}')
             print(f'species: {self.species}')
 
         # 3. Update self.d_thresh with P(ID) method
         if self.target_species_num is not None:
-            if debug:
+            if self.verbose:
                 print(f'current d_thresh: {self.d_thresh}')
             
             thresh_adjust_prop = THRESH_ADJUST_PROP_CONSTANT / np.sqrt(len(population)) # normalize adjustment factor to total number of individuals, since more individuals = likely larger diff in species #
             delta = np.clip(-1 * (self.target_species_num - len(self.species)) * thresh_adjust_prop, -1 * THRESH_MAX_ADJUST, THRESH_MAX_ADJUST)
             self.d_thresh = delta + self.d_thresh
             self.d_thresh = max(0.05, min(self.d_thresh, 0.95)) # can't go past 0 or 1, since distance is always in that range (by def)
-            if debug:
+            if self.verbose:
                 print(f'updated d_thresh: {self.d_thresh}')
         
     def execute_fitness_sharing(self, population, generation_num, minimization=True):
@@ -153,17 +155,29 @@ class Speciation():
         else:
             coeff = self.protection_half_life / np.log(2)
 
+        if self.verbose:
+            print(f'population before fitness sharing:')
+            print(population)
+
         for i in range(len(population)):
             graph = population[i][1]
             species_size = self.species[self.individual_species_map[graph]]
-            scaling_coeff = max(1, np.exp(-coeff * generation_num) * species_size)
+            scaling_coeff = max(1, np.exp(- generation_num / coeff) * species_size)
 
             if minimization:
                 population[i] = (population[i][0] * scaling_coeff, graph)
             else:
                 population[i] = (population[i][0] / scaling_coeff, graph) # adjust fitness score
 
+        if self.verbose:
+            print(f'population after fitness sharing:')
+            print(population)
+
     def reverse_fitness_sharing(self, population, generation_num, minimization=True):
+        if self.verbose:
+            print(f'population before fitness sharing reversal:')
+            print(population)
+
         if self.protection_half_life is None:
             coeff = 0
         else:
@@ -173,7 +187,7 @@ class Speciation():
             graph = population[i][1]
             try:
                 species_size = self.species[self.individual_species_map[graph]]
-                scaling_coeff = max(1, np.exp(-coeff * generation_num) * species_size)
+                scaling_coeff = max(1, np.exp(-generation_num / coeff) * species_size)
 
                 if minimization:
                     population[i] = (population[i][0] / scaling_coeff, graph)
@@ -181,6 +195,10 @@ class Speciation():
                     population[i] = (population[i][0] * scaling_coeff, graph)
             except KeyError:
                 pass
+
+        if self.verbose:
+            print(f'population after fitness sharing reversal:')
+            print(population)
     
     def get_crossover_candidates(self, graph, population):
         """

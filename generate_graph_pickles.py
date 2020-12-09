@@ -6,7 +6,8 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice, Ph
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine, IntensityModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
-
+from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from problems.example.assets.propagator import Propagator
 
 def start_graph():
     nodes = {'source':TerminalSource(),
@@ -62,7 +63,13 @@ def make_pkl(graph, name=''):
     with open(f'{name}.pkl', 'wb') as handle:
         pickle.dump(graph, handle)
 
+def make_evaluator_pickle():
+    propagator = Propagator(window_t = 1e-9, n_samples = 2**14, central_wl=1.55e-6)
+    evaluator = RadioFrequencyWaveformGeneration(propagator)
+    make_pkl(evaluator, 'evaluator')
+
 if __name__ == "__main__":
+    make_evaluator_pickle()
     pass
     # god_tier_graph()
     # make_pkl(start_graph(), 'start_graph')

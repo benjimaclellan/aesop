@@ -51,7 +51,7 @@ if __name__ == '__main__':
     # random.seed(15)
     # np.random.seed(10480)
 
-    ga_opts = {'n_generations': 3,
+    ga_opts = {'n_generations': 6,
                'n_population': 6, # psutil.cpu_count(),
                'n_hof': 2,
                'verbose': False,
@@ -83,7 +83,9 @@ if __name__ == '__main__':
         for evolver in evolvers:
             print(f'Starting optimization with rule {rule}, evolver: {evolver.__class__.__name__}')
             io = handle_io()
-            hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, local_mode=False, update_rule=rule, crossover_maker=None, parameter_opt_method='L-BFGS+GA')
+            hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io, ga_opts=ga_opts, \
+                                             local_mode=False, update_rule=rule, crossover_maker=None, parameter_opt_method='L-BFGS+GA', \
+                                             protection_half_life=None)
             print(f'log:\n{log}')
             fig, ax = plt.subplots(1, 1, figsize=[5,3])
 
