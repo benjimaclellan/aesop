@@ -17,6 +17,9 @@ def parse_command_line_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description="The parsing commands lists.")
     parser.add_argument("-d", "--dir", help="Directory to save all results.", nargs='?', default='data', type=str)
     parser.add_argument("-v", "--verbose", help="Print status during optimization.", nargs='?', default=False, type=bool)
+    parser.add_argument("-e", "--evaluator", help="Name of the evaluator to run (options: rfawg_saw, rfawg_square)", nargs='?', default='rfawg_saw', type=str)
+    parser.add_argument("-s", "--selection", help="Name of the selection rule to run (options: roulette, tournament)", nargs='?', default='roulette', type=str)
+
     opts = parser.parse_args(args)
     return opts
 

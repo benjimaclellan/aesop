@@ -20,7 +20,7 @@ SPECIATION_MANAGER = NoSpeciation()
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           crossover_maker=None, parameter_opt_method='L-BFGS+GA',
-                          ga_opts=None, update_rule='random',
+                          ga_opts=None, update_rule='random', elitism_ratio=0,
                           target_species_num=4, protection_half_life=None,
                           cluster_address=None, local_mode=False, include_dashboard=False):
     io.init_logging()
@@ -62,8 +62,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # start_graph = ray.put(copy.deepcopy(graph))
@@ -75,7 +75,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         io.save_object(object_to_save=object_to_save, filename=f"{object_filename}.pkl")
     
     #save optimization settings for analysis later
-    optimization_settings = {'update_rule':update_rule, 'target_species_num':target_species_num, 'protection_half_life':protection_half_life}
+    optimization_settings = {'update_rule':update_rule, 'target_species_num':target_species_num, 'protection_half_life':protection_half_life,\
+                             'evolver': evolver.__class__.__name__, 'evaluator': evaluator.__class__.__name__}
     io.save_json(optimization_settings, 'optimization_settings.json')
 
     # create initial population and hof
@@ -96,11 +97,12 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
                                                                        crossover_maker=crossover_maker,
+                                                                       elitism_ratio=elitism_ratio,
                                                                        verbose=ga_opts['verbose'])
         if generation != 0:
             SPECIATION_MANAGER.reverse_fitness_sharing(population, generation)
 
-        if ga_opts['verbose']:
+        if True: # ga_opts['verbose']:
             print(f'population length after update: {len(population)}')
 
         # optimize parameters on each node/CPU
@@ -332,7 +334,7 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
 
 
-def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, pass_top_frac=0.1, **hyperparameters):
+def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, elitism_ratio=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -368,14 +370,14 @@ def update_population_topology_roulette(population, evolver, evaluator, preferen
         #     raise ValueError('This graph has no parameters')
         new_pop.append((None, graph_tmp))
     
-    population_pass_index = round(pass_top_frac * len(population))
+    population_pass_index = round(elitism_ratio * len(population))
     if population_pass_index > len(population):
         population_pass_index == len(population)
 
     return new_pop + population[0:population_pass_index]
 
 
-def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, pass_top_frac=0.1, **hyperparameters):
+def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, elitism_ratio=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
