@@ -150,9 +150,7 @@ class Speciation():
         :param generation_num: the current generation (may affect sharing, if self.protection_half_life is not None)
         :modifies population: updates the scores to reflect fitness sharing. population becomes a list of (score, graph, adjusted_score) elements
         """
-        if self.protection_half_life is None:
-            coeff = 0
-        else:
+        if self.protection_half_life is not None:
             coeff = self.protection_half_life / np.log(2)
 
         if self.verbose:
@@ -162,7 +160,11 @@ class Speciation():
         for i in range(len(population)):
             graph = population[i][1]
             species_size = self.species[self.individual_species_map[graph]]
-            scaling_coeff = max(1, np.exp(- generation_num / coeff) * species_size)
+
+            if self.protection_half_life is None:
+                scaling_coeff = species_size
+            else:
+                scaling_coeff = max(1, np.exp(- generation_num / coeff) * species_size)
 
             if minimization:
                 population[i] = (population[i][0] * scaling_coeff, graph)
@@ -178,16 +180,17 @@ class Speciation():
             print(f'population before fitness sharing reversal:')
             print(population)
 
-        if self.protection_half_life is None:
-            coeff = 0
-        else:
+        if self.protection_half_life is not None:
             coeff = self.protection_half_life / np.log(2)
 
         for i in range(len(population)):
             graph = population[i][1]
             try:
                 species_size = self.species[self.individual_species_map[graph]]
-                scaling_coeff = max(1, np.exp(-generation_num / coeff) * species_size)
+                if self.protection_half_life is None:
+                    scaling_coeff = species_size
+                else:
+                    scaling_coeff = max(1, np.exp(- generation_num / coeff) * species_size)
 
                 if minimization:
                     population[i] = (population[i][0] / scaling_coeff, graph)
