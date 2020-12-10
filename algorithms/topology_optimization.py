@@ -253,7 +253,14 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     return hof
 
 
-def update_population_topology_random(population, evolver, evaluator, **hyperparameters):
+def update_population_topology_random(population, evolver, evaluator, elitism_ratio=0, **hyperparameters):
+    # implement elitism
+    population_pass_index = round(elitism_ratio * len(population))
+    if population_pass_index > len(population):
+        population_pass_index == len(population)
+    
+    pass_population = copy.deepcopy(population[0:population_pass_index])
+    
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
     for i, (score, graph) in enumerate(population):
         while True:
@@ -272,10 +279,10 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
                 break
         population[i] = (None, graph)
 
-    return population
+    return population + pass_population
 
 
-def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, **hyperparameters):
+def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, elitism_ratio=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
 
@@ -328,10 +335,12 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
             new_pop.append((None, graph_tmp))
             if random.random() < break_probability[i]:
                 break
+    
+    population_pass_index = round(elitism_ratio * len(population))
+    if population_pass_index > len(population):
+        population_pass_index == len(population)
 
-    from_last_gen = population[0:len(population) // 10 + 1]
-
-    return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
+    return new_pop + population[0:population_pass_index]
 
 
 def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, elitism_ratio=0.1, **hyperparameters):
