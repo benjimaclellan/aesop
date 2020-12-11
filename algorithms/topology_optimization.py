@@ -20,7 +20,7 @@ SPECIATION_MANAGER = NoSpeciation()
 
 def topology_optimization(graph, propagator, evaluator, evolver, io,
                           crossover_maker=None, parameter_opt_method='L-BFGS+GA',
-                          ga_opts=None, update_rule='random',
+                          ga_opts=None, update_rule='random', elitism_ratio=0,
                           target_species_num=4, protection_half_life=None,
                           cluster_address=None, local_mode=False, include_dashboard=False):
     io.init_logging()
@@ -62,8 +62,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     # start up the multiprocessing/distributed processing with ray, and make objects available to nodes
     if local_mode: print(f"Running in local_mode - not running as distributed computation")
-    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
-    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
+    # ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, ignore_reinit_error=True) #, object_store_memory=1e9)
+    ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
     # start_graph = ray.put(copy.deepcopy(graph))
@@ -75,7 +75,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         io.save_object(object_to_save=object_to_save, filename=f"{object_filename}.pkl")
     
     #save optimization settings for analysis later
-    optimization_settings = {'update_rule':update_rule, 'target_species_num':target_species_num, 'protection_half_life':protection_half_life}
+    optimization_settings = {'update_rule':update_rule, 'target_species_num':target_species_num, 'protection_half_life':protection_half_life,\
+                             'evolver': evolver.__class__.__name__, 'evaluator': evaluator.__class__.__name__}
     io.save_json(optimization_settings, 'optimization_settings.json')
 
     # create initial population and hof
@@ -90,17 +91,19 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for generation in range(ga_opts['n_generations']):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
-        if generation != 0:
+        if generation != 0: # we want population update, and selection rules to depend on the speciated fitness (as to favour rarer individuals)
             SPECIATION_MANAGER.speciate(population)
             SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
-                                                                       crossover_maker=crossover_maker)
-        if ga_opts['verbose']:
-            print(f'population length after update: {len(population)}')
-
+                                                                       crossover_maker=crossover_maker,
+                                                                       elitism_ratio=elitism_ratio,
+                                                                       verbose=ga_opts['verbose'])
         if generation != 0:
-            SPECIATION_MANAGER.reverse_fitness_sharing(population, generation) # ensures log info is correct (fitness sharing is ONLY to select next gen)
+            SPECIATION_MANAGER.reverse_fitness_sharing(population, generation)
+
+        if True: # ga_opts['verbose']:
+            print(f'population length after update: {len(population)}')
 
         # optimize parameters on each node/CPU
         population = ray.get([parameters_optimize_multiprocess.remote(ind,
@@ -111,8 +114,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
 
+        SPECIATION_MANAGER.speciate(population) # we want the elements for the next generation to be picked as to maintain genetic diversity
+        SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
         population.sort(reverse = False, key=lambda x: x[0])  # we sort ascending, and take first (this is the minimum, as we minimizing)
         population = population[0:ga_opts['n_population']] # get rid of extra params, if we have too many
+        SPECIATION_MANAGER.reverse_fitness_sharing(population, generation)
         for (score, graph) in population:
             graph.clear_propagation()
 
@@ -174,8 +180,6 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     :param verbose: debugging to print, boolean
     :return: returns the updated hof, list of tuples same as input
     """
-    verbose = True
-
     if similarity_measure == 'reduced_ged':
         similarity_function = similarity_reduced_ged
     elif similarity_measure == 'full_ged':
@@ -249,7 +253,14 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     return hof
 
 
-def update_population_topology_random(population, evolver, evaluator, **hyperparameters):
+def update_population_topology_random(population, evolver, evaluator, elitism_ratio=0, **hyperparameters):
+    # implement elitism
+    population_pass_index = round(elitism_ratio * len(population))
+    if population_pass_index > len(population):
+        population_pass_index == len(population)
+    
+    pass_population = copy.deepcopy(population[0:population_pass_index])
+    
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
     for i, (score, graph) in enumerate(population):
         while True:
@@ -268,10 +279,10 @@ def update_population_topology_random(population, evolver, evaluator, **hyperpar
                 break
         population[i] = (None, graph)
 
-    return population
+    return population + pass_population
 
 
-def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, **hyperparameters):
+def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, elitism_ratio=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
 
@@ -324,13 +335,15 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
             new_pop.append((None, graph_tmp))
             if random.random() < break_probability[i]:
                 break
+    
+    population_pass_index = round(elitism_ratio * len(population))
+    if population_pass_index > len(population):
+        population_pass_index == len(population)
 
-    from_last_gen = population[0:len(population) // 10 + 1]
-
-    return from_last_gen + new_pop # top 10 percent of old population, and new recruits go through
+    return new_pop + population[0:population_pass_index]
 
 
-def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, pass_top_frac=0.1, **hyperparameters):
+def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, elitism_ratio=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -366,14 +379,14 @@ def update_population_topology_roulette(population, evolver, evaluator, preferen
         #     raise ValueError('This graph has no parameters')
         new_pop.append((None, graph_tmp))
     
-    population_pass_index = round(pass_top_frac * len(population))
+    population_pass_index = round(elitism_ratio * len(population))
     if population_pass_index > len(population):
         population_pass_index == len(population)
 
     return new_pop + population[0:population_pass_index]
 
 
-def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, pass_top_frac=0.1, **hyperparameters):
+def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, elitism_ratio=0.1, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -426,7 +439,8 @@ def _simple_subpopulation_setup(population, **hyperparameters):
         dist_func = SimpleSubpopulationSchemeDist().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func, 
+                                        verbose=hyperparameters['verbose'])
         for i, (_, graph) in enumerate(population):
             graph.speciation_descriptor = {'name':'simple subpopulation scheme', 'label':i % hyperparameters['target_species_num']}
 
@@ -438,7 +452,8 @@ def _vectorDIFF_setup(population, **hyperparameters):
         dist_func = vectorDIFF().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func, 
+                                        verbose=hyperparameters['verbose'])
         for _, graph in population:
             graph.speciation_descriptor = {'name':'vectorDIFF'}
 
@@ -450,7 +465,8 @@ def _photoNEAT_setup(population, **hyperparameters):
         dist_func = photoNEAT().distance
         SPECIATION_MANAGER = Speciation(target_species_num=hyperparameters['target_species_num'],
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func, 
+                                        verbose=hyperparameters['verbose'])
         for i, (_, graph) in enumerate(population):
             marker_node_map = {}
             node_marker_map = {}
@@ -465,7 +481,8 @@ def _edit_distance_setup(population, **hyperparameters):
         dist_func = EditDistance().distance
         SPECIATION_MANAGER = Speciation(target_species_num=None,
                                         protection_half_life=hyperparameters['protection_half_life'],
-                                        distance_func=dist_func)
+                                        distance_func=dist_func,
+                                        verbose=hyperparameters['verbose'])
         for i, (_, graph) in enumerate(population):
             graph.speciation_descriptor = {'name':'editDistance'}
 

@@ -49,6 +49,10 @@ class View(object):
         filepath_input = TextInput(
             value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\interactive\example\test_graph.pkl',
             title='', sizing_mode='stretch_both')
+        
+        # filepath_input = TextInput(
+        #     value=r'/mnt/c/Users/ResearchSummer2020/Documents/asope_data/interactive/example/test_graph.pkl',
+        #     title='', sizing_mode='stretch_both')
 
         table_source = ColumnDataSource(data=self.control.table_data)
 
