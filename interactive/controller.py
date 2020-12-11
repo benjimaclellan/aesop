@@ -84,5 +84,6 @@ class Controller(object):
     @property
     def graph_lha_data(self):
         hess = self.model.graph_hessian_data['hess']
+
         eig_vals, eig_vecs = np.linalg.eig(hess)
         return eig_vals, eig_vecs
