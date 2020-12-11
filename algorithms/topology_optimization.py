@@ -423,7 +423,7 @@ def update_population_topology_tournament(population, evolver, evaluator, tourna
         #     raise ValueError('This graph has no parameters')
         new_pop.append((None, graph_tmp))
     
-    population_pass_index = round(pass_top_frac * len(population))
+    population_pass_index = round(elitism_ratio * len(population))
     if population_pass_index > len(population):
         population_pass_index == len(population)
 
