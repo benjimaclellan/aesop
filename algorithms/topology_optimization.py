@@ -169,7 +169,7 @@ def init_hof(n_hof):
     return hof
 
 
-def update_hof(hof, population, similarity_measure='reduced_ged', threshold_value=0.0, verbose=False):
+def update_hof(hof, population, similarity_measure='reduced_ged', threshold_value=1.5, verbose=False):
     """
     :param hof: list of N tuples, where each tuple is (score, graph) and are the best performing of the entire run so far
     :param population: current population of graphs, list of M tuples, with each tuple (score, graph)

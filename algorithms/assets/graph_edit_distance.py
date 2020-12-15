@@ -25,8 +25,8 @@ def similarity_full_ged(g1, g2):
     :return: similarity (integer number of steps needed to transform Graph 1 to Graph 2
     """
     sim = nx.algorithms.similarity.graph_edit_distance(g1, g2,
-                                                       edge_subst_cost=edge_node_match,
-                                                       node_subst_cost=edge_node_match,
+                                                       edge_subst_cost=edge_match,
+                                                       node_subst_cost=node_match,
                                                        upper_bound=30.0,
                                                        timeout=10.0,
                                                        )
@@ -40,17 +40,25 @@ def similarity_reduced_ged(g1, g2):
     :return: similarity (integer number of steps needed to transform Graph 1 to Graph 2
     """
     ged_approx = nx.algorithms.similarity.optimize_graph_edit_distance(g1, g2,
-                                                                       edge_subst_cost=edge_node_match,
-                                                                       node_subst_cost=edge_node_match,
+                                                                       edge_subst_cost=edge_match,
+                                                                       node_subst_cost=node_match,
                                                                        upper_bound=30.0,
                                                                        )
     sim =  next(ged_approx) # faster, but less accurate
     return sim
 
-def edge_node_match(e1, e2):
+def edge_match(e1, e2):
     # provides the comparison for the cost of substituting two edges or two nodes in the GED calculation
     if type(e1['model']) == type(e2['model']):
         cost = 0.0
     else:
-        cost = 1.0
+        cost = 2.0
+    return cost
+
+def node_match(e1, e2):
+    # provides the comparison for the cost of substituting two edges or two nodes in the GED calculation
+    if type(e1['model']) == type(e2['model']):
+        cost = 0.0
+    else:
+        cost = 0.5
     return cost
