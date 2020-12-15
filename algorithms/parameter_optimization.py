@@ -106,7 +106,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     
         x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
                                                 logger=(logger if log_callback else None),
-                                                n_generations=50, n_population=population_size, rate_mut=0.8,
+                                                n_generations=20, n_population=population_size, rate_mut=0.8,
                                                 rate_crx=0.35, verbose=verbose)
 
         if log_callback:

@@ -133,7 +133,7 @@ class PhaseModulator(SinglePath):
         self.number_of_parameters = 4
         self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
 
-        self.upper_bounds = [2*np.pi, self.max_frequency, 2*np.pi, 1e9]
+        self.upper_bounds = [4*np.pi, self.max_frequency, 2*np.pi, 1e9]
         self.lower_bounds = [0.001, self.min_frequency, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
         self.step_sizes = [None, self.step_frequency, None, None]
@@ -192,18 +192,18 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
     def __init__(self, **kwargs):
         self.node_lock = False
 
-        self.number_of_parameters = 3
-        self.default_parameters = [1.0, 1.0e9, 0.0]
+        self.number_of_parameters = 4
+        self.default_parameters = [1.0, 1.0e9, 0.0, 0.0]
 
-        self.upper_bounds = [2*np.pi, 50.0e9, 2 * np.pi]
-        self.lower_bounds = [0.0, 1.0e9, 0.0]
-        self.data_types = ['float', 'float', 'float']
-        self.step_sizes = [None, 1e9, None]
-        self.parameter_imprecisions = [1.0, 10e6, 0.1]
-        self.parameter_units = [unit.rad, unit.Hz, unit.rad]
-        self.parameter_locks = [False, False, False]
-        self.parameter_names = ['depth', 'frequency', 'bias']
-        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_{DC}$"]
+        self.upper_bounds = [2*np.pi, 50.0e9, 2 * np.pi, 2*np.pi]
+        self.lower_bounds = [0.0, 1.0e9, 0.0, 0.0]
+        self.data_types = ['float', 'float', 'float', 'float']
+        self.step_sizes = [None, 1e9, None, None]
+        self.parameter_imprecisions = [1.0, 10e6, 0.1, 0.1]
+        self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.rad]
+        self.parameter_locks = [False, False, False, False]
+        self.parameter_names = ['depth', 'frequency', 'bias', 'shift']
+        self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_{DC}$", "r$x_{\phi}$"]
 
         self._loss_dB = -4.0 # dB
 
@@ -216,8 +216,9 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         depth = self.parameters[0]
         frequency = self.parameters[1]
         bias = self.parameters[2]
+        shift = self.parameters[3]
 
-        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t)) + bias
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + shift)) + bias
 
         if save_transforms:
             self.transform = (('t', power_( np.ones_like(state)/2.0 + np.ones_like(state) / 2.0 * np.exp(1j * transform)), 'modulation'),)

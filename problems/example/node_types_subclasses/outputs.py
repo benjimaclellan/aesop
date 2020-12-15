@@ -95,6 +95,7 @@ class Photodiode(SinkModel):
         power_in = power_(state)  # power input
         voltage = self.get_photocurrent(power_in) * self._load_resistance
         voltage = self.filter.get_filtered_time(voltage, propagator)
+        # print(np.max(voltage))
         return voltage
     
     def get_photocurrent(self, P_in):

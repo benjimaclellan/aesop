@@ -30,6 +30,11 @@ def ifft_shift_(state, ax=0):
     return np.fft.ifftshift(state, axes=ax)
 
 
+def fft_shift_(state, ax=0):
+    """Proper Fast Fourier Transform for zero-centered vectors
+    """
+    return np.fft.fftshift(state, axes=ax)
+
 def ifft_(state_f, dt, ax=0):
     """Proper Inverse Fast Fourier Transform for zero-centered vectors
     """

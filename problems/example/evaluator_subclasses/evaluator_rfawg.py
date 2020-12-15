@@ -6,18 +6,24 @@ import matplotlib.pyplot as plt
 from numpy.fft import rfft
 
 from ..evaluator import Evaluator
-from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_
+from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_, ifft_shift_, fft_shift_
 from lib.functions import scale_units
 
 # TODO: figure out how the phase shift causes jumps in the fitness (via incorrect sometimes shifting)
 
 class RadioFrequencyWaveformGeneration(Evaluator):
     """  """
-    def __init__(self, propagator, target_harmonic=12e9, target_amplitude=0.02, target_waveform='saw', **kwargs):
+    def __init__(self, propagator,
+                 target_harmonic=12e9,
+                 target_amplitude=0.02,  # V - ensure we have a PD as the final component
+                 target_waveform='saw',
+                 evaluation_node_edge='sink',
+                 **kwargs):
         super().__init__(**kwargs)
-
+        self.evaluation_node_edge = evaluation_node_edge
         self.target_harmonic = target_harmonic  # target pattern repetition in Hz
-        print(type(target_waveform))
+        self.target_amplitude = target_amplitude
+
         if type(target_waveform) == str:
             if target_waveform == 'saw':
                 waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
@@ -31,22 +37,19 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         elif type(target_waveform) is np.ndarray:
             self.target = target_waveform
 
-        self.target_f = np.fft.fft(self.target, axis=0)
-        self.target_rf = rfft(self.target)
+        self.target_f = fft_(self.target, propagator.dt)
+        self.target_rf = fft_(self.target, propagator.dt)
 
-        self.scale_array = (np.fft.fftshift(
-            np.linspace(0, len(self.target_f) - 1, len(self.target_f))) / propagator.n_samples).reshape((propagator.n_samples, 1))
+        self.scale_array = ifft_shift_(propagator.f) / self.target_harmonic
 
-        self.target_harmonic_ind = (self.target_harmonic / propagator.df).astype('int')
+        self.target_harmonic_ind = (self.target_harmonic / propagator.df).astype('int') + 1
         if (self.target_harmonic_ind >= self.target_f.shape[0]):
             self.target_harmonic_ind = self.target_f.shape[0]
         
         self.normalize = False
 
     def evaluate_graph(self, graph, propagator):
-        evaluation_node = graph.get_output_node()  # finds node with no outgoing edges
-        graph.propagate(propagator)
-        state = graph.measure_propagator(evaluation_node)
+        state = graph.measure_propagator(self.evaluation_node_edge)
 
         overlap = self.waveform_temporal_similarity(state, propagator)
         score = overlap
@@ -62,28 +65,32 @@ class RadioFrequencyWaveformGeneration(Evaluator):
 
     @staticmethod
     def similarity_l2_norm(x_, y_):
-        return np.sum(np.power(x_ - y_, 2))
+        return np.mean(np.power(x_ - y_, 2))
 
-    def waveform_temporal_similarity(self, state, propagator):
-        generated = power_(state)
+    def waveform_temporal_similarity(self, voltage, propagator):
+        generated = voltage
+
         shifted = self.shift_function(generated, propagator)
         similarity_func = self.similarity_l2_norm
-        similarity = similarity_func(shifted, self.target)
+        similarity = similarity_func(shifted, self.target) / self.target_amplitude ** 2
         return similarity
 
     def shift_function(self, state_power, propagator):
-        state_rf = np.fft.fft(state_power, axis=0)
-
-        if (state_rf[self.target_harmonic_ind] == 0):
-            return state_power # no phase shift in this case, and it'll break my lovely gradient otherwise (bit of a hack but...)
+        state_rf = fft_(state_power, propagator.dt)
+        # if (state_rf[self.target_harmonic_ind] == 0):
+        #     return state_power # no phase shift in this case, and it'll break my lovely gradient otherwise (bit of a hack but...)
 
         phase = np.angle(state_rf[self.target_harmonic_ind] / self.target_f[self.target_harmonic_ind])
-        shift = phase / (self.target_harmonic * propagator.dt)
-        state_rf *= np.exp(-1j * shift * self.scale_array)
 
-        shifted = np.abs(np.fft.ifft(state_rf, axis=0))
+        # plt.figure()
+        # plt.plot(propagator.f, np.abs(state_rf), color='green')
+        # plt.plot(propagator.f, np.abs(self.target_f), color='red')
+        # plt.scatter(propagator.f[self.target_harmonic_ind], np.abs(self.target_f)[self.target_harmonic_ind])
+        # plt.scatter(propagator.f[self.target_harmonic_ind], np.abs(state_rf)[self.target_harmonic_ind])
+        # print(phase)
+
+        shifted = np.abs(ifft_(np.exp(1j * phase * self.scale_array) * fft_(state_power, propagator.dt), propagator.dt))
         return shifted
-
 
     def compare(self, graph, propagator):
         evaluation_node = [node for node in graph.nodes if not graph.out_edges(node)][0]  # finds node with no outgoing edges
