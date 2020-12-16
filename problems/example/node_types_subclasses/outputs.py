@@ -38,7 +38,7 @@ class MeasurementDevice(SinkModel):
         return
 
     def propagate(self, state, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
-        return np.abs(state)
+        return np.power(np.abs(state), 2)
 
 
 @register_node_types_all

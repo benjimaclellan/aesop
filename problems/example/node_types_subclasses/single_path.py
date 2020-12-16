@@ -30,7 +30,7 @@ class DispersiveFiber(SinglePath):
         self.number_of_parameters = 1
         self.default_parameters = [1.0]
 
-        self.upper_bounds = [1000e3]
+        self.upper_bounds = [100e3]
         self.lower_bounds = [0.0]
         self.data_types = ['float']
         self.step_sizes = [None]
@@ -41,27 +41,30 @@ class DispersiveFiber(SinglePath):
         self.parameter_symbols = [r"$x_\beta$"]
         # self.beta = -26.3e3 * 1e-12 * 1e-12 #fs2/m * s/fs * s/fs
         self._n = 1.44
-        self._alpha = -0.001 # dB/km, from Corning SMF28 datasheet
+        self._alpha = 0 # dB/km, from Corning SMF28 datasheet
         # self._alpha = -0.015 # dB/km, from Corning SMF28 datasheet
 
-        self._zdw0 = 1310.0 * 1e-9 #nm * m/nm (zero-dispersion wavelength)
+        self._zdw0 = 1310.0 * 1e-9 #nm -> m (zero-dispersion wavelength)
         # self._S0 = 0.092 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
-        # self._S0 = -0.155 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
-        self._S0 = -0.8 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
+        self._S0 = -0.155 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
+        # self._S0 = -0.8 * 1e-12 / (1e-9 * 1e-9 * 1e3) # zero-dispersion slope, ps/(nm2 * km) -> s/m^3
 
+
+        self._beta2_experimental = -22 * 1e-12 * 1e-12 / (1e3)  # ps^2/(km)  # standard SMF chromatic dispersion 
         super().__init__(**kwargs)
         return
 
     # TODO: initialize any large-ish variables/arrays that don't change for each component model (i.e. frequency arrays)
-    # TODO : check this, and every other model for correctness (so far its been about logic flow)
     def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         length = self.parameters[0]
 
-        _lambda0 = speed_of_light/((propagator.central_frequency))
-        _lambda = speed_of_light/((propagator.f + propagator.central_frequency))
+        # _lambda0 = speed_of_light/((propagator.central_frequency))
+        # _lambda = speed_of_light/((propagator.f + propagator.central_frequency))
+        #
+        # D_lambda = self._S0 / 4.0 * (_lambda - self._zdw0 ** 4.0 / _lambda ** 3.0)
+        # beta_2 = _lambda**2.0 * D_lambda / (-2.0 * np.pi * speed_of_light)
 
-        D_lambda = self._S0 / 4.0 * (_lambda - self._zdw0 ** 4.0 / _lambda ** 3.0)
-        beta_2 = _lambda**2.0 * D_lambda / (-2.0 * np.pi * speed_of_light)
+        beta_2 = self._beta2_experimental # simple description
         propagation_constant = length * beta_2 * np.power(2 * np.pi * (propagator.f), 2)
         if save_transforms:
             self.transform = (('f', D_lambda, r'D(lambda)'),)
