@@ -11,9 +11,11 @@ from lib.functions import scale_units
 class PulseRepetition(Evaluator):
     """  """
 
-    def __init__(self, propagator, target, pulse_width, rep_t, peak_power, **kwargs):
+    def __init__(self, propagator,
+                 target, pulse_width, rep_t, peak_power,
+                 evaluation_node='sink', **kwargs):
         super().__init__(**kwargs)
-
+        self.evaluation_node = evaluation_node
         self.target = target
         self.target_power = power_(target)
         self.pulse_width = pulse_width # pulse width in s
@@ -34,9 +36,8 @@ class PulseRepetition(Evaluator):
 
 
     def evaluate_graph(self, graph, propagator):
-        evaluation_node = graph.get_output_node()  # finds node with no outgoing edges
         graph.propagate(propagator)
-        state = graph.measure_propagator(evaluation_node)
+        state = graph.measure_propagator(self.evaluation_node)
 
         score = self.waveform_temporal_similarity(state, propagator)
         return score

@@ -29,7 +29,7 @@ from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
-from problems.example.evolver import ProbabilityLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver, HessianProbabilityEvolver
 
 from problems.example.node_types import TerminalSource, TerminalSink
 
@@ -51,10 +51,8 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     run_settings = [
-        dict(pq=(1, 2), pulse_width=0.3e-9, rep_t=20.0e-9, peak_power=1.0),
-        dict(pq=(2, 1), pulse_width=0.3e-9, rep_t=20.0e-9, peak_power=1.0),
-        dict(pq=(3, 1), pulse_width=0.5e-9, rep_t=20.0e-9, peak_power=1.0),
-        dict(pq=(1, 3), pulse_width=0.1e-9, rep_t=20.0e-9, peak_power=1.0),
+        dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
+        dict(pq=(2, 1), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
     ]
 
     ga_opts = {'n_generations': 16,
@@ -85,11 +83,11 @@ if __name__ == '__main__':
                                             rep_t=rep_t,
                                             peak_power=peak_power)
         target = input_laser.get_pulse_train(propagator.t,
-                                             pulse_width=pulse_width * (p / q),
+                                             pulse_width=pulse_width,
                                              rep_t=rep_t * (p / q),
                                              peak_power=peak_power * (p / q))
         evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-        evolver = ProbabilityLookupEvolver(verbose=False)
+        evolver = OperatorBasedProbEvolver(verbose=False)
 
         run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, param_opt='L-BFGS+GA')

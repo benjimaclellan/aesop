@@ -42,7 +42,7 @@ from lib.functions import InputOutput
 def benchmark_evolvers(population_sizes, evolvers, start_graph, evaluator, ga_opts, io, update_rule='roulette'):
     hof_size = ga_opts['n_hof']
     top_level_path = io.path
-    repetitions = 10
+    repetitions = 5
 
     for pop_size in population_sizes:
         for evolver in evolvers:
@@ -64,7 +64,7 @@ def benchmark_evolvers(population_sizes, evolvers, start_graph, evaluator, ga_op
 
                 hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
                                                  ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                                 parameter_opt_method='L-BFGS+GA', elitism_ratio=0.1,
+                                                 parameter_opt_method='NULL', elitism_ratio=0.1,
                                                  include_dashboard=False, crossover_maker=None)
 
                 save_hof(hof, io)
@@ -81,7 +81,7 @@ def benchmark_evolvers(population_sizes, evolvers, start_graph, evaluator, ga_op
                 ax.legend()
 
                 io.save_fig(fig, 'topology_log.png')
-                plt.close()
+                plt.close('all')
 
 
 def rfawg_start_graph():
@@ -127,7 +127,7 @@ if __name__ == '__main__':
         raise ValueError(f'evaluator option {options_cl.evaluator} not valid. Options are: rfawg_saw, rfawg_square)')
 
     evolvers = [ProbabilityLookupEvolver(verbose=False),
-                HessianProbabilityEvolver(verbose=False),
-                OperatorBasedProbEvolver(verbose=False)]
+                OperatorBasedProbEvolver(verbose=False),
+                HessianProbabilityEvolver(verbose=False)]
 
     benchmark_evolvers([8, 16], evolvers, start_graph, evaluator, gen_ga_opts, io, update_rule=options_cl.selection)

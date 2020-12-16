@@ -50,7 +50,7 @@ class DispersiveFiber(SinglePath):
         # self._S0 = -0.8 * 1e-12 / (1e-9 * 1e-9 * 1e3) # zero-dispersion slope, ps/(nm2 * km) -> s/m^3
 
 
-        self._beta2_experimental = -22 * 1e-12 * 1e-12 / (1e3)  # ps^2/(km)  # standard SMF chromatic dispersion 
+        self._beta2_experimental = -22 * 1e-12 * 1e-12 / (1e3)  # ps^2/(km)  # standard SMF chromatic dispersion
         super().__init__(**kwargs)
         return
 
