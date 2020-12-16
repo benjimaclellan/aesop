@@ -64,7 +64,7 @@ def benchmark_evolvers(population_sizes, evolvers, start_graph, evaluator, ga_op
 
                 hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
                                                  ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                                 parameter_opt_method='NULL', elitism_ratio=0.1,
+                                                 parameter_opt_method='L-BFGS+GA', elitism_ratio=0.1,
                                                  include_dashboard=False, crossover_maker=None)
 
                 save_hof(hof, io)
