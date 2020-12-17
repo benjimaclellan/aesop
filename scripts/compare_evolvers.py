@@ -42,46 +42,49 @@ from lib.functions import InputOutput
 def benchmark_evolvers(population_sizes, evolvers, start_graph, evaluator, ga_opts, io, update_rule='roulette'):
     hof_size = ga_opts['n_hof']
     top_level_path = io.path
-    repetitions = 5
+    repetitions = 6
 
-    for pop_size in population_sizes:
+    for i in range(repetitions):
         for evolver in evolvers:
-            io.path = top_level_path
-            io.init_save_dir(sub_path=f"popSize{pop_size}_evolver{str(evolver.__class__.__name__)}",
-                             unique_id=False)
-            io.path = io.save_path
+            for pop_size in population_sizes:
+                try:
+                    io.path = top_level_path
+                    io.init_save_dir(sub_path=f"popSize{pop_size}_evolver{str(evolver.__class__.__name__)}",
+                                     unique_id=False)
+                    io.path = io.save_path
 
-            for i in range(repetitions):
-                random.seed(i)
-                np.random.seed(i)
-                io.init_save_dir(sub_path=f"iteration_{i}", unique_id=False)
-                # setup GA opts
-                ga_opts['n_population'] = pop_size
-                if hof_size > pop_size:
-                    ga_opts['n_hof'] = pop_size
-                else:
-                    ga_opts['n_hof'] = hof_size
+                    random.seed(i)
+                    np.random.seed(i)
+                    io.init_save_dir(sub_path=f"iteration_{i}", unique_id=False)
+                    # setup GA opts
+                    ga_opts['n_population'] = pop_size
+                    if hof_size > pop_size:
+                        ga_opts['n_hof'] = pop_size
+                    else:
+                        ga_opts['n_hof'] = hof_size
 
-                hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
-                                                 ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                                 parameter_opt_method='L-BFGS+GA', elitism_ratio=0.1,
-                                                 include_dashboard=False, crossover_maker=None)
+                    hof, log = topology_optimization(copy.deepcopy(start_graph), propagator, evaluator, evolver, io,
+                                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                                     parameter_opt_method='L-BFGS+GA', elitism_ratio=0.1,
+                                                     include_dashboard=False, crossover_maker=None)
 
-                save_hof(hof, io)
-                plot_hof(hof, propagator, evaluator, io)
+                    save_hof(hof, io)
+                    plot_hof(hof, propagator, evaluator, io)
 
-                fig, ax = plt.subplots(1, 1, figsize=[5, 3])
-                ax.fill_between(log['generation'].to_numpy(dtype='float'), log['best'].to_numpy(dtype='float'),
-                                log['mean'].to_numpy(dtype='float'), color='grey', alpha=0.2)
-                ax.plot(log['generation'], log['best'], label='Best')
-                ax.plot(log['generation'], log['mean'], label='Population mean')
-                ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
-                ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
-                ax.set(xlabel='Generation', ylabel='Cost')
-                ax.legend()
+                    fig, ax = plt.subplots(1, 1, figsize=[5, 3])
+                    ax.fill_between(log['generation'].to_numpy(dtype='float'), log['best'].to_numpy(dtype='float'),
+                                    log['mean'].to_numpy(dtype='float'), color='grey', alpha=0.2)
+                    ax.plot(log['generation'], log['best'], label='Best')
+                    ax.plot(log['generation'], log['mean'], label='Population mean')
+                    ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
+                    ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
+                    ax.set(xlabel='Generation', ylabel='Cost')
+                    ax.legend()
 
-                io.save_fig(fig, 'topology_log.png')
-                plt.close('all')
+                    io.save_fig(fig, 'topology_log.png')
+                    plt.close('all')
+                except:
+                    print(f'There was a fatal error in {evolver}, run {i}, pop {pop_size}')
 
 
 def rfawg_start_graph():
@@ -130,4 +133,4 @@ if __name__ == '__main__':
                 OperatorBasedProbEvolver(verbose=False),
                 HessianProbabilityEvolver(verbose=False)]
 
-    benchmark_evolvers([8, 16], evolvers, start_graph, evaluator, gen_ga_opts, io, update_rule=options_cl.selection)
+    benchmark_evolvers([8], evolvers, start_graph, evaluator, gen_ga_opts, io, update_rule=options_cl.selection)
