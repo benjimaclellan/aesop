@@ -138,9 +138,14 @@ class ProbabilityLookupEvolver(object):
             self.matrix = self.matrix / np.sum(self.matrix)
         
         def verify_matrix(self):
-            assert np.isclose(np.sum(self.matrix), 1) # matrix sums to proper probability
-            assert (self.matrix <= 1).all() and (self.matrix >= 0).all() # assert all probabilities are between 0 and 1
-        
+            if not np.isclose(np.sum(self.matrix), 1):  # matrix sums to proper probability
+                # raise ValueError(f'The matrix does not sum to 1. Instead sums to {np.sum(self.matrix)}\n{self.matrix}')
+                raise RuntimeWarning(f'The matrix does not sum to 1. Instead sums to {np.sum(self.matrix)}\n{self.matrix}')
+
+            if not ((self.matrix <= 1).all() and (self.matrix >= 0).all()):  # assert all probabilities are between 0 and 1
+                # raise ValueError(f'Matrix elements not proper probabilities. {self.matrix}')
+                raise RuntimeWarning(f'Matrix elements not proper probabilities. {self.matrix}')
+
         def sample_matrix(self):
             flat_matrix = self.matrix.flatten()
             flat_indices = np.arange(0, flat_matrix.shape[0], step=1)
