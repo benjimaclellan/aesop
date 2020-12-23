@@ -219,9 +219,9 @@ https://www.lasercomponents.com/fileadmin/user_upload/home/Datasheets/lc/applica
         depth = self.parameters[0]
         frequency = self.parameters[1]
         bias = self.parameters[2]
-        shift = self.parameters[3]
+        # shift = self.parameters[3]
 
-        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + shift)) + bias
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t)) + bias
 
         if save_transforms:
             self.transform = (('t', power_( np.ones_like(state)/2.0 + np.ones_like(state) / 2.0 * np.exp(1j * transform)), 'modulation'),)
@@ -674,8 +674,7 @@ class DelayLine(SinglePath):
     def __init__(self, **kwargs):
         self.node_lock = False
 
-
-        self.default_parameters = [10.0e-9]
+        self.default_parameters = [1.0e-9]
 
         self.upper_bounds = [5.0e-9]
         self.lower_bounds = [0.0]
