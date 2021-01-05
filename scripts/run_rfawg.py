@@ -51,12 +51,12 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='rfawg', unique_id=False)
+    io.init_save_dir(sub_path='rfawg', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     ga_opts = {'n_generations': 16,
-               'n_population': 10,
-               'n_hof': 2,
+               'n_population': 16,
+               'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -82,11 +82,11 @@ if __name__ == '__main__':
     update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='NULL',
+                                     parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 
-    # save_hof(hof, io)
-    # plot_hof(hof, propagator, evaluator, io)
+    save_hof(hof, io)
+    plot_hof(hof, propagator, evaluator, io)
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
@@ -97,4 +97,4 @@ if __name__ == '__main__':
     ax.set(xlabel='Generation', ylabel='Cost')
     ax.legend()
 
-    # io.save_fig(fig, 'topology_log.png')
+    io.save_fig(fig, 'topology_log.png')
