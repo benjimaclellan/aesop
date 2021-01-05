@@ -27,7 +27,7 @@ from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
-from problems.example.evolver import ProbabilityLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, HessianProbabilityEvolver, OperatorBasedProbEvolver
 
 from problems.example.node_types import TerminalSource, TerminalSink
 
@@ -39,27 +39,27 @@ from problems.example.node_types_subclasses.single_path import DispersiveFiber, 
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
-
 from lib.functions import parse_command_line_args
+
 
 plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='rfawg', unique_id=True)
+    io.init_save_dir(sub_path='rfawg', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 14,
-               'n_population': psutil.cpu_count()-1,
-               'n_hof': 6,
+    ga_opts = {'n_generations': 4,
+               'n_population': 4,
+               'n_hof': 1,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
     propagator = Propagator(window_t=1e-9, n_samples=2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9,
                                                  target_amplitude=0.02, target_waveform='saw',)
-    evolver = ProbabilityLookupEvolver(verbose=False)
+    evolver = HessianProbabilityEvolver(verbose=False)
 
     pd = Photodiode()
     pd.protected = True
@@ -75,14 +75,14 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
-    update_rule = 'roulette'
+    update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='L-BFGS+GA',
+                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
+                                     parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
-    save_hof(hof, io)
-    plot_hof(hof, propagator, evaluator, io)
+    # save_hof(hof, io)
+    # plot_hof(hof, propagator, evaluator, io)
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
@@ -93,4 +93,4 @@ if __name__ == '__main__':
     ax.set(xlabel='Generation', ylabel='Cost')
     ax.legend()
 
-    io.save_fig(fig, 'topology_log.png')
+    # io.save_fig(fig, 'topology_log.png')

@@ -14,10 +14,14 @@ def get_all_edge_scores(graph, as_log=True):
         scores = {}
         for edge in graph.edges:
             scores[edge] = 0 if as_log else 1
-        return scores, scores
+        return scores
 
-    hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
-    
+    if graph.scaled_hess_matrix is None:
+        raise ValueError('The Hessian matrix has not been calculated')
+
+    # moving the Hessian calculation into the parallel processing as it is computationally intense
+    # hess = normalize_hessian(graph.scaled_hess(x)) # if it crashes here, but NOT on the unboxed version, we have our problem isolated
+    hess = graph.scaled_hess_matrix
     return free_wheeling_edge_scores(graph, hess, as_log=as_log)
 
 
@@ -52,7 +56,6 @@ def free_wheeling_edge_scores(graph, hess, p=1, as_log=False):
         raise ValueError(f'Hessian and parameter dimensionality mismatch. Parameter: {len(x)}, Hessian: {hess.shape}')
 
     param_scores = free_wheeling_param_scores(hess, p=p)
-
     return _extract_average_over_edge(graph, param_scores, as_log=as_log)
 
 def free_wheeling_param_scores(hess, p=1):

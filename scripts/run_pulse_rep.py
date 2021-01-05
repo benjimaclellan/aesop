@@ -29,7 +29,7 @@ from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
-from problems.example.evolver import ProbabilityLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, HessianProbabilityEvolver, OperatorBasedProbEvolver
 
 from problems.example.node_types import TerminalSource, TerminalSink
 
@@ -49,11 +49,11 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='pulse_rep_rate', unique_id=True)
+    io.init_save_dir(sub_path='garbagio_just_testing_stuff', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 2,
-               'n_population': 2,
+    ga_opts = {'n_generations': 4,
+               'n_population': 4,
                'n_hof': 1,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     target = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width * (p / q), rep_t=rep_t * (p / q), peak_power=peak_power * (p / q))
     evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-    evolver = ProbabilityLookupEvolver(verbose=False)
+    evolver = HessianProbabilityEvolver(verbose=False)
 
     md = MeasurementDevice()
     md.protected = True
@@ -86,14 +86,14 @@ if __name__ == '__main__':
              }
     graph = Graph.init_graph(nodes=nodes, edges=edges)
 
-    update_rule = 'roulette'
+    update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
                                      parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
-    save_hof(hof, io)
-    plot_hof(hof, propagator, evaluator, io)
+    # save_hof(hof, io)
+    # plot_hof(hof, propagator, evaluator, io)
 
     fig, ax = plt.subplots(1, 1, figsize=[5, 3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
@@ -104,4 +104,4 @@ if __name__ == '__main__':
     ax.set(xlabel='Generation', ylabel='Cost')
     ax.legend()
 
-    io.save_fig(fig, 'topology_log.png')
+    # io.save_fig(fig, 'topology_log.png')

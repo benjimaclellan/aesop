@@ -25,13 +25,6 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           cluster_address=None, local_mode=False, include_dashboard=False):
     io.init_logging()
     log, log_metrics = logbook_initialize()
-    # # prev test we were using
-    # random.seed(18)
-    # np.random.seed(1040)
-
-    # new test
-    # random.seed(15)
-    # np.random.seed(10480)
 
     if update_rule == 'random':
         update_population = update_population_topology_random  # set which update rule to use
@@ -66,9 +59,6 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     ray.init(address=cluster_address, num_cpus=ga_opts['num_cpus'], local_mode=local_mode, include_dashboard=include_dashboard, ignore_reinit_error=True) #, object_store_memory=1e9)
     evaluator_id, propagator_id = ray.put(evaluator), ray.put(propagator)
 
-    # start_graph = ray.put(copy.deepcopy(graph))
-
-
     # save the objects for analysis later
     io.save_json(ga_opts, 'ga_opts.json')
     for (object_filename, object_to_save) in zip(('propagator', 'evaluator', 'evolver'), (propagator, evaluator, evolver)):
@@ -89,20 +79,22 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     t1 = time.time()
     for generation in range(ga_opts['n_generations']):
-        print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
+        print(f'\ngeneration {generation} of {ga_opts["n_generations"]-1}: time elapsed {time.time()-t1}s')
 
         if generation != 0: # we want population update, and selection rules to depend on the speciated fitness (as to favour rarer individuals)
             SPECIATION_MANAGER.speciate(population)
             SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
+
         population = update_population(population, evolver, evaluator, target_species_num=target_species_num, # ga_opts['n_population'] / 20,
                                                                        protection_half_life=protection_half_life,
                                                                        crossover_maker=crossover_maker,
                                                                        elitism_ratio=elitism_ratio,
-                                                                       verbose=ga_opts['verbose'])
+                                                                       verbose=ga_opts['verbose'],
+                                                                       generation=generation / (ga_opts['n_generations']-1))
         if generation != 0:
             SPECIATION_MANAGER.reverse_fitness_sharing(population, generation)
 
-        if True: # ga_opts['verbose']:
+        if ga_opts['verbose']:
             print(f'population length after update: {len(population)}')
 
         # optimize parameters on each node/CPU
@@ -110,7 +102,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                                                                       evaluator_id,
                                                                       propagator_id,
                                                                       method=parameter_opt_method,
-                                                                      verbose=ga_opts['verbose']) for ind in population])
+                                                                      verbose=ga_opts['verbose'])
+                              for ind in population])
         save_scores_to_graph(population) # necessary for some algorithms
         hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
 
@@ -253,7 +246,7 @@ def update_hof(hof, population, similarity_measure='reduced_ged', threshold_valu
     return hof
 
 
-def update_population_topology_random(population, evolver, evaluator, elitism_ratio=0, **hyperparameters):
+def update_population_topology_random(population, evolver, evaluator, elitism_ratio=0, generation=None, **hyperparameters):
     # implement elitism
     population_pass_index = round(elitism_ratio * len(population))
     if population_pass_index > len(population):
@@ -264,7 +257,7 @@ def update_population_topology_random(population, evolver, evaluator, elitism_ra
     # mutating the population occurs on head node, then graphs are distributed to nodes for parameter optimization
     for i, (score, graph) in enumerate(population):
         while True:
-            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator)
+            graph_tmp, evo_op_choice = evolver.evolve_graph(graph, evaluator, generation=generation)
             x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
             try:
                 graph_tmp.assert_number_of_edges()
@@ -282,7 +275,7 @@ def update_population_topology_random(population, evolver, evaluator, elitism_ra
     return population + pass_population
 
 
-def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, elitism_ratio=0.1, **hyperparameters):
+def update_population_topology_preferential(population, evolver, evaluator, preferentiality_param=2, elitism_ratio=0.1, generation=None, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing
 
@@ -314,7 +307,7 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
         x, node_edge_index, parameter_index, *_ = graph.extract_parameters_to_list()
         parent_parameters = copy.deepcopy(x)
         while True:
-            graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+            graph_tmp, evo_op_choice = evolver.evolve_graph(copy.deepcopy(graph), evaluator, generation=generation)
             try:
                 graph.distribute_parameters_from_list(parent_parameters, node_edge_index, parameter_index) # This is a hacky fix because smh graph parameters are occasionally modified through the deepcopy
             except IndexError as e:
@@ -343,7 +336,7 @@ def update_population_topology_preferential(population, evolver, evaluator, pref
     return new_pop + population[0:population_pass_index]
 
 
-def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, elitism_ratio=0.1, **hyperparameters):
+def update_population_topology_roulette(population, evolver, evaluator, preferentiality_param=1, elitism_ratio=0.1, generation=None, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -371,7 +364,7 @@ def update_population_topology_roulette(population, evolver, evaluator, preferen
     for _ in range(len(population)):
         reproduction_index = np.random.choice(np.arange(0, len(population)), p=probability_roulette)
         graph = population[reproduction_index][1]
-        graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+        graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator, generation=generation)
         graph_tmp.assert_number_of_edges()
         # TODO: determine whether the following is a correct check to make (or is it just alright?)
         # x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
@@ -386,7 +379,7 @@ def update_population_topology_roulette(population, evolver, evaluator, preferen
     return new_pop + population[0:population_pass_index]
 
 
-def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, elitism_ratio=0.1, **hyperparameters):
+def update_population_topology_tournament(population, evolver, evaluator, tournament_size_divisor=3, elitism_ratio=0.1, generation=None, **hyperparameters):
     """
     Updates population such that the fitter individuals have a larger chance of reproducing, using the "roulette wheel" method
 
@@ -415,7 +408,7 @@ def update_population_topology_tournament(population, evolver, evaluator, tourna
     for _ in range(len(population)):
         tournament_indices = np.random.choice(np.arange(0, len(population)), size=tournament_size)
         graph = population[min(tournament_indices)][1] # this works, because the vals were already sorted by fitness
-        graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator)
+        graph_tmp, _ = evolver.evolve_graph(copy.deepcopy(graph), evaluator, generation=generation)
         graph_tmp.assert_number_of_edges()
         # TODO: determine whether the following is a correct check to make (or is it just alright?)
         # x0, node_edge_index, parameter_index, *_ = graph_tmp.extract_parameters_to_list()
@@ -538,7 +531,7 @@ def update_population_topology_roulette_editDistance(population, evolver, evalua
     return update_population_topology_roulette(population, evolver, evaluator, **hyperparameters)
 
 
-def parameters_optimize_complete(ind, evaluator, propagator, method='NULL', verbose=True):
+def parameters_optimize_complete(ind, evaluator, propagator, method='', verbose=True):
     score, graph = ind
     if score is not None:
         return score, graph
@@ -546,10 +539,13 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='NULL', verb
     try:
         graph.update_graph()  # updates propagation order and input/outputs on nodes
         graph.clear_propagation()
-        graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})
+        # graph.sample_parameters(probability_dist='uniform', **{'triangle_width': 0.1})  # removed to keep old parameters
         x0, model, parameter_index, *_ = graph.extract_parameters_to_list()
         graph.initialize_func_grad_hess(propagator, evaluator, exclude_locked=True)
+        if len(x0) == 0:
+            return graph.func(x0), graph
         graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=verbose)
+        graph.scaled_hess_matrix = graph.hess(parameters)  # we calculate this here as it takes a long time - shouldn't calculate again
         return score, graph
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')

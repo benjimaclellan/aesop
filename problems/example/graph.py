@@ -58,6 +58,8 @@ class Graph(GraphParent):
         graph.func = None
         graph.grad = None
         graph.hess = None
+
+        graph.scaled_hessian_matrix = None
         # Attribute: self.scaled_hess
 
         graph.score = None

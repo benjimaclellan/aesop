@@ -32,6 +32,7 @@ class ProbabilityLookupEvolver(object):
     """
 
     def __init__(self, verbose=False, debug=False, **attr):
+        # self.generation = 0.0  # will be updated as the ratio between current_generation/total_generations
         self.verbose = verbose
         self.debug = debug
         self.evo_op_list = [evo_op(verbose=self.verbose) for evo_op in configuration.EVOLUTION_OPERATORS.values()] # generate all evolution operators
@@ -43,10 +44,13 @@ class ProbabilityLookupEvolver(object):
 
         :param graph: the graph to evolve
         :param evaluator: not used in the base implementation, but may be useful in the future
+        :param generation: this is a ratio of the total generation (curr_gen/total_gens)
         """
-        self.update_graph_matrix(graph, evaluator)
+
+        self.update_graph_matrix(graph, evaluator, generation=generation)
 
         if self.verbose:
+            print(f'In the evolve_graph function : generation is {generation}')
             print(f'evolving graph:')
             print(graph)
 
@@ -91,7 +95,7 @@ class ProbabilityLookupEvolver(object):
         graph.evo_probabilities_matrix.normalize_matrix()
         graph.evo_probabilities_matrix.verify_matrix()
 
-    def update_graph_matrix(self, graph, evaluator):
+    def update_graph_matrix(self, graph, evaluator, generation=None):
         """
         Function does not use evaluator in this implementation. However, they may be valid parameters to modify later
         """
@@ -250,15 +254,36 @@ class HessianProbabilityEvolver(OperatorBasedProbEvolver):
                                        [a**(1/probability_flattening), b**(1/probability_flattening), c**(1/probability_flattening)]
         :param max_prob_ratio: maximum ratio of probabilities allowed within a single operator
         """
-        super().__init__(**attr)
+        op_to_prob = {}
+        probs = {'AddSeriesComponent': 1, 'AddParallelComponent': 1, 'RemoveComponent': 4, 'SwapComponent': 1}
+        for evo_op_id, evo_op in configuration.EVOLUTION_OPERATORS.items():
+            op_to_prob[evo_op] = probs[evo_op_id]
+
+        super().__init__(op_to_prob=op_to_prob, **attr)
         self.probability_flattening = probability_flattening
         self.max_prob_ratio = max_prob_ratio
+
+    def update_graph_matrix(self, graph, evaluator, generation=None):
+        """
+        Function does not use evaluator in this implementation. However, they may be valid parameters to modify later
+        """
+        if generation is not None:
+            # here we will update the generation-dependent probabilities for each operator
+            probs = {'AddSeriesComponent': 1-generation,
+                     'AddParallelComponent': 1-generation,
+                     'RemoveComponent': 2*generation,
+                     'SwapComponent': 1}
+            for evo_op_id, evo_op in configuration.EVOLUTION_OPERATORS.items():
+                self.op_to_prob[evo_op] = probs[evo_op_id]
+
+        if self.debug: print(self.op_to_prob)
+
+        self.create_graph_matrix(graph, evaluator) # just fully remakes the graph matrix for now
 
     def scale_within_operator(self, graph, evo_op, op_probs):
         if type(evo_op) == RemoveComponent: # is hardcoded to our evo operators, can't REALLY be helped
             edge_free_wheeling_scores = hessian_analysis.get_all_edge_scores(graph, as_log=False)
-            # print(f'free wheeling scores: {edge_free_wheeling_scores}')
-            
+            if self.debug: print(f'edge_free wheeling scores {edge_free_wheeling_scores}')
             score_array = np.array(list(edge_free_wheeling_scores.values()))
             reference = np.sum(score_array)
 
