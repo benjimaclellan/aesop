@@ -35,7 +35,8 @@ class PulsedLaser(SourceModel):
         self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None, unit.Hz]
         self.parameter_locks = [True, False, False, False, True, True, True]
         self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train', 'FWHM_linewidth']
-        self.parameter_symbols =[r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
+        # self.parameter_symbols =[r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
+        self.parameter_symbols =[r"$x$", r"$x_\tau$", r"$x_P$", r"$x_{trep}$", r"$x$", r"$x$", r"$x$", ]
 
         self.parameters = self.default_parameters
         super().__init__(**kwargs)

@@ -82,8 +82,9 @@ class Model(object):
 
         attr = graph.extract_attributes_to_list_experimental(attributes=['parameters'])
 
-        self.update_graph_hessian_data(graph)
-        graph.func(attr['parameters'])
+        # self.update_graph_hessian_data(graph)
+        # graph.func(attr['parameters'])
+        graph.propagate(propagator)
 
         self.graph = graph
         self.propagator = propagator

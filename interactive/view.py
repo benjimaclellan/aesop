@@ -47,12 +47,8 @@ class View(object):
         button.on_click(self.button_callback)
 
         filepath_input = TextInput(
-            value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\interactive\example\test_graph.pkl',
+            value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\interactive\example\test_graph2.pkl',
             title='', sizing_mode='stretch_both')
-        
-        # filepath_input = TextInput(
-        #     value=r'/mnt/c/Users/ResearchSummer2020/Documents/asope_data/interactive/example/test_graph.pkl',
-        #     title='', sizing_mode='stretch_both')
 
         table_source = ColumnDataSource(data=self.control.table_data)
 
@@ -61,10 +57,12 @@ class View(object):
         <%= (value).toExponential(4) %></div></b>
         """
         formatter = HTMLTemplateFormatter(template=template)
-        columns = [TableColumn(field="parameters", title="Parameter", formatter=formatter),
+        columns = [TableColumn(field="parameters", title="Parameter"), #, formatter=formatter),
                    TableColumn(field="parameter_names", title="Parameter Name"),
                    TableColumn(field="model", title="Model Type"), ]
+
         data_table = DataTable(source=table_source, columns=columns, sizing_mode='stretch_both')
+        self.data_table = data_table
 
         # store widgets as class variables for access by callbacks
         self.button = button
@@ -296,7 +294,9 @@ class View(object):
         return
 
     def edge_selected_callback(self, attr, old, new):
+        self.table_source.data = {}
         self.control.update_table_data(new)
+        print(self.control.table_data)
         self.table_source.data = self.control.table_data
 
         # here we change which lines are visible based on the selection policy of the graph
@@ -325,7 +325,7 @@ class View(object):
         self.add_sources()
         self.add_lines()
         self.update_node_positions()
-        self.add_hessian_matrix()
-        self.add_lha_eigenvectors()
+        # self.add_hessian_matrix()
+        # self.add_lha_eigenvectors()
         self.button.label = 'Load graph'
         return
