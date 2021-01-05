@@ -7,6 +7,7 @@ import copy
 from autograd.numpy.numpy_boxes import ArrayBox
 import itertools
 import networkx as nx
+import operator
 
 import problems.example.assets.hessian_graph_analysis as hessian_analysis
 from problems.example.evolution_operators.evolution_operators import RemoveComponent
@@ -75,7 +76,7 @@ class ProbabilityLookupEvolver(object):
         x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
         assert np.logical_and(lower_bounds <= x, x <= upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
-
+        print(f'Evolver has chosen: {evo_op}')
         return graph, evo_op
 
     def create_graph_matrix(self, graph, evaluator):
@@ -228,7 +229,7 @@ class OperatorBasedProbEvolver(ProbabilityLookupEvolver):
         for evo_op in self.evo_op_list:
             op_probs = graph.evo_probabilities_matrix.get_probs_at_operator(evo_op)
             op_probs = self.scale_within_operator(graph, evo_op, op_probs)
-            sum_probs =  np.sum(op_probs)
+            sum_probs = np.sum(op_probs)
             if np.sum(op_probs) != 0:
                 graph.evo_probabilities_matrix.set_probs_at_operator(evo_op, op_probs / sum_probs * self.op_to_prob[evo_op.__class__])
         
@@ -278,35 +279,91 @@ class HessianProbabilityEvolver(OperatorBasedProbEvolver):
 
         if self.debug: print(self.op_to_prob)
 
-        self.create_graph_matrix(graph, evaluator) # just fully remakes the graph matrix for now
+        self.create_graph_matrix(graph, evaluator)  # just fully remakes the graph matrix for now
 
     def scale_within_operator(self, graph, evo_op, op_probs):
-        if type(evo_op) == RemoveComponent: # is hardcoded to our evo operators, can't REALLY be helped
-            edge_free_wheeling_scores = hessian_analysis.get_all_edge_scores(graph, as_log=False)
-            if self.debug: print(f'edge_free wheeling scores {edge_free_wheeling_scores}')
-            score_array = np.array(list(edge_free_wheeling_scores.values()))
-            reference = np.sum(score_array)
+        if type(evo_op) == RemoveComponent:  # is hardcoded to our evo operators, can't REALLY be helped
 
-            for i in range(len(op_probs)):
-                if np.isclose(op_probs[i], 0): # probability should stay zero, if operation is not possible
-                    continue
-                try:
-                    location = graph.evo_probabilities_matrix.index_to_node_or_edge[i] # locations should be interfaces
-                    op_probs[i] = np.log10(reference / edge_free_wheeling_scores[location.edge])**(1 / self.probability_flattening)
-                    # print(f'\n\ncurrent location: {location}')
-                    # print(f'current edge: {location.edge}')
-                    # print(f'flattened_prob: {op_probs[i]}\n\n')
-                except KeyError:
-                    pass # is fine, lots of locations aren't edges
-            
-            # limit max difference in probability
-            if np.count_nonzero(op_probs) != 0:
-                max_allowed_prob = np.min(op_probs[np.nonzero(op_probs)]) * self.max_prob_ratio
-                for i in range(len(op_probs)):
-                    if op_probs[i] > max_allowed_prob:
-                        op_probs[i] = max_allowed_prob
+            # method = 'proportionate'
+            method = 'tournament'
+
+            if method == 'proportionate':
+                op_probs = self.hessian_proportionate(graph, op_probs)
+
+            elif method == 'tournament':
+                op_probs = self.hessian_tournament(graph, op_probs)
 
         return op_probs
+
+    def hessian_tournament(self, graph, op_probs):
+        edge_free_wheeling_scores = hessian_analysis.get_all_edge_scores(graph, as_log=False)
+
+        # first we only go through and find the valid operations, and put them in a list to do tournament selection on
+        possible_selections = {}
+        for i in range(len(op_probs)):
+            if np.isclose(op_probs[i], 0):  # probability should stay zero, if operation is not possible
+                continue
+            try:
+                location = graph.evo_probabilities_matrix.index_to_node_or_edge[i]  # locations should be interfaces
+                possible_selections[i] = edge_free_wheeling_scores[location.edge]
+                # print(edge_free_wheeling_scores[location.edge])
+                # print(f'\n\ncurrent location: {location}')
+                # print(f'current edge: {location.edge}')
+                # print(f'flattened_prob: {op_probs[i]}\n\n')
+            except KeyError:
+                pass  # is fine, lots of locations aren't edges
+
+        # if we have at least one valid place to remove, we do tournament selection on
+        if len(possible_selections) > 0:
+            k_percentage = 0.5  # as the number of locations is changing, we make it percentage at first
+            k = int(round(k_percentage * len(possible_selections.values())))
+            if k < 1:
+                k = 1
+            if k > len(possible_selections.values()):
+                k = len(possible_selections.values())
+            full_tour = list(possible_selections.keys())
+            random.shuffle(full_tour)
+            tournament = {key: value for (key, value) in possible_selections.items() if key in full_tour[:k]}
+            least_sensitive_in_tournament = min(tournament.items(), key=operator.itemgetter(1))[0]
+
+            op_probs = [0 for i in range(len(op_probs))]
+            op_probs[least_sensitive_in_tournament] = 1
+            if self.debug:
+                print(possible_selections)
+                print('k', k)
+                print(tournament)
+                print('least_sensitive', least_sensitive_in_tournament)
+                print(op_probs)
+
+        return op_probs
+
+    def hessian_proportionate(self, graph, op_probs):
+        edge_free_wheeling_scores = hessian_analysis.get_all_edge_scores(graph, as_log=False)
+
+        score_array = np.array(list(edge_free_wheeling_scores.values()))
+        reference = np.sum(score_array)
+
+        for i in range(len(op_probs)):
+            if np.isclose(op_probs[i], 0):  # probability should stay zero, if operation is not possible
+                continue
+            try:
+                location = graph.evo_probabilities_matrix.index_to_node_or_edge[i]  # locations should be interfaces
+                op_probs[i] = np.log10(reference / edge_free_wheeling_scores[location.edge]) ** (
+                            1 / self.probability_flattening)
+                # print(f'\n\ncurrent location: {location}')
+                # print(f'current edge: {location.edge}')
+                # print(f'flattened_prob: {op_probs[i]}\n\n')
+            except KeyError:
+                pass  # is fine, lots of locations aren't edges
+
+        # limit max difference in probability
+        if np.count_nonzero(op_probs) != 0:
+            max_allowed_prob = np.min(op_probs[np.nonzero(op_probs)]) * self.max_prob_ratio
+            for i in range(len(op_probs)):
+                if op_probs[i] > max_allowed_prob:
+                    op_probs[i] = max_allowed_prob
+        return op_probs
+
 
     def random_graph(self, graph, evaluator, propagator=None, n_evolutions=10, view_evo=False):
         for n in range(n_evolutions):
@@ -326,88 +383,80 @@ class HessianProbabilityEvolver(OperatorBasedProbEvolver):
         return graph
 
 
-class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
-    """
-    The size aware stochastic matrix evolver updates probabilities of certain operators being used based on the size of the graph.
-    The algorithm considers "growth" operators (add nodes or edges), and "reduction" operators (remove nodes or edges). Any operators not marked
-    as such via decorators will be considered neutral operators, which do not affect the graph complexity (e.g. SwapNode)
-
-    The probability rules are defined as such:
-    1. If the 'verify_operator_at' methods return false, the probability of an operator at a given node/edge is zero regardless of other rules
-    2. Each object has a 'ideal_node_num' parameter. This is the node number at which growth, reduction, and neutral operators have equal probability of being selected
-            - This number can be updated whenever 
-    3. Let's define likelihood as probability before normalization. This evolver assigns a likelihood of 1 for neutral operators, 1 - alpha to growth operators,
-       and 1 + alpha to reduction operators. Alpha is clipped at +=0.9 by default, but can be clipped at any amplitude between 0 and 1 if desired
-    4. alpha = alpha(delta) is an odd function (where alpha < 0 where delta < 0), where delta = <# of nodes in the graph> - <ideal # of nodes>. alpha(0) = 0
-    """
-    def __init__(self,ideal_edge_num=10, alpha_func=lambda delta: (delta / 10)**3, alpha_bound=0.9, **attr):
-        """
-        Initializes SizeAwareMatrixEvolver (see class description above)
-
-        :param verbose: if True, evolution operators type and node/edges are printed to stdout. Otherwise, the evolution is 'silent'
-        :param ideal_node_number: number of nodes in a graph at which the growth and reduction evolution operators have equal chances of being selected
-        :param alpha_func: requirements are alpha(delta) is odd, alpha(0) = 0, alpha(delta < 0) < 0. Current function is selected such that alpha(10) = 1 (max bias)
-                           and such that the bias in likelihood be small if delta is small.
-        :param alpha_bound: amplitude at which to clip . Also supports alpha_bound as a tuple (e.g (-0.8, 0.9)). Note that alpha_bound=A is identical to alpha_bound=(-A, A)
-
-        Only the ideal node number is intended to be updated over the course of the object's existence (there's a useful case for it I can see, unlike the other params)
-        That said, updates to any of these parameters is possible (i.e. the code will use new alpha_func and alpha_max if their values are changed)
-        """
-        super().__init__(**attr)
-        self.ideal_edge_num = ideal_edge_num
-        self.alpha_func = alpha_func
-
-        # verify that the alpha_max input is valid. We'd verify for alpha_funct too but it's too complicated so
-        if type(alpha_bound) is int or type(alpha_bound) is float:
-            if alpha_bound < 0 or alpha_bound > 1:
-                raise ValueError(f'alpha_bound given as a float/int must be in [0, 1]. {alpha_bound} is not valid')
-            self.alpha_bound = (-alpha_bound, alpha_bound)
-        else:
-            if alpha_bound[0] > alpha_bound[1]:
-                raise ValueError(f'alpha_bound upper bound {alpha_bound[1]} must be greater than alpha_bound lower bound {alpha_bound[0]}')
-            elif -1 < alpha_bound[0] or alpha_bound[0] > 0:
-                raise ValueError(f'Lower bound value for alpha_bound {alpha_bound[0]} must be in [-1, 0]')
-            elif 0 < alpha_bound[1] or alpha_bound[1] > 1:
-                raise ValueError(f'Upper bound value for alpha_bound {alpha_bound[1]} must be in [0, 1]')
-            self.alpha_bound = alpha_bound
-
-    def create_graph_matrix(self, graph, evaluator):
-        """
-        :param graph: the graph to evolve
-        :param evaluator: not used in this implementation, but may be useful in the future
-        """
-        super().create_graph_matrix(graph, evaluator)
-        alpha = self._get_alpha_offset(graph)
-        for location in graph.evo_probabilities_matrix.node_or_edge_to_index.keys():
-            for op in graph.evo_probabilities_matrix.op_to_index.keys():
-                evo_possible = graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(location, op) != 0
-                if evo_possible:
-                    if op.__class__.__name__ in configuration.GROWTH_EVO_OPERATORS.keys():
-                        likelihood = 1 - alpha
-                    elif op.__class__.__name__ in configuration.REDUCTION_EVO_OPERATORS.keys():
-                        likelihood = 1 + alpha
-                    else:
-                        likelihood = 1
-                    graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, location, op)
-        
-        graph.evo_probabilities_matrix.normalize_matrix()
-        graph.evo_probabilities_matrix.verify_matrix()
-
-    def _get_alpha_offset(self, graph):
-        delta = len(graph.edges) - self.ideal_edge_num
-        return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
 
 
 
-
-
-
-
-
-
-
-
-
+# class SizeAwareLookupEvolver(ProbabilityLookupEvolver):
+#     """
+#     The size aware stochastic matrix evolver updates probabilities of certain operators being used based on the size of the graph.
+#     The algorithm considers "growth" operators (add nodes or edges), and "reduction" operators (remove nodes or edges). Any operators not marked
+#     as such via decorators will be considered neutral operators, which do not affect the graph complexity (e.g. SwapNode)
+#
+#     The probability rules are defined as such:
+#     1. If the 'verify_operator_at' methods return false, the probability of an operator at a given node/edge is zero regardless of other rules
+#     2. Each object has a 'ideal_node_num' parameter. This is the node number at which growth, reduction, and neutral operators have equal probability of being selected
+#             - This number can be updated whenever
+#     3. Let's define likelihood as probability before normalization. This evolver assigns a likelihood of 1 for neutral operators, 1 - alpha to growth operators,
+#        and 1 + alpha to reduction operators. Alpha is clipped at +=0.9 by default, but can be clipped at any amplitude between 0 and 1 if desired
+#     4. alpha = alpha(delta) is an odd function (where alpha < 0 where delta < 0), where delta = <# of nodes in the graph> - <ideal # of nodes>. alpha(0) = 0
+#     """
+#     def __init__(self,ideal_edge_num=10, alpha_func=lambda delta: (delta / 10)**3, alpha_bound=0.9, **attr):
+#         """
+#         Initializes SizeAwareMatrixEvolver (see class description above)
+#
+#         :param verbose: if True, evolution operators type and node/edges are printed to stdout. Otherwise, the evolution is 'silent'
+#         :param ideal_node_number: number of nodes in a graph at which the growth and reduction evolution operators have equal chances of being selected
+#         :param alpha_func: requirements are alpha(delta) is odd, alpha(0) = 0, alpha(delta < 0) < 0. Current function is selected such that alpha(10) = 1 (max bias)
+#                            and such that the bias in likelihood be small if delta is small.
+#         :param alpha_bound: amplitude at which to clip . Also supports alpha_bound as a tuple (e.g (-0.8, 0.9)). Note that alpha_bound=A is identical to alpha_bound=(-A, A)
+#
+#         Only the ideal node number is intended to be updated over the course of the object's existence (there's a useful case for it I can see, unlike the other params)
+#         That said, updates to any of these parameters is possible (i.e. the code will use new alpha_func and alpha_max if their values are changed)
+#         """
+#         super().__init__(**attr)
+#         self.ideal_edge_num = ideal_edge_num
+#         self.alpha_func = alpha_func
+#
+#         # verify that the alpha_max input is valid. We'd verify for alpha_funct too but it's too complicated so
+#         if type(alpha_bound) is int or type(alpha_bound) is float:
+#             if alpha_bound < 0 or alpha_bound > 1:
+#                 raise ValueError(f'alpha_bound given as a float/int must be in [0, 1]. {alpha_bound} is not valid')
+#             self.alpha_bound = (-alpha_bound, alpha_bound)
+#         else:
+#             if alpha_bound[0] > alpha_bound[1]:
+#                 raise ValueError(f'alpha_bound upper bound {alpha_bound[1]} must be greater than alpha_bound lower bound {alpha_bound[0]}')
+#             elif -1 < alpha_bound[0] or alpha_bound[0] > 0:
+#                 raise ValueError(f'Lower bound value for alpha_bound {alpha_bound[0]} must be in [-1, 0]')
+#             elif 0 < alpha_bound[1] or alpha_bound[1] > 1:
+#                 raise ValueError(f'Upper bound value for alpha_bound {alpha_bound[1]} must be in [0, 1]')
+#             self.alpha_bound = alpha_bound
+#
+#     def create_graph_matrix(self, graph, evaluator):
+#         """
+#         :param graph: the graph to evolve
+#         :param evaluator: not used in this implementation, but may be useful in the future
+#         """
+#         super().create_graph_matrix(graph, evaluator)
+#         alpha = self._get_alpha_offset(graph)
+#         for location in graph.evo_probabilities_matrix.node_or_edge_to_index.keys():
+#             for op in graph.evo_probabilities_matrix.op_to_index.keys():
+#                 evo_possible = graph.evo_probabilities_matrix.get_prob_by_nodeEdge_op(location, op) != 0
+#                 if evo_possible:
+#                     if op.__class__.__name__ in configuration.GROWTH_EVO_OPERATORS.keys():
+#                         likelihood = 1 - alpha
+#                     elif op.__class__.__name__ in configuration.REDUCTION_EVO_OPERATORS.keys():
+#                         likelihood = 1 + alpha
+#                     else:
+#                         likelihood = 1
+#                     graph.evo_probabilities_matrix.set_prob_by_nodeEdge_op(likelihood, location, op)
+#
+#         graph.evo_probabilities_matrix.normalize_matrix()
+#         graph.evo_probabilities_matrix.verify_matrix()
+#
+#     def _get_alpha_offset(self, graph):
+#         delta = len(graph.edges) - self.ideal_edge_num
+#         return np.clip(self.alpha_func(delta), self.alpha_bound[0], self.alpha_bound[1])
+#
 
 
 

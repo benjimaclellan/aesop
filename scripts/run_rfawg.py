@@ -8,6 +8,8 @@ import pathlib
 import os
 import platform
 import copy
+import autograd.numpy as np
+import random
 
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
 sep = ';' if platform.system() == 'Windows' else ':'
@@ -41,7 +43,9 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 from lib.functions import parse_command_line_args
 
-
+seed = 0
+np.random.seed(seed)
+random.seed(seed)
 plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
@@ -50,9 +54,9 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path='rfawg', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 4,
-               'n_population': 4,
-               'n_hof': 1,
+    ga_opts = {'n_generations': 6,
+               'n_population': 10,
+               'n_hof': 2,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -77,7 +81,7 @@ if __name__ == '__main__':
 
     update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
