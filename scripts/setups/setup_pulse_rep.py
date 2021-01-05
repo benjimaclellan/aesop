@@ -62,7 +62,7 @@ def run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, par
              }
     graph = Graph.init_graph(nodes=nodes, edges=edges)
 
-    update_rule = 'roulette'
+    update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method=param_opt,

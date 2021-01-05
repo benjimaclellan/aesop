@@ -23,7 +23,7 @@ from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
-from problems.example.evolver import ProbabilityLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, HessianProbabilityEvolver, OperatorBasedProbEvolver
 
 from problems.example.node_types import TerminalSource, TerminalSink
 
@@ -67,6 +67,6 @@ if __name__ == '__main__':
                    'verbose': options_cl.verbose,
                    'num_cpus': psutil.cpu_count()-1}
 
-        evolver = ProbabilityLookupEvolver(verbose=False)
+        evolver = HessianProbabilityEvolver(verbose=False)
 
         run_experiment(evaluator, propagator, io, evolver, ga_opts)

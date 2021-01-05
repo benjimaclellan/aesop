@@ -89,6 +89,6 @@ if __name__ == '__main__':
                                              peak_power=peak_power * (p / q))
         evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-        evolver = OperatorBasedProbEvolver(verbose=False)
+        evolver = HessianProbabilityEvolver(verbose=False)
 
         run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, param_opt='L-BFGS+GA')

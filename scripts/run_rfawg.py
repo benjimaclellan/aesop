@@ -54,7 +54,7 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path='rfawg', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 6,
+    ga_opts = {'n_generations': 16,
                'n_population': 10,
                'n_hof': 2,
                'verbose': options_cl.verbose,

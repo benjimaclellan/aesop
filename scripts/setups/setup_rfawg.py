@@ -57,11 +57,11 @@ def run_experiment(evaluator, propagator, io, evolver, ga_opts):
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
-    update_rule = 'roulette'
+    update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     # parameter_opt_method='L-BFGS+GA',
-                                     parameter_opt_method='NULL',
+                                     parameter_opt_method='L-BFGS+GA',
+                                     # parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

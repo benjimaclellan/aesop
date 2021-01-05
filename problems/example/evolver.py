@@ -313,23 +313,23 @@ class HessianProbabilityEvolver(OperatorBasedProbEvolver):
             except KeyError:
                 pass  # is fine, lots of locations aren't edges
 
-        # if we have at least one valid place to remove, we do tournament selection on
+        # if we have at least one valid place to remove, we do tournament selection on them
         if len(possible_selections) > 0:
             k_percentage = 0.5  # as the number of locations is changing, we make it percentage at first
-            k = int(round(k_percentage * len(possible_selections.values())))
-            if k < 1:
+            k = int(round(k_percentage * len(possible_selections.values())))  # size of tournament
+            if k < 1: # quick checks to make sure k is okay
                 k = 1
             if k > len(possible_selections.values()):
                 k = len(possible_selections.values())
-            full_tour = list(possible_selections.keys())
-            random.shuffle(full_tour)
+            full_tour = list(possible_selections.keys())  # all possible entries into the tournament
+            random.shuffle(full_tour)  # shuffle, and take first
             tournament = {key: value for (key, value) in possible_selections.items() if key in full_tour[:k]}
             least_sensitive_in_tournament = min(tournament.items(), key=operator.itemgetter(1))[0]
 
             op_probs = [0 for i in range(len(op_probs))]
             op_probs[least_sensitive_in_tournament] = 1
             if self.debug:
-                print(possible_selections)
+                print('possible selections', possible_selections)
                 print('k', k)
                 print(tournament)
                 print('least_sensitive', least_sensitive_in_tournament)
