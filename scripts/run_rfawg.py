@@ -1,5 +1,4 @@
 """
-Test of topology optimization routines
 """
 
 # place main ASOPE directory on the path which will be accessed by all ray workers
@@ -43,15 +42,13 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 from lib.functions import parse_command_line_args
 
-seed = 0
-np.random.seed(seed)
-random.seed(seed)
+
 plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='rfawg', unique_id=True)
+    io.init_save_dir(sub_path='rfawg', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
     ga_opts = {'n_generations': 16,

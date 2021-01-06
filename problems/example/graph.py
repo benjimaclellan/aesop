@@ -59,7 +59,7 @@ class Graph(GraphParent):
         graph.grad = None
         graph.hess = None
 
-        graph.scaled_hessian_matrix = None
+        graph.scaled_hess_matrix = None
         # Attribute: self.scaled_hess
 
         graph.score = None
@@ -95,6 +95,7 @@ class Graph(GraphParent):
         self.func = None
         self.grad = None
         self.hess = None
+        self.scaled_hess_matrix = None
         self.clear_propagation()
 
 

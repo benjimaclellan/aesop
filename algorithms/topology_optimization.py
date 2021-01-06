@@ -125,33 +125,6 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     return hof, log # hof is actually a list in and of itself, so we only look at the top element
 
 
-def save_hof(hof, io):
-    for i, (score, graph) in enumerate(hof):
-        io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
-    return
-
-
-def plot_hof(hof, propagator, evaluator, io):
-    # save a figure which quickly demonstrates the results of the run as a .pdf files
-    fig, axs = plt.subplots(nrows=len(hof), ncols=3, figsize=[5, 2 * len(hof)])
-    for i, (score, graph) in enumerate(hof):
-        graph.score = score
-        graph.propagate(propagator, save_transforms=False)
-
-        measurement_node = 'sink'
-        state = graph.measure_propagator(measurement_node)
-        if len(hof) == 1:
-            axs = np.expand_dims(axs, 0)
-
-        graph.draw(ax=axs[i, 0], debug=False)
-        axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
-        axs[i, 1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
-        axs[i, 2].set(xticks=[], yticks=[])
-        axs[i, 2].grid = False
-        axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
-    io.save_fig(fig=fig, filename='halloffame.png')
-
-
 def save_scores_to_graph(population):
     for (score, graph) in population:
         graph.score = score
@@ -534,7 +507,7 @@ def update_population_topology_roulette_editDistance(population, evolver, evalua
 def parameters_optimize_complete(ind, evaluator, propagator, method='', verbose=True):
     score, graph = ind
     if score is not None:
-        return score, graph
+        raise RuntimeError('The score should initially be None')
 
     try:
         graph.update_graph()  # updates propagation order and input/outputs on nodes
@@ -545,8 +518,14 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='', verbose=
         if len(x0) == 0:
             return graph.func(x0), graph
         graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=verbose)
+
         graph.scaled_hess_matrix = graph.hess(parameters)  # we calculate this here as it takes a long time - shouldn't calculate again
+
+        # if there are any ArrayBoxes (autgrad tracers) in the Graph object, it cannot save (recursion depth error)
+        # so this is a quick hack, to just re-run to ensure that it is normal Python types in the model objects
+        graph.func(parameters)  # removing this will cause errors in saving graph objects
         return score, graph
+
     except Exception as e:
         print(f'error caught in parameter optimization: {e}')
         raise e
@@ -556,3 +535,30 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='', verbose=
 @ray.remote
 def parameters_optimize_multiprocess(ind, evaluator, propagator, method='NULL', verbose=True):
     return parameters_optimize_complete(ind, evaluator, propagator, method=method, verbose=verbose)
+
+
+def save_hof(hof, io):
+    for i, (score, graph) in enumerate(hof):
+        io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
+    return
+
+
+def plot_hof(hof, propagator, evaluator, io):
+    # save a figure which quickly demonstrates the results of the run as a .pdf files
+    fig, axs = plt.subplots(nrows=len(hof), ncols=3, figsize=[5, 2 * len(hof)])
+    for i, (score, graph) in enumerate(hof):
+        graph.score = score
+        graph.propagate(propagator, save_transforms=False)
+
+        measurement_node = 'sink'
+        state = graph.measure_propagator(measurement_node)
+        if len(hof) == 1:
+            axs = np.expand_dims(axs, 0)
+
+        graph.draw(ax=axs[i, 0], debug=False)
+        axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
+        axs[i, 1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+        axs[i, 2].set(xticks=[], yticks=[])
+        axs[i, 2].grid = False
+        axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
+    io.save_fig(fig=fig, filename='halloffame.png')
