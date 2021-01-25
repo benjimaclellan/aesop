@@ -51,8 +51,8 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path='rfawg', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 16,
-               'n_population': 16,
+    ga_opts = {'n_generations': 8,
+               'n_population': 8,
                'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='L-BFGS+GA',
+                                     parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

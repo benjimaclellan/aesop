@@ -29,8 +29,7 @@ import config.config as config
 
 from lib.functions import InputOutput
 
-from problems.example.evaluator import Evaluator
-from problems.example.evolver import ProbabilityLookupEvolver
+from problems.example.evolver import ProbabilityLookupEvolver, HessianProbabilityEvolver, OperatorBasedProbEvolver
 from problems.example.graph import Graph
 from problems.example.assets.propagator import Propagator
 
@@ -61,8 +60,8 @@ if __name__ == '__main__':
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 8,
-               'n_population': 8,
+    ga_opts = {'n_generations': 16,
+               'n_population': 16,
                'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
@@ -71,7 +70,7 @@ if __name__ == '__main__':
 
     phase, phase_node = (0.5 * np.pi, 'phase-shift')
     phase_shifter = PhaseShifter(parameters=[phase])
-    evolver = ProbabilityLookupEvolver(verbose=False)
+    evolver = HessianProbabilityEvolver(verbose=False)
 
     nodes = {'source': TerminalSource(),
              0: VariablePowerSplitter(),
@@ -89,13 +88,15 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
-    update_rule = 'roulette'
+    update_rule = 'tournament'
     #%%
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='NULL',
+                                     parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
+
+    hof[1][1].draw()
 
     save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)
