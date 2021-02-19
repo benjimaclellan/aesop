@@ -34,6 +34,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import PhaseShifter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses import *
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 

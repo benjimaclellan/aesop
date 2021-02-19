@@ -26,6 +26,7 @@ from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 
 from problems.example.evolver import HessianProbabilityEvolver, ProbabilityLookupEvolver, OperatorBasedProbEvolver
+from problems.example.node_types_subclasses import *
 
 from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 

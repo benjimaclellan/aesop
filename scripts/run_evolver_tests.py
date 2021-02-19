@@ -16,6 +16,7 @@ from lib.graph import Graph
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses import *
 
 from problems.example.evolution_operators.evolution_operators import SwapNode
 

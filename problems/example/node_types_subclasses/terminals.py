@@ -1,8 +1,8 @@
 from lib.base_classes import NodeType as NodeTypeParent
-from problems.example.assets.decorators import register_node_types_all
+from problems.example.assets.decorators import register_node_types_all, register_node_types_including_terminals
 
 
-@register_node_types_all
+@register_node_types_including_terminals
 class TerminalSource(NodeTypeParent):
     """
     """
@@ -42,7 +42,7 @@ class TerminalSource(NodeTypeParent):
         return states
 
 
-@register_node_types_all
+@register_node_types_including_terminals
 class TerminalSink(NodeTypeParent):
     """
     """

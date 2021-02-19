@@ -13,6 +13,9 @@ sys.path.append(parent_dir)
 import matplotlib.pyplot as plt
 import psutil
 
+from problems.example.node_types_subclasses import *
+
+from config import config as configuration
 from lib.functions import InputOutput
 
 from problems.example.assets.propagator import Propagator

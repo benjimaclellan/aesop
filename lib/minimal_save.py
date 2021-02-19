@@ -51,10 +51,7 @@ def extract_minimal_graph_info(graph):
 
 def build_from_minimal_graph_info(json_data):
 
-    lookup = flatten(configuration.NODE_TYPES_ALL)
-    #
-    # with open(filepath, 'r') as f:
-    #     json_data = json.load(f)
+    lookup = flatten(configuration.NODE_TYPES_ALL_WITH_TERMINALS)
 
     graph_info = json_data['graph_info']
     edge_models_adj = graph_info['edge_models_adj']
