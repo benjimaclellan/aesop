@@ -62,6 +62,9 @@ class Graph(GraphParent):
         graph.scaled_hess_matrix = None
         # Attribute: self.scaled_hess
 
+        graph.current_uuid = uuid4()
+        graph.parent_uuid = uuid4()
+
         graph.score = None
         return graph
 

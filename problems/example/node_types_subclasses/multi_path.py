@@ -75,7 +75,7 @@ class VariablePowerSplitter(MultiPath):
         return states_scattered_lst
 
 
-@register_node_types_all
+# @register_node_types_all
 class FrequencySplitter(MultiPath):
     node_acronym = 'FS'
     number_of_parameters = 0

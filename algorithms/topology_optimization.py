@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 import copy
 import ray
 import random
+import pathlib
 from autograd.numpy.numpy_boxes import ArrayBox
 
 import networkx as nx
 
+from lib.minimal_save import extract_minimal_graph_info, build_from_minimal_graph_info
 from algorithms.functions import logbook_update, logbook_initialize
 from .parameter_optimization import parameters_optimize
 from algorithms.speciation import Speciation, NoSpeciation, SimpleSubpopulationSchemeDist, vectorDIFF, photoNEAT, EditDistance
@@ -77,8 +79,20 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     for individual in range(ga_opts['n_population']):
         population.append((score, copy.deepcopy(graph)))
 
+    # do we want to save a reduced file of each graph throughout optimization?
+    save_all_minimal_graph_data = True
+    if save_all_minimal_graph_data:
+        io.join_to_save_path("reduced_graphs").mkdir(parents=True, exist_ok=True)
+        save_minimal_graph_data_pop(population, io, gen=0, subfolder='reduced_graphs', filename_prefix='graph_')
+
+    # do we want to save a reduced file of each HoF graph throughout optimization?
+    save_all_minimal_hof_data = True
+    if save_all_minimal_hof_data:
+        io.join_to_save_path("reduced_hof_graphs").mkdir(parents=True, exist_ok=True)
+        save_minimal_graph_data_pop(hof, io, gen=0, subfolder='reduced_hof_graphs', filename_prefix='hof_')
+
     t1 = time.time()
-    for generation in range(ga_opts['n_generations']):
+    for generation in range(1, ga_opts['n_generations']+1):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]-1}: time elapsed {time.time()-t1}s')
 
         if generation != 0: # we want population update, and selection rules to depend on the speciated fitness (as to favour rarer individuals)
@@ -118,11 +132,28 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         # update logbook and hall of fame
         logbook_update(generation, population, log, log_metrics, time=(time.time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
+        if save_all_minimal_graph_data:
+            save_minimal_graph_data_pop(population, io, gen=generation, subfolder='reduced_graphs', filename_prefix='graph_')
+        if save_all_minimal_hof_data:
+            save_minimal_graph_data_pop(hof, io, gen=generation, subfolder='reduced_hof_graphs', filename_prefix='hof_')
+
     io.save_object(log, 'log.pkl')
 
     io.close_logging()
     evolver.close()
     return hof, log # hof is actually a list in and of itself, so we only look at the top element
+
+
+def save_minimal_graph_data_pop(population, io, gen, subfolder='', filename_prefix=''):
+    for ind, (score, graph) in enumerate(population):
+        if score is None or graph is None:
+            continue
+        filename = pathlib.Path(subfolder).joinpath(filename_prefix+"gen{}_ind{}.json".format(gen, ind))
+        json_data = extract_minimal_graph_info(graph)
+        json_data['current_uuid'] = graph.current_uuid.hex
+        json_data['parent_uuid'] = graph.parent_uuid.hex
+        json_data['score'] = score
+        io.save_json(json_data, filename)
 
 
 def save_scores_to_graph(population):

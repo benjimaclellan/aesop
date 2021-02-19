@@ -8,6 +8,7 @@ from autograd.numpy.numpy_boxes import ArrayBox
 import itertools
 import networkx as nx
 import operator
+import uuid
 
 import problems.example.assets.hessian_graph_analysis as hessian_analysis
 from problems.example.evolution_operators.evolution_operators import RemoveComponent
@@ -47,6 +48,7 @@ class ProbabilityLookupEvolver(object):
         :param evaluator: not used in the base implementation, but may be useful in the future
         :param generation: this is a ratio of the total generation (curr_gen/total_gens)
         """
+        current_uuid, parent_uuid = copy.copy(graph.current_uuid), copy.copy(graph.parent_uuid)
 
         self.update_graph_matrix(graph, evaluator, generation=generation)
 
@@ -77,6 +79,10 @@ class ProbabilityLookupEvolver(object):
 
         assert np.logical_and(lower_bounds <= x, x <= upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
         print(f'Evolver has chosen: {evo_op}')
+
+        graph.parent_uuid = current_uuid
+        graph.current_uuid = uuid.uuid4()
+
         return graph, evo_op
 
     def create_graph_matrix(self, graph, evaluator):

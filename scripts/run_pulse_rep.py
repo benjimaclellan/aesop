@@ -25,7 +25,7 @@ from lib.functions import InputOutput
 from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 
-from problems.example.evolver import HessianProbabilityEvolver
+from problems.example.evolver import HessianProbabilityEvolver, ProbabilityLookupEvolver, OperatorBasedProbEvolver
 
 from problems.example.node_types import TerminalSource, TerminalSink
 
@@ -33,6 +33,7 @@ from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepeti
 
 from problems.example.node_types_subclasses.inputs import PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import PhaseModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.topology_optimization import topology_optimization
@@ -43,13 +44,13 @@ plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='garbagio_just_testing_stuff', unique_id=False)
+    io = InputOutput()
+    io.init_save_dir(sub_path='test_topology_and_hof_tracking', unique_id=False)
     io.save_machine_metadata(io.save_path)
 
     ga_opts = {'n_generations': 4,
-               'n_population': 4,
-               'n_hof': 1,
+               'n_population': 6,
+               'n_hof': 3,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -68,7 +69,8 @@ if __name__ == '__main__':
     target = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width * (p / q), rep_t=rep_t * (p / q), peak_power=peak_power * (p / q))
     evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-    evolver = HessianProbabilityEvolver(verbose=False)
+    # evolver = HessianProbabilityEvolver(verbose=False)
+    evolver = OperatorBasedProbEvolver(verbose=False)
 
     md = MeasurementDevice()
     md.protected = True
