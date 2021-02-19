@@ -2,27 +2,21 @@
 import sys
 sys.path.append('..')
 
-import time
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import winsound
 from scipy.interpolate import interp1d
 
-import config.config as configuration
-
-from problems.example.evaluator import Evaluator
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from lib.functions import InputOutput
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, OpticalAmplifier, IntensityModulator
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import Photodiode
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 

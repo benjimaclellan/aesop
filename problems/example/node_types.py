@@ -3,6 +3,7 @@
 """
 from lib.base_classes import NodeType as NodeTypeParent, TerminalNode
 from lib.decorators import register_node_types
+from lib.decorators import register_node_types_all
 
 @register_node_types
 class SourceModel(NodeTypeParent):
@@ -69,7 +70,7 @@ class SinglePath(NodeTypeParent):
 
 
 
-# @register_node_types
+@register_node_types_all
 class TerminalSource(NodeTypeParent):
     """
     """
@@ -109,7 +110,7 @@ class TerminalSource(NodeTypeParent):
         return states
 
 
-# @register_node_types
+@register_node_types_all
 class TerminalSink(NodeTypeParent):
     """
     """

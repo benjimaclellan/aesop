@@ -20,16 +20,13 @@ import psutil
 import random
 import autograd.numpy as np
 
-import config.config as config
-
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.evolver import ProbabilityLookupEvolver, HessianProbabilityEvolver, OperatorBasedProbEvolver
 
 from problems.example.node_types import TerminalSource, TerminalSink
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 from problems.example.node_types_subclasses.outputs import Photodiode
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 

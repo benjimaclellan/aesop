@@ -17,24 +17,18 @@ sys.path.append(parent_dir)
 # various imports
 import matplotlib.pyplot as plt
 import psutil
-import random
-import autograd.numpy as np
-
-import config.config as config
 
 from lib.functions import InputOutput
 
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_, fft_, ifft_
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver, HessianProbabilityEvolver, SizeAwareLookupEvolver
+from problems.example.evolver import OperatorBasedProbEvolver
 from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import Photodiode
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 

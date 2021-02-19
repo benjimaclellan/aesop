@@ -1,17 +1,16 @@
 import autograd.numpy as np
 import pytest
-from autograd import grad
 import matplotlib.pyplot as plt
 from scipy.constants import speed_of_light
 
 from problems.example.assets.additive_noise import AdditiveNoise
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_, ifft_, ifft_shift_, fft_, psd_
+from problems.example.assets.functions import power_, fft_, psd_
 
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import OpticalAmplifier, WaveShaper, PhaseModulator
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import OpticalAmplifier
 
 SKIP_GRAPHICAL_TEST = True
 

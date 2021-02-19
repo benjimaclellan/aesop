@@ -7,7 +7,7 @@ import random
 
 import config.config as configuration
 
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
@@ -18,7 +18,6 @@ from problems.example.node_types_subclasses.single_path import PhaseModulator, W
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from problems.example.evolver import CrossoverMaker
-from problems.example.evolution_operators import SwapNode
 
 from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 

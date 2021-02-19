@@ -1,16 +1,9 @@
-import autograd.numpy as np
 import random
 import networkx as nx
-import matplotlib.pyplot as plt
-import pickle
 import itertools
 
-import config.config as configuration
-from lib.decorators import register_evolution_operators, register_crossover_operators, register_growth_operators, register_reduction_operators,register_path_reduction_operators
+from lib.decorators import register_evolution_operators, register_growth_operators, register_reduction_operators
 from lib.base_classes import EvolutionOperators as EvolutionOperators
-from algorithms.speciation import Speciation
-from problems.example.graph import Graph
-
 
 # TODO: add hashable key to edges, to manage multidigraphs
 # TODO: add verbose mode

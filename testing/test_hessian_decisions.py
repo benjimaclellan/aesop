@@ -3,7 +3,6 @@ import sys
 import pathlib
 import os
 import platform
-import copy 
 
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
 sep = ';' if platform.system() == 'Windows' else ':'
@@ -21,7 +20,7 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import Photodiode
 from problems.example.node_types_subclasses.single_path import PhaseModulator
 from problems.example.node_types_subclasses.multi_path import  VariablePowerSplitter
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.evolver import EGreedyHessianEvolver
 
 from algorithms.topology_optimization import parameters_optimize_complete

@@ -4,23 +4,16 @@ sys.path.append('..')
 import matplotlib.pyplot as plt
 import autograd.numpy as np
 
-import config.config as configuration
-
-from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 from problems.example.evaluator_subclasses.evaluator_notgate import OpticalNotGate
 
 from problems.example.assets.additive_noise import AdditiveNoise
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser, BitStream
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine, ProgrammableFilter, OpticalAmplifier
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types_subclasses.inputs import BitStream
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import WaveShaper
 
 from algorithms.parameter_optimization import parameters_optimize
 

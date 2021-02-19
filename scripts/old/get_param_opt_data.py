@@ -11,12 +11,11 @@ os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
 # various imports
-import matplotlib.pyplot as plt
-import copy 
+import copy
 import autograd.numpy as np
 import random
 
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 

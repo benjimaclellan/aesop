@@ -13,7 +13,8 @@ from ..node_types import SinglePath
 from lib.base_classes import NodeType
 
 
-from ..assets.decorators import register_node_types_all
+# from ..assets.decorators import register_node_types_all
+from lib.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_, dB_to_amplitude_ratio
 from ..assets.additive_noise import AdditiveNoise
 

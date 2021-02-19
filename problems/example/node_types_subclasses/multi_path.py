@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 from ..node_types import MultiPath
 
-from ..assets.decorators import register_node_types_all
+from lib.decorators import register_node_types_all
 from ..assets.functions import power_, psd_, fft_, ifft_, ifft_shift_
 
 @register_node_types_all

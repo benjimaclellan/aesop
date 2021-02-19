@@ -17,8 +17,8 @@ from uuid import uuid4
 from collections import namedtuple
 
 from lib.base_classes import Graph as GraphParent
-from .assets.functions import power_, psd_
-from .assets.additive_noise import AdditiveNoise
+from problems.example.assets.functions import power_, psd_
+from problems.example.assets.additive_noise import AdditiveNoise
 from lib.functions import scale_units
 from lib.autodiff_helpers import unwrap_arraybox_list
 

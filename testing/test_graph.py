@@ -3,48 +3,29 @@ import sys
 import pathlib
 import os
 import platform
-import copy
 
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
 sep = ';' if platform.system() == 'Windows' else ':'
 os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
-import networkx as nx
-import itertools
-import os
-from pathlib import Path
-import random
-import time
-import string
-from datetime import date
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import seaborn as sns
-import autograd.numpy as np
 
-import config.config as configuration
 from lib.functions import InputOutput
 
-from problems.example.evaluator import Evaluator
-from problems.example.evolver import ProbabilityLookupEvolver
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_, fft_, ifft_
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 from problems.example.assets.additive_noise import AdditiveNoise
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, IntensityModulator
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, IntensityModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter, FrequencySplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 
 # from problems.example.evolver import ProbabilityLookupEvolver, SizeAwareLookupEvolver, ReinforcementLookupEvolver
-
-from algorithms.parameter_optimization import parameters_optimize
-from algorithms.topology_optimization import topology_optimization
 
 plt.close('all')
 

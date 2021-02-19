@@ -8,7 +8,7 @@ import autograd.numpy as np
 from pint import UnitRegistry
 unit = UnitRegistry()
 
-from ..assets.decorators import register_node_types_all
+from lib.decorators import register_node_types_all
 from ..assets.functions import power_, psd_, fft_, ifft_, ifft_shift_
 from ..assets.additive_noise import AdditiveNoise
 

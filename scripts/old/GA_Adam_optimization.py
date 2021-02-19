@@ -15,7 +15,7 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine
 
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import power_, psd_
 

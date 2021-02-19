@@ -1,9 +1,9 @@
 import pickle 
 
-from problems.example.graph import Graph
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, DelayLine, IntensityModulator
+from lib.graph import Graph
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import Photodiode
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, IntensityModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types import TerminalSource, TerminalSink
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration

@@ -2,37 +2,21 @@
 import sys
 sys.path.append('..')
 
-import networkx as nx
-import itertools
-import os
-import random
-import time
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import seaborn as sns
 import autograd.numpy as np
 
-import config.config as configuration
-
-from problems.example.evaluator import Evaluator
-from problems.example.evolver import Evolver
-from problems.example.graph import Graph
+from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import psd_, power_, fft_, ifft_
+from problems.example.assets.functions import psd_, power_
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 from problems.example.evaluator_subclasses.evaluator_phase_sensitivity import PhaseSensitivity
-from problems.example.evolver import Evolver, CrossoverMaker, StochMatrixEvolver, SizeAwareMatrixEvolver, ReinforcementMatrixEvolver
+from problems.example.evolver import Evolver, StochMatrixEvolver
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser, ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper
-from problems.example.node_types_subclasses.single_path import DelayLine, IntensityModulator, ProgrammableFilter, OpticalAmplifier
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import PhaseShifter
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.parameter_optimization import parameters_optimize
 # from algorithms.parameter_random_search import parameters_random_search
 # from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
 

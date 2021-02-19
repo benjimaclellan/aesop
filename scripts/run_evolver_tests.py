@@ -11,12 +11,11 @@ os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 # ----------------------------------------------------------
 
-from problems.example.graph import Graph
+from lib.graph import Graph
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber, VariableOpticalAttenuator
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
 
 from problems.example.evolution_operators.evolution_operators import SwapNode
 

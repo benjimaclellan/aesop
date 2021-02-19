@@ -5,15 +5,15 @@ import random
 
 from problems.example.assets.propagator import Propagator
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber, VariableOpticalAttenuator, IntensityModulator, DelayLine
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import MeasurementDevice
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, IntensityModulator, DelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.graph import Graph
+from lib.graph import Graph
 
 from problems.example.assets.hessian_graph_analysis import get_all_node_scores
 
-from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
+from lib.hessian import lha_analysis
 from algorithms.topology_optimization import parameters_optimize_complete
 
 from problems.example.assets.functions import psd_

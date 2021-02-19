@@ -1,8 +1,5 @@
 import dill
 import networkx as nx
-import pathlib
-import itertools
-import networkx as nx
 import random
 import string
 import sys
@@ -10,7 +7,6 @@ import pathlib
 import platform
 import os
 import autograd.numpy as np
-import copy
 
 # adds the ASOPE directory on any OS
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
@@ -18,9 +14,7 @@ sep = ';' if platform.system() == 'Windows' else ':'
 os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
-from problems.example.assets.functions import fft_, ifft_, psd_, power_
-from problems.example.graph import Graph
-from problems.example.assets.propagator import Propagator
+from problems.example.assets.functions import psd_, power_
 
 
 class Model(object):
