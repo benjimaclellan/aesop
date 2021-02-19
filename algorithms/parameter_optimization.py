@@ -97,7 +97,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     elif method == 'L-BFGS+GA':
         if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
-        population_size = 30
+        population_size = 25
 
         if log_callback:
             logger.set_optimization_algorithm('GA', pop_size=population_size)
@@ -113,7 +113,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         res = scipy.optimize.minimize(fitness_funct, x, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 100},
+                                      options={'disp': verbose, 'maxiter': 50},
                                       jac=graph.grad)
 
 
