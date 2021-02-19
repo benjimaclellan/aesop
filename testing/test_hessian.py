@@ -16,7 +16,7 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 
 # from algorithms.parameter_random_search import parameters_random_search
 # from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from lib.hessian import get_hessian, lha_analysis
 

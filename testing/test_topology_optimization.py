@@ -31,7 +31,7 @@ from problems.example.node_types_subclasses.multi_path import VariablePowerSplit
 from problems.example.evolver import HessianProbabilityEvolver
 
 from algorithms.topology_optimization import topology_optimization
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 

@@ -25,7 +25,7 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
 from problems.example.node_types_subclasses.single_path import PhaseModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 

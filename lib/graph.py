@@ -22,7 +22,8 @@ from problems.example.assets.additive_noise import AdditiveNoise
 from lib.functions import scale_units
 from lib.autodiff_helpers import unwrap_arraybox_list
 
-from problems.example.node_types import TerminalSource, TerminalSink 
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+
 
 class Graph(GraphParent):
     """Parent class

@@ -27,7 +27,7 @@ from problems.example.assets.propagator import Propagator
 
 from problems.example.evolver import ProbabilityLookupEvolver
 
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 

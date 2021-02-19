@@ -23,7 +23,7 @@ from problems.example.node_types_subclasses.inputs import PulsedLaser
 from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import DispersiveFiber
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter, FrequencySplitter
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 plt.close('all')
 

@@ -13,7 +13,7 @@ from lib.minimal_save import extract_minimal_graph_info, build_from_minimal_grap
 
 from problems.example.assets.propagator import Propagator
 
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 

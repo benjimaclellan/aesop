@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from lib.graph import Graph
 
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import Photodiode

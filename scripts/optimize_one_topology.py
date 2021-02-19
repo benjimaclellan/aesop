@@ -14,7 +14,7 @@ from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
 from problems.example.node_types_subclasses.outputs import Photodiode
 from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from algorithms.parameter_optimization import parameters_optimize
 

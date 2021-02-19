@@ -27,7 +27,7 @@ from problems.example.assets.propagator import Propagator
 
 from problems.example.evolver import HessianProbabilityEvolver, ProbabilityLookupEvolver, OperatorBasedProbEvolver
 
-from problems.example.node_types import TerminalSource, TerminalSink
+from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 
@@ -45,12 +45,12 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput()
-    io.init_save_dir(sub_path='test_topology_and_hof_tracking', unique_id=False)
+    io.init_save_dir(sub_path='test_topology_and_hof_tracking', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     ga_opts = {'n_generations': 4,
-               'n_population': 6,
-               'n_hof': 3,
+               'n_population': 4,
+               'n_hof': 2,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
