@@ -22,7 +22,7 @@ from lib.functions import InputOutput
 from lib.graph import Graph
 from problems.example.assets.propagator import Propagator
 
-from problems.example.evolver import HessianProbabilityEvolver
+from problems.example.evolver import HessianProbabilityEvolver, OperatorBasedProbEvolver
 
 from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
@@ -50,10 +50,11 @@ if __name__ == '__main__':
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
-    propagator = Propagator(window_t=1e-9, n_samples=2**14, central_wl=1.55e-6)
+    propagator = Propagator(window_t=2e-9, n_samples=2**14, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9,
                                                  target_amplitude=0.02, target_waveform='saw',)
-    evolver = HessianProbabilityEvolver(verbose=False)
+    # evolver = HessianProbabilityEvolver(verbose=False)
+    evolver = OperatorBasedProbEvolver(verbose=False)
 
     pd = Photodiode()
     pd.protected = True
@@ -72,7 +73,7 @@ if __name__ == '__main__':
     update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='NULL',
+                                     parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

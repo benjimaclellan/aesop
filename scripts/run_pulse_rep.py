@@ -1,7 +1,5 @@
 """
-Test of topology optimization routines
 
-TODO: HoF should be taken prior to speciation!!!!!
 """
 
 # place main ASOPE directory on the path which will be accessed by all ray workers
@@ -37,7 +35,7 @@ from problems.example.node_types_subclasses.outputs import MeasurementDevice
 from problems.example.node_types_subclasses.single_path import PhaseModulator
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from algorithms.topology_optimization import topology_optimization
+from algorithms.topology_optimization import topology_optimization, save_hof, plot_hof
 
 from lib.functions import parse_command_line_args
 
@@ -45,19 +43,18 @@ plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput()
-    io.init_save_dir(sub_path='test_topology_and_hof_tracking', unique_id=True)
+    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
+    io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 4,
-               'n_population': 4,
-               'n_hof': 2,
+    ga_opts = {'n_generations': 8,
+               'n_population': 8,
+               'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
-    propagator = Propagator(window_t=100e-9, n_samples=2**14, central_wl=1.55e-6)
-
-    pulse_width, rep_t, peak_power = (0.3e-9, 20.0e-9, 1.0)
+    propagator = Propagator(window_t=4e-9, n_samples=2**15, central_wl=1.55e-6)
+    pulse_width, rep_t, peak_power = (3e-12, 1/10.0e9, 1.0)
     p, q = (1, 2)
 
     input_laser = PulsedLaser(parameters_from_name={'pulse_width': pulse_width, 'peak_power': peak_power,
@@ -86,12 +83,12 @@ if __name__ == '__main__':
 
     update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
-                                     parameter_opt_method='NULL',
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                     parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 
-    # save_hof(hof, io)
-    # plot_hof(hof, propagator, evaluator, io)
+    save_hof(hof, io)
+    plot_hof(hof, propagator, evaluator, io)
 
     fig, ax = plt.subplots(1, 1, figsize=[5, 3])
     ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
@@ -102,4 +99,4 @@ if __name__ == '__main__':
     ax.set(xlabel='Generation', ylabel='Cost')
     ax.legend()
 
-    # io.save_fig(fig, 'topology_log.png')
+    io.save_fig(fig, 'topology_log.png')
