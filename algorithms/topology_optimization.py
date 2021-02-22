@@ -93,7 +93,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
 
     t1 = time.time()
     for generation in range(1, ga_opts['n_generations']+1):
-        print(f'\ngeneration {generation} of {ga_opts["n_generations"]-1}: time elapsed {time.time()-t1}s')
+        print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
         if generation != 0: # we want population update, and selection rules to depend on the speciated fitness (as to favour rarer individuals)
             SPECIATION_MANAGER.speciate(population)

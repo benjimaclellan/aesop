@@ -50,7 +50,7 @@ if __name__ == '__main__':
         io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
 
         ga_opts = {'n_generations': 16,
-                   'n_population': 16,
+                   'n_population': 8,
                    'n_hof': 6,
                    'verbose': options_cl.verbose,
                    'num_cpus': psutil.cpu_count()-1}
