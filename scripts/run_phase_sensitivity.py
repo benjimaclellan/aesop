@@ -45,7 +45,7 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='phase_sensitivity', unique_id=True)
+    io.init_save_dir(sub_path='synopsis_phase_sensitivity_testing', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True

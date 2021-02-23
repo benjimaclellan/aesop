@@ -1,17 +1,15 @@
 #!/bin/sh
 
-
-FILES="
-run_pulse_rep.py
-"
-
 cd scripts
 
-for i in 1 2 3 4 5 6 7
+FILES="
+run_rfawg.py
+"
+for i in 1 2 3 4 5 6
 do
 	for f in $FILES
 	do
 		echo $f $i
-		python3 $f --dir 20210222_pulse_reps_synopsis
+		python3 $f --dir 20210223_awg_synopsis
 	done
 done
