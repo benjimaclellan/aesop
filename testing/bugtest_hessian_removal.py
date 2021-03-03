@@ -43,17 +43,17 @@ plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
-    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='rfawg', unique_id=False)
+    io = InputOutput(directory="bughunter2021", verbose=options_cl.verbose)
+    io.init_save_dir(sub_path=None, unique_id=False)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 12,
-               'n_population': 12,
+    ga_opts = {'n_generations': 20,
+               'n_population': 10,
                'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
-    propagator = Propagator(window_t=2e-9, n_samples=2**14, central_wl=1.55e-6)
+    propagator = Propagator(window_t=2e-9, n_samples=2**10, central_wl=1.55e-6)
     evaluator = RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9,
                                                  target_amplitude=0.02, target_waveform='saw',)
     evolver = HessianProbabilityEvolver(verbose=False)
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     update_rule = 'tournament'
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='L-BFGS+GA',
+                                     parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
     save_hof(hof, io)

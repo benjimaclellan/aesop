@@ -83,16 +83,16 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
     save_all_minimal_graph_data = True
     if save_all_minimal_graph_data:
         io.join_to_save_path("reduced_graphs").mkdir(parents=True, exist_ok=True)
-        save_minimal_graph_data_pop(population, io, gen=0, subfolder='reduced_graphs', filename_prefix='graph_')
+        save_minimal_graph_data_pop([(score, graph)], io, gen=0, subfolder='reduced_graphs', filename_prefix='graph_')
 
     # do we want to save a reduced file of each HoF graph throughout optimization?
     save_all_minimal_hof_data = True
     if save_all_minimal_hof_data:
         io.join_to_save_path("reduced_hof_graphs").mkdir(parents=True, exist_ok=True)
-        save_minimal_graph_data_pop(hof, io, gen=0, subfolder='reduced_hof_graphs', filename_prefix='hof_')
+        save_minimal_graph_data_pop([(score, graph)], io, gen=0, subfolder='reduced_hof_graphs', filename_prefix='hof_')
 
     t1 = time.time()
-    for generation in range(1, ga_opts['n_generations']+1):
+    for generation in range(0, ga_opts['n_generations']):
         print(f'\ngeneration {generation} of {ga_opts["n_generations"]}: time elapsed {time.time()-t1}s')
 
         if generation != 0: # we want population update, and selection rules to depend on the speciated fitness (as to favour rarer individuals)
@@ -133,9 +133,9 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         logbook_update(generation, population, log, log_metrics, time=(time.time()-t1), best=hof[0][0], verbose=ga_opts['verbose'])
 
         if save_all_minimal_graph_data:
-            save_minimal_graph_data_pop(population, io, gen=generation, subfolder='reduced_graphs', filename_prefix='graph_')
+            save_minimal_graph_data_pop(population, io, gen=generation+1, subfolder='reduced_graphs', filename_prefix='graph_')
         if save_all_minimal_hof_data:
-            save_minimal_graph_data_pop(hof, io, gen=generation, subfolder='reduced_hof_graphs', filename_prefix='hof_')
+            save_minimal_graph_data_pop(hof, io, gen=generation+1, subfolder='reduced_hof_graphs', filename_prefix='hof_')
 
     io.save_object(log, 'log.pkl')
 
@@ -152,6 +152,7 @@ def save_minimal_graph_data_pop(population, io, gen, subfolder='', filename_pref
         json_data = extract_minimal_graph_info(graph)
         json_data['current_uuid'] = graph.current_uuid.hex
         json_data['parent_uuid'] = graph.parent_uuid.hex
+        json_data['latest_mutation'] = graph.latest_mutation
         json_data['score'] = score
         io.save_json(json_data, filename)
 

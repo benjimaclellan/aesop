@@ -47,8 +47,8 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 8,
-               'n_population': 8,
+    ga_opts = {'n_generations': 12,
+               'n_population': 12,
                'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
@@ -67,8 +67,8 @@ if __name__ == '__main__':
     target = input_laser.get_pulse_train(propagator.t, pulse_width=pulse_width * (p / q), rep_t=rep_t * (p / q), peak_power=peak_power * (p / q))
     evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
-    # evolver = HessianProbabilityEvolver(verbose=False)
-    evolver = OperatorBasedProbEvolver(verbose=False)
+    evolver = HessianProbabilityEvolver(verbose=False)
+    # evolver = OperatorBasedProbEvolver(verbose=False)
 
     md = MeasurementDevice()
     md.protected = True

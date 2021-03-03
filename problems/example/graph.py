@@ -67,6 +67,7 @@ class Graph(GraphParent):
 
         graph.current_uuid = uuid4()
         graph.parent_uuid = uuid4()
+        graph.latest_mutation = 'INITIALIZATION'
 
         graph.score = None
         return graph

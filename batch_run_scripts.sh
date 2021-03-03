@@ -4,12 +4,13 @@ cd scripts
 
 FILES="
 run_rfawg.py
+run_pulse_rep.py
 "
-for i in 1 2 3 4 5 6
+for i in 1 2 3 4
 do
 	for f in $FILES
 	do
 		echo $f $i
-		python3 $f --dir 20210223_awg_synopsis
+		python3 $f --dir 20210302_test_hessian_fix
 	done
 done

@@ -24,7 +24,7 @@ def register_node_types_including_terminals(cls):
     Data structure is a dict, with keys as the parent nodetypes and values as a nested dict, mapping class name to
     class
     """
-    if cls.__base__.__name__ not in configuration.NODE_TYPES_ALL:
+    if cls.__base__.__name__ not in configuration.NODE_TYPES_ALL_WITH_TERMINALS:
         configuration.NODE_TYPES_ALL_WITH_TERMINALS[cls.__base__.__name__] = dict()
     configuration.NODE_TYPES_ALL_WITH_TERMINALS[cls.__base__.__name__][cls.__name__] = cls
     return cls

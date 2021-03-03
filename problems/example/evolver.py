@@ -82,6 +82,7 @@ class ProbabilityLookupEvolver(object):
 
         graph.parent_uuid = current_uuid
         graph.current_uuid = uuid.uuid4()
+        graph.latest_mutation = evo_op.__class__.__name__
 
         return graph, evo_op
 
