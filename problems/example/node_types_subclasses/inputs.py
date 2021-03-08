@@ -31,7 +31,7 @@ class PulsedLaser(SourceModel):
         self.lower_bounds = [None, 3e-11, 0.0001, 1/1e9, 1.54e-6, None, 0]
         self.data_types = ['str', 'float', 'float', 'float', 'float', 'bool', 'float']
         self.step_sizes = [None, None, None, None, None, None, None]
-        self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 0.01e-6, 1, 1]
+        self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 1e-10, 1, 1]
         self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None, unit.Hz]
         self.parameter_locks = [True, False, False, False, True, True, True]
         self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train', 'FWHM_linewidth']
@@ -91,7 +91,7 @@ class ContinuousWaveLaser(SourceModel):
         self.lower_bounds = [1.0e-8, 1.54e-6, 1.0, 0.0] # note, autograd has a 'divide by zero warning' when CW lower bound set to 0.0 exactly. use slightly above to avoid. (also physically valid too)
         self.data_types = ['float', 'float', 'float', 'float']
         self.step_sizes = [None, None, None, None]
-        self.parameter_imprecisions = [0.1, 0.01e-6, 0, 0]
+        self.parameter_imprecisions = [0.001e-3, 0.01e-6, 0, 0]
         self.parameter_units = [unit.W, unit.m, None, unit.Hz] # TODO: check whether we should use dB instead of None
         self.parameter_locks = [False, True, True, True]
         self.parameter_names = ['peak_power', 'central_wl', 'osnr_dB', 'FWHM_linewidth']
