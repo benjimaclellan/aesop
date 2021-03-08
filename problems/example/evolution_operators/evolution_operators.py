@@ -37,10 +37,14 @@ class AddSeriesComponent(EvolutionOperators):
         new_edge_model_name = new_edge_model.__class__.__name__
         new_node_model = random.sample(self.node_models, 1)[0]()
         new_node_model_name = new_node_model.__class__.__name__
+
+        print(f'add series node: {new_node_model_name}, add series edge: {new_edge_model_name}')
+
         node_id = graph.get_next_valid_node_ID()
         # 2. Save previous edge model / other info
         interface_edge_dict = graph.edges[interface.edge]
 
+        print(f"what's in the inferface_edge_dict? {interface_edge_dict}")
         # 3. Add node and edge, and connect properly
         graph.add_node(node_id, **{'model':new_node_model, 'name': new_node_model_name, 'lock': False})
         edge_dict = {'model':new_edge_model, 'name':new_edge_model_name, 'lock':False}
@@ -59,7 +63,7 @@ class AddSeriesComponent(EvolutionOperators):
         if self.verbose:
             print(f"Evo Op: AddSeriesComponent | Added edge ({new_edge_model_name}) and node ({new_node_model_name}) \
                     at the interface between node {interface.node} and edge {interface.edge}")
-
+        print(f"So we're in the AddSeries now, with a {type(new_edge_model)} added")
         return graph
 
     def possible_evo_locations(self, graph):
@@ -93,6 +97,9 @@ class AddParallelComponent(EvolutionOperators):
     def apply_evolution(self, graph, node_tuple):
         new_edge_model = random.sample(self.edge_models, 1)[0]()
         new_edge_model_name = new_edge_model.__class__.__name__
+
+        print(f"add parallel: {new_edge_model_name}")
+
         graph.add_edge(node_tuple[0], node_tuple[1], **{'model':new_edge_model, 'name':new_edge_model_name, 'lock':False})
         
         if self.verbose:
@@ -138,6 +145,9 @@ class RemoveComponent(EvolutionOperators):
         # 1. Remove the edge
         # TODO: fix such that the edges have a hashable key
         edge_model_name = graph.edges[interface.edge]['model'].__class__.__name__
+
+        print(f"remove edge: {edge_model_name}")
+
         graph.remove_edge(interface.edge[0], interface.edge[1])
 
         merged_nodes = False
@@ -182,11 +192,11 @@ class SwapComponent(EvolutionOperators):
         return
     
     def apply_evolution(self, graph, node_edge):
-        if node_edge in graph.nodes: # swap node
+        if node_edge in graph.nodes:  # swap node
             initial_model_name = graph.nodes[node_edge]['model'].__class__.__name__
             node_set = self.node_models - set([graph.nodes[node_edge]['model'].__class__])
             new_model_name = self._swap_component(graph, node_edge, node_set, True)
-        else: # swap edge
+        else:  # swap edge
             initial_model = graph.edges[node_edge]['model'].__class__
             initial_model_name = initial_model.__name__
             if graph.nodes[node_edge[0]]['model']._node_type == 'source node':
@@ -198,6 +208,8 @@ class SwapComponent(EvolutionOperators):
             else:
                 edge_set = self.edge_models - set([initial_model])
                 new_model_name = self._swap_component(graph, node_edge, edge_set, False)
+                print(f'swap edge set = {edge_set}')
+        print(f"swap model: {initial_model_name} to {new_model_name}")
 
         if self.verbose:
             print(f"Evo Op: SwapComponent | Swapped model at {node_edge} from {initial_model_name} to {new_model_name}")

@@ -19,6 +19,7 @@ from problems.example.evolution_operators.evolution_operators import AddSeriesCo
 # TODO: fix the reinforcement learning one...
 # TODO: stop regenerating the probability matrix each time: this is wasteful when we update it multiple times in a generation (i.e. for multiple children of the same graph)
 
+
 class ProbabilityLookupEvolver(object):
     """
     Evolver object will take in and update graphs based on a stochastic probability matrix
@@ -60,7 +61,6 @@ class ProbabilityLookupEvolver(object):
         if self.debug:
             print(f'evolution probability matrix for graph {graph}')
             print(graph.evo_probabilities_matrix)
-            print()
 
         node_or_edge, evo_op = graph.evo_probabilities_matrix.sample_matrix()
         graph = evo_op.apply_evolution(graph, node_or_edge)
@@ -78,7 +78,8 @@ class ProbabilityLookupEvolver(object):
         x, *_, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
 
         assert np.logical_and(lower_bounds <= x, x <= upper_bounds).all(), f'lower bound: {lower_bounds}\n params: {x}\n upperbounds: {upper_bounds}' #' \n pre-swap param: {pre_swap_params}\n new_node params: {list(zip(new_model.parameter_names, new_model.parameters))}'
-        print(f'Evolver has chosen: {evo_op}')
+        print(f'Evolver has chosen: {evo_op} | {node_or_edge}')
+        # print(graph.nodes[node_or_edge.node])
 
         graph.parent_uuid = current_uuid
         graph.current_uuid = uuid.uuid4()

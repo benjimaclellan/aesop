@@ -40,6 +40,8 @@ from algorithms.topology_optimization import topology_optimization, plot_hof, sa
 
 from lib.functions import parse_command_line_args
 
+np.random.seed(0)
+
 plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
@@ -83,26 +85,17 @@ if __name__ == '__main__':
     graph.assert_number_of_edges()
     graph.initialize_func_grad_hess(propagator, evaluator)
 
-    update_rule = 'tournament'
-    #%%
-
-    hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
-                                     parameter_opt_method='NULL',
-                                     include_dashboard=False, crossover_maker=None)
-
-    hof[1][1].draw()
-
-    save_hof(hof, io)
-    plot_hof(hof, propagator, evaluator, io)
-
-    fig, ax = plt.subplots(1, 1, figsize=[5, 3])
-    ax.fill_between(log['generation'], log['best'], log['mean'], color='grey', alpha=0.2)
-    ax.plot(log['generation'], log['best'], label='Best')
-    ax.plot(log['generation'], log['mean'], label='Population mean')
-    ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
-    ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
-    ax.set(xlabel='Generation', ylabel='Cost')
-    ax.legend()
-
-    io.save_fig(fig, 'topology_log.png')
+    stop = ''
+    while stop == '':
+    # for _ in range(2000):
+        graph_tmp = copy.deepcopy(graph)
+        evolver.create_graph_matrix(graph, evaluator)
+        graph, node_or_edge = evolver.evolve_graph(graph, evaluator)
+        print(graph)
+        phase_models = [graph.edges[edge]['model'] for edge in graph.edges if type(graph.edges[edge]['model']) == type(phase_shifter)]
+        if len(phase_models) != 1:
+            fig, axs = plt.subplots(1, 2)
+            graph.draw(ax=axs[1])
+            graph_tmp.draw(ax=axs[0])
+            raise ValueError('not the right number of phase shifters')
+        stop = input()

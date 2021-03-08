@@ -4,8 +4,11 @@ sys.path.append('..')
 
 import matplotlib.pyplot as plt
 import numpy as np
+from config import config as configuration
 
 from lib.graph import Graph
+from lib.functions import InputOutput
+
 from problems.example.assets.propagator import Propagator
 from problems.example.assets.functions import psd_, power_
 
@@ -23,6 +26,10 @@ from problems.example.assets.additive_noise import AdditiveNoise
 plt.close('all')
 if __name__ == "__main__":
     AdditiveNoise.simulate_with_noise = False
+
+    io = InputOutput()
+    io.init_save_dir(sub_path='simple_phase_sensitivity', unique_id=False)
+
     propagator = Propagator(window_t=100e-9, n_samples=2**14, central_wl=1.55e-6)
 
     PhaseShifter.protected = True
@@ -39,7 +46,7 @@ if __name__ == "__main__":
              1: VariablePowerSplitter(),
              'sink': TerminalSink()}
 
-    edges = {('source', 0, 0): ContinuousWaveLaser(),
+    edges = {('source', 0, 0): ContinuousWaveLaser(parameters=[0.001]),
              (0, 1, 0): phase_shifter,
              (0, 1, 1): DispersiveFiber(parameters=[0]),
              (1, 'sink', 1): Photodiode(),
@@ -51,7 +58,7 @@ if __name__ == "__main__":
 
     graph.propagate(propagator)
 
-    phases = np.linspace(0, 2*np.pi, 5)
+    phases = np.linspace(0, 2*np.pi, 30)
     powers = np.zeros_like(phases)
     for i, phase in enumerate(phases):
         phase_shifter.parameters = [phase]
