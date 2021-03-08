@@ -49,9 +49,9 @@ if __name__ == '__main__':
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 12,
+    ga_opts = {'n_generations': 6,
                'n_population': 6,
-               'n_hof': 6,
+               'n_hof': 4,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     #%%
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                     ga_opts=ga_opts, local_mode=True, update_rule=update_rule,
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 

@@ -40,7 +40,7 @@ from algorithms.topology_optimization import topology_optimization, plot_hof, sa
 
 from lib.functions import parse_command_line_args
 
-np.random.seed(0)
+# np.random.seed(10)
 
 plt.close('all')
 if __name__ == '__main__':
@@ -69,33 +69,34 @@ if __name__ == '__main__':
     # evolver = HessianProbabilityEvolver(verbose=False)
     evolver = OperatorBasedProbEvolver(verbose=False)
 
-    nodes = {'source': TerminalSource(),
-             0: VariablePowerSplitter(),
-             1: VariablePowerSplitter(),
-             'sink': TerminalSink()}
+    for _i in range(10):
+        nodes = {'source': TerminalSource(),
+                 0: VariablePowerSplitter(),
+                 1: VariablePowerSplitter(),
+                 'sink': TerminalSink()}
 
-    edges = {('source', 0): ContinuousWaveLaser(),
-             (0, 1, 0): phase_shifter,
-             (1, 'sink', 0): md,
-             }
-    evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter())
+        edges = {('source', 0): ContinuousWaveLaser(),
+                 (0, 1, 0): phase_shifter,
+                 (1, 'sink', 0): md,
+                 }
+        evaluator = PhaseSensitivity(propagator, phase=phase, phase_model=PhaseShifter())
 
-    graph = Graph.init_graph(nodes=nodes, edges=edges)
+        graph = Graph.init_graph(nodes=nodes, edges=edges)
 
-    graph.assert_number_of_edges()
-    graph.initialize_func_grad_hess(propagator, evaluator)
+        graph.assert_number_of_edges()
+        graph.initialize_func_grad_hess(propagator, evaluator)
 
-    stop = ''
-    while stop == '':
-    # for _ in range(2000):
-        graph_tmp = copy.deepcopy(graph)
-        evolver.create_graph_matrix(graph, evaluator)
-        graph, node_or_edge = evolver.evolve_graph(graph, evaluator)
-        print(graph)
-        phase_models = [graph.edges[edge]['model'] for edge in graph.edges if type(graph.edges[edge]['model']) == type(phase_shifter)]
-        if len(phase_models) != 1:
-            fig, axs = plt.subplots(1, 2)
-            graph.draw(ax=axs[1])
-            graph_tmp.draw(ax=axs[0])
-            raise ValueError('not the right number of phase shifters')
-        stop = input()
+        stop = ''
+        # while stop == '':
+        for _j in range(100):
+            graph_tmp = copy.deepcopy(graph)
+            evolver.create_graph_matrix(graph, evaluator)
+            graph, node_or_edge = evolver.evolve_graph(graph, evaluator)
+            print(graph)
+            phase_models = [graph.edges[edge]['model'] for edge in graph.edges if type(graph.edges[edge]['model']) == type(phase_shifter)]
+            if len(phase_models) != 1:
+                fig, axs = plt.subplots(1, 2)
+                graph.draw(ax=axs[1])
+                graph_tmp.draw(ax=axs[0])
+                raise ValueError('not the right number of phase shifters')
+            # stop = input()
