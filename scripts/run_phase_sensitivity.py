@@ -45,13 +45,13 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io.init_save_dir(sub_path='phase_sensitivity_test', unique_id=False)
+    io.init_save_dir(sub_path='phase_sensitivity', unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     PhaseShifter.protected = True
-    ga_opts = {'n_generations': 6,
-               'n_population': 6,
-               'n_hof': 4,
+    ga_opts = {'n_generations': 12,
+               'n_population': 12,
+               'n_hof': 6,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -64,8 +64,8 @@ if __name__ == '__main__':
     md = MeasurementDevice()
     md.protected = True
 
-    # evolver = HessianProbabilityEvolver(verbose=False)
-    evolver = OperatorBasedProbEvolver(verbose=False)
+    evolver = HessianProbabilityEvolver(verbose=False)
+    # evolver = OperatorBasedProbEvolver(verbose=False)
 
     nodes = {'source': TerminalSource(),
              0: VariablePowerSplitter(),
@@ -88,7 +88,7 @@ if __name__ == '__main__':
 
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                     parameter_opt_method='NULL',
+                                     parameter_opt_method='L-BFGS+GA',
                                      include_dashboard=False, crossover_maker=None)
 
     hof[1][1].draw()
