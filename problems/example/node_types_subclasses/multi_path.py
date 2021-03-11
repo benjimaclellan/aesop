@@ -66,7 +66,7 @@ class VariablePowerSplitter(MultiPath):
         X = np.matmul(np.expand_dims(np.sqrt(np.array(w)), axis=1), np.expand_dims(np.ones_like(i), axis=0))
         if DEBUG: print(X)
 
-        S = X * np.exp(1j * np.pi * (I + J))
+        S = X * np.exp(1j * np.pi * (I + J)) / np.sqrt(num_outputs)
         if DEBUG: print(S)
         states_tmp = np.stack(states, 1)
 

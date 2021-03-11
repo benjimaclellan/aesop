@@ -122,6 +122,33 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         return graph, x, graph.func(x), logger
 
+    elif method == 'CHEAP':
+        if verbose: print("USING A VERY CHEAP PARAMETER OPTIMIZATION, JUST FOR TESTING SLIGHTLY MORE THAN NULL")
+
+        # population_size = 5
+        #
+        # if log_callback:
+        #     logger.set_optimization_algorithm('GA', pop_size=population_size)
+        #     logger.start_logger_time()
+        #
+        # x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
+        #                                         logger=(logger if log_callback else None),
+        #                                         n_generations=3, n_population=population_size, rate_mut=0.8,
+        #                                         rate_crx=0.35, verbose=verbose)
+        x = x0
+        if log_callback:
+            logger.set_optimization_algorithm('L-BFGS')
+
+        res = scipy.optimize.minimize(fitness_funct, x, method='L-BFGS-B',
+                                      bounds=list(zip(lower_bounds, upper_bounds)),
+                                      options={'disp': verbose, 'maxiter': 5},
+                                      jac=graph.grad)
+
+        graph.distribute_parameters_from_list(res.x, models, parameter_index)
+        x = res.x
+
+        return graph, x, graph.func(x), logger
+
     elif method == 'PSO':
         if verbose: print("Parameter optimization: PSO algorithm")
       

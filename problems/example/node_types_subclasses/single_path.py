@@ -14,7 +14,7 @@ from lib.base_classes import NodeType
 
 
 # from ..assets.decorators import register_node_types_all
-from ..assets.decorators import register_node_types_all
+from ..assets.decorators import register_node_types_all, register_node_types_including_terminals
 from ..assets.functions import fft_, ifft_, psd_, power_, ifft_shift_, dB_to_amplitude_ratio
 from ..assets.additive_noise import AdditiveNoise
 
@@ -715,7 +715,7 @@ class DelayLine(SinglePath):
 
 
 
-
+@register_node_types_including_terminals
 class PhaseShifter(NodeType):
     """
     This will be used in ASOPE to search for 'sensing' setups, i.e. ones for which an objective function has the largest
@@ -725,7 +725,7 @@ class PhaseShifter(NodeType):
     number_of_parameters = 1
 
     def __init__(self, **kwargs):
-        self.node_lock = True
+        self.node_lock = False
         self._node_type = "signal node"
 
         self._range_input_edges = (1, 1)  # minimum, maximum number of input edges, may be changed in children
@@ -740,7 +740,7 @@ class PhaseShifter(NodeType):
         self.step_sizes = [None]
         self.parameter_imprecisions = [0.1*np.pi]
         self.parameter_units = [unit.rad]
-        self.parameter_locks = [True]
+        self.parameter_locks = [False]
         self.parameter_names = ['phase']
         self.parameter_symbols = [r"$x_{\phi}$"]
 
@@ -754,12 +754,14 @@ class PhaseShifter(NodeType):
     def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
 
         phase = self.parameters[0]
+        # delay = propagator.central_wl / (2.0 * np.pi) * phase
+        # length = (propagator.speed_of_light / self._n) * delay
+        # beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
+        # state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
 
-        delay = propagator.central_wl / (2.0 * np.pi) * phase
-        length = (propagator.speed_of_light / self._n) * delay
-        beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
-        state = ifft_(np.exp(1j * ifft_shift_(beta * length, ax=0)) * fft_(state, propagator.dt), propagator.dt)
-        state = state * dB_to_amplitude_ratio(self._loss_dB)
+        state = ifft_(np.exp(1j * phase) * fft_(state, propagator.dt), propagator.dt)
+
+        # state = state #* dB_to_amplitude_ratio(self._loss_dB)
         if save_transforms:
             transform = np.zeros_like(propagator.t).astype('float')
             transform[(np.abs(propagator.t - (-delay))).argmin()] = 1

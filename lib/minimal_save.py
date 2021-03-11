@@ -9,7 +9,10 @@ import json
 import config.config as configuration
 
 from lib.graph import Graph
-
+from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
+from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
+from problems.example.node_types_subclasses.outputs import Photodiode
+from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 
 # flatten a nested dictionary, will be used to flatten dictionary of model-name:model-object information in config
 def flatten(d, parent_key='', sep='_'):

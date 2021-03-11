@@ -24,7 +24,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           crossover_maker=None, parameter_opt_method='L-BFGS+GA',
                           ga_opts=None, update_rule='random', elitism_ratio=0,
                           target_species_num=4, protection_half_life=None,
-                          cluster_address=None, local_mode=False, include_dashboard=False):
+                          cluster_address=None, local_mode=False, include_dashboard=False,
+                          save_all_minimal_graph_data=True, save_all_minimal_hof_data=True):
     io.init_logging()
     log, log_metrics = logbook_initialize()
 
@@ -80,13 +81,11 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
         population.append((score, copy.deepcopy(graph)))
 
     # do we want to save a reduced file of each graph throughout optimization?
-    save_all_minimal_graph_data = True
     if save_all_minimal_graph_data:
         io.join_to_save_path("reduced_graphs").mkdir(parents=True, exist_ok=True)
         save_minimal_graph_data_pop([(score, graph)], io, gen=0, subfolder='reduced_graphs', filename_prefix='graph_')
 
     # do we want to save a reduced file of each HoF graph throughout optimization?
-    save_all_minimal_hof_data = True
     if save_all_minimal_hof_data:
         io.join_to_save_path("reduced_hof_graphs").mkdir(parents=True, exist_ok=True)
         save_minimal_graph_data_pop([(score, graph)], io, gen=0, subfolder='reduced_hof_graphs', filename_prefix='hof_')
