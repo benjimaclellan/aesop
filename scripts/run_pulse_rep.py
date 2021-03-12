@@ -47,9 +47,9 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
-    ga_opts = {'n_generations': 12,
-               'n_population': 12,
-               'n_hof': 6,
+    ga_opts = {'n_generations': 22,
+               'n_population': 20,
+               'n_hof': 20,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -85,7 +85,8 @@ if __name__ == '__main__':
     hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
                                      ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
                                      parameter_opt_method='L-BFGS+GA',
-                                     include_dashboard=False, crossover_maker=None)
+                                     include_dashboard=False, crossover_maker=None,
+                                     ged_threshold_value=0.8)
 
     save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)

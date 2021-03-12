@@ -52,7 +52,7 @@ def edge_match(e1, e2):
     if type(e1['model']) == type(e2['model']):
         cost = 0.0
     else:
-        cost = 2.0
+        cost = 1.0
     return cost
 
 def node_match(e1, e2):

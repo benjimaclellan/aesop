@@ -25,7 +25,8 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                           ga_opts=None, update_rule='random', elitism_ratio=0,
                           target_species_num=4, protection_half_life=None,
                           cluster_address=None, local_mode=False, include_dashboard=False,
-                          save_all_minimal_graph_data=True, save_all_minimal_hof_data=True):
+                          save_all_minimal_graph_data=True, save_all_minimal_hof_data=True,
+                          ged_threshold_value=1.5):
     io.init_logging()
     log, log_metrics = logbook_initialize()
 
@@ -118,7 +119,7 @@ def topology_optimization(graph, propagator, evaluator, evolver, io,
                                                                       verbose=ga_opts['verbose'])
                               for ind in population])
         save_scores_to_graph(population) # necessary for some algorithms
-        hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose']) # update before speciation, since we don't want this hof score affected by speciation
+        hof = update_hof(hof=hof, population=population, verbose=ga_opts['verbose'], threshold_value=ged_threshold_value) # update before speciation, since we don't want this hof score affected by speciation
 
         SPECIATION_MANAGER.speciate(population) # we want the elements for the next generation to be picked as to maintain genetic diversity
         SPECIATION_MANAGER.execute_fitness_sharing(population, generation)
