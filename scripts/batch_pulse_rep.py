@@ -38,9 +38,9 @@ if __name__ == '__main__':
         dict(pq=(1, 3), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
     ]
 
-    ga_opts = {'n_generations': 6,
-               'n_population': 4,
-               'n_hof': 6,
+    ga_opts = {'n_generations': 12,
+               'n_population': 10,
+               'n_hof': 10,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
