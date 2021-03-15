@@ -65,8 +65,8 @@ class DispersiveFiber(SinglePath):
         # D_lambda = self._S0 / 4.0 * (_lambda - self._zdw0 ** 4.0 / _lambda ** 3.0)
         # beta_2 = _lambda**2.0 * D_lambda / (-2.0 * np.pi * speed_of_light)
 
-        # beta_2 = self._beta2_experimental # simple description
-        beta_2 = -22 * 1e-12 * 1e-12 / (1e3) # simple description
+        beta_2 = self._beta2_experimental # simple description
+        # beta_2 = -22 * 1e-12 * 1e-12 / (1e3) # simple description
         propagation_constant = length * beta_2 * np.power(2 * np.pi * (propagator.f), 2)
         if save_transforms:
             self.transform = (('f', D_lambda, r'D(lambda)'),)

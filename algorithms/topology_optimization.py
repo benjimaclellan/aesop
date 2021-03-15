@@ -569,9 +569,13 @@ def parameters_optimize_multiprocess(ind, evaluator, propagator, method='NULL', 
     return parameters_optimize_complete(ind, evaluator, propagator, method=method, verbose=verbose)
 
 
-def save_hof(hof, io):
+def save_hof(hof, io, type='full'):
     for i, (score, graph) in enumerate(hof):
-        io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
+        if type == 'full':
+            io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
+        elif type == 'minimal':
+            raise Warning('Not implemented, reverting to full save')
+            io.save_object(object_to_save=graph.duplicate_and_simplify_graph(graph), filename=f"graph_hof{i}.pkl")
     return
 
 

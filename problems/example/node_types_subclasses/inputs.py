@@ -48,7 +48,7 @@ class PulsedLaser(SourceModel):
     def get_pulse_train(self, t, pulse_width, rep_t, peak_power, pulse_shape='gaussian'):
         wrapped_t = np.sin(np.pi * t / rep_t)
         unwrapped_t = np.arcsin(wrapped_t) * rep_t / np.pi
-
+        pulse_width = pulse_width / (2 * np.sqrt(np.log(2)))
         if pulse_shape == 'gaussian':
             pulse = self.gaussian(unwrapped_t, pulse_width)
         elif pulse_shape == 'sech':
@@ -70,7 +70,7 @@ class PulsedLaser(SourceModel):
 
     def propagate(self, state, propagator, save_transforms=False):
         self.set_parameters_as_attr()
-        pulse_width = self._pulse_width / (2*np.sqrt(np.log(2)))  # check the scaling between envelope FWHM and power FWHM for Gaussian
+        pulse_width = self._pulse_width #/ (2*np.sqrt(np.log(2)))  # check the scaling between envelope FWHM and power FWHM for Gaussian
         state = self.get_pulse_train(propagator.t, pulse_width, self._t_rep, self._peak_power, pulse_shape=self._pulse_shape)
         return state
 

@@ -12,6 +12,8 @@ sys.path.append(parent_dir)
 # various imports
 import matplotlib.pyplot as plt
 import psutil
+from scipy.signal import square
+import numpy as np
 
 from problems.example.node_types_subclasses import *
 
@@ -34,24 +36,25 @@ if __name__ == '__main__':
 
     propagator = Propagator(window_t=1e-9, n_samples=2**14, central_wl=1.55e-6)
 
+    def pattern1(t, amplitude, frequency):
+        sig=amplitude * ((square(2 * np.pi * t * frequency, 0.5) + 1) / 2 +
+                         (square(2 * np.pi * t * frequency + 0.5 * np.pi, 0.5) + 1) / 2) / 2
+        return sig
+
     evaluators = [RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9, target_amplitude=0.02,
                                                    target_waveform='square',),
                   RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9, target_amplitude=0.02,
                                                    target_waveform='saw', ),
                   RadioFrequencyWaveformGeneration(propagator, target_harmonic=24e9, target_amplitude=0.02,
-                                                   target_waveform='square', ),
-                  RadioFrequencyWaveformGeneration(propagator, target_harmonic=36e9, target_amplitude=0.02,
-                                                   target_waveform='saw', ),
-                  RadioFrequencyWaveformGeneration(propagator, target_harmonic=10e9, target_amplitude=0.04,
-                                                   target_waveform='saw', )
+                                                   target_waveform=pattern1(propagator.t, 0.02, 12e9),),
                   ]
 
     for evaluator in evaluators:
         io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
 
         ga_opts = {'n_generations': 16,
-                   'n_population': 8,
-                   'n_hof': 6,
+                   'n_population': 10,
+                   'n_hof': 8,
                    'verbose': options_cl.verbose,
                    'num_cpus': psutil.cpu_count()-1}
 

@@ -17,8 +17,9 @@ class PulseRepetition(Evaluator):
         super().__init__(**kwargs)
         self.evaluation_node = evaluation_node
         self.target = target
-        self.target_power = power_(target)
-        self.pulse_width = pulse_width # pulse width in s
+        # self.target_power = power_(target)
+        self.target_power = np.abs(target)
+        self.pulse_width = pulse_width  # pulse width in s
         self.rep_t = rep_t  # target pattern repetition time in s
         self.peak_power = peak_power # peak power
         self.rep_f = 1.0/self.rep_t  # target reprate in Hz
@@ -52,6 +53,7 @@ class PulseRepetition(Evaluator):
 
     @staticmethod
     def similarity_l2_norm(x_, y_):
+        # return np.sum(np.power(x_ - y_, 2))
         return np.sum(np.power(x_ - y_, 2))
 
     def waveform_temporal_similarity(self, state, propagator):
@@ -60,10 +62,9 @@ class PulseRepetition(Evaluator):
         similarity = similarity_func(shifted, self.target_power)
         return similarity
 
-
-
     def shift_function(self, state, propagator):
-        state_power = power_(state)
+        # state_power = power_(state)
+        state_power = state
         state_rf = np.fft.fft(state_power, axis=0)
 
         if (state_rf[self.target_harmonic_ind] == 0):

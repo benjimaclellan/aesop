@@ -50,7 +50,7 @@ class AdditiveNoise():
         :raises ValueError if (1) non-gaussian distribution is requested
                               (2) noise_type is not 'osnr', 'absolute power', 'edfa ASE', 'rms', 'shot', 'FWHM linewidth', 'phase noise from linewidth'
         """
-        self._propagator = None # defined the first time that noise is added to the propagation
+        self._propagator = None  # defined the first time that noise is added to the propagation
         
         self._seed = seed # can't actually seed it now because we have no idea what random calls will come between initialization and the first call to add_noise_to_propagate
     
