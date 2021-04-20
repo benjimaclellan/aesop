@@ -49,7 +49,7 @@ def run_experiment(evaluator, propagator, io, evolver, ga_opts):
                                      # parameter_opt_method='NULL',
                                      include_dashboard=False, crossover_maker=None)
 
-    save_hof(hof, io)
+    # save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)
 
     fig, ax = plt.subplots(1, 1, figsize=[5,3])

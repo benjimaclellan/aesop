@@ -27,6 +27,10 @@ class RadioFrequencyWaveformGeneration(Evaluator):
         if type(target_waveform) == str:
             if target_waveform == 'saw':
                 waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.0) + 1)
+            if target_waveform == 'other-saw':
+                waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 1.0) + 1)
+            elif target_waveform == 'tri':
+                waveform = 0.5 * (signal.sawtooth(2 * np.pi * self.target_harmonic * propagator.t, 0.5) + 1)
             elif target_waveform == 'square':
                 waveform = 0.5 * (signal.square(2 * np.pi * self.target_harmonic * propagator.t, 0.5) + 1)
             else:

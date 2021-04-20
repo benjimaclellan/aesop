@@ -45,15 +45,17 @@ if __name__ == '__main__':
                                                    target_waveform='square',),
                   RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9, target_amplitude=0.02,
                                                    target_waveform='saw', ),
-                  RadioFrequencyWaveformGeneration(propagator, target_harmonic=24e9, target_amplitude=0.02,
-                                                   target_waveform=pattern1(propagator.t, 0.02, 12e9),),
+                  RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9, target_amplitude=0.02,
+                                                   target_waveform='tri',),
+                  RadioFrequencyWaveformGeneration(propagator, target_harmonic=12e9, target_amplitude=0.02,
+                                                   target_waveform='other-saw',),
                   ]
 
     for evaluator in evaluators:
         io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
 
-        ga_opts = {'n_generations': 16,
-                   'n_population': 10,
+        ga_opts = {'n_generations': 12,
+                   'n_population': 12,
                    'n_hof': 8,
                    'verbose': options_cl.verbose,
                    'num_cpus': psutil.cpu_count()-1}
