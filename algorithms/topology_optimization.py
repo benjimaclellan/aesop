@@ -593,7 +593,7 @@ def plot_hof(hof, propagator, evaluator, io):
 
         graph.draw(ax=axs[i, 0], debug=False)
         axs[i, 1].plot(propagator.t, evaluator.target, label='Target')
-        axs[i, 1].plot(propagator.t, np.power(np.abs(state), 2), label='Solution')
+        axs[i, 1].plot(propagator.t, np.abs(state), label='Solution')
         axs[i, 2].set(xticks=[], yticks=[])
         axs[i, 2].grid = False
         axs[i, 2].annotate("Score:\n{:2.3e}".format(score), xy=[0.5, 0.5], xycoords='axes fraction', va='center', ha='center')
