@@ -7,6 +7,7 @@ import pathlib
 import platform
 import os
 import autograd.numpy as np
+import json
 
 # adds the ASOPE directory on any OS
 parent_dir = str(pathlib.Path(__file__).absolute().parent.parent)
@@ -15,6 +16,45 @@ os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
 from problems.example.assets.functions import psd_, power_
+from lib.minimal_save import build_from_minimal_graph_info
+
+
+#%%
+def load_one_minimal_graph(file=None):
+    with open(file, 'rb') as f:
+        graph_json = json.load(f)
+    return build_from_minimal_graph_info(graph_json)
+
+# %% save various parts of
+def load_single_object(directory=None, file=None, verbose=True):
+    """
+
+    :param directory: the relative data directory. should nto include a filename
+    :param file: filename string
+    :param verbose: boolean flag for print statements
+    :return:
+    """
+    filepath_raw = pathlib.Path(directory).joinpath(file)
+    # check if it is a reduced graph or full pickle, load accordingly
+    if filepath_raw.suffix == '.json':
+        # this is a reduced graph
+        if verbose:
+            print(f'Loading JSON object from {str(filepath_raw)}')
+        with open(filepath_raw, 'rb') as f:
+            json_data = json.load(f)
+        obj_tmp = build_from_minimal_graph_info(json_data)
+
+    elif filepath_raw.suffix == '.pkl':
+        # it is a full pickled object
+        if verbose:
+            print(f'Loading pickle object from {str(filepath_raw)}')
+        with open(filepath_raw, 'rb') as f:
+            obj_tmp = dill.load(f)
+
+    else:
+        UserWarning('This is not a valid graph datatype. Please check the file path.', filepath_raw)
+
+    return obj_tmp
 
 
 class Model(object):
@@ -22,7 +62,7 @@ class Model(object):
     The Model class is the only one which interacts directly with ASOPE.
     It stores the graph, propagator, etc. objects.
     """
-    verbose = True
+    verbose = False
 
     def __init__(self):
         self.graph = None
@@ -41,11 +81,15 @@ class Model(object):
         self.plot_edge_data = {}
         return
 
-    def load_new_graph(self, filepath):
+    def load_new_graph(self, folder, file):
         # loads a graph from a filename
-        if self.verbose: print(f'Loading graph from {filepath}')
-        with open(filepath, 'rb') as file:
-            full_graph = dill.load(file)
+        # graph_filename = pathlib.Path(folder).joinpath(file)
+        # if self.verbose: print(f'Loading graph from {graph_filename}')
+        # with open(graph_filename, 'rb') as file:
+        #     full_graph = dill.load(file)
+
+        full_graph = load_single_object(directory=folder, file=file, verbose=True)
+
         graph = nx.convert_node_labels_to_integers(full_graph, first_label=0, ordering='default', label_attribute=None)
 
         model_type_counts = {}
@@ -62,14 +106,14 @@ class Model(object):
             model.components_name_numbers = model.number_of_parameters * [f'{model.node_acronym}{model_type_counts[model_type]}']
             model.components_name_number = f'{model.node_acronym}{model_type_counts[model_type]}'
 
-        prop_filepath = pathlib.Path(filepath).parent.joinpath('propagator.pkl')
+        prop_filepath = pathlib.Path(folder).joinpath('propagator.pkl')
         if self.verbose: print(f"Loading propagator from {prop_filepath}")
         with open(prop_filepath, 'rb') as file:
             propagator = dill.load(file)
 
-        prop_filepath = pathlib.Path(filepath).parent.joinpath('evaluator.pkl')
-        if self.verbose: print(f"Loading evaluator from {prop_filepath}")
-        with open(prop_filepath, 'rb') as file:
+        eval_filepath = pathlib.Path(folder).joinpath('evaluator.pkl')
+        if self.verbose: print(f"Loading evaluator from {eval_filepath}")
+        with open(eval_filepath, 'rb') as file:
             evaluator = dill.load(file)
 
         graph.initialize_func_grad_hess(propagator, evaluator)

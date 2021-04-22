@@ -52,7 +52,7 @@ def run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, par
                                      parameter_opt_method=param_opt,
                                      include_dashboard=False, crossover_maker=None)
 
-    save_hof(hof, io)
+    # save_hof(hof, io)
     plot_hof(hof, propagator, evaluator, io)
 
     fig, ax = plt.subplots(1, 1, figsize=[5, 3])
@@ -61,7 +61,6 @@ def run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, par
     ax.plot(log['generation'], log['mean'], label='Population mean')
     ax.plot(log['generation'], log['minimum'], color='darkgrey', label='Population minimum')
     ax.plot(log['generation'], log['maximum'], color='black', label='Population maximum')
-    ax.set(xlabel='Generation', ylabel='Cost')
     ax.legend()
 
     io.save_fig(fig, 'topology_log.png')

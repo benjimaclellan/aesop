@@ -24,11 +24,11 @@ class Controller(object):
 
         return
 
-    def load_new_graph(self, filepath):
+    def load_new_graph(self, folder, file):
         if self.verbose: print('Loading new graph')
-        if type(filepath) is not str:
+        if type(folder) is not str:
             raise TypeError('Cannot load graph, filepath must be a string')
-        self.model.load_new_graph(filepath)
+        self.model.load_new_graph(folder, file)
         return
 
     def update_table_data(self, new_indices):

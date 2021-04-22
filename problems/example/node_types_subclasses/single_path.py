@@ -678,10 +678,10 @@ class DelayLine(SinglePath):
 
         self.default_parameters = [1.0e-9]
 
-        self.upper_bounds = [5.0e-9]
+        self.upper_bounds = [2.0e-9]
         self.lower_bounds = [0.0]
         self.data_types = ['float']
-        self.step_sizes = [1e-9]
+        self.step_sizes = [None]
         self.parameter_imprecisions = [10.0e-12]
         self.parameter_units = [None]
         self.parameter_locks = [False]

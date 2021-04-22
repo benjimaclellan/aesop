@@ -38,6 +38,8 @@ if __name__ == '__main__':
         dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
+        dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
+        dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         # dict(pq=(2, 1), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         # dict(pq=(1, 3), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
     ]
@@ -76,5 +78,7 @@ if __name__ == '__main__':
         evaluator = PulseRepetition(propagator, target, pulse_width=pulse_width, rep_t=rep_t, peak_power=peak_power)
 
         evolver = HessianProbabilityEvolver(verbose=False)
-
-        run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, param_opt='L-BFGS+GA')
+        try:
+            run_experiment(evaluator, propagator, io, evolver, ga_opts, input_laser, param_opt='L-BFGS+GA')
+        except RuntimeError as e:
+            print(f"Error caught, moving to next: {e}")

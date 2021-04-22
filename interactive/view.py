@@ -43,11 +43,15 @@ class View(object):
         """
             Add widgets for interaction 
         """
-        button = Button(label="Load graph", button_type="success", width=100, sizing_mode='stretch_height')
+        button = Button(label="Load graph", button_type="success", sizing_mode='stretch_both')
         button.on_click(self.button_callback)
 
-        filepath_input = TextInput(
-            value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\interactive\example\test_graph2.pkl',
+        folder_input = TextInput(
+            value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\20210421__multiple_pulse_rep_runs\20210421_2dE6_pulse_rep_rate',
+            title='', sizing_mode='stretch_both')
+
+        file_input = TextInput(
+            value=r'graph_hof0.pkl',
             title='', sizing_mode='stretch_both')
 
         table_source = ColumnDataSource(data=self.control.table_data)
@@ -66,7 +70,8 @@ class View(object):
 
         # store widgets as class variables for access by callbacks
         self.button = button
-        self.filepath_input = filepath_input
+        self.folder_input = folder_input
+        self.file_input = file_input
         self.table_source = table_source
 
         """
@@ -102,7 +107,10 @@ class View(object):
         """
         Build layout using grid
         """
-        layout = column(row(column(row(filepath_input, button, height=30), data_table), plot_graph, height=300),
+        layout = column(row(column(row(folder_input, height=30),
+                                   row(file_input, height=30),
+                                   row(button, height=30),
+                            data_table), plot_graph, height=300),
                         tabs,
                         sizing_mode='scale_height')
         self.layout = layout
@@ -320,7 +328,9 @@ class View(object):
         self.button.label = '... Loading graph'
         self.clear_plots()
 
-        self.control.load_new_graph(self.filepath_input.value)
+
+
+        self.control.load_new_graph(self.folder_input.value, self.file_input.value)
 
         self.add_sources()
         self.add_lines()
