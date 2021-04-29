@@ -67,7 +67,6 @@ class PulsedLaser(SourceModel):
     def gaussian(t, width):
         return np.exp(-0.5 * (np.power(t / width, 2))).astype('complex')
 
-
     def propagate(self, state, propagator, save_transforms=False):
         self.set_parameters_as_attr()
         pulse_width = self._pulse_width #/ (2*np.sqrt(np.log(2)))  # check the scaling between envelope FWHM and power FWHM for Gaussian
@@ -112,6 +111,87 @@ class ContinuousWaveLaser(SourceModel):
     def update_noise_model(self):
         self.noise_model = AdditiveNoise(noise_type='FWHM linewidth', noise_param=self._FWHM_linewidth)
         self.noise_model.add_noise_source(noise_type='osnr', noise_param=self._osnr_dB)
+
+
+# @register_node_types_all
+class NoisySignal(SourceModel):
+    """
+    """
+    node_acronym = 'NS'
+    number_of_parameters = 7
+
+    def __init__(self, **kwargs):
+        self.node_lock = True
+
+        self.default_parameters = ['sinc', 100e-12, 1.0, 10e-9, 1.56e-6, True, 1e3]
+
+        self.upper_bounds = [None, 1e-9, 1.0, 1/10e6, 1.56e-6, None, 5e9]
+        self.lower_bounds = [None, 3e-11, 0.0001, 1/1e9, 1.54e-6, None, 0]
+        self.data_types = ['str', 'float', 'float', 'float', 'float', 'bool', 'float']
+        self.step_sizes = [None, None, None, None, None, None, None]
+        self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 1e-10, 1, 1]
+        self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None, unit.Hz]
+        self.parameter_locks = [True, False, False, False, True, True, True]
+        self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train', 'FWHM_linewidth']
+        # self.parameter_symbols =[r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
+        self.parameter_symbols =[r"$x$", r"$x_\tau$", r"$x_P$", r"$x_{trep}$", r"$x$", r"$x$", r"$x$", ]
+
+        self.parameters = self.default_parameters
+        super().__init__(**kwargs)
+        self.set_parameters_as_attr()
+        self.noise_model = AdditiveNoise(noise_param=-10, noise_type='osnr')
+        return
+
+    def enable_noise(self):
+        self.noise_model.noise_on = True
+        self.noise_model.simulate_with_noise = True
+        return
+
+    def disable_noise(self):
+        self.noise_model.noise_on = False
+        self.noise_model.simulate_with_noise = False
+        return
+
+    def get_pulse_train(self, t, pulse_width, rep_t, peak_power, pulse_shape='sinc'):
+        wrapped_t = np.sin(np.pi * t / rep_t)
+        # unwrapped_t = np.arcsin(wrapped_t) * rep_t / np.pi
+        unwrapped_t = t
+        pulse_width = pulse_width / (2 * np.sqrt(np.log(2)))
+        if pulse_shape == 'gaussian':
+            pulse = self.gaussian(unwrapped_t, pulse_width)
+        elif pulse_shape == 'sech':
+            pulse = self.sech(unwrapped_t, pulse_width)
+        elif pulse_shape == 'sinc':
+            pulse = self.sinc(unwrapped_t, pulse_width)
+        else:
+            raise RuntimeError(f"Pulsed Laser: {pulse_shape} is not a defined pulse shape")
+        state = pulse * np.sqrt(peak_power)
+        return state
+
+    @staticmethod
+    def sinc(t, width):
+        return np.sinc(t / width).astype('complex')
+
+    @staticmethod
+    def sech(t, width):
+        return 1 / np.cosh(t / width).astype('complex')
+
+    @staticmethod
+    def gaussian(t, width):
+        return np.exp(-0.5 * (np.power(t / width, 2))).astype('complex')
+
+
+    def propagate(self, state, propagator, save_transforms=False):
+        self.set_parameters_as_attr()
+        pulse_width = self._pulse_width  # check the scaling between envelope FWHM and power FWHM for Gaussian
+        state = self.get_pulse_train(propagator.t, pulse_width, self._t_rep, self._peak_power, pulse_shape=self._pulse_shape)
+
+        # state = np.ones_like(state).astype('complex')
+        # state[]
+
+        return state
+
+
 
 
 # # @register_node_types_all

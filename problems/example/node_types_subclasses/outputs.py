@@ -41,6 +41,32 @@ class MeasurementDevice(SinkModel):
         return np.power(np.abs(state), 2)
 
 
+class ElectricFieldMeasurementDevice(SinkModel):
+    node_acronym = 'AMD'
+    number_of_parameters = 0
+    def __init__(self, **kwargs):
+        self.node_lock = True
+
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+        self.parameter_symbols = []
+
+        self.default_parameters = []
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, state, propagator, num_inputs=1, num_outputs=0, save_transforms=False):
+        return state
+
+
+
 @register_node_types_all
 class Photodiode(SinkModel):
     """

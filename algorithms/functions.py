@@ -14,6 +14,7 @@ from matplotlib.colors import ListedColormap
 
 from lib.autodiff_helpers import unwrap_arraybox_val
 
+
 def logbook_update(generation, population, log, log_metrics, time=-1, best=None, verbose=False):
     """ updates the statistics log book. Runtime -1 means that the runtime of a generation was not calculated """
     scores = [score for score, _ in population]

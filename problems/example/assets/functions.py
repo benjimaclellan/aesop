@@ -40,6 +40,8 @@ def ifft_(state_f, dt, ax=0):
     """
     return np.fft.ifft(state_f, axis=ax) / dt
 
+def phase_(state, dt, unwrap=True, ax=0):
+    return np.unwrap(np.angle(fft_shift_(fft_(state, dt))))
 
 def rfspectrum_(state, dt, ax=0):
     """Radio Frequency spectrum (ie spectrum off of a photodiode). Note that we use the real FFT

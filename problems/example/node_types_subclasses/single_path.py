@@ -677,6 +677,7 @@ class DelayLine(SinglePath):
         self.node_lock = False
 
         self.default_parameters = [1.0e-9]
+        # self.default_parameters = [1e3]
 
         self.upper_bounds = [2.0e-9]
         self.lower_bounds = [0.0]
@@ -688,6 +689,16 @@ class DelayLine(SinglePath):
         self.parameter_names = ['delay']
         self.parameter_symbols = [r"$x_{d}$"]
 
+        # self.upper_bounds = [2.0e3]
+        # self.lower_bounds = [0.0]
+        # self.data_types = ['float']
+        # self.step_sizes = [None]
+        # self.parameter_imprecisions = [1]
+        # self.parameter_units = [None]
+        # self.parameter_locks = [False]
+        # self.parameter_names = ['delay']
+        # self.parameter_symbols = [r"$x_{d}$"]
+
         self._loss_dB = -0.0 # dB
 
         self._n = 1.444
@@ -696,8 +707,8 @@ class DelayLine(SinglePath):
         return
 
     def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
-        delay = self.parameters[0]
-
+        delay = self.parameters[0] #* 1e-12
+        # print(f"Delay value is {self.parameters[0]}")
         length = (propagator.speed_of_light / self._n) * delay
         beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light
 
@@ -716,7 +727,8 @@ class DelayLine(SinglePath):
 
 
 @register_node_types_including_terminals
-class PhaseShifter(NodeType):
+# class PhaseShifter(NodeType): # TODO this was causing issues with the custom setting of the library, hopefully I don't break anything else
+class PhaseShifter(SinglePath):
     """
     This will be used in ASOPE to search for 'sensing' setups, i.e. ones for which an objective function has the largest
     sensitivity to a phase shift (i.e. large first-order derivative w.r.t. this phase value)

@@ -58,7 +58,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         
         res = scipy.optimize.minimize(fitness_funct, x0, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 300},
+                                      options={'disp': verbose, 'maxiter': 500},
                                       jac=graph.grad)
         graph.distribute_parameters_from_list(res.x, models, parameter_index)
         x = res.x
