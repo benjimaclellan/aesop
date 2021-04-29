@@ -11,6 +11,24 @@ import platform, socket, re, uuid, json, psutil, logging
 import sys
 import argparse
 
+import config.config as configuration
+
+
+def custom_library(*list_of_components):
+    """
+    Overwrites the NODE_TYPES_ALL dictionary which is used to tell all evolution operators what they can choose from
+    :param list_of_components: a list of the model classes
+    :return:
+    """
+    tmp = {cls: {} for cls in configuration.NODE_TYPES_ALL.keys()}
+    for component in list_of_components:
+        tmp[component.__base__.__name__][component.__name__] = component
+    print(f"REPLACING THE AUTO-DETECTED LIBRARY WITH THE CUSTOM ONE"
+          f"\nOLD LIBRARY: {configuration.NODE_TYPES_ALL}"
+          f"\nNEW LIBRARY: {tmp}")
+    configuration.NODE_TYPES_ALL = tmp
+    return tmp
+
 
 # Declare function to define command-line arguments
 def parse_command_line_args(args=sys.argv[1:]):
