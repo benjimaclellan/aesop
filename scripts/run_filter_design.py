@@ -47,16 +47,16 @@ plt.close('all')
 if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
-    # io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
-    io = InputOutput(directory='filter_design', verbose=True)
+    io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
+    # io = InputOutput(directory='filter_design', verbose=True)
     io.init_save_dir(sub_path=None, unique_id=False)
-    # io.save_machine_metadata(io.save_path)
+    io.save_machine_metadata(io.save_path)
 
     custom_library(VariablePowerSplitter, IntegratedDelayLine, PhaseShifter)
 
-    ga_opts = {'n_generations': 12,
-               'n_population': 4,
-               'n_hof': 5,
+    ga_opts = {'n_generations': 30,
+               'n_population': 8,
+               'n_hof': 10,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
@@ -66,115 +66,21 @@ if __name__ == '__main__':
     AdditiveNoise.simulate_with_noise = False
 
     impulse = Impulse()
-    # impulse = NoisySignal(parameters_from_name={'pulse_shape': 'sinc', 'pulse_width': 1e-10})
     md = ElectricFieldMeasurementDevice()
 
     true_impulse = copy.deepcopy(impulse.propagate(propagator.state, propagator))
 
     # evolver = HessianProbabilityEvolver(verbose=False)
     evolver = OperatorBasedProbEvolver(verbose=False)
-    # VariablePowerSplitter.node_lock = True
 
-    system = 0
-    if system == 0:
-        nodes = {'source': TerminalSource(),
-                 0: VariablePowerSplitter(),
-                 1: VariablePowerSplitter(),
-                 'sink': TerminalSink()}
-        edges = {('source', 0, 0): impulse,
-                 (0, 1, 0): Waveguide(),
-                 (1, 'sink', 0): md,
-                 }
-    elif system == 1:
-        nodes = {'source': TerminalSource(),
-                 0: VariablePowerSplitter(),
-                 1: VariablePowerSplitter(),
-                 2: VariablePowerSplitter(),
-                 3: VariablePowerSplitter(),
-                 4: VariablePowerSplitter(),
-                 5: VariablePowerSplitter(),
-                 6: VariablePowerSplitter(),
-                 'sink': TerminalSink()}
-        id = IntegratedDelayLine(parameters=[0.0])
-        id.node_lock = True
-        mdelay = 0.0
-        ph = 0.0
-        edges = {('source', 0, 0): impulse,
-                 (0, 1, 0): IntegratedDelayLine(parameters=[mdelay]),
-                 (1, 2, 0): IntegratedDelayLine(parameters=[mdelay]),
-                 (2, 3, 0): IntegratedDelayLine(parameters=[mdelay]),
-                 (3, 4, 0): IntegratedDelayLine(parameters=[mdelay]),
-                 (4, 5, 0): IntegratedDelayLine(parameters=[mdelay]),
-                 (5, 6, 0): IntegratedDelayLine(parameters=[mdelay]),
-                 (0, 1, 1): PhaseShifter(parameters=[ph]),
-                 (1, 2, 1): PhaseShifter(parameters=[ph]),
-                 (2, 3, 1): PhaseShifter(parameters=[ph]),
-                 (3, 4, 1): PhaseShifter(parameters=[ph]),
-                 (4, 5, 1): PhaseShifter(parameters=[ph]),
-                 (5, 6, 1): PhaseShifter(parameters=[ph]),
-                 # (0, 1, 1): id,
-                 # (1, 2, 1): id,
-                 # (2, 3, 1): id,
-                 # (3, 4, 1): id,
-                 # (4, 5, 1): id,
-                 # (5, 6, 1): id,
-                 # (0, 1, 1): IntegratedDelayLine(parameters=[0.0]),
-                 # (1, 2, 1): IntegratedDelayLine(parameters=[0.0]),
-                 # (2, 3, 1): IntegratedDelayLine(parameters=[0.0]),
-                 # (3, 4, 1): IntegratedDelayLine(parameters=[0.0]),
-                 # (4, 5, 1): IntegratedDelayLine(parameters=[0.0]),
-                 (6, 'sink', 0): md,
-                 }
-    elif system == 14:
-        nodes = {'source': TerminalSource(),
-                 0: VariablePowerSplitter(),
-                 1: VariablePowerSplitter(),
-                 2: VariablePowerSplitter(),
-                 # 3: VariablePowerSplitter(),
-                 4: VariablePowerSplitter(),
-                 'sink': TerminalSink()}
-        edges = {('source', 0, 0): impulse,
-                 (0, 1, 0): IntegratedDelayLine(parameters=[0.0]),
-                 (0, 2, 1): IntegratedDelayLine(parameters=[0.0]),
-                 (0, 4, 0): IntegratedDelayLine(parameters=[6.0]),
-                 (1, 4, 0): IntegratedDelayLine(parameters=[1.0]),
-                 (1, 4, 1): IntegratedDelayLine(parameters=[2.0]),
-                 (2, 4, 0): IntegratedDelayLine(parameters=[4.0]),
-                 (2, 4, 1): IntegratedDelayLine(parameters=[8.0]),
-                 # (3, 4, 1): IntegratedDelayLine(parameters=[12]),
-                 # (3, 4, 1): IntegratedDelayLine(parameters=[12]),
-                 (4, 'sink', 0): md,
-                 }
-    elif system == 100:
-        nodes = {'source': TerminalSource(),
-                 0: VariablePowerSplitter(),
-                 1: VariablePowerSplitter(),
-                 2: VariablePowerSplitter(),
-                 3: VariablePowerSplitter(),
-                 4: VariablePowerSplitter(),
-                 'sink': TerminalSink()}
-        edges = {('source', 0, 0): impulse,
-                 (0, 1, 0): IntegratedDelayLine(parameters=[1.0]),
-                 (0, 1, 1): IntegratedDelayLine(parameters=[0.0]),
-                 (1, 2, 4): IntegratedDelayLine(parameters=[1.0]),
-                 (1, 2, 4): IntegratedDelayLine(parameters=[1.0]),
-                 (1, 3, 4): IntegratedDelayLine(parameters=[2.0]),
-                 (1, 3, 4): IntegratedDelayLine(parameters=[25]),
-                 # (3, 4, 1): IntegratedDelayLine(parameters=[12]),
-                 # (3, 4, 1): IntegratedDelayLine(parameters=[12]),
-                 (4, 'sink', 0): md,
-                 }
-    elif system == 2:
-        nodes = {'source': TerminalSource(),
-                 0: VariablePowerSplitter(),
-                 1: VariablePowerSplitter(),
-                 'sink': TerminalSink()}
-        edges = {('source', 0, 0): impulse,
-                 (0, 1, 0):IntegratedDelayLine(parameters=[0]),
-                 (0, 1, 1): IntegratedDelayLine(parameters=[5.1]),
-                 (1, 'sink', 0): md,
-                 }
-
+    nodes = {'source': TerminalSource(),
+             0: VariablePowerSplitter(),
+             1: VariablePowerSplitter(),
+             'sink': TerminalSink()}
+    edges = {('source', 0, 0): impulse,
+             (0, 1, 0): Waveguide(),
+             (1, 'sink', 0): md,
+             }
     evaluator = FilterDesign(propagator)
 
     graph = Graph.init_graph(nodes=nodes, edges=edges)
@@ -189,62 +95,35 @@ if __name__ == '__main__':
     attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
     update_rule = 'tournament'
 
-    #%%
-    optimize = 1
-    if optimize == 0:
-        loss = evaluator.evaluate_graph(graph, propagator)
-        print(f"Loss function: {loss}")
-        graph, x, score, log = parameters_optimize(graph, x0=None, method='L-BFGS+GA', verbose=True, log_callback=True)
-    elif optimize == 1:
-        hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
-                                         ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
-                                         # parameter_opt_method='CHEAP',
-                                         parameter_opt_method='L-BFGS+GA',
-                                         include_dashboard=False, crossover_maker=None,
-                                         save_all_minimal_graph_data=True, save_all_minimal_hof_data=True)
-        graph = hof[0][1]
-        graph.draw()
-        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
-        print(attr['parameters'])
-    if optimize == 2:
-        loss = evaluator.evaluate_graph(graph, propagator)
-        print(f"Loss function: {loss}")
-        print(graph)
-        graph.draw()
-        print(attr['parameters'])
+    hof, log = topology_optimization(copy.deepcopy(graph), propagator, evaluator, evolver, io,
+                                     ga_opts=ga_opts, local_mode=False, update_rule=update_rule,
+                                     # parameter_opt_method='CHEAP',
+                                     parameter_opt_method='L-BFGS+GA',
+                                     include_dashboard=False, crossover_maker=None,
+                                     save_all_minimal_graph_data=True, save_all_minimal_hof_data=True)
+    graph = hof[0][1]
+    graph.draw()
+    attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
+    print(attr['parameters'])
 
     #%%
 
     graph.propagate(propagator)
 
-    fig, axs = plt.subplots(2, 1)
-    # state = graph.measure_propagator(('source', 0, 0))
-    state = graph.measure_propagator('sink')
+    fig, axs = plt.subplots(ga_opts['n_hof'], 3, figsize=[10, ga_opts['n_hof']*2])
 
     kwargs = dict(alpha=1.0, lw=1,)
-    # axs[0].plot(propagator.t, power_(state), label='Measured Signal', **kwargs)
-    # axs[0].plot(propagator.t, power_(true_impulse), label='True Signal', **kwargs)
-    # # axs[0].plot(propagator.t, power_(evaluator.true_signal), label='Evaluator True Signal', **kwargs)
+    for i, (score, graph) in enumerate(hof):
+        graph.propagate(propagator)
+        state = graph.measure_propagator('sink')
+        graph.draw(axs[i, 0])
 
-    # axs[1].plot(propagator.t, phase_(state), label='Measured Signal', **kwargs)
-    # axs[1].plot(propagator.t, phase_(true_impulse), label='True Signal', **kwargs)
-    # # axs[1].plot(propagator.t, phase_(evaluator.true_signal), label='Evaluator True Signal', **kwargs)
+        axs[i, 1].plot(propagator.wl/1e-6, np.abs(ifft_shift_(fft_(state, propagator.dt))), label='Measured Signal', **kwargs)
+        # axs[i, 0].plot(propagator.wl/1e-6, np.abs(ifft_shift_(fft_(true_impulse, propagator.dt))), label='True Signal', **kwargs)
+        axs[i, 1].plot(propagator.wl/1e-6, evaluator.target_transfer, label='Evaluator True Signal', **kwargs)
 
-    axs[0].plot(propagator.wl/1e-6, np.abs(ifft_shift_(fft_(state, propagator.dt))), label='Measured Signal', **kwargs)
-    axs[0].plot(propagator.wl/1e-6, np.abs(ifft_shift_(fft_(true_impulse, propagator.dt))), label='True Signal', **kwargs)
-    axs[0].plot(propagator.wl/1e-6, evaluator.target_transfer, label='Evaluator True Signal', **kwargs)
+        axs[i, 2].plot(propagator.wl/1e-6, np.log10(np.abs(ifft_shift_(fft_(state, propagator.dt))))*10, label='Measured Signal', **kwargs)
+        # axs[i, 1].plot(propagator.wl/1e-6, np.log10(np.abs(ifft_shift_(fft_(true_impulse, propagator.dt))))*10, label='True Signal', **kwargs)
+        axs[i, 2].plot(propagator.wl/1e-6, np.log10(evaluator.target_transfer)*10, label='Evaluator True Signal', **kwargs)
 
-    axs[1].plot(propagator.wl/1e-6, np.log10(np.abs(ifft_shift_(fft_(state, propagator.dt))))*10, label='Measured Signal', **kwargs)
-    axs[1].plot(propagator.wl/1e-6, np.log10(np.abs(ifft_shift_(fft_(true_impulse, propagator.dt))))*10, label='True Signal', **kwargs)
-    axs[1].plot(propagator.wl/1e-6, np.log10(evaluator.target_transfer)*10, label='Evaluator True Signal', **kwargs)
-
-    # axs[1].set(xlabel='Time')
-    axs[0].set(xlabel='Wavelen')
-    axs[1].set(xlabel='Frequency')
-    axs[0].legend()
-    # axs[1].legend()
-
-    print(config.NODE_TYPES_ALL)
-
-    #%%
-
+    io.save_fig(fig, 'hof.png')
