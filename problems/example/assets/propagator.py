@@ -19,7 +19,7 @@ class Propagator(object):
         self._central_frequency = speed_of_light / central_wl
 
         self._generate_time_frequency_arrays()
-
+        self.wl = speed_of_light/ (self.central_frequency + self.f)
         self._state = np.zeros(self._t.shape, dtype='complex')
         return
 

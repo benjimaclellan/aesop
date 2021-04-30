@@ -41,6 +41,7 @@ class MeasurementDevice(SinkModel):
         return np.power(np.abs(state), 2)
 
 
+@register_node_types_all
 class ElectricFieldMeasurementDevice(SinkModel):
     node_acronym = 'AMD'
     number_of_parameters = 0

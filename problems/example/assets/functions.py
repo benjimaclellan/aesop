@@ -5,6 +5,7 @@
 """
 
 import autograd.numpy as np
+from numpy import unwrap
 
 def power_(state):
     """Power of a signal, as the square of the absolute value
@@ -40,8 +41,11 @@ def ifft_(state_f, dt, ax=0):
     """
     return np.fft.ifft(state_f, axis=ax) / dt
 
-def phase_(state, dt, unwrap=True, ax=0):
-    return np.unwrap(np.angle(fft_shift_(fft_(state, dt))))
+def phase_(state, ax=0):
+    return unwrap(np.angle(state), axis=ax)
+
+def phase_spectrum_(state, dt, ax=0):
+    return unwrap(np.angle(fft_shift_(fft_(state, dt))), axis=ax)
 
 def rfspectrum_(state, dt, ax=0):
     """Radio Frequency spectrum (ie spectrum off of a photodiode). Note that we use the real FFT

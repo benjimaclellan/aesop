@@ -551,7 +551,7 @@ def parameters_optimize_complete(ind, evaluator, propagator, method='', verbose=
             return graph.func(x0), graph
         graph, parameters, score, log = parameters_optimize(graph, x0=x0, method=method, verbose=verbose)
 
-        graph.scaled_hess_matrix = graph.hess(parameters)  # we calculate this here as it takes a long time - shouldn't calculate again
+        # graph.scaled_hess_matrix = graph.hess(parameters)  # we calculate this here as it takes a long time - shouldn't calculate again
 
         # if there are any ArrayBoxes (autgrad tracers) in the Graph object, it cannot save (recursion depth error)
         # so this is a quick hack, to just re-run to ensure that it is normal Python types in the model objects

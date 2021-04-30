@@ -149,6 +149,8 @@ if __name__ == '__main__':
                                          save_all_minimal_graph_data=True, save_all_minimal_hof_data=False)
         graph = hof[0][1]
         graph.draw()
+        attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
+        print(attr['parameters'])
     #%%
 
     noisy_signal.enable_noise()

@@ -113,7 +113,7 @@ class ContinuousWaveLaser(SourceModel):
         self.noise_model.add_noise_source(noise_type='osnr', noise_param=self._osnr_dB)
 
 
-# @register_node_types_all
+@register_node_types_all
 class NoisySignal(SourceModel):
     """
     """
@@ -123,18 +123,19 @@ class NoisySignal(SourceModel):
     def __init__(self, **kwargs):
         self.node_lock = True
 
-        self.default_parameters = ['sinc', 100e-12, 1.0, 10e-9, 1.56e-6, True, 1e3]
+        self.default_parameters = ['gaussian', 100e-12, 1.0, 10e-9, 1.56e-6, True, 1e3]
 
-        self.upper_bounds = [None, 1e-9, 1.0, 1/10e6, 1.56e-6, None, 5e9]
-        self.lower_bounds = [None, 3e-11, 0.0001, 1/1e9, 1.54e-6, None, 0]
+        self.upper_bounds = [None, 1e-9, 1.0, 1 / 10e6, 1.56e-6, None, 5e9]
+        self.lower_bounds = [None, 3e-11, 0.0001, 1 / 1e9, 1.54e-6, None, 0]
         self.data_types = ['str', 'float', 'float', 'float', 'float', 'bool', 'float']
         self.step_sizes = [None, None, None, None, None, None, None]
         self.parameter_imprecisions = [1, 10e-12, 0.1, 0.1e-9, 1e-10, 1, 1]
         self.parameter_units = [None, unit.s, unit.W, unit.s, unit.m, None, unit.Hz]
         self.parameter_locks = [True, False, False, False, True, True, True]
-        self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train', 'FWHM_linewidth']
+        self.parameter_names = ['pulse_shape', 'pulse_width', 'peak_power', 't_rep', 'central_wl', 'train',
+                                'FWHM_linewidth']
         # self.parameter_symbols =[r"$x_{{"+f"{ind}"+r"}}$" for ind in range(self.number_of_parameters)]
-        self.parameter_symbols =[r"$x$", r"$x_\tau$", r"$x_P$", r"$x_{trep}$", r"$x$", r"$x$", r"$x$", ]
+        self.parameter_symbols = [r"$x$", r"$x_\tau$", r"$x_P$", r"$x_{trep}$", r"$x$", r"$x$", r"$x$", ]
 
         self.parameters = self.default_parameters
         super().__init__(**kwargs)
@@ -153,7 +154,7 @@ class NoisySignal(SourceModel):
         return
 
     def get_pulse_train(self, t, pulse_width, rep_t, peak_power, pulse_shape='sinc'):
-        wrapped_t = np.sin(np.pi * t / rep_t)
+        # wrapped_t = np.sin(np.pi * t / rep_t)
         # unwrapped_t = np.arcsin(wrapped_t) * rep_t / np.pi
         unwrapped_t = t
         pulse_width = pulse_width / (2 * np.sqrt(np.log(2)))
@@ -163,6 +164,8 @@ class NoisySignal(SourceModel):
             pulse = self.sech(unwrapped_t, pulse_width)
         elif pulse_shape == 'sinc':
             pulse = self.sinc(unwrapped_t, pulse_width)
+        elif pulse_shape == 'sinc-chirped':
+            pulse = self.sinc(unwrapped_t, pulse_width) * np.exp(1j * 2 * np.pi * 1 * np.power(unwrapped_t/pulse_width, 2))
         else:
             raise RuntimeError(f"Pulsed Laser: {pulse_shape} is not a defined pulse shape")
         state = pulse * np.sqrt(peak_power)
@@ -191,6 +194,38 @@ class NoisySignal(SourceModel):
 
         return state
 
+
+
+@register_node_types_all
+class Impulse(SourceModel):
+    """
+    """
+    node_acronym = 'IMP'
+    number_of_parameters = 0
+
+    def __init__(self, **kwargs):
+        self.node_lock = True
+
+        self.default_parameters = []
+
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+        self.parameter_symbols =[]
+
+        self.parameters = self.default_parameters
+        super().__init__(**kwargs)
+        self.set_parameters_as_attr()
+        return
+
+    def propagate(self, state, propagator, save_transforms=False):
+        state = ifft_shift_(ifft_(np.ones_like(state).astype('complex'), propagator.dt))
+        return state
 
 
 

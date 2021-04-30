@@ -105,7 +105,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     
         x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
                                                 logger=(logger if log_callback else None),
-                                                n_generations=40, n_population=population_size, rate_mut=0.8,
+                                                n_generations=20, n_population=population_size, rate_mut=0.8,
                                                 rate_crx=0.35, verbose=verbose)
 
         if log_callback:
@@ -124,6 +124,10 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
     elif method == 'CHEAP':
         if verbose: print("USING A VERY CHEAP PARAMETER OPTIMIZATION, JUST FOR TESTING SLIGHTLY MORE THAN NULL")
+
+        graph.sample_parameters()
+        x0, models, parameter_index, lower_bounds, upper_bounds = graph.extract_parameters_to_list()
+
 
         # population_size = 5
         #

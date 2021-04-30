@@ -725,6 +725,92 @@ class DelayLine(SinglePath):
         return state
 
 
+@register_node_types_including_terminals
+class IntegratedDelayLine(SinglePath):
+    """
+    """
+    node_acronym = 'DL'
+    number_of_parameters = 1
+    def __init__(self, **kwargs):
+        self.node_lock = False
+
+        # self.default_parameters = [1.0e-9]
+        self.default_parameters = [1.0]
+
+        # self.upper_bounds = [2.0e-9]
+        # self.lower_bounds = [0.0]
+        # self.data_types = ['float']
+        # self.step_sizes = [None]
+        # self.parameter_imprecisions = [10.0e-12]
+        # self.parameter_units = [None]
+        # self.parameter_locks = [False]
+        # self.parameter_names = ['delay']
+        # self.parameter_symbols = [r"$x_{d}$"]
+
+        self.upper_bounds = [10.0]
+        self.lower_bounds = [0.0]
+        self.data_types = ['float']
+        self.step_sizes = [1.0]
+        self.parameter_imprecisions = [1]
+        self.parameter_units = [None]
+        self.parameter_locks = [False]
+        self.parameter_names = ['delay']
+        self.parameter_symbols = [r"$x_{d}$"]
+
+        self._loss_dB = -0.0 # dB
+
+        self._n = 1.444
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
+        delay = self.parameters[0] * 1e-12
+        # print(f"Delay value is {self.parameters[0]}")
+        length = (propagator.speed_of_light / self._n) * delay
+        beta = self._n * (2 * np.pi * (propagator.f + propagator.central_frequency)) / propagator.speed_of_light * length
+        beta2 = -22 * 1e-12 * 1e-12 / (1e3) * np.power(propagator.f, 2)
+        state = ifft_(np.exp(1j * ifft_shift_(beta, ax=0)) * fft_(state, propagator.dt), propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
+
+        if save_transforms:
+            transform = np.zeros_like(propagator.t).astype('float')
+            transform[(np.abs(propagator.t - (-delay))).argmin()] = 1
+            self.transform = (('t', transform, 'delay'),)
+        else:
+            self.transform = None
+
+        return state
+
+
+@register_node_types_including_terminals
+class Waveguide(SinglePath):
+    """
+    """
+    node_acronym = 'WG'
+    number_of_parameters = 0
+    def __init__(self, **kwargs):
+        self.node_lock = False
+
+        self.default_parameters = []
+
+        self.upper_bounds = []
+        self.lower_bounds = []
+        self.data_types = []
+        self.step_sizes = []
+        self.parameter_imprecisions = []
+        self.parameter_units = []
+        self.parameter_locks = []
+        self.parameter_names = []
+        self.parameter_symbols = []
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
+        return state
+
+
+
 
 @register_node_types_including_terminals
 # class PhaseShifter(NodeType): # TODO this was causing issues with the custom setting of the library, hopefully I don't break anything else
