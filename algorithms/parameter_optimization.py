@@ -97,7 +97,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     elif method == 'L-BFGS+GA':
         if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
-        population_size = 25
+        population_size = 40
 
         if log_callback:
             logger.set_optimization_algorithm('GA', pop_size=population_size)
@@ -105,7 +105,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     
         x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
                                                 logger=(logger if log_callback else None),
-                                                n_generations=20, n_population=population_size, rate_mut=0.8,
+                                                n_generations=40, n_population=population_size, rate_mut=0.8,
                                                 rate_crx=0.35, verbose=verbose)
 
         if log_callback:
