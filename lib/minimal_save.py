@@ -62,10 +62,28 @@ def build_from_minimal_graph_info(json_data):
     edge_models_params = graph_info['edge_models_params']
 
     nodes = {node_model: lookup[split_model_nickname(node_model)[0]]() for node_model in node_models_params.keys()}
-    edges = {tuple(edge_tuple): lookup[split_model_nickname(edge_model)[0]]() for edge_model, edge_tuple in edge_models_adj.items()}
+    # edges = {tuple(edge_tuple): lookup[split_model_nickname(edge_model)[0]]() for edge_model, edge_tuple in edge_models_adj.items()}
 
-    new_graph = Graph.init_graph(nodes, edges)
+    print("NODES", nodes)
+
+    _edges = {}
+    for edge_model in edge_models_adj.keys():
+        edge_tuple = tuple(edge_models_adj[edge_model])
+        edge_params = edge_models_params[edge_model]
+        model = lookup[split_model_nickname(edge_model)[0]]
+        if model.number_of_parameters != len(edge_params):
+            raise RuntimeError('incorrect number of parameters')
+        _edges[edge_tuple] = model(parameters=edge_params)
+    print("EDGES", _edges)
+
+    # tmp = {tuple(val) : key for key, val in edge_models_adj.items()}
+
+
+    new_graph = Graph.init_graph(nodes, _edges)
+    # new_graph = Graph.init_graph(nodes, edges)
     new_graph.update_graph()
+
+    print("edge_models_adj", edge_models_adj)
 
     for node in new_graph.nodes:
         params = node_models_params[node]
@@ -73,13 +91,14 @@ def build_from_minimal_graph_info(json_data):
             raise ValueError("the number of parameters for minimal saved information does match for node {}".format(node))
         new_graph.nodes[node]['model'].parameters = params
 
-    tmp = {tuple(val) : key for key, val in edge_models_adj.items()}
-    for edge in new_graph.edges:
-        model_name = tmp[edge]
-        params = edge_models_params[model_name]
-        if new_graph.edges[edge]['model'].number_of_parameters != len(params):
-            raise ValueError("the number of parameters for minimal saved information does match for edge {}".format(edge))
-        new_graph.edges[edge]['model'].parameters = params
+
+    # print(tmp)
+    # for edge in new_graph.edges:
+    #     model_name = tmp[edge]
+    #     params = edge_models_params[model_name]
+    #     if new_graph.edges[edge]['model'].number_of_parameters != len(params):
+    #         raise ValueError("the number of parameters for minimal saved information does match for edge {}".format(edge))
+    #     new_graph.edges[edge]['model'].parameters = params
     return new_graph
 
 

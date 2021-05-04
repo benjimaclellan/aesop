@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
     # io = InputOutput(directory='filter_design', verbose=True)
-    io.init_save_dir(sub_path=None, unique_id=False)
+    io.init_save_dir(sub_path=None, unique_id=True)
     io.save_machine_metadata(io.save_path)
 
     custom_library(VariablePowerSplitter, IntegratedDelayLine, PhaseShifter)
@@ -127,3 +127,8 @@ if __name__ == '__main__':
         axs[i, 2].plot(propagator.wl/1e-6, np.log10(evaluator.target_transfer)*10, label='Evaluator True Signal', **kwargs)
 
     io.save_fig(fig, 'hof.png')
+
+    #%%
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(log['time'], log['best'])
+    io.save_fig(fig, 'log.png')

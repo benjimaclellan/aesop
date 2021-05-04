@@ -32,7 +32,7 @@ from problems.example.evaluator_subclasses.evaluator_noise_suppression import No
 from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, NoisySignal
 from problems.example.node_types_subclasses.outputs import Photodiode, MeasurementDevice, ElectricFieldMeasurementDevice
 from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, \
-    DispersiveFiber, DelayLine, PhaseShifter
+    DispersiveFiber, DelayLine, PhaseShifter, IntegratedDelayLine
 from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
 from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
 from problems.example.assets.additive_noise import AdditiveNoise
@@ -53,9 +53,9 @@ if __name__ == '__main__':
     io.init_save_dir(sub_path=None, unique_id=False)
     # io.save_machine_metadata(io.save_path)
 
-    custom_library(VariablePowerSplitter, DelayLine)
+    custom_library(VariablePowerSplitter, PhaseShifter, IntegratedDelayLine)
 
-    ga_opts = {'n_generations': 12,
+    ga_opts = {'n_generations': 26,
                'n_population': 4,
                'n_hof': 3,
                'verbose': options_cl.verbose,
@@ -146,7 +146,7 @@ if __name__ == '__main__':
                                          # parameter_opt_method='CHEAP',
                                          parameter_opt_method='L-BFGS+GA',
                                          include_dashboard=False, crossover_maker=None,
-                                         save_all_minimal_graph_data=True, save_all_minimal_hof_data=False)
+                                         save_all_minimal_graph_data=True, save_all_minimal_hof_data=True)
         graph = hof[0][1]
         graph.draw()
         attr = graph.extract_attributes_to_list_experimental(attributes=['parameters', 'parameter_names'])
