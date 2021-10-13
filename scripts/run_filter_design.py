@@ -54,8 +54,8 @@ if __name__ == '__main__':
 
     custom_library(VariablePowerSplitter, IntegratedDelayLine, PhaseShifter)
 
-    ga_opts = {'n_generations': 30,
-               'n_population': 8,
+    ga_opts = {'n_generations': 55,
+               'n_population': 10,
                'n_hof': 10,
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
