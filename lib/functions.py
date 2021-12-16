@@ -177,7 +177,7 @@ class InputOutput(object):
             raise FileExistsError("The directory to load from does not exist")
         return
 
-    def save_machine_metadata(self, sub_path=None):
+    def save_machine_metadata(self, sub_path=None, time=None):
         if sub_path is not None:
             if os.path.isabs(sub_path):
                 metadata_path = sub_path
@@ -186,6 +186,7 @@ class InputOutput(object):
         else:
             metadata_path = self.path
         metadata = self.get_machine_metadata()
+        metadata['time'] = time
         metadata_path.mkdir(parents=True, exist_ok=True)
 
         filepath = metadata_path.joinpath('metadata.json')

@@ -71,8 +71,8 @@ def build_from_minimal_graph_info(json_data):
         edge_tuple = tuple(edge_models_adj[edge_model])
         edge_params = edge_models_params[edge_model]
         model = lookup[split_model_nickname(edge_model)[0]]
-        if model.number_of_parameters != len(edge_params):
-            raise RuntimeError('incorrect number of parameters')
+        # if model.number_of_parameters != len(edge_params):
+        #     raise RuntimeError('incorrect number of parameters')
         _edges[edge_tuple] = model(parameters=edge_params)
     print("EDGES", _edges)
 

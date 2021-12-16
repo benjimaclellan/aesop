@@ -20,8 +20,9 @@ from lib.minimal_save import build_from_minimal_graph_info
 
 
 #%%
-def load_one_minimal_graph(file=None):
-    with open(file, 'rb') as f:
+def load_one_minimal_graph(directory=None, file=None):
+    filepath = pathlib.Path(directory).joinpath(file)
+    with open(filepath, 'rb') as f:
         graph_json = json.load(f)
     return build_from_minimal_graph_info(graph_json)
 
@@ -88,7 +89,9 @@ class Model(object):
         # with open(graph_filename, 'rb') as file:
         #     full_graph = dill.load(file)
 
-        full_graph = load_single_object(directory=folder, file=file, verbose=True)
+
+        # full_graph = load_single_object(directory=folder, file=file, verbose=True)
+        full_graph = load_one_minimal_graph(directory=folder, file=file)
 
         graph = nx.convert_node_labels_to_integers(full_graph, first_label=0, ordering='default', label_attribute=None)
 

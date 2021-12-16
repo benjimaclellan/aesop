@@ -47,11 +47,13 @@ class View(object):
         button.on_click(self.button_callback)
 
         folder_input = TextInput(
-            value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\20210421__multiple_pulse_rep_runs\20210421_2dE6_pulse_rep_rate',
+            # value=r'C:\Users\benjamin\Documents\INRS - Projects\asope_data\20210421__multiple_pulse_rep_runs\20210421_2dE6_pulse_rep_rate',
+            value=r'C:\Users\benjamin\OneDrive - University of Waterloo\Documents\INRS - Projects\asope_data\20210929_478c',
             title='', sizing_mode='stretch_both')
 
         file_input = TextInput(
-            value=r'graph_hof0.pkl',
+            # value=r'graph_hof0.pkl',
+            value=r'reduced_hof_graphs\hof_gen0_ind0.json',
             title='', sizing_mode='stretch_both')
 
         table_source = ColumnDataSource(data=self.control.table_data)

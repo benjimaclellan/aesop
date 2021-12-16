@@ -72,7 +72,7 @@ class SecondOrderDifferentialSensitivity(Evaluator):
             _phase_model2.parameters = [_phase2]
             _graph.propagate(_propagator)
             _state = _graph.measure_propagator(_measurement_node)
-            p = np.mean(_state)
+            p = np.mean(np.power(_state, 2))
             return p
 
         measurement_node = 'sink'
@@ -92,9 +92,19 @@ class SecondOrderDifferentialSensitivity(Evaluator):
 
         term1 = grad(_f, 0)
         term2 = grad(grad(_f, 0), 1)
+        # term1 = grad(grad(_f, 0), 0)
+        # term1 = grad(_f, 0)
 
-        loss = np.abs(term1(phase1, phase2) + term2(phase1, phase2))
+        loss = -(np.abs(term1(phase1, phase2)) + np.power(term2(phase1, phase2), 2))
+        # loss = -(np.abs(term1(phase1, phase2))) #+ np.power(term2(phase1, phase2), 2))
 
+        # graph.propagate(propagator)
+        # state = graph.measure_propagator(measurement_node)
+        # p = np.mean(np.power(state, 2))
+        # loss = -p
+
+        # loss = loss/p
+        # print(loss)
         # make sure we set back to the right datatype - hacky but works
         phase_model1.parameters = [phase1]
         phase_model2.parameters = [phase2]
