@@ -5,15 +5,15 @@ sys.path.append('..')
 import matplotlib.pyplot as plt
 
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
+from simulator.fiber.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, OpticalAmplifier
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.inputs import PulsedLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import DispersiveFiber, PhaseModulator, WaveShaper, OpticalAmplifier
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from algorithms.parameter_optimization import parameters_optimize
 

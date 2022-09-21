@@ -1,7 +1,5 @@
 """
 Test of topology optimization routines
-
-TODO: HoF should be taken prior to speciation!!!!!
 """
 
 # place main ASOPE directory on the path which will be accessed by all ray workers
@@ -23,20 +21,20 @@ import autograd.numpy as np
 from config import config
 from lib.functions import InputOutput
 
-from problems.example.evolver import HessianProbabilityEvolver, OperatorBasedProbEvolver
+from simulator.fiber.evolver import HessianProbabilityEvolver, OperatorBasedProbEvolver
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_noise_suppression import NoiseSuppression
+from simulator.fiber.evaluator_subclasses.evaluator_noise_suppression import NoiseSuppression
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, NoisySignal
-from problems.example.node_types_subclasses.outputs import Photodiode, MeasurementDevice, ElectricFieldMeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, \
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser, NoisySignal
+from simulator.fiber.node_types_subclasses.outputs import Photodiode, MeasurementDevice, ElectricFieldMeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, \
     DispersiveFiber, DelayLine, PhaseShifter, IntegratedDelayLine
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
-from problems.example.assets.additive_noise import AdditiveNoise
-from problems.example.assets.functions import power_, fft_, ifft_, ifft_shift_, rfspectrum_, phase_
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.functions import power_, fft_, ifft_, ifft_shift_, rfspectrum_, phase_
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof
 from algorithms.parameter_optimization import parameters_optimize

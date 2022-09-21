@@ -1,7 +1,5 @@
 """
 Test of topology optimization routines
-
-TODO: HoF should be taken prior to speciation!!!!!
 """
 
 # place main ASOPE directory on the path which will be accessed by all ray workers
@@ -23,17 +21,17 @@ import autograd.numpy as np
 
 from lib.functions import InputOutput
 
-from problems.example.evolver import HessianProbabilityEvolver, OperatorBasedProbEvolver
+from simulator.fiber.evolver import HessianProbabilityEvolver, OperatorBasedProbEvolver
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_phase_sensitivity import PhaseSensitivity
+from simulator.fiber.evaluator_subclasses.evaluator_phase_sensitivity import PhaseSensitivity
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import Photodiode, MeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, PhaseShifter, DispersiveFiber
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import Photodiode, MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, PhaseShifter, DispersiveFiber
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 
 from algorithms.topology_optimization import topology_optimization, plot_hof, save_hof

@@ -11,8 +11,8 @@ from ..node_types import SinkModel
 
 from ..assets.decorators import register_node_types_all
 from ..assets.functions import fft_, ifft_, power_
-from problems.example.assets.filter import Filter
-from problems.example.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.filter import Filter
+from simulator.fiber.assets.additive_noise import AdditiveNoise
 
 
 @register_node_types_all

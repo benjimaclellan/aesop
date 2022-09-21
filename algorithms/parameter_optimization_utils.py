@@ -7,7 +7,7 @@ import time
 from lib.hessian import function_wrapper
 from algorithms.functions import logbook_update, logbook_initialize
 
-from problems.example.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.additive_noise import AdditiveNoise
 
 """
 Util objective:

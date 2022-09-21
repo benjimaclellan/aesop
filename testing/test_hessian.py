@@ -5,18 +5,18 @@ import autograd.numpy as np
 
 from lib.graph import Graph
 # from problems.example.evolution_operators import EvolutionOperators
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import DispersiveFiber, WaveShaper
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.inputs import PulsedLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import DispersiveFiber, WaveShaper
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
 
 # from algorithms.parameter_random_search import parameters_random_search
 # from algorithms.parameters_genetic_algorithm import parameters_genetic_algorithm
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from lib.hessian import get_hessian, lha_analysis
 

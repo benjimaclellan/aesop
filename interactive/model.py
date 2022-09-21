@@ -15,7 +15,7 @@ sep = ';' if platform.system() == 'Windows' else ':'
 os.environ["PYTHONPATH"] = parent_dir + sep + os.environ.get("PYTHONPATH", "")
 sys.path.append(parent_dir)
 
-from problems.example.assets.functions import psd_, power_
+from simulator.fiber.assets.functions import psd_, power_
 from lib.minimal_save import build_from_minimal_graph_info
 
 

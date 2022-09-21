@@ -8,17 +8,17 @@ import seaborn as sns
 from scipy.interpolate import interp1d
 
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
 from lib.functions import InputOutput
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import Photodiode
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 from algorithms.parameter_optimization import parameters_optimize
 

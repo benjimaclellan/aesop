@@ -8,16 +8,16 @@ import random
 import config.config as configuration
 
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber, VariableOpticalAttenuator
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice, Photodiode
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber, VariableOpticalAttenuator
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
 
-from problems.example.evolver import CrossoverMaker
+from simulator.fiber.evolver import CrossoverMaker
 
 from lib.hessian import get_scaled_hessian, plot_eigenvectors, lha_analysis
 

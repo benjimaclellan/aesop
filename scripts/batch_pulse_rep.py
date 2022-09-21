@@ -1,7 +1,5 @@
 """
 Test of topology optimization routines
-
-TODO: HoF should be taken prior to speciation!!!!!
 """
 
 # place main ASOPE directory on the path which will be accessed by all ray workers
@@ -20,11 +18,11 @@ import matplotlib.pyplot as plt
 import psutil
 
 from lib.functions import InputOutput
-from problems.example.assets.propagator import Propagator
-from problems.example.evolver import HessianProbabilityEvolver
-from problems.example.node_types_subclasses import *
-from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
-from problems.example.node_types_subclasses.inputs import PulsedLaser
+from simulator.fiber.assets.propagator import Propagator
+from simulator.fiber.evolver import HessianProbabilityEvolver
+from simulator.fiber.node_types_subclasses import *
+from simulator.fiber.evaluator_subclasses.evaluator_pulserep import PulseRepetition
+from simulator.fiber.node_types_subclasses.inputs import PulsedLaser
 from lib.functions import parse_command_line_args
 from scripts.setups.setup_pulse_rep import run_experiment
 

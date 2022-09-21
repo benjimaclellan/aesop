@@ -17,12 +17,12 @@ from uuid import uuid4
 from collections import namedtuple
 
 from lib.base_classes import Graph as GraphParent
-from problems.example.assets.functions import power_, psd_
-from problems.example.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.functions import power_, psd_
+from simulator.fiber.assets.additive_noise import AdditiveNoise
 from lib.functions import scale_units
 from lib.autodiff_helpers import unwrap_arraybox_list
 
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
 
 class Graph(GraphParent):

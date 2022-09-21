@@ -11,6 +11,6 @@ do
 	for f in $FILES
 	do
 		echo $f $i
-		python3 $f --dir 20210302_test_hessian_fix
+		python3 $f --dir 20220108_waveformgeneration
 	done
 done

@@ -7,7 +7,7 @@ from ..evaluator import Evaluator
 from ..assets.functions import fft_, ifft_, power_, psd_, rfspectrum_
 from lib.functions import scale_units
 
-from problems.example.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.additive_noise import AdditiveNoise
 
 
 class SignalNoiseRatio(Evaluator):

@@ -9,17 +9,17 @@ import autograd.numpy as np
 from lib.graph import Graph
 from lib.functions import InputOutput
 
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
-from problems.example.node_types_subclasses.outputs import Photodiode, MeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
-from problems.example.assets.additive_noise import AdditiveNoise
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
+from simulator.fiber.node_types_subclasses.outputs import Photodiode, MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper, OpticalAmplifier, DispersiveFiber
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.assets.additive_noise import AdditiveNoise
 
 from algorithms.parameter_optimization import parameters_optimize
 

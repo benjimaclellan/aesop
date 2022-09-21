@@ -15,14 +15,14 @@ sys.path.append(parent_dir)
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from problems.example.evolver import ProbabilityLookupEvolver
+from simulator.fiber.evolver import ProbabilityLookupEvolver
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import Photodiode
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import Photodiode
 
 from algorithms.topology_optimization import update_hof
 from algorithms.assets.graph_edit_distance import similarity_full_ged, similarity_reduced_ged

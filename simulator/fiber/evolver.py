@@ -10,11 +10,11 @@ import networkx as nx
 import operator
 import uuid
 
-import problems.example.assets.hessian_graph_analysis as hessian_analysis
-from problems.example.evolution_operators.evolution_operators import RemoveComponent
+import simulator.fiber.assets.hessian_graph_analysis as hessian_analysis
+from simulator.fiber.evolution_operators.evolution_operators import RemoveComponent
 from .evolution_operators.evolution_operators import *
 import config.config as configuration
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
+from simulator.fiber.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 # TODO: fix the reinforcement learning one...
 # TODO: stop regenerating the probability matrix each time: this is wasteful when we update it multiple times in a generation (i.e. for multiple children of the same graph)

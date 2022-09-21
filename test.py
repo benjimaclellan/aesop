@@ -12,22 +12,22 @@ import random
 
 import config.config as config
 
-from problems.example.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver, HessianProbabilityEvolver
+from simulator.fiber.evolver import ProbabilityLookupEvolver, OperatorBasedProbEvolver, HessianProbabilityEvolver
 from lib.graph import Graph
-from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_
-from problems.example.assets.additive_noise import AdditiveNoise
-from problems.example.assets.hessian_graph_analysis import get_all_edge_scores
+from simulator.fiber.assets.propagator import Propagator
+from simulator.fiber.assets.functions import power_
+from simulator.fiber.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.hessian_graph_analysis import get_all_edge_scores
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice, Photodiode
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
-from problems.example.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
+from simulator.fiber.evolution_operators.evolution_operators import AddSeriesComponent, RemoveComponent, SwapComponent, AddParallelComponent
 
 from algorithms.parameter_optimization import parameters_optimize
 

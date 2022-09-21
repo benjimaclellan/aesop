@@ -13,12 +13,12 @@ sys.path.append(parent_dir)
 
 from lib.graph import Graph
 
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper
-from problems.example.node_types_subclasses import *
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper
+from simulator.fiber.node_types_subclasses import *
 
-from problems.example.evolution_operators.evolution_operators import SwapNode
+from simulator.fiber.evolution_operators.evolution_operators import SwapNode
 
 """
 These tests are only really around for debugging: the implementation isn't terribly complicated

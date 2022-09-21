@@ -3,15 +3,15 @@ import pytest
 import matplotlib.pyplot as plt
 from scipy.constants import speed_of_light
 
-from problems.example.assets.additive_noise import AdditiveNoise
-from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_, ifft_shift_, fft_, psd_, dB_to_amplitude_ratio
-from problems.example.assets.filter import Filter
+from simulator.fiber.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.propagator import Propagator
+from simulator.fiber.assets.functions import power_, ifft_shift_, fft_, psd_, dB_to_amplitude_ratio
+from simulator.fiber.assets.filter import Filter
 
 from lib.graph import Graph
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice, Photodiode
-from problems.example.node_types_subclasses.single_path import OpticalAmplifier, WaveShaper, PhaseModulator
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser, PulsedLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice, Photodiode
+from simulator.fiber.node_types_subclasses.single_path import OpticalAmplifier, WaveShaper, PhaseModulator
 
 """
 This document is intended to unite verification of noise into one document

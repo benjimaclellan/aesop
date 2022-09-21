@@ -11,16 +11,16 @@ from lib.functions import InputOutput
 from lib.graph import Graph
 from lib.minimal_save import extract_minimal_graph_info, build_from_minimal_graph_info
 
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
 
-from problems.example.evaluator_subclasses.evaluator_pulserep import PulseRepetition
+from simulator.fiber.evaluator_subclasses.evaluator_pulserep import PulseRepetition
 
-from problems.example.node_types_subclasses.inputs import PulsedLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.inputs import PulsedLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
 
 from algorithms.topology_optimization import topology_optimization
 

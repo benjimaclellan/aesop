@@ -3,14 +3,14 @@ import pytest
 import matplotlib.pyplot as plt
 from scipy.constants import speed_of_light
 
-from problems.example.assets.additive_noise import AdditiveNoise
-from problems.example.assets.propagator import Propagator
-from problems.example.assets.functions import power_, fft_, psd_
+from simulator.fiber.assets.additive_noise import AdditiveNoise
+from simulator.fiber.assets.propagator import Propagator
+from simulator.fiber.assets.functions import power_, fft_, psd_
 
 from lib.graph import Graph
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import OpticalAmplifier
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import OpticalAmplifier
 
 SKIP_GRAPHICAL_TEST = True
 

@@ -3,20 +3,20 @@ import seaborn as sns
 import autograd.numpy as np
 import random
 
-from problems.example.assets.propagator import Propagator
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import MeasurementDevice
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, IntensityModulator, DelayLine
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.assets.propagator import Propagator
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import MeasurementDevice
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper, IntensityModulator, DelayLine
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
 from lib.graph import Graph
 
-from problems.example.assets.hessian_graph_analysis import get_all_node_scores
+from simulator.fiber.assets.hessian_graph_analysis import get_all_node_scores
 
 from lib.hessian import lha_analysis
 from algorithms.topology_optimization import parameters_optimize_complete
 
-from problems.example.assets.functions import psd_
+from simulator.fiber.assets.functions import psd_
 
 """
 Just to learn about things and look at effects

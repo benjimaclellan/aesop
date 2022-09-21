@@ -15,16 +15,16 @@ import psutil
 from scipy.signal import square
 import numpy as np
 
-from problems.example.node_types_subclasses import *
+from simulator.fiber.node_types_subclasses import *
 
 from config import config as configuration
 from lib.functions import InputOutput
 
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.assets.propagator import Propagator
 
-from problems.example.evolver import HessianProbabilityEvolver
+from simulator.fiber.evolver import HessianProbabilityEvolver
 
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
 
 from lib.functions import parse_command_line_args
 

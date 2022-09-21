@@ -1,13 +1,13 @@
 import pickle 
 
 from lib.graph import Graph
-from problems.example.node_types_subclasses.inputs import ContinuousWaveLaser
-from problems.example.node_types_subclasses.outputs import Photodiode
-from problems.example.node_types_subclasses.single_path import PhaseModulator, WaveShaper, IntensityModulator
-from problems.example.node_types_subclasses.multi_path import VariablePowerSplitter
-from problems.example.node_types_subclasses.terminals import TerminalSource, TerminalSink
-from problems.example.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
-from problems.example.assets.propagator import Propagator
+from simulator.fiber.node_types_subclasses.inputs import ContinuousWaveLaser
+from simulator.fiber.node_types_subclasses.outputs import Photodiode
+from simulator.fiber.node_types_subclasses.single_path import PhaseModulator, WaveShaper, IntensityModulator
+from simulator.fiber.node_types_subclasses.multi_path import VariablePowerSplitter
+from simulator.fiber.node_types_subclasses.terminals import TerminalSource, TerminalSink
+from simulator.fiber.evaluator_subclasses.evaluator_rfawg import RadioFrequencyWaveformGeneration
+from simulator.fiber.assets.propagator import Propagator
 
 def start_graph():
     nodes = {'source':TerminalSource(),
