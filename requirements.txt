@@ -9,7 +9,7 @@ scipy
 
 
 pytest==5.2.1
-ray==0.8.7
+# ray==0.8.7
 pandas #  ==0.25.1
 Pint==0.15
 psutil==5.6.3
