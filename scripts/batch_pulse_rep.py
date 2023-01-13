@@ -41,7 +41,8 @@ if __name__ == '__main__':
                'n_population': 18,
                'n_hof': 20,
                'verbose': options_cl.verbose,
-               'num_cpus': psutil.cpu_count()-1}
+               'num_cpus': 18
+               }
 
     propagator = Propagator(window_t=126.666e-12 * 12, n_samples=2**15, central_wl=1.55e-6)
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
