@@ -31,8 +31,8 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     run_settings = [
-        dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
-        dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
+        dict(pq=(3, 2), pulse_width=9e-12, rep_t=126.666e-12, peak_power=1.0),
+        # dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         # dict(pq=(2, 1), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         # dict(pq=(1, 3), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
     ]
