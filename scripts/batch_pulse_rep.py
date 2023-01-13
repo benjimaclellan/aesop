@@ -31,7 +31,7 @@ if __name__ == '__main__':
     options_cl = parse_command_line_args(sys.argv[1:])
 
     run_settings = [
-        dict(pq=(3, 2), pulse_width=9e-12, rep_t=126.666e-12, peak_power=1.0),
+        dict(pq=(4, 3), pulse_width=9e-12, rep_t=126.666e-12, peak_power=1.0),
         # dict(pq=(1, 2), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         # dict(pq=(2, 1), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
         # dict(pq=(1, 3), pulse_width=3e-12, rep_t=1/10.0e9, peak_power=1.0),
@@ -43,7 +43,7 @@ if __name__ == '__main__':
                'verbose': options_cl.verbose,
                'num_cpus': psutil.cpu_count()-1}
 
-    propagator = Propagator(window_t=4e-9, n_samples=2**15, central_wl=1.55e-6)
+    propagator = Propagator(window_t=126.666e-12 * 12, n_samples=2**15, central_wl=1.55e-6)
     io = InputOutput(directory=options_cl.dir, verbose=options_cl.verbose)
 
     for i, settings in enumerate(run_settings):
