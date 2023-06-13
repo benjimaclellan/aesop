@@ -147,7 +147,7 @@ class Graph(GraphParent):
 
         scale_matrix = np.matmul(parameter_imprecisions, parameter_imprecisions.T)
 
-        return lambda parameters: self.hess(np.array(parameters)) * scale_matrix 
+        return lambda parameters: self.hess(np.array(parameters)) * scale_matrix
 
     def get_in_degree(self, node):
         return len(self.get_in_edges(node))

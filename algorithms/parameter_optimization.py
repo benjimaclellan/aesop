@@ -28,7 +28,6 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         logger = ParameterOptimizationLogger()
         return graph, x0, graph.func(x0), logger
 
-
     if log_callback:
         logger = ParameterOptimizationLogger()
 
@@ -71,7 +70,8 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
     if method == 'L-BFGS+PSO':
         if verbose: print("Parameter optimization: L-BFGS + PSO algorithm")
-        swarm_size = 40
+        swarm_size = kwargs.get("swarm_size", 40)
+        iter_swarm = kwargs.get("iter_swarm", 40)
 
         if log_callback:
             logger.set_optimization_algorithm('PSO', pop_size=swarm_size)
@@ -79,7 +79,7 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
 
         xopt, fopt = pso(fitness_funct, lower_bounds, upper_bounds, f_ieqcons=None,
                          args=(), kwargs={}, swarmsize=swarm_size, omega=0.5, phip=0.5,
-                         phig=0.5, maxiter=40, minstep=1e-8, minfunc=1e-8, debug=verbose)
+                         phig=0.5, maxiter=iter_swarm, minstep=1e-8, minfunc=1e-8, debug=verbose)
 
         if log_callback:
             logger.set_optimization_algorithm('L-BFGS')
@@ -97,13 +97,15 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
     elif method == 'L-BFGS+GA':
         if verbose: print("Parameter optimization: GA + L-BFGS algorithm")
 
-        population_size = 20
-        n_generations = 15
+        # population_size = 20
+        population_size = kwargs.get("population_size", 20)
+        # n_generations = 15
+        n_generations = kwargs.get("n_generations", 15)
 
         if log_callback:
             logger.set_optimization_algorithm('GA', pop_size=population_size)
             logger.start_logger_time()
-    
+
         x, score = parameters_genetic_algorithm(graph.func, x0, graph.sample_parameters_to_list,
                                                 logger=(logger if log_callback else None),
                                                 n_generations=n_generations, n_population=population_size, rate_mut=0.8,
@@ -112,9 +114,11 @@ def parameters_optimize(graph, x0=None, method='L-BFGS', verbose=False, log_call
         if log_callback:
             logger.set_optimization_algorithm('L-BFGS')
 
+        maxiter = kwargs.get("maxiter", 50)
+
         res = scipy.optimize.minimize(fitness_funct, x, method='L-BFGS-B',
                                       bounds=list(zip(lower_bounds, upper_bounds)),
-                                      options={'disp': verbose, 'maxiter': 50},
+                                      options={'disp': verbose, 'maxiter': maxiter},
                                       jac=graph.grad)
 
 

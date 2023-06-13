@@ -31,10 +31,12 @@ class DispersiveFiber(SinglePath):
         self.number_of_parameters = 1
         self.default_parameters = [1.0]
 
-        self.upper_bounds = [100e3]
+        # self.upper_bounds = [100e3]
+        self.upper_bounds = [1000e3]
         self.lower_bounds = [0.0]
         self.data_types = ['float']
-        self.step_sizes = [None]
+        # self.step_sizes = [None]
+        self.step_sizes = [1]
         self.parameter_imprecisions = [1]
         self.parameter_units = [unit.m]
         self.parameter_locks = [False]
@@ -49,7 +51,6 @@ class DispersiveFiber(SinglePath):
         # self._S0 = 0.092 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
         self._S0 = -0.155 * 1e-12 / (1e-9 * 1e-9 * 1e3)# zero-dispersion slope, ps/(nm2 * km) -> s/m^3
         # self._S0 = -0.8 * 1e-12 / (1e-9 * 1e-9 * 1e3) # zero-dispersion slope, ps/(nm2 * km) -> s/m^3
-
 
         self._beta2_experimental = -22 * 1e-12 * 1e-12 / (1e3)  # ps^2/(km)  # standard SMF chromatic dispersion
         super().__init__(**kwargs)
@@ -76,6 +77,7 @@ class DispersiveFiber(SinglePath):
         state = ifft_( ifft_shift_(np.exp(1j * (propagation_constant)), ax=0) * fft_(state, propagator.dt), propagator.dt)
         state = state * dB_to_amplitude_ratio(self._alpha * length/1000.0)
         return state
+
 
 @register_node_types_all
 class VariableOpticalAttenuator(SinglePath):
@@ -122,6 +124,7 @@ class PhaseModulator(SinglePath):
 
     max_frequency = 50.0e9
     min_frequency = 1.0e9
+    # step_frequency = 0.1e9
     step_frequency = 1.0e9
 
     def __init__(self, phase_noise_points=None, **kwargs):
@@ -136,19 +139,21 @@ class PhaseModulator(SinglePath):
         self.node_lock = False
 
         self.number_of_parameters = 4
-        self.default_parameters = [1.0, 12.0e9, 0.01, 0.0]
+        self.default_parameters = [1.0, 12.0e9, 0.02, 0.0]
 
-        self.upper_bounds = [4*np.pi, self.max_frequency, 2*np.pi, 1e9]
+        self.upper_bounds = [1*np.pi, self.max_frequency, 2*np.pi, 1e9]
         self.lower_bounds = [0.001, self.min_frequency, 0.01, 0.0]
         self.data_types = ['float', 'float', 'float', 'float']
-        self.step_sizes = [None, self.step_frequency, None, None]
-        self.parameter_imprecisions = [1.0, 1.0, 0.1, 1.0]
+        self.step_sizes = [None, None, None, None]
+        # self.parameter_imprecisions = [0.002, 0.5e6, 0.02, 0.1]
+        self.parameter_imprecisions = [0.002, 0.1e6, 0.010, 0.1]
         self.parameter_units = [unit.rad, unit.Hz, unit.rad, unit.Hz]
         self.parameter_locks = [False, False, False, True]
         self.parameter_names = ['depth', 'frequency', 'shift', 'FWHM_linewidth']
         self.parameter_symbols = [r"$x_m$", r"$x_f$", r"$x_s$", r"$x_{FWHM}$"]
 
-        self._loss_dB = -4.0 # dB
+        # self._loss_dB = -4.0 # dB
+        self._loss_dB = -0.0  # dB
 
         super().__init__(**kwargs)
 
@@ -170,8 +175,8 @@ class PhaseModulator(SinglePath):
     def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
         depth = self.parameters[0]
         frequency = self.parameters[1]
-
-        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + self.noise_model.get_phase_noise(propagator)))
+        phase_offset = self.parameters[2]
+        transform = depth * (np.cos(2 * np.pi * frequency * propagator.t + phase_offset + self.noise_model.get_phase_noise(propagator)))
         if save_transforms:
             self.transform = (('t', transform, 'modulation'),)
         else:
@@ -665,6 +670,57 @@ class ProgrammableFilter(SinglePath):
         else:
             self.transform = None
         return state
+
+
+@register_node_types_all
+class SquareFilter(SinglePath):
+    node_acronym = 'SF'
+
+    sharpness = 60
+    extinction_ratio = 10 ** (-35 / 10)
+    number_of_parameters = 1
+
+    def __init__(self, **kwargs):
+        self.node_lock = False
+
+        self.default_parameters = [5e12]
+
+        self.upper_bounds = [10e12]
+        self.lower_bounds = [0.0]
+        self.data_types = ['float']
+        self.step_sizes = [None]
+        self.parameter_imprecisions = [0.1]
+        self.parameter_units = [None]
+        self.parameter_locks = self.number_of_parameters * [False]
+        self.parameter_names = ['bandwidth']
+        self.parameter_symbols = [r"$x_{bw}$"]
+
+        self._loss_dB = 0  # dB
+
+        super().__init__(**kwargs)
+        return
+
+    def propagate(self, state, propagator, save_transforms=False):  # node propagate functions always take a list of propagators
+        bandwidth = self.parameters[0]
+        amplitude_mask = (
+                self._logistic((propagator.f + bandwidth / 2) * (self.sharpness / bandwidth)) *
+                self._logistic((-propagator.f + bandwidth / 2) * (self.sharpness / bandwidth))
+        )
+
+        state = ifft_(ifft_shift_(amplitude_mask, ax=0) * fft_(state, propagator.dt),
+                      propagator.dt)
+        state = state * dB_to_amplitude_ratio(self._loss_dB)
+
+        if save_transforms:
+            self.transform = (('f', amplitude_mask, 'amplitude'),)
+        else:
+            self.transform = None
+
+        return state
+
+    @staticmethod
+    def _logistic(x):
+        return 1 / (1 + np.exp(-x))
 
 
 @register_node_types_all

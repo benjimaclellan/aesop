@@ -44,7 +44,6 @@ class PulsedLaser(SourceModel):
         self.noise_model = AdditiveNoise(noise_param=self._FWHM_linewidth, noise_type='FWHM linewidth')
         return
 
-
     def get_pulse_train(self, t, pulse_width, rep_t, peak_power, pulse_shape='gaussian'):
         wrapped_t = np.sin(np.pi * t / rep_t)
         unwrapped_t = np.arcsin(wrapped_t) * rep_t / np.pi
@@ -53,9 +52,10 @@ class PulsedLaser(SourceModel):
             pulse = self.gaussian(unwrapped_t, pulse_width)
         elif pulse_shape == 'sech':
             pulse = self.sech(unwrapped_t, pulse_width)
+        elif pulse_shape == 'delta':
+            pulse = sig.unit_impulse(shape=t.shape)
         else:
             raise RuntimeError(f"Pulsed Laser: {pulse_shape} is not a defined pulse shape")
-
         state = pulse * np.sqrt(peak_power)
         return state
 
@@ -66,6 +66,10 @@ class PulsedLaser(SourceModel):
     @staticmethod
     def gaussian(t, width):
         return np.exp(-0.5 * (np.power(t / width, 2))).astype('complex')
+
+    @staticmethod
+    def _logistic(x):
+        return 1 / (1 + np.exp(-x))
 
     def propagate(self, state, propagator, save_transforms=False):
         self.set_parameters_as_attr()
