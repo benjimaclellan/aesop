@@ -10,7 +10,7 @@
 </div>
 
 <p align="center" style="font-size:20px">
-    AESOP (Autonomous Exploration of Systems for Photonics and Optics) 
+    AESOP (Autonomous Exploration of Systems for Optics and Photonics) 
     is an inverse-design framework for photonic systems and circuits.
 </p>
 
